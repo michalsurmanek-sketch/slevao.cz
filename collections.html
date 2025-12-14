@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Kolekce</title>
+  <meta name="description" content="SLEVAO – kolekce jako Instagram složky." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+            glow: "0 0 0 1px rgba(255,255,255,0.08), 0 18px 60px rgba(236,72,153,0.20)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{ --bg0:#070b14; --bg1:#0b1220; }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+    }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    body.modal-open{ overflow:hidden; }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+    ::-webkit-scrollbar{ height:10px; width:10px; }
+    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.16); border-radius:999px; }
+    ::-webkit-scrollbar-track{ background: rgba(255,255,255,.05); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<header class="sticky top-0 z-40">
+  <div class="glass border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+      <a href="./index.html" class="flex items-center gap-2" title="Zpět na feed">
+        <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">✨</span>
+        <div class="leading-tight">
+          <div class="flex items-center gap-2">
+            <span class="text-lg md:text-xl font-extrabold tracking-tight">SLEVAO</span>
+            <span class="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">Kolekce</span>
+          </div>
+          <div class="text-xs text-white/60 -mt-0.5">Instagram složky na slevy</div>
+        </div>
+      </a>
+
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./account.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">👤 Profil</a>
+        <a href="./reels.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">🎬 Reels</a>
+        <button id="btnNew" class="focus-ring h-10 px-4 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95">+ Nová kolekce</button>
+      </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 pb-3">
+      <div class="flex flex-col md:flex-row md:items-center gap-3">
+        <div class="flex-1">
+          <div class="relative">
+            <input id="q" type="search" placeholder="Hledej kolekce / nabídky…" class="focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 pl-11 pr-3 text-sm md:text-base placeholder:text-white/35" />
+            <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/55">🔎</div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <div class="text-xs text-white/60">Kolekcí: <span id="count">0</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+  <section class="grid lg:grid-cols-[1fr_420px] gap-5">
+
+    <!-- LIST OF COLLECTIONS -->
+    <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft overflow-hidden">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+        <div class="font-extrabold">Moje kolekce</div>
+        <div class="text-xs text-white/60">Klikni na kolekci</div>
+      </div>
+      <div id="cols" class="divide-y divide-white/10"></div>
+      <div id="emptyCols" class="hidden p-8 text-center">
+        <div class="text-3xl">📁</div>
+        <div class="mt-2 font-extrabold text-lg">Zatím žádné kolekce</div>
+        <div class="mt-1 text-sm text-white/70">Klikni „+ Nová kolekce“ a začni ukládat slevy.</div>
+      </div>
+    </div>
+
+    <!-- COLLECTION VIEW -->
+    <aside class="rounded-4xl border border-white/10 bg-white/5 shadow-soft overflow-hidden">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+        <div class="font-extrabold" id="colTitle">Vyber kolekci</div>
+        <div class="flex items-center gap-2">
+          <button id="btnRename" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Přejmenovat</button>
+          <button id="btnDelete" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Smazat</button>
+        </div>
+      </div>
+
+      <div class="p-4">
+        <div id="colMeta" class="text-sm text-white/70">—</div>
+
+        <div class="mt-4 grid sm:grid-cols-2 gap-3" id="grid"></div>
+        <div id="emptyGrid" class="hidden mt-6 text-center text-white/70">Tahle kolekce je prázdná.</div>
+
+        <div class="mt-4 rounded-3xl border border-white/10 bg-white/5 p-3">
+          <div class="text-xs text-white/60">Rychlý trik</div>
+          <div class="mt-1 text-sm text-white/70">
+            Přidání nabídky do kolekce budeme napojovat z <b>detail.html</b> (tlačítko „Uložit do kolekce“). Teď se kolekce spravují tady.
+          </div>
+        </div>
+      </div>
+    </aside>
+
+  </section>
+</main>
+
+<!-- MODAL: NEW COLLECTION -->
+<div id="modal" class="hidden fixed inset-0 z-50">
+  <div id="backdrop" class="absolute inset-0 bg-black/60"></div>
+  <div class="absolute inset-0 grid place-items-center p-3">
+    <div class="w-full max-w-lg rounded-4xl border border-white/10 bg-[#050812] shadow-glow overflow-hidden">
+      <div class="p-4 border-b border-white/10 flex items-center justify-between">
+        <div class="font-extrabold">Nová kolekce</div>
+        <button id="btnClose" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Zavřít</button>
+      </div>
+      <div class="p-4">
+        <label class="text-sm text-white/70">Název kolekce
+          <input id="newName" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Brno – burgery" />
+        </label>
+        <label class="mt-3 block text-sm text-white/70">Popis (volitelné)
+          <input id="newDesc" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Moje top místa…" />
+        </label>
+        <button id="btnCreate" class="mt-4 focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95">Vytvořit</button>
+        <div class="mt-2 text-xs text-white/55">Ukládá se do <code class="px-2 py-1 rounded-xl bg-white/5 border border-white/10">slevao_collections_v2</code>.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+  <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+</div>
+
+<script>
+  const KEY_OFFERS = 'slevao_offers_v1';
+  const KEY_COLS   = 'slevao_collections_v2';
+
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const safeJson = (v,f)=>{ try{return JSON.parse(v)}catch(e){return f} };
+
+  const el = {
+    q: $('#q'),
+    count: $('#count'),
+    cols: $('#cols'),
+    emptyCols: $('#emptyCols'),
+
+    colTitle: $('#colTitle'),
+    colMeta: $('#colMeta'),
+    grid: $('#grid'),
+    emptyGrid: $('#emptyGrid'),
+    btnRename: $('#btnRename'),
+    btnDelete: $('#btnDelete'),
+
+    btnNew: $('#btnNew'),
+    modal: $('#modal'),
+    backdrop: $('#backdrop'),
+    btnClose: $('#btnClose'),
+    newName: $('#newName'),
+    newDesc: $('#newDesc'),
+    btnCreate: $('#btnCreate'),
+
+    toast: $('#toast')
+  };
+
+  const fmtWhen = (ts)=> new Date(ts||Date.now()).toLocaleString('cs-CZ');
+
+  let offers = [];
+  let cols = [];
+  let currentColId = null;
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2200);
+  }
+
+  function uid(){
+    return Math.random().toString(16).slice(2) + Date.now().toString(16);
+  }
+
+  function loadOffers(){
+    const arr = safeJson(localStorage.getItem(KEY_OFFERS), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function loadCols(){
+    const arr = safeJson(localStorage.getItem(KEY_COLS), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function saveCols(arr){
+    localStorage.setItem(KEY_COLS, JSON.stringify(Array.isArray(arr)?arr:[]));
+  }
+
+  function escapeHtml(str){
+    return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function applyFilterCols(arr){
+    const q = (el.q.value||'').trim().toLowerCase();
+    if(!q) return arr;
+    return arr.filter(c => {
+      const hay = `${c.name} ${c.desc||''}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function colRowHTML(c){
+    const count = (c.items||[]).length;
+    const last = c.updatedAt ? fmtWhen(c.updatedAt) : fmtWhen(c.createdAt);
+    return `
+      <button class="colrow w-full text-left p-4 hover:bg-white/10 transition" data-id="${escapeHtml(c.id)}">
+        <div class="flex items-start gap-3">
+          <div class="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 grid place-items-center">📁</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <div class="font-extrabold truncate">${escapeHtml(c.name)}</div>
+              <span class="text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">${count} položek</span>
+            </div>
+            <div class="mt-1 text-sm text-white/70 truncate">${escapeHtml(c.desc||'—')}</div>
+            <div class="mt-1 text-xs text-white/55 truncate">Upraveno: ${escapeHtml(last)}</div>
+          </div>
+        </div>
+      </button>
+    `;
+  }
+
+  function offerCard(o){
+    return `
+      <a href="./detail.html?id=${encodeURIComponent(o.id)}" class="block rounded-3xl border border-white/10 bg-white/5 overflow-hidden hover:bg-white/10 transition">
+        <div class="aspect-[4/5] bg-black">
+          <img src="${escapeHtml(o.img||'')}" class="w-full h-full object-cover" alt="" />
+        </div>
+        <div class="p-3">
+          <div class="font-extrabold truncate">${escapeHtml(o.title||'—')}</div>
+          <div class="text-xs text-white/70 truncate">${escapeHtml(o.subtitle||'')}</div>
+        </div>
+      </a>
+    `;
+  }
+
+  function openCol(id){
+    const c = cols.find(x=>x.id===id);
+    if(!c) return;
+    currentColId = id;
+
+    el.colTitle.textContent = c.name;
+
+    const count = (c.items||[]).length;
+    el.colMeta.innerHTML = `
+      <div class="text-white/80"><b>${count}</b> položek</div>
+      <div class="text-xs text-white/55">Vytvořeno: ${fmtWhen(c.createdAt)} • Upraveno: ${fmtWhen(c.updatedAt||c.createdAt)}</div>
+      <div class="mt-1 text-white/70">${escapeHtml(c.desc||'')}</div>
+    `;
+
+    const items = Array.isArray(c.items) ? c.items : [];
+    const map = new Map(offers.map(o=>[o.id,o]));
+    const list = items.map(id=>map.get(id)).filter(Boolean);
+
+    el.grid.innerHTML = list.map(offerCard).join('');
+    el.emptyGrid.classList.toggle('hidden', list.length !== 0);
+  }
+
+  function render(){
+    const shown = applyFilterCols(cols);
+    el.count.textContent = String(cols.length);
+
+    el.cols.innerHTML = shown.map(colRowHTML).join('');
+    el.emptyCols.classList.toggle('hidden', cols.length !== 0);
+
+    $$('.colrow', el.cols).forEach(b=>{
+      b.addEventListener('click', ()=> openCol(b.getAttribute('data-id')));
+    });
+
+    // auto-open first
+    if(!currentColId && cols[0]) openCol(cols[0].id);
+    if(currentColId && !cols.find(c=>c.id===currentColId)){
+      currentColId = null;
+      el.colTitle.textContent = 'Vyber kolekci';
+      el.colMeta.textContent = '—';
+      el.grid.innerHTML = '';
+      el.emptyGrid.classList.add('hidden');
+    }
+  }
+
+  function openModal(){
+    el.modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+    el.newName.value = '';
+    el.newDesc.value = '';
+    setTimeout(()=> el.newName.focus(), 0);
+  }
+
+  function closeModal(){
+    el.modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  function createCol(){
+    const name = (el.newName.value||'').trim();
+    const desc = (el.newDesc.value||'').trim();
+    if(name.length < 2){ toast('Název je moc krátký'); return; }
+
+    const c = { id: uid(), name, desc, items: [], createdAt: Date.now(), updatedAt: Date.now() };
+    cols.unshift(c);
+    saveCols(cols);
+    toast('Kolekce vytvořena ✅');
+    closeModal();
+    currentColId = c.id;
+    render();
+    openCol(c.id);
+  }
+
+  function renameCol(){
+    if(!currentColId) return toast('Nejdřív vyber kolekci');
+    const c = cols.find(x=>x.id===currentColId);
+    if(!c) return;
+    const n = prompt('Nový název kolekce', c.name);
+    if(!n) return;
+    c.name = n.trim();
+    c.updatedAt = Date.now();
+    saveCols(cols);
+    toast('Přejmenováno');
+    render();
+    openCol(c.id);
+  }
+
+  function deleteCol(){
+    if(!currentColId) return toast('Nejdřív vyber kolekci');
+    if(!confirm('Smazat kolekci?')) return;
+    cols = cols.filter(x=>x.id!==currentColId);
+    saveCols(cols);
+    toast('Smazáno');
+    currentColId = null;
+    render();
+  }
+
+  // bind
+  el.q.addEventListener('input', render);
+  el.btnNew.addEventListener('click', openModal);
+  el.backdrop.addEventListener('click', closeModal);
+  el.btnClose.addEventListener('click', closeModal);
+  el.btnCreate.addEventListener('click', createCol);
+  el.btnRename.addEventListener('click', renameCol);
+  el.btnDelete.addEventListener('click', deleteCol);
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'Escape' && !el.modal.classList.contains('hidden')) closeModal();
+  });
+
+  // init
+  offers = loadOffers();
+  cols = loadCols();
+  render();
+  toast('Kolekce připraveny 📁');
+</script>
+</body>
+</html>
