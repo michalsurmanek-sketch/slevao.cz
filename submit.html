@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Přidat slevu</title>
+  <meta name="description" content="SLEVAO – přidání slevy do čekárny (ke schválení)." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{ --bg0:#070b14; --bg1:#0b1220; }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+    }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+    ::-webkit-scrollbar{ height:10px; width:10px; }
+    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.16); border-radius:999px; }
+    ::-webkit-scrollbar-track{ background: rgba(255,255,255,.05); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<header class="sticky top-0 z-40">
+  <div class="glass border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+      <a href="./index.html" class="flex items-center gap-2">
+        <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">✨</span>
+        <div>
+          <div class="text-lg font-extrabold">SLEVAO</div>
+          <div class="text-xs text-white/60">Přidat slevu</div>
+        </div>
+      </a>
+
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./account.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">👤 Profil</a>
+        <a href="./admin.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">⚙️ Admin</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-4 py-6 md:py-10">
+  <section class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+    <h1 class="text-2xl font-extrabold">Přidat nabídku do SLEVAO</h1>
+    <p class="mt-2 text-white/70">Po odeslání půjde nabídka do <b>čekárny</b>. Admin ji schválí a teprve pak se ukáže ve feedu.</p>
+
+    <div class="mt-5 grid gap-3">
+      <label class="text-sm text-white/70">Kategorie
+        <select id="cat" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3">
+          <option value="food">GURMAO · Jídlo</option>
+          <option value="stay">CHATAO · Pobyt</option>
+          <option value="shop">SLEVAO · Produkty</option>
+        </select>
+      </label>
+
+      <label class="text-sm text-white/70">Nadpis
+        <input id="title" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Např. Pizza 1+1" />
+      </label>
+
+      <label class="text-sm text-white/70">Podnadpis
+        <input id="subtitle" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Krátká věta, proč je to top" />
+      </label>
+
+      <label class="text-sm text-white/70">Popis / příběh
+        <textarea id="story" rows="5" class="mt-1 focus-ring w-full rounded-3xl bg-white/5 border border-white/10 px-3 py-3" placeholder="Co přesně člověk dostane, omezení, kde, pro koho…"></textarea>
+      </label>
+
+      <div class="grid sm:grid-cols-3 gap-2">
+        <label class="text-sm text-white/70">Původní Kč
+          <input id="oldPrice" type="number" min="0" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="1000" />
+        </label>
+        <label class="text-sm text-white/70">Nová Kč
+          <input id="newPrice" type="number" min="0" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="799" />
+        </label>
+        <label class="text-sm text-white/70">Sleva (%)
+          <input id="discount" type="number" min="0" max="99" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="nech prázdné = dopočítá se" />
+        </label>
+      </div>
+
+      <label class="text-sm text-white/70">Platnost (končí za X dní)
+        <input id="expires" type="number" min="0" max="365" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="0 = dnes" />
+      </label>
+
+      <label class="text-sm text-white/70">Obrázek (URL)
+        <input id="img" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="https://..." />
+      </label>
+
+      <label class="text-sm text-white/70">Odkaz na nabídku (URL)
+        <input id="link" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="https://..." />
+      </label>
+
+      <label class="text-sm text-white/70">Štítky (odděl čárkou)
+        <input id="tags" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="pizza, brno, top" />
+      </label>
+
+      <div class="grid sm:grid-cols-2 gap-2">
+        <label class="text-sm text-white/70">Kontakt (volitelné)
+          <input id="contact" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="email / telefon / instagram" />
+        </label>
+        <label class="text-sm text-white/70">Město (volitelné)
+          <input id="city" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Brno" />
+        </label>
+      </div>
+
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button id="btnSubmit" class="focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95">Odeslat do čekárny</button>
+        <button id="btnReset" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Vyčistit</button>
+        <a href="./moderation.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center">🧰 Moderace</a>
+      </div>
+
+      <div class="mt-2 text-xs text-white/55">
+        Ukládá se do <code class="px-2 py-1 rounded-xl bg-white/5 border border-white/10">slevao_pending_v1</code>.
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+  <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+</div>
+
+<script>
+  const KEY_PENDING = 'slevao_pending_v1';
+
+  const $ = (s,r=document)=>r.querySelector(s);
+  const safeJson = (v,f)=>{ try{return JSON.parse(v)}catch(e){return f} };
+  const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
+
+  const el = {
+    cat: $('#cat'),
+    title: $('#title'),
+    subtitle: $('#subtitle'),
+    story: $('#story'),
+    oldPrice: $('#oldPrice'),
+    newPrice: $('#newPrice'),
+    discount: $('#discount'),
+    expires: $('#expires'),
+    img: $('#img'),
+    link: $('#link'),
+    tags: $('#tags'),
+    contact: $('#contact'),
+    city: $('#city'),
+    btnSubmit: $('#btnSubmit'),
+    btnReset: $('#btnReset'),
+    toast: $('#toast')
+  };
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2300);
+  }
+
+  function computeDiscount(oldP,newP){
+    const o = Number(oldP||0);
+    const n = Number(newP||0);
+    if(o<=0 || n<=0 || n>=o) return 0;
+    return Math.round(((o-n)/o)*100);
+  }
+
+  function loadPending(){
+    const arr = safeJson(localStorage.getItem(KEY_PENDING), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+  function savePending(arr){
+    localStorage.setItem(KEY_PENDING, JSON.stringify(Array.isArray(arr)?arr:[]));
+  }
+
+  function normalizeTags(v){
+    return String(v||'').split(',').map(s=>s.trim()).filter(Boolean).slice(0,20);
+  }
+
+  function readForm(){
+    const oldP = Number(el.oldPrice.value||0);
+    const newP = Number(el.newPrice.value||0);
+    let disc = Number(el.discount.value||0);
+    if(!disc && oldP && newP) disc = computeDiscount(oldP,newP);
+
+    const cat = el.cat.value;
+    const source = (cat==='food') ? 'GURMAO' : (cat==='stay') ? 'CHATAO' : 'SLEVAO';
+
+    return {
+      pid: uid(),
+      createdAt: Date.now(),
+      status: 'pending',
+
+      // offer-like fields
+      id: `${cat}-${uid()}`,
+      cat,
+      source,
+      title: String(el.title.value||'').trim(),
+      subtitle: String(el.subtitle.value||'').trim(),
+      story: String(el.story.value||'').trim(),
+      oldPrice: oldP,
+      newPrice: newP,
+      discount: disc,
+      expiresInDays: Number(el.expires.value||0),
+      img: String(el.img.value||'').trim(),
+      link: String(el.link.value||'').trim(),
+      tags: normalizeTags(el.tags.value),
+
+      // submit meta
+      contact: String(el.contact.value||'').trim(),
+      city: String(el.city.value||'').trim(),
+      userAgent: navigator.userAgent
+    };
+  }
+
+  function validate(o){
+    if(!o.title || o.title.length < 3) return 'Doplň nadpis (min. 3 znaky).';
+    if(!o.subtitle || o.subtitle.length < 3) return 'Doplň podnadpis.';
+    if(!o.img || !/^https?:\/\//i.test(o.img)) return 'Doplň obrázek (URL začíná https://).';
+    if(o.link && !/^https?:\/\//i.test(o.link)) return 'Odkaz musí začínat https:// (nebo nech prázdné).';
+    if(o.oldPrice < 0 || o.newPrice < 0) return 'Cena nemůže být záporná.';
+    if(o.oldPrice && o.newPrice && o.newPrice > o.oldPrice) return 'Nová cena nemůže být vyšší než původní.';
+    return '';
+  }
+
+  function resetForm(){
+    el.cat.value = 'food';
+    el.title.value = '';
+    el.subtitle.value = '';
+    el.story.value = '';
+    el.oldPrice.value = '';
+    el.newPrice.value = '';
+    el.discount.value = '';
+    el.expires.value = '0';
+    el.img.value = '';
+    el.link.value = '';
+    el.tags.value = '';
+    el.contact.value = '';
+    el.city.value = '';
+  }
+
+  el.btnSubmit.addEventListener('click', ()=>{
+    const o = readForm();
+    const err = validate(o);
+    if(err){ toast(err); return; }
+
+    const arr = loadPending();
+    arr.unshift(o);
+    savePending(arr);
+
+    toast('Odesláno do čekárny ✅');
+    resetForm();
+  });
+
+  el.btnReset.addEventListener('click', ()=> resetForm());
+
+  // default
+  resetForm();
+</script>
+</body>
+</html>
