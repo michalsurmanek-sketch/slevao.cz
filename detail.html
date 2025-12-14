@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Detail nabídky</title>
+  <meta name="description" content="Detail nabídky na SLEVAO." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+            glow: "0 0 0 1px rgba(255,255,255,0.08), 0 18px 60px rgba(236,72,153,0.20)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{
+      --bg0:#070b14;
+      --bg1:#0b1220;
+    }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+    }
+    ::-webkit-scrollbar{ height:10px; width:10px; }
+    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.16); border-radius:999px; }
+    ::-webkit-scrollbar-track{ background: rgba(255,255,255,.05); }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+  </style>
+</head>
+
+<body class="min-h-screen">
+  <!-- TOPBAR -->
+  <header class="sticky top-0 z-40">
+    <div class="glass border-b border-white/10">
+      <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+        <a href="./index.html" class="group flex items-center gap-2" title="Zpět na feed">
+          <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">
+            <span class="text-xl">✨</span>
+          </span>
+          <div class="leading-tight">
+            <div class="flex items-center gap-2">
+              <span class="text-lg md:text-xl font-extrabold tracking-tight">SLEVAO</span>
+              <span class="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">Detail</span>
+            </div>
+            <div class="text-xs text-white/60 -mt-0.5">Sdílej, ulož, jdi na nabídku</div>
+          </div>
+        </a>
+
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <button id="btnSave" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">🤍 Uložit</button>
+          <button id="btnShare" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">🔗 Sdílet</button>
+          <a id="btnAdmin" href="./admin.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center">⚙️ Admin</a>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+    <!-- HERO -->
+    <section class="grid lg:grid-cols-[1.3fr_1fr] gap-5 items-start">
+      <div class="rounded-4xl overflow-hidden border border-white/10 bg-white/5 shadow-soft">
+        <div class="relative aspect-[16/10] bg-black">
+          <img id="img" alt="" class="w-full h-full object-cover" />
+          <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/15 to-black/35"></div>
+
+          <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+            <div id="badge" class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">✨ SLEVAO</div>
+            <div class="flex items-center gap-2">
+              <span id="disc" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">🏷️ <b class="font-extrabold">-0%</b></span>
+              <span id="exp" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">⏳ Platí</span>
+            </div>
+          </div>
+
+          <div class="absolute bottom-3 left-3 right-3">
+            <div class="flex flex-wrap gap-2" id="tags"></div>
+          </div>
+        </div>
+
+        <div class="p-4 md:p-6">
+          <h1 id="title" class="text-2xl md:text-3xl font-extrabold leading-tight">—</h1>
+          <div id="subtitle" class="mt-2 text-white/75">—</div>
+
+          <div class="mt-4 flex items-center justify-between gap-3 flex-wrap">
+            <div class="text-base md:text-lg">
+              <span id="old" class="line-through text-white/40">0 Kč</span>
+              <span id="neu" class="ml-2 font-extrabold">0 Kč</span>
+            </div>
+
+            <div class="flex items-center gap-2">
+              <a id="cta" href="#" target="_blank" rel="noopener" class="focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95 inline-flex items-center">
+                🔥 Otevřít nabídku
+              </a>
+              <button id="btnCopyLink" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">
+                📋 Kopírovat link
+              </button>
+            </div>
+          </div>
+
+          <div class="mt-4 text-xs text-white/55">
+            ID: <span id="oid" class="text-white/75"></span> · Zdroj: <span id="source" class="text-white/75"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- STORY + ACTIONS -->
+      <aside class="space-y-4">
+        <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+          <div class="font-extrabold">Příběh</div>
+          <p id="story" class="mt-2 text-white/75 leading-relaxed">—</p>
+        </div>
+
+        <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+          <div class="font-extrabold">Rychlé akce</div>
+          <div class="mt-3 grid gap-2">
+            <button id="btnOpenFeed" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-left">
+              ↩️ Zpět do feedu
+            </button>
+            <button id="btnOpenReels" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-left">
+              🎬 Otevřít jako „reels“ (zatím přesměruje na feed)
+            </button>
+            <button id="btnEditInAdmin" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 text-left">
+              🛠️ Upravit v adminu (open admin + id)
+            </button>
+          </div>
+        </div>
+
+        <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+          <div class="font-extrabold">Poznámka</div>
+          <div class="mt-2 text-sm text-white/70">
+            Detail načítá nabídku z <b>localStorage</b> (stejný origin jako index/admin).
+            Pokud ji nenajde, ukáže „nenalezeno“.
+          </div>
+        </div>
+      </aside>
+    </section>
+
+    <!-- NOT FOUND -->
+    <section id="notFound" class="hidden mt-6 rounded-4xl border border-white/10 bg-white/5 shadow-soft p-6 text-center">
+      <div class="text-3xl">🫥</div>
+      <div class="mt-2 text-xl font-extrabold">Nabídka nenalezena</div>
+      <div class="mt-1 text-white/70">Zkontroluj link (parametr <code class="px-2 py-1 rounded-xl bg-white/5 border border-white/10">?id=</code>) a že jsi na stejném originu jako admin.</div>
+      <div class="mt-4 flex justify-center gap-2 flex-wrap">
+        <a href="./index.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center">↩️ Zpět na index</a>
+        <a href="./admin.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center">⚙️ Otevřít admin</a>
+      </div>
+    </section>
+  </main>
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+    <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+  </div>
+
+<script>
+  /**************************************************************
+   * SLEVAO DETAIL – reads offer by ?id=
+   * - dataset: localStorage 'slevao_offers_v1'
+   * - save: localStorage 'slevao_saved_v1' (array of ids)
+   **************************************************************/
+
+  const KEY_OFFERS = 'slevao_offers_v1';
+  const KEY_SAVED = 'slevao_saved_v1';
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const safeJson = (v, fallback) => { try{ return JSON.parse(v); }catch(e){ return fallback; } };
+  const fmtCZK = (n) => new Intl.NumberFormat('cs-CZ').format(Math.round(Number(n)||0)) + ' Kč';
+
+  const el = {
+    img: $('#img'),
+    badge: $('#badge'),
+    disc: $('#disc'),
+    exp: $('#exp'),
+    tags: $('#tags'),
+    title: $('#title'),
+    subtitle: $('#subtitle'),
+    old: $('#old'),
+    neu: $('#neu'),
+    story: $('#story'),
+    source: $('#source'),
+    oid: $('#oid'),
+    cta: $('#cta'),
+    notFound: $('#notFound'),
+
+    btnSave: $('#btnSave'),
+    btnShare: $('#btnShare'),
+    btnCopyLink: $('#btnCopyLink'),
+    btnOpenFeed: $('#btnOpenFeed'),
+    btnOpenReels: $('#btnOpenReels'),
+    btnEditInAdmin: $('#btnEditInAdmin'),
+    btnAdmin: $('#btnAdmin'),
+
+    toast: $('#toast'),
+  };
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2200);
+  }
+
+  function catLabel(cat){
+    if(cat==='food') return '🍔 GURMAO · Jídlo';
+    if(cat==='stay') return '🏕️ CHATAO · Pobyt';
+    return '🛍️ SLEVAO · Produkty';
+  }
+
+  function expLabel(d){
+    d = Number(d||0);
+    if(d === 0) return 'Končí dnes';
+    if(d === 1) return 'Končí zítra';
+    if(d <= 7) return `Končí za ${d} dny`;
+    return `Platí ještě ${d} dní`;
+  }
+
+  function getId(){
+    const p = new URLSearchParams(location.search);
+    return p.get('id') || '';
+  }
+
+  function loadOffers(){
+    const arr = safeJson(localStorage.getItem(KEY_OFFERS), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function loadSaved(){
+    const arr = safeJson(localStorage.getItem(KEY_SAVED), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+  function saveSaved(arr){
+    localStorage.setItem(KEY_SAVED, JSON.stringify(Array.isArray(arr) ? arr : []));
+  }
+
+  function setSavedUI(isSaved){
+    el.btnSave.textContent = isSaved ? '❤️ Uloženo' : '🤍 Uložit';
+  }
+
+  async function shareLink(url){
+    try{
+      if(navigator.share){
+        await navigator.share({ title: document.title, url });
+        toast('Sdíleno ✅');
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('Link zkopírován ✅');
+      }
+    } catch(e){
+      toast('Sdílení zrušeno');
+    }
+  }
+
+  function renderTags(tags){
+    el.tags.innerHTML = '';
+    const arr = Array.isArray(tags) ? tags : [];
+    arr.slice(0, 8).forEach(t => {
+      const s = document.createElement('span');
+      s.className = "inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10";
+      s.textContent = `#${String(t||'').trim()}`;
+      el.tags.appendChild(s);
+    });
+    if(!arr.length){
+      const s = document.createElement('span');
+      s.className = "inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10";
+      s.textContent = "#sleva";
+      el.tags.appendChild(s);
+    }
+  }
+
+  function setMetaTitle(o){
+    const t = `${o.title} – SLEVAO`;
+    document.title = t;
+  }
+
+  function init(){
+    const id = getId();
+    const offers = loadOffers();
+    const offer = offers.find(x => String(x.id) === String(id));
+
+    if(!offer){
+      el.notFound.classList.remove('hidden');
+      // schovej hlavní layout tím, že vypneme první section přes CSS? Ne – necháme, ale vyplníme placeholder:
+      el.title.textContent = '—';
+      el.subtitle.textContent = '—';
+      el.story.textContent = '—';
+      el.oid.textContent = id || '—';
+      return;
+    }
+
+    setMetaTitle(offer);
+
+    const img = offer.img || 'https://images.unsplash.com/photo-1520975682031-a4fe3c694bcd?auto=format&fit=crop&w=1600&q=80';
+    el.img.src = img;
+
+    el.badge.textContent = catLabel(offer.cat);
+    el.disc.innerHTML = `🏷️ <b class="font-extrabold">-${Number(offer.discount||0)}%</b>`;
+    el.exp.textContent = `⏳ ${expLabel(offer.expiresInDays)}`;
+
+    renderTags(offer.tags);
+
+    el.title.textContent = offer.title || '—';
+    el.subtitle.textContent = offer.subtitle || '—';
+    el.story.textContent = offer.story || '—';
+
+    el.old.textContent = fmtCZK(offer.oldPrice || 0);
+    el.neu.textContent = fmtCZK(offer.newPrice || 0);
+
+    el.source.textContent = offer.source || '—';
+    el.oid.textContent = offer.id;
+
+    // CTA
+    if(offer.link){
+      el.cta.href = offer.link;
+      el.cta.classList.remove('opacity-60');
+      el.cta.setAttribute('aria-disabled','false');
+    } else {
+      el.cta.href = '#';
+      el.cta.classList.add('opacity-60');
+      el.cta.setAttribute('aria-disabled','true');
+      el.cta.addEventListener('click', (e)=>{ e.preventDefault(); toast('Chybí odkaz v nabídce'); });
+    }
+
+    // saved
+    const saved = loadSaved();
+    const isSaved = saved.includes(offer.id);
+    setSavedUI(isSaved);
+
+    el.btnSave.addEventListener('click', ()=>{
+      const now = loadSaved();
+      const i = now.indexOf(offer.id);
+      if(i >= 0) now.splice(i,1);
+      else now.push(offer.id);
+      saveSaved(now);
+      setSavedUI(now.includes(offer.id));
+      toast(now.includes(offer.id) ? 'Uloženo ✅' : 'Odebráno');
+    });
+
+    // share/copy
+    const url = location.href;
+    el.btnShare.addEventListener('click', ()=> shareLink(url));
+    el.btnCopyLink.addEventListener('click', async ()=>{
+      try{ await navigator.clipboard.writeText(url); toast('Zkopírováno ✅'); }
+      catch(e){ toast('Nepovedlo se kopírovat'); }
+    });
+
+    // nav
+    el.btnOpenFeed.addEventListener('click', ()=> location.href = `./index.html?from=detail&t=${Date.now()}`);
+    el.btnOpenReels.addEventListener('click', ()=> location.href = `./index.html?reels=1&id=${encodeURIComponent(offer.id)}&t=${Date.now()}`);
+
+    // admin deep-link (pokud jednou uděláme edit režim)
+    el.btnEditInAdmin.addEventListener('click', ()=> location.href = `./admin.html?edit=${encodeURIComponent(offer.id)}&t=${Date.now()}`);
+    el.btnAdmin.href = `./admin.html?t=${Date.now()}`;
+  }
+
+  init();
+</script>
+</body>
+</html>
