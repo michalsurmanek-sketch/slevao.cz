@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Přihlášení</title>
+  <meta name="description" content="SLEVAO – jednoduché přihlášení (localStorage)." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{ --bg0:#070b14; --bg1:#0b1220; }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+    }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<header class="sticky top-0 z-40">
+  <div class="glass border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+      <a href="./index.html" class="flex items-center gap-2">
+        <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">✨</span>
+        <div>
+          <div class="text-lg font-extrabold">SLEVAO</div>
+          <div class="text-xs text-white/60">Přihlášení</div>
+        </div>
+      </a>
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./account.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">👤 Profil</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-3xl mx-auto px-4 py-6 md:py-10">
+
+  <section class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+    <h1 class="text-2xl font-extrabold">Přihlášení (zatím lokálně)</h1>
+    <p class="mt-2 text-white/70">Tohle je dočasné přihlášení bez serveru – jen pro vývoj. Uloží se role a jméno do localStorage.</p>
+
+    <div class="mt-5 grid gap-3 max-w-lg">
+      <label class="text-sm text-white/70">Jméno
+        <input id="name" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Michal" />
+      </label>
+
+      <label class="text-sm text-white/70">Role
+        <select id="role" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3">
+          <option value="user">Uživatel</option>
+          <option value="partner">Partner (restaurace/ubytko/eshop)</option>
+          <option value="admin">Admin</option>
+        </select>
+      </label>
+
+      <label class="text-sm text-white/70">PIN (jen pro Admin)
+        <input id="pin" type="password" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="••••" />
+      </label>
+
+      <div class="mt-2 flex flex-wrap gap-2">
+        <button id="btnLogin" class="focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95">Přihlásit</button>
+        <button id="btnLogout" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Odhlásit</button>
+        <a id="btnGo" href="./index.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center">Jít na feed</a>
+      </div>
+
+      <div class="mt-3 rounded-3xl border border-white/10 bg-white/5 p-3">
+        <div class="text-xs text-white/60">Aktuální stav</div>
+        <div id="state" class="mt-1 text-sm text-white/80">—</div>
+      </div>
+
+      <div class="text-xs text-white/55">Ukládá se do <code class="px-2 py-1 rounded-xl bg-white/5 border border-white/10">slevao_session_v1</code>.</div>
+    </div>
+  </section>
+
+  <section class="mt-5 rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+    <div class="font-extrabold">Poznámka</div>
+    <div class="mt-2 text-sm text-white/70">
+      Admin PIN je zatím natvrdo <b>1234</b> (jen vývoj). Až napojíme backend, tohle smažeme.
+    </div>
+  </section>
+
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+  <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+</div>
+
+<script>
+  const KEY_SESSION = 'slevao_session_v1';
+  const ADMIN_PIN = '1234';
+
+  const $ = (s,r=document)=>r.querySelector(s);
+  const safeJson = (v,f)=>{ try{return JSON.parse(v)}catch(e){return f} };
+
+  const el = {
+    name: $('#name'),
+    role: $('#role'),
+    pin: $('#pin'),
+    btnLogin: $('#btnLogin'),
+    btnLogout: $('#btnLogout'),
+    state: $('#state'),
+    toast: $('#toast'),
+    btnGo: $('#btnGo')
+  };
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2200);
+  }
+
+  function load(){
+    return safeJson(localStorage.getItem(KEY_SESSION), null);
+  }
+  function save(v){
+    localStorage.setItem(KEY_SESSION, JSON.stringify(v));
+  }
+
+  function render(){
+    const s = load();
+    if(!s){
+      el.state.innerHTML = 'Nepřihlášen.';
+      return;
+    }
+    const when = new Date(s.at || Date.now());
+    el.state.innerHTML = `<b>${s.name||'—'}</b> • role: <b>${s.role||'—'}</b> • ${when.toLocaleString('cs-CZ')}`;
+  }
+
+  el.btnLogin.addEventListener('click', ()=>{
+    const name = (el.name.value||'').trim() || 'Uživatel';
+    const role = el.role.value || 'user';
+
+    if(role === 'admin'){
+      if((el.pin.value||'').trim() !== ADMIN_PIN){
+        toast('Špatný PIN pro admina');
+        return;
+      }
+    }
+
+    save({ name, role, at: Date.now() });
+    toast('Přihlášeno ✅');
+
+    // jednoduché redirecty
+    if(role === 'admin') el.btnGo.href = './admin.html';
+    else el.btnGo.href = './index.html';
+
+    render();
+  });
+
+  el.btnLogout.addEventListener('click', ()=>{
+    localStorage.removeItem(KEY_SESSION);
+    toast('Odhlášeno');
+    render();
+  });
+
+  // init
+  const s = load();
+  if(s){
+    el.name.value = s.name || '';
+    el.role.value = s.role || 'user';
+    if(s.role === 'admin') el.btnGo.href = './admin.html';
+  }
+  render();
+</script>
+</body>
+</html>
