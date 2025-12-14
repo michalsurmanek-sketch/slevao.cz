@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Můj profil</title>
+  <meta name="description" content="SLEVAO – uložené nabídky, kolekce a nastavení." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{ --bg0:#070b14; --bg1:#0b1220; }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+    }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<header class="sticky top-0 z-40">
+  <div class="glass border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+      <a href="./index.html" class="flex items-center gap-2">
+        <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">✨</span>
+        <div>
+          <div class="text-lg font-extrabold">SLEVAO</div>
+          <div class="text-xs text-white/60">Můj profil</div>
+        </div>
+      </a>
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./admin.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">⚙️ Admin</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 py-6 md:py-10">
+  <section class="grid lg:grid-cols-[320px_1fr] gap-5">
+
+    <!-- SIDEBAR -->
+    <aside class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4">
+      <div class="font-extrabold">Profil</div>
+      <div class="mt-3 space-y-2 text-sm">
+        <button data-tab="saved" class="tab focus-ring w-full text-left h-10 px-3 rounded-2xl bg-white/10">❤️ Uložené</button>
+        <button data-tab="collections" class="tab focus-ring w-full text-left h-10 px-3 rounded-2xl bg-white/5 border border-white/10">📁 Kolekce</button>
+        <button data-tab="settings" class="tab focus-ring w-full text-left h-10 px-3 rounded-2xl bg-white/5 border border-white/10">⚙️ Nastavení</button>
+      </div>
+    </aside>
+
+    <!-- CONTENT -->
+    <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft p-4 md:p-6">
+
+      <!-- SAVED -->
+      <section id="tab-saved">
+        <h1 class="text-xl font-extrabold">❤️ Uložené nabídky</h1>
+        <div id="savedList" class="mt-4 grid sm:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        <div id="savedEmpty" class="hidden mt-6 text-center text-white/70">Zatím nemáš žádné uložené nabídky.</div>
+      </section>
+
+      <!-- COLLECTIONS -->
+      <section id="tab-collections" class="hidden">
+        <h1 class="text-xl font-extrabold">📁 Kolekce</h1>
+        <div class="mt-3 text-sm text-white/70">Kolekce zatím jednoduché (lokální). Rozšíříme později.</div>
+        <div id="collections" class="mt-4 space-y-3"></div>
+        <button id="btnNewCol" class="mt-4 focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">+ Nová kolekce</button>
+      </section>
+
+      <!-- SETTINGS -->
+      <section id="tab-settings" class="hidden">
+        <h1 class="text-xl font-extrabold">⚙️ Nastavení</h1>
+        <div class="mt-4 grid gap-3 max-w-md">
+          <label class="text-sm">Tmavý režim
+            <select id="theme" class="mt-1 w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3">
+              <option value="dark">Tmavý</option>
+              <option value="light">Světlý (zatím jen demo)</option>
+            </select>
+          </label>
+          <button id="btnClearSaved" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Vymazat uložené</button>
+        </div>
+      </section>
+
+    </div>
+  </section>
+</main>
+
+<script>
+  const KEY_OFFERS = 'slevao_offers_v1';
+  const KEY_SAVED = 'slevao_saved_v1';
+  const KEY_COLS = 'slevao_collections_v1';
+
+  const $ = (s,r=document)=>r.querySelector(s);
+  const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
+  const safeJson = (v,f)=>{ try{return JSON.parse(v)}catch(e){return f} };
+
+  const offers = safeJson(localStorage.getItem(KEY_OFFERS), []) || [];
+  let saved = safeJson(localStorage.getItem(KEY_SAVED), []) || [];
+  let cols = safeJson(localStorage.getItem(KEY_COLS), []) || [];
+
+  function card(o){
+    return `
+      <a href="./detail.html?id=${encodeURIComponent(o.id)}" class="block rounded-3xl border border-white/10 bg-white/5 overflow-hidden hover:bg-white/10 transition">
+        <div class="aspect-[4/5] bg-black">
+          <img src="${o.img||''}" class="w-full h-full object-cover" />
+        </div>
+        <div class="p-3">
+          <div class="font-extrabold truncate">${o.title}</div>
+          <div class="text-xs text-white/70 truncate">${o.subtitle||''}</div>
+        </div>
+      </a>`;
+  }
+
+  function renderSaved(){
+    const list = $('#savedList');
+    const arr = offers.filter(o=> saved.includes(o.id));
+    list.innerHTML = arr.map(card).join('');
+    $('#savedEmpty').classList.toggle('hidden', arr.length!==0);
+  }
+
+  function renderCols(){
+    const wrap = $('#collections');
+    wrap.innerHTML = cols.map((c,i)=>`<div class="rounded-2xl border border-white/10 bg-white/5 p-3">${c}</div>`).join('');
+  }
+
+  function bindTabs(){
+    $$('.tab').forEach(b=>{
+      b.addEventListener('click', ()=>{
+        const t = b.dataset.tab;
+        ['saved','collections','settings'].forEach(x=>{
+          $('#tab-'+x).classList.toggle('hidden', x!==t);
+        });
+        $$('.tab').forEach(x=>x.classList.remove('bg-white/10'));
+        b.classList.add('bg-white/10');
+      });
+    });
+  }
+
+  $('#btnNewCol').addEventListener('click', ()=>{
+    const name = prompt('Název kolekce');
+    if(!name) return;
+    cols.push(name);
+    localStorage.setItem(KEY_COLS, JSON.stringify(cols));
+    renderCols();
+  });
+
+  $('#btnClearSaved').addEventListener('click', ()=>{
+    if(!confirm('Smazat všechny uložené?')) return;
+    saved = [];
+    localStorage.setItem(KEY_SAVED, '[]');
+    renderSaved();
+  });
+
+  bindTabs();
+  renderSaved();
+  renderCols();
+</script>
+</body>
+</html>
