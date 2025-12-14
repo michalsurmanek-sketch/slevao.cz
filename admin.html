@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Admin</title>
+  <meta name="description" content="SLEVAO Admin – správa nabídek (localStorage)." />
+
+  <!-- Tailwind CDN (rychlý start) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+            glow: "0 0 0 1px rgba(255,255,255,0.08), 0 18px 60px rgba(236,72,153,0.20)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{
+      --bg0:#070b14;
+      --bg1:#0b1220;
+      --line:rgba(255,255,255,.10);
+      --line2:rgba(255,255,255,.08);
+    }
+    html,body{ height:100%; }
+    body{ background: radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+                     radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+                     radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+                     linear-gradient(180deg, var(--bg0), var(--bg1));
+          color: #fff;
+    }
+    ::-webkit-scrollbar{ height: 10px; width: 10px; }
+    ::-webkit-scrollbar-thumb{ background: rgba(255,255,255,.16); border-radius: 999px; }
+    ::-webkit-scrollbar-track{ background: rgba(255,255,255,.05); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    body.modal-open{ overflow:hidden; }
+    *{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+  <header class="sticky top-0 z-40">
+    <div class="glass border-b border-white/10">
+      <div class="max-w-6xl mx-auto px-4 py-3 md:py-4 flex items-center gap-3">
+        <a href="./index.html" class="group flex items-center gap-2" title="Zpět na feed">
+          <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">
+            <span class="text-xl">✨</span>
+          </span>
+          <div class="leading-tight">
+            <div class="flex items-center gap-2">
+              <span class="text-lg md:text-xl font-extrabold tracking-tight">SLEVAO</span>
+              <span class="hidden sm:inline-flex text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">Admin</span>
+            </div>
+            <div class="text-xs text-white/60 -mt-0.5">Správa nabídek (localStorage)</div>
+          </div>
+        </a>
+
+        <div class="ml-auto flex flex-wrap items-center gap-2">
+          <button id="btnNew" class="focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-fuchsia-500/25 via-neutral-900 to-amber-500/15 border border-white/10 hover:opacity-95">+ Nová nabídka</button>
+          <button id="btnSeed" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Nahrát demo</button>
+          <button id="btnClear" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Smazat vše</button>
+          <button id="btnExport" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Export JSON</button>
+          <label class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 inline-flex items-center cursor-pointer">
+            Import JSON
+            <input id="fileImport" type="file" accept="application/json" class="hidden" />
+          </label>
+        </div>
+      </div>
+
+      <div class="max-w-6xl mx-auto px-4 pb-3">
+        <div class="flex flex-col md:flex-row md:items-center gap-3">
+          <div class="flex-1">
+            <div class="relative">
+              <input id="q" type="search" placeholder="Hledej v nabídkách…" class="focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 pl-11 pr-3 text-sm md:text-base placeholder:text-white/35" />
+              <div class="absolute left-3 top-1/2 -translate-y-1/2 text-white/55">🔎</div>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <select id="cat" class="focus-ring h-11 rounded-2xl bg-white/5 border border-white/10 px-3 text-sm">
+              <option value="all">Vše</option>
+              <option value="food">GURMAO · Jídlo</option>
+              <option value="stay">CHATAO · Pobyt</option>
+              <option value="shop">SLEVAO · Produkty</option>
+            </select>
+            <div class="text-xs text-white/60">Celkem: <span id="count">0</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-6 md:py-8">
+    <section class="grid lg:grid-cols-[1fr_420px] gap-5">
+
+      <!-- LIST -->
+      <div class="rounded-4xl border border-white/10 bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-4 border-b border-white/10 flex items-center justify-between">
+          <div class="font-extrabold">Nabídky</div>
+          <div class="text-xs text-white/60">Klikni na řádek pro edit</div>
+        </div>
+        <div id="list" class="divide-y divide-white/10"></div>
+        <div id="empty" class="hidden p-8 text-center">
+          <div class="text-3xl">🫥</div>
+          <div class="mt-2 font-extrabold text-lg">Žádné nabídky</div>
+          <div class="mt-1 text-sm text-white/70">Dej „+ Nová nabídka“ nebo „Nahrát demo“.</div>
+        </div>
+      </div>
+
+      <!-- PREVIEW -->
+      <aside class="rounded-4xl border border-white/10 bg-white/5 shadow-soft overflow-hidden">
+        <div class="p-4 border-b border-white/10 flex items-center justify-between">
+          <div class="font-extrabold">Náhled karty</div>
+          <div class="text-xs text-white/60">jak bude v feedu</div>
+        </div>
+        <div class="p-4">
+          <div id="preview" class="rounded-4xl border border-white/10 bg-white/5 overflow-hidden">
+            <div class="aspect-[4/5] bg-black relative">
+              <img id="pImg" alt="" class="w-full h-full object-cover" />
+              <div class="absolute inset-0 bg-gradient-to-t from-black/75 via-black/10 to-black/35"></div>
+              <div class="absolute top-3 left-3 right-3 flex items-center justify-between gap-2">
+                <div id="pBadge" class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">✨ SLEVAO</div>
+                <div class="h-10 px-3 rounded-2xl bg-white/10 border border-white/15 grid place-items-center">🤍</div>
+              </div>
+              <div class="absolute bottom-3 left-3 right-3">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span id="pDisc" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">🏷️ <b class="font-extrabold">-0%</b></span>
+                  <span id="pExp" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">⏳ Platí</span>
+                  <span id="pTag" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">#</span>
+                </div>
+                <div id="pTitle" class="mt-2 text-lg font-extrabold leading-tight">—</div>
+                <div id="pSub" class="mt-1 text-sm text-white/75">—</div>
+                <div class="mt-3 flex items-center justify-between">
+                  <div class="text-sm">
+                    <span id="pOld" class="line-through text-white/40">0 Kč</span>
+                    <span id="pNew" class="ml-2 font-extrabold">0 Kč</span>
+                  </div>
+                  <div class="h-10 px-4 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-sm">Detail</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="mt-4 text-xs text-white/60">
+            Pozn.: Admin ukládá do <b>localStorage</b> pod klíč <code class="px-2 py-1 rounded-xl bg-white/5 border border-white/10">slevao_offers_v1</code>.
+            Feed <b>index.html</b> si to automaticky načte.
+          </div>
+        </div>
+      </aside>
+
+    </section>
+  </main>
+
+  <!-- EDIT MODAL -->
+  <div id="editModal" class="hidden fixed inset-0 z-50">
+    <div id="editBackdrop" class="absolute inset-0 bg-black/60"></div>
+    <div class="absolute inset-0">
+      <div class="max-w-5xl mx-auto h-full px-3 py-3 md:py-6">
+        <div class="h-full rounded-4xl overflow-hidden border border-white/10 shadow-soft bg-[#050812]">
+          <div class="p-4 border-b border-white/10 flex items-center justify-between">
+            <div class="font-extrabold" id="modalTitle">Nová nabídka</div>
+            <div class="flex items-center gap-2">
+              <button id="btnDuplicate" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Duplikovat</button>
+              <button id="btnDelete" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Smazat</button>
+              <button id="btnClose" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Zavřít</button>
+            </div>
+          </div>
+
+          <div class="h-[calc(100%-64px)] overflow-y-auto">
+            <div class="p-4 md:p-6 grid lg:grid-cols-2 gap-5">
+
+              <div class="rounded-4xl border border-white/10 bg-white/5 p-4">
+                <div class="text-sm font-semibold">Základ</div>
+
+                <div class="mt-3 grid gap-3">
+                  <label class="text-xs text-white/65">Kategorie
+                    <select id="fCat" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3">
+                      <option value="food">GURMAO · Jídlo</option>
+                      <option value="stay">CHATAO · Pobyt</option>
+                      <option value="shop">SLEVAO · Produkty</option>
+                    </select>
+                  </label>
+
+                  <label class="text-xs text-white/65">Nadpis
+                    <input id="fTitle" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Např. Burger + hranolky" />
+                  </label>
+
+                  <label class="text-xs text-white/65">Podnadpis
+                    <input id="fSub" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="Krátká věta, co prodá" />
+                  </label>
+
+                  <label class="text-xs text-white/65">Příběh (detail)
+                    <textarea id="fStory" rows="5" class="mt-1 focus-ring w-full rounded-3xl bg-white/5 border border-white/10 px-3 py-3" placeholder="Text do detailu…"></textarea>
+                  </label>
+
+                  <label class="text-xs text-white/65">Zdroj (label)
+                    <select id="fSource" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3">
+                      <option value="GURMAO">GURMAO</option>
+                      <option value="CHATAO">CHATAO</option>
+                      <option value="SLEVAO">SLEVAO</option>
+                    </select>
+                  </label>
+                </div>
+              </div>
+
+              <div class="rounded-4xl border border-white/10 bg-white/5 p-4">
+                <div class="text-sm font-semibold">Cena + média</div>
+                <div class="mt-3 grid gap-3">
+
+                  <div class="grid grid-cols-3 gap-2">
+                    <label class="text-xs text-white/65">Sleva (%)
+                      <input id="fDiscount" type="number" min="0" max="99" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="25" />
+                    </label>
+                    <label class="text-xs text-white/65">Původní Kč
+                      <input id="fOld" type="number" min="0" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="1000" />
+                    </label>
+                    <label class="text-xs text-white/65">Nová Kč
+                      <input id="fNew" type="number" min="0" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="799" />
+                    </label>
+                  </div>
+
+                  <label class="text-xs text-white/65">Platnost (končí za X dní)
+                    <input id="fExp" type="number" min="0" max="365" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="0 = dnes" />
+                  </label>
+
+                  <label class="text-xs text-white/65">Obrázek (URL)
+                    <input id="fImg" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="https://..." />
+                  </label>
+
+                  <label class="text-xs text-white/65">Odkaz (CTA)
+                    <input id="fLink" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="https://..." />
+                  </label>
+
+                  <label class="text-xs text-white/65">Štítky (odděl čárkou)
+                    <input id="fTags" class="mt-1 focus-ring w-full h-11 rounded-2xl bg-white/5 border border-white/10 px-3" placeholder="burger, brno, top" />
+                  </label>
+
+                  <div class="mt-2 flex flex-wrap gap-2">
+                    <button id="btnSave" class="focus-ring h-11 px-5 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-sky-500/10 border border-white/10 hover:opacity-95">Uložit</button>
+                    <button id="btnSaveClose" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Uložit + zavřít</button>
+                    <button id="btnOpenFeed" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">Otevřít feed</button>
+                  </div>
+
+                  <div class="text-xs text-white/60">Tip: když nevyplníš slevu, dopočítá se z cen.</div>
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+    <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+  </div>
+
+<script>
+  /**************************************************************
+   * SLEVAO ADMIN – localStorage CRUD
+   * - ukládá do: slevao_offers_v1
+   * - index.html si to načte (patch je už v indexu)
+   **************************************************************/
+
+  const $ = (sel, root=document) => root.querySelector(sel);
+  const $$ = (sel, root=document) => Array.from(root.querySelectorAll(sel));
+  const fmtCZK = (n) => new Intl.NumberFormat('cs-CZ').format(Math.round(Number(n)||0)) + ' Kč';
+  const safeJson = (v, fallback) => { try{ return JSON.parse(v); }catch(e){ return fallback; } };
+  const uid = () => Math.random().toString(16).slice(2) + Date.now().toString(16);
+
+  const KEY_OFFERS = 'slevao_offers_v1';
+
+  // Demo seed (stejné jako v indexu – zkráceně; když chceš, rozšíříme na stovky)
+  const SEED = [
+    {
+      id: 'food-001', cat: 'food', title: 'Burger s trhaným hovězím + hranolky',
+      subtitle: 'Šťavnatý, kouřový, omáčka co dělá problém.',
+      story: 'Limitovaná várka. Ideální ve dvou.',
+      img: 'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=1600&q=80',
+      source: 'GURMAO', discount: 25, oldPrice: 319, newPrice: 239, expiresInDays: 0,
+      tags: ['burger','fastfood','brno','top'], link: 'https://example.com'
+    },
+    {
+      id: 'stay-001', cat: 'stay', title: 'Chata v lese + vířivka + krb',
+      subtitle: 'Ticho. Dřevo praská. Telefon vypni.',
+      story: 'Vířivka venku, hvězdy nad hlavou.',
+      img: 'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?auto=format&fit=crop&w=1600&q=80',
+      source: 'CHATAO', discount: 40, oldPrice: 3990, newPrice: 2390, expiresInDays: 2,
+      tags: ['virivka','krb','les','vikend'], link: 'https://example.com'
+    },
+    {
+      id: 'shop-001', cat: 'shop', title: 'Minimalistické hodinky (ocel)',
+      subtitle: 'Čistý design. Vypadá dražší, než je.',
+      story: 'Vypadá dražší, než stojí.',
+      img: 'https://images.unsplash.com/photo-1523275335684-37898b6baf30?auto=format&fit=crop&w=1600&q=80',
+      source: 'SLEVAO', discount: 45, oldPrice: 1990, newPrice: 1090, expiresInDays: 10,
+      tags: ['hodinky','design','dark','gift'], link: 'https://example.com'
+    }
+  ];
+
+  const el = {
+    list: $('#list'),
+    empty: $('#empty'),
+    q: $('#q'),
+    cat: $('#cat'),
+    count: $('#count'),
+
+    // preview
+    pImg: $('#pImg'),
+    pBadge: $('#pBadge'),
+    pDisc: $('#pDisc'),
+    pExp: $('#pExp'),
+    pTag: $('#pTag'),
+    pTitle: $('#pTitle'),
+    pSub: $('#pSub'),
+    pOld: $('#pOld'),
+    pNew: $('#pNew'),
+
+    // modal
+    modal: $('#editModal'),
+    backdrop: $('#editBackdrop'),
+    modalTitle: $('#modalTitle'),
+    btnClose: $('#btnClose'),
+    btnSave: $('#btnSave'),
+    btnSaveClose: $('#btnSaveClose'),
+    btnDelete: $('#btnDelete'),
+    btnDuplicate: $('#btnDuplicate'),
+    btnOpenFeed: $('#btnOpenFeed'),
+
+    fCat: $('#fCat'),
+    fTitle: $('#fTitle'),
+    fSub: $('#fSub'),
+    fStory: $('#fStory'),
+    fSource: $('#fSource'),
+    fDiscount: $('#fDiscount'),
+    fOld: $('#fOld'),
+    fNew: $('#fNew'),
+    fExp: $('#fExp'),
+    fImg: $('#fImg'),
+    fLink: $('#fLink'),
+    fTags: $('#fTags'),
+
+    toast: $('#toast'),
+    fileImport: $('#fileImport')
+  };
+
+  let offers = [];
+  let currentId = null;
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2200);
+  }
+
+  function openModal(){
+    el.modal.classList.remove('hidden');
+    document.body.classList.add('modal-open');
+  }
+  function closeModal(){
+    el.modal.classList.add('hidden');
+    document.body.classList.remove('modal-open');
+  }
+
+  function loadOffers(){
+    const o = safeJson(localStorage.getItem(KEY_OFFERS), null);
+    return Array.isArray(o) ? o : [];
+  }
+  function saveOffers(arr){
+    localStorage.setItem(KEY_OFFERS, JSON.stringify(Array.isArray(arr) ? arr : []));
+  }
+
+  function catLabel(cat){
+    if(cat==='food') return 'GURMAO · Jídlo';
+    if(cat==='stay') return 'CHATAO · Pobyt';
+    return 'SLEVAO · Produkty';
+  }
+  function catEmoji(cat){
+    if(cat==='food') return '🍔';
+    if(cat==='stay') return '🏕️';
+    return '🛍️';
+  }
+  function expLabel(d){
+    d = Number(d||0);
+    if(d === 0) return 'Končí dnes';
+    if(d === 1) return 'Končí zítra';
+    if(d <= 7) return `Končí za ${d} dny`;
+    return `Platí ještě ${d} dní`;
+  }
+
+  function computeDiscount(oldP, newP){
+    const o = Number(oldP||0);
+    const n = Number(newP||0);
+    if(o <= 0 || n <= 0 || n >= o) return 0;
+    return Math.round(((o-n)/o)*100);
+  }
+
+  function normalizeOffer(raw){
+    const o = { ...raw };
+
+    // id
+    if(!o.id) o.id = uid();
+
+    // cat
+    if(!['food','stay','shop'].includes(o.cat)) o.cat = 'shop';
+
+    // source
+    if(!o.source){
+      o.source = (o.cat==='food') ? 'GURMAO' : (o.cat==='stay') ? 'CHATAO' : 'SLEVAO';
+    }
+
+    // numbers
+    o.oldPrice = Number(o.oldPrice||0);
+    o.newPrice = Number(o.newPrice||0);
+    o.expiresInDays = Number(o.expiresInDays||0);
+
+    // discount
+    o.discount = Number(o.discount||0);
+    if(!o.discount && o.oldPrice && o.newPrice){
+      o.discount = computeDiscount(o.oldPrice, o.newPrice);
+    }
+
+    // tags
+    if(typeof o.tags === 'string'){
+      o.tags = o.tags.split(',').map(s=>s.trim()).filter(Boolean);
+    }
+    if(!Array.isArray(o.tags)) o.tags = [];
+
+    // basics
+    o.title = String(o.title||'').trim();
+    o.subtitle = String(o.subtitle||'').trim();
+    o.story = String(o.story||'').trim();
+    o.img = String(o.img||'').trim();
+    o.link = String(o.link||'').trim();
+
+    // minimal defaults
+    if(!o.title) o.title = 'Nová nabídka';
+    if(!o.subtitle) o.subtitle = '—';
+    if(!o.story) o.story = '—';
+
+    return o;
+  }
+
+  function setPreview(o){
+    const img = o.img || 'https://images.unsplash.com/photo-1520975682031-a4fe3c694bcd?auto=format&fit=crop&w=1600&q=80';
+    el.pImg.src = img;
+    el.pBadge.textContent = `${catEmoji(o.cat)} ${catLabel(o.cat)}`;
+    el.pDisc.innerHTML = `🏷️ <b class="font-extrabold">-${Number(o.discount||0)}%</b>`;
+    el.pExp.textContent = `⏳ ${expLabel(o.expiresInDays)}`;
+    el.pTag.textContent = `#${(o.tags && o.tags[0]) ? o.tags[0] : 'sleva'}`;
+    el.pTitle.textContent = o.title || '—';
+    el.pSub.textContent = o.subtitle || '—';
+    el.pOld.textContent = fmtCZK(o.oldPrice||0);
+    el.pNew.textContent = fmtCZK(o.newPrice||0);
+  }
+
+  function listRowHTML(o){
+    const t0 = (o.tags && o.tags[0]) ? `#${o.tags[0]}` : '';
+    return `
+      <button class="row w-full text-left p-4 hover:bg-white/10 transition" data-id="${o.id}">
+        <div class="flex items-start gap-3">
+          <div class="h-12 w-12 rounded-2xl bg-white/5 border border-white/10 grid place-items-center">${catEmoji(o.cat)}</div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <div class="font-extrabold truncate">${escapeHtml(o.title)}</div>
+              <span class="text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">-${Number(o.discount||0)}%</span>
+              ${t0 ? `<span class="text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/60">${escapeHtml(t0)}</span>` : ''}
+            </div>
+            <div class="mt-0.5 text-xs text-white/60 truncate">${escapeHtml(catLabel(o.cat))} • ${escapeHtml(o.source||'')} • ${escapeHtml(expLabel(o.expiresInDays))}</div>
+            <div class="mt-1 text-sm text-white/75 truncate">${escapeHtml(o.subtitle||'')}</div>
+          </div>
+          <div class="text-right">
+            <div class="text-xs text-white/50 line-through">${fmtCZK(o.oldPrice||0)}</div>
+            <div class="font-extrabold">${fmtCZK(o.newPrice||0)}</div>
+          </div>
+        </div>
+      </button>
+    `;
+  }
+
+  function escapeHtml(str){
+    return String(str||'').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+  }
+
+  function applyFilters(arr){
+    const q = (el.q.value||'').trim().toLowerCase();
+    const c = el.cat.value || 'all';
+    return arr.filter(o => {
+      if(c !== 'all' && o.cat !== c) return false;
+      if(!q) return true;
+      const hay = `${o.title} ${o.subtitle} ${(o.tags||[]).join(' ')} ${o.source}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }
+
+  function render(){
+    const shown = applyFilters(offers);
+    el.count.textContent = String(shown.length);
+
+    el.list.innerHTML = shown.map(listRowHTML).join('');
+    el.empty.classList.toggle('hidden', shown.length !== 0);
+
+    $$('.row', el.list).forEach(b => {
+      b.addEventListener('click', ()=> openEdit(b.getAttribute('data-id')));
+    });
+
+    // preview default
+    if(shown[0]) setPreview(shown[0]);
+    else setPreview(normalizeOffer({ cat:'shop', title:'—', subtitle:'—', oldPrice:0, newPrice:0, discount:0, expiresInDays:0, tags:[] }));
+  }
+
+  function openEdit(id){
+    const o = offers.find(x => x.id === id);
+    if(!o) return;
+    currentId = id;
+    el.modalTitle.textContent = `Editace: ${o.title}`;
+
+    el.fCat.value = o.cat;
+    el.fTitle.value = o.title || '';
+    el.fSub.value = o.subtitle || '';
+    el.fStory.value = o.story || '';
+    el.fSource.value = o.source || '';
+    el.fDiscount.value = Number(o.discount||0);
+    el.fOld.value = Number(o.oldPrice||0);
+    el.fNew.value = Number(o.newPrice||0);
+    el.fExp.value = Number(o.expiresInDays||0);
+    el.fImg.value = o.img || '';
+    el.fLink.value = o.link || '';
+    el.fTags.value = (o.tags||[]).join(', ');
+
+    // buttons
+    el.btnDelete.disabled = false;
+    el.btnDuplicate.disabled = false;
+
+    // preview live
+    setPreview(o);
+
+    openModal();
+  }
+
+  function openNew(){
+    currentId = null;
+    el.modalTitle.textContent = 'Nová nabídka';
+
+    el.fCat.value = 'food';
+    el.fTitle.value = '';
+    el.fSub.value = '';
+    el.fStory.value = '';
+    el.fSource.value = 'GURMAO';
+    el.fDiscount.value = '';
+    el.fOld.value = '';
+    el.fNew.value = '';
+    el.fExp.value = '0';
+    el.fImg.value = '';
+    el.fLink.value = '';
+    el.fTags.value = '';
+
+    el.btnDelete.disabled = true;
+    el.btnDuplicate.disabled = true;
+
+    setPreview(normalizeOffer({ cat:'food', title:'Nová nabídka', subtitle:'—', oldPrice:0, newPrice:0, expiresInDays:0, tags:[] }));
+
+    openModal();
+  }
+
+  function readForm(){
+    const raw = {
+      id: currentId || uid(),
+      cat: el.fCat.value,
+      title: el.fTitle.value,
+      subtitle: el.fSub.value,
+      story: el.fStory.value,
+      source: el.fSource.value,
+      discount: el.fDiscount.value,
+      oldPrice: el.fOld.value,
+      newPrice: el.fNew.value,
+      expiresInDays: el.fExp.value,
+      img: el.fImg.value,
+      link: el.fLink.value,
+      tags: el.fTags.value
+    };
+    return normalizeOffer(raw);
+  }
+
+  function upsertOffer(o){
+    const i = offers.findIndex(x => x.id === o.id);
+    if(i >= 0) offers[i] = o;
+    else offers.unshift(o);
+    saveOffers(offers);
+  }
+
+  function deleteOffer(id){
+    offers = offers.filter(x => x.id !== id);
+    saveOffers(offers);
+  }
+
+  function exportJson(){
+    const json = JSON.stringify(offers, null, 2);
+    navigator.clipboard?.writeText(json).then(()=> toast('Export zkopírován do schránky')).catch(()=>{
+      // fallback download
+      const blob = new Blob([json], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'slevao_offers.json';
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  }
+
+  function importJsonFile(file){
+    const r = new FileReader();
+    r.onload = () => {
+      const data = safeJson(String(r.result||''), null);
+      if(!Array.isArray(data)) return toast('Import: špatný JSON (čekám pole nabídek)');
+      offers = data.map(normalizeOffer);
+      saveOffers(offers);
+      toast('Import hotový');
+      render();
+    };
+    r.readAsText(file);
+  }
+
+  function bind(){
+    $('#btnNew').addEventListener('click', openNew);
+    $('#btnSeed').addEventListener('click', ()=>{
+      offers = SEED.map(normalizeOffer);
+      saveOffers(offers);
+      toast('Demo nahráno');
+      render();
+    });
+    $('#btnClear').addEventListener('click', ()=>{
+      if(!confirm('Fakt smazat všechny nabídky?')) return;
+      offers = [];
+      saveOffers(offers);
+      toast('Smazáno');
+      render();
+    });
+    $('#btnExport').addEventListener('click', exportJson);
+
+    el.fileImport.addEventListener('change', (e)=>{
+      const f = e.target.files?.[0];
+      if(f) importJsonFile(f);
+      e.target.value = '';
+    });
+
+    el.q.addEventListener('input', render);
+    el.cat.addEventListener('change', render);
+
+    el.backdrop.addEventListener('click', closeModal);
+    el.btnClose.addEventListener('click', closeModal);
+
+    // live preview while editing
+    const liveFields = [el.fCat, el.fTitle, el.fSub, el.fStory, el.fSource, el.fDiscount, el.fOld, el.fNew, el.fExp, el.fImg, el.fLink, el.fTags];
+    liveFields.forEach(inp => inp.addEventListener('input', ()=> setPreview(readForm())));
+
+    el.btnSave.addEventListener('click', ()=>{
+      const o = readForm();
+      upsertOffer(o);
+      currentId = o.id;
+      el.modalTitle.textContent = `Editace: ${o.title}`;
+      el.btnDelete.disabled = false;
+      el.btnDuplicate.disabled = false;
+      toast('Uloženo');
+      render();
+    });
+
+    el.btnSaveClose.addEventListener('click', ()=>{
+      const o = readForm();
+      upsertOffer(o);
+      toast('Uloženo');
+      render();
+      closeModal();
+    });
+
+    el.btnDelete.addEventListener('click', ()=>{
+      if(!currentId) return;
+      if(!confirm('Smazat tuto nabídku?')) return;
+      deleteOffer(currentId);
+      toast('Smazáno');
+      render();
+      closeModal();
+    });
+
+    el.btnDuplicate.addEventListener('click', ()=>{
+      if(!currentId) return;
+      const src = offers.find(x=>x.id===currentId);
+      if(!src) return;
+      const copy = normalizeOffer({ ...src, id: uid(), title: src.title + ' (kopie)' });
+      offers.unshift(copy);
+      saveOffers(offers);
+      toast('Duplikováno');
+      render();
+      openEdit(copy.id);
+    });
+
+    el.btnOpenFeed.addEventListener('click', ()=>{
+      // otevře feed (překlikni si na index a obnov)
+      location.href = './index.html';
+    });
+
+    // ESC
+    document.addEventListener('keydown', (e)=>{
+      if(e.key === 'Escape' && !el.modal.classList.contains('hidden')) closeModal();
+    });
+  }
+
+  function init(){
+    offers = loadOffers().map(normalizeOffer);
+    bind();
+    render();
+    toast('Admin připraven ✨');
+  }
+
+  init();
+</script>
+
+</body>
+</html>
