@@ -1,0 +1,593 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Slevao.cz – Všechny AO slevy na jednom místě</title>
+  <meta name="description" content="Slevao.cz: centrální portál slev a akcí napříč projekty AO Group. Reklamas, StartAO, DomenAO, Autao, Chatao, Fitnao, Farmao a další." />
+
+  <!-- Google Fonts (CZ diakritika) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700;900&family=Montserrat:wght@500;700;800&display=swap" rel="stylesheet">
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Roboto', 'ui-sans-serif', 'system-ui'],
+            display: ['Montserrat', 'ui-sans-serif', 'system-ui'],
+          },
+          colors: {
+            brand: {
+              DEFAULT: '#ff5b2e',
+              dark: '#e24f28',
+              light: '#ffe9e2',
+            },
+            accent: {
+              DEFAULT: '#fdc700',
+              dark: '#e5b600',
+            }
+          },
+          boxShadow: {
+            soft: '0 10px 30px rgba(0,0,0,.08)'
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    .line-clamp-2 { display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+    .line-clamp-3 { display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+  </style>
+</head>
+<body class="bg-gradient-to-b from-white to-slate-50 text-slate-900 font-sans">
+  <!-- Top bar -->
+  <header class="sticky top-0 z-50 bg-white/80 backdrop-blur border-b border-slate-200">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="h-16 flex items-center justify-between">
+        <!-- Logo -->
+        <a href="#" class="flex items-center gap-2 group" aria-label="Slevao domů">
+          <div class="w-9 h-9 rounded-xl bg-brand text-white grid place-items-center shadow-soft group-hover:scale-105 transition-transform">
+            <span class="font-display text-xl">%</span>
+          </div>
+          <div class="leading-tight">
+            <div class="font-display font-extrabold text-xl tracking-tight">Slevao.cz</div>
+            <div class="text-xs text-slate-500">Všechny AO slevy na jednom místě</div>
+          </div>
+        </a>
+
+        <!-- Desktop nav -->
+        <nav class="hidden md:flex items-center gap-4">
+          <a href="#nabidky" class="text-sm font-medium text-slate-700 hover:text-brand">Nabídky</a>
+          <a href="#kategorie" class="text-sm font-medium text-slate-700 hover:text-brand">Kategorie</a>
+          <a href="#jak-funguje" class="text-sm font-medium text-slate-700 hover:text-brand">Jak to funguje</a>
+          <a href="#kontakt" class="text-sm font-medium text-slate-700 hover:text-brand">Kontakt</a>
+        </nav>
+
+        <!-- Actions -->
+        <div class="hidden md:flex items-center gap-3">
+          <a href="#newsletter" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
+            <i data-lucide="bell" class="w-4 h-4"></i>
+            Hlídač slev
+          </a>
+          <a href="#pridat" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-accent text-slate-900 text-sm font-semibold hover:bg-accent-dark">
+            <i data-lucide="plus" class="w-4 h-4"></i>
+            Přidat akci
+          </a>
+        </div>
+
+        <!-- Hamburger -->
+        <button id="hamburger" class="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-xl border border-slate-200" aria-expanded="false" aria-controls="mobile-menu" aria-label="Otevřít menu">
+          <i data-lucide="menu" class="w-5 h-5"></i>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile menu -->
+    <div id="mobile-menu" class="md:hidden hidden border-t border-slate-200 bg-white/95 backdrop-blur">
+      <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 grid gap-2">
+        <a href="#nabidky" class="py-2 text-sm font-medium" data-close-menu>📦 Nabídky</a>
+        <a href="#kategorie" class="py-2 text-sm font-medium" data-close-menu>🏷️ Kategorie</a>
+        <a href="#jak-funguje" class="py-2 text-sm font-medium" data-close-menu>ℹ️ Jak to funguje</a>
+        <a href="#kontakt" class="py-2 text-sm font-medium" data-close-menu>✉️ Kontakt</a>
+        <a href="#newsletter" class="py-2 text-sm font-semibold text-brand" data-close-menu>🔔 Hlídač slev</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero -->
+  <section class="relative overflow-hidden">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16">
+      <div class="grid lg:grid-cols-2 gap-10 items-center">
+        <div>
+          <h1 class="font-display text-3xl sm:text-4xl lg:text-5xl font-extrabold leading-tight">
+            Lov slev začíná na <span class="text-brand">Slevao.cz</span>
+          </h1>
+          <p class="mt-4 text-slate-600 text-base sm:text-lg max-w-prose">
+            Sjednocujeme slevy ze všech projektů AO Group: Reklamas, StartAO, DomenAO, Autao, Chatao, Fitnao, Farmao a další. Filtrování, hlídač slev a akce, které opravdu dávají smysl.
+          </p>
+          <div class="mt-6 flex flex-col sm:flex-row gap-3">
+            <a href="#nabidky" class="inline-flex items-center gap-2 rounded-xl px-4 py-3 bg-brand text-white font-semibold hover:bg-brand-dark shadow-soft">
+              <i data-lucide="zap" class="w-5 h-5"></i>
+              Prohlédnout nabídky
+            </a>
+            <a href="#jak-funguje" class="inline-flex items-center gap-2 rounded-xl px-4 py-3 bg-white border border-slate-200 hover:bg-slate-50">
+              <i data-lucide="info" class="w-5 h-5"></i>
+              Jak to funguje
+            </a>
+          </div>
+          <!-- Přínosy -->
+          <div class="mt-8 grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div class="rounded-xl border border-slate-200 p-3 bg-white/70">
+              <div class="text-sm font-semibold">Ověřené akce</div>
+              <div class="text-xs text-slate-500">Ruční kontrola slevenek</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-3 bg-white/70">
+              <div class="text-sm font-semibold">Hlídač slev</div>
+              <div class="text-xs text-slate-500">Upozornění e‑mailem</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-3 bg-white/70">
+              <div class="text-sm font-semibold">Reálné %</div>
+              <div class="text-xs text-slate-500">Žádné falešné slevy</div>
+            </div>
+            <div class="rounded-xl border border-slate-200 p-3 bg-white/70">
+              <div class="text-sm font-semibold">AO ekosystém</div>
+              <div class="text-xs text-slate-500">Napříč AO projekty</div>
+            </div>
+          </div>
+        </div>
+        <!-- Hero karta s TOP akcí -->
+        <div class="relative">
+          <div class="rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden">
+            <div class="aspect-[16/9] bg-gradient-to-tr from-brand/10 to-accent/20 grid place-items-center">
+              <div class="text-center px-6">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand text-white text-sm font-semibold">TOP -50 %</div>
+                <h3 class="mt-3 font-display text-2xl font-extrabold">Reklamas.cz – Sleva na mobilní reklamu</h3>
+                <p class="mt-2 text-slate-600">Zvýhodněné balíčky pro podzimní akce v Uherském Hradišti, Zlíně a Brně.</p>
+              </div>
+            </div>
+            <div class="p-4 flex items-center justify-between">
+              <div class="text-sm text-slate-600">Končí za <span class="font-semibold" id="heroTimer">—</span></div>
+              <a href="#" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+                Zobrazit nabídku
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Filtry & vyhledávání -->
+  <section id="kategorie" class="border-t border-slate-200 bg-white/70">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <div class="grid lg:grid-cols-12 gap-4 items-end">
+        <div class="lg:col-span-5">
+          <label for="search" class="text-sm font-medium text-slate-700">Hledat nabídky</label>
+          <div class="mt-1 relative">
+            <input id="search" type="search" placeholder="např. reklama, domény, auto, chata…" class="w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand" />
+            <i data-lucide="search" class="w-4 h-4 text-slate-400 absolute right-3 top-3"></i>
+          </div>
+        </div>
+        <div class="lg:col-span-5">
+          <label class="text-sm font-medium text-slate-700">Kategorie</label>
+          <div class="mt-1 flex flex-wrap gap-2" id="categoryChips">
+            <!-- chips jsou generované skriptem -->
+          </div>
+        </div>
+        <div class="lg:col-span-2">
+          <label for="sort" class="text-sm font-medium text-slate-700">Seřadit</label>
+          <select id="sort" class="mt-1 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand">
+            <option value="pop">Nejlepší shoda</option>
+            <option value="discount">Nejvyšší sleva</option>
+            <option value="new">Nejnovější</option>
+            <option value="ending">Končí brzy</option>
+          </select>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Nabídky -->
+  <section id="nabidky" class="py-8 sm:py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div id="offersGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+      <div class="text-center mt-8">
+        <button id="loadMore" class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 border border-slate-300 bg-white hover:bg-slate-50">Načíst další</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Jak to funguje -->
+  <section id="jak-funguje" class="border-t border-slate-200 bg-white/70">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <h2 class="font-display text-2xl sm:text-3xl font-extrabold">Jak Slevao funguje</h2>
+      <div class="mt-6 grid md:grid-cols-3 gap-6">
+        <div class="rounded-2xl border border-slate-200 p-6 bg-white">
+          <div class="w-10 h-10 rounded-lg bg-brand text-white grid place-items-center mb-3"><i data-lucide="scan" class="w-5 h-5"></i></div>
+          <h3 class="font-semibold">Sbíráme a ověřujeme</h3>
+          <p class="text-slate-600 text-sm mt-1">Procházíme AO projekty a přidáváme pouze reálné a ověřené slevy bez nafouknutých cen.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 p-6 bg-white">
+          <div class="w-10 h-10 rounded-lg bg-brand text-white grid place-items-center mb-3"><i data-lucide="sliders-horizontal" class="w-5 h-5"></i></div>
+          <h3 class="font-semibold">Chytré filtrování</h3>
+          <p class="text-slate-600 text-sm mt-1">Vyhledáš, vyfiltruješ podle kategorie, procenta slevy i doby trvání. Vše přehledně.</p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 p-6 bg-white">
+          <div class="w-10 h-10 rounded-lg bg-brand text-white grid place-items-center mb-3"><i data-lucide="bell-ring" class="w-5 h-5"></i></div>
+          <h3 class="font-semibold">Hlídač slev</h3>
+          <p class="text-slate-600 text-sm mt-1">Zapneš notifikace a e‑mailem ti pošleme, jakmile se objeví nová akce.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Newsletter / Hlídač slev -->
+  <section id="newsletter" class="py-12">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-soft p-6">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+          <div>
+            <h3 class="font-display text-xl font-extrabold">Zapni hlídač slev</h3>
+            <p class="text-slate-600 text-sm">Pošleme ti jen relevantní akce. Žádný spam.</p>
+          </div>
+          <form class="flex-1 flex flex-col sm:flex-row gap-3" onsubmit="event.preventDefault(); alert('Díky! Brzy se ozveme.'); this.reset();">
+            <input required type="email" placeholder="tvůj@email.cz" class="flex-1 rounded-xl border border-slate-300 px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-brand" />
+            <button class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-slate-900 text-white font-semibold hover:bg-slate-800">
+              <i data-lucide="bell" class="w-4 h-4"></i>
+              Hlídát slevy
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Přidat akci -->
+  <section id="pridat" class="border-t border-slate-200 bg-white/70">
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <div class="rounded-2xl border border-slate-200 bg-white shadow-soft p-6">
+        <h3 class="font-display text-xl font-extrabold">Chceš přidat vlastní akci?</h3>
+        <p class="text-slate-600 text-sm">Vyplň stručně parametry. Po schválení se objeví na hlavní stránce.</p>
+        <form class="mt-5 grid sm:grid-cols-2 gap-4" onsubmit="event.preventDefault(); alert('Díky! Nabídku zkontrolujeme.'); this.reset();">
+          <div class="sm:col-span-2">
+            <label class="text-sm font-medium">Název akce</label>
+            <input required type="text" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Kategorie</label>
+            <select class="mt-1 w-full rounded-xl border border-slate-300 px-3 py-2.5 focus:ring-2 focus:ring-brand">
+              <option>Reklamas</option>
+              <option>StartAO</option>
+              <option>DomenAO</option>
+              <option>Autao</option>
+              <option>Chatao</option>
+              <option>Fitnao</option>
+              <option>Farmao</option>
+            </select>
+          </div>
+          <div>
+            <label class="text-sm font-medium">Sleva (%)</label>
+            <input type="number" min="1" max="90" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+          </div>
+          <div>
+            <label class="text-sm font-medium">Platnost do</label>
+            <input type="date" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+          </div>
+          <div class="sm:col-span-2">
+            <label class="text-sm font-medium">Odkaz na nabídku</label>
+            <input type="url" placeholder="https://…" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+          </div>
+          <div class="sm:col-span-2">
+            <button class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-brand text-white font-semibold hover:bg-brand-dark">
+              <i data-lucide="send" class="w-4 h-4"></i>
+              Odeslat ke schválení
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  <!-- Kontakt -->
+  <section id="kontakt" class="py-12">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="grid md:grid-cols-2 gap-6 items-start">
+        <div>
+          <h2 class="font-display text-2xl sm:text-3xl font-extrabold">Kontakt</h2>
+          <p class="mt-2 text-slate-600 text-sm max-w-prose">Hledáš spolupráci nebo chceš integrovat své slevy? Ozvi se, domluvíme detaily a napojení na AO ekosystém.</p>
+          <div class="mt-5 space-y-2 text-sm">
+            <div class="flex items-center gap-2"><i data-lucide="mail" class="w-4 h-4"></i> <a href="mailto:info@slevao.cz" class="hover:underline">info@slevao.cz</a></div>
+            <div class="flex items-center gap-2"><i data-lucide="map-pin" class="w-4 h-4"></i> Uherské Hradiště / Zlín / Brno</div>
+          </div>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-6">
+          <form class="grid grid-cols-2 gap-4" onsubmit="event.preventDefault(); alert('Díky! Ozveme se.'); this.reset();">
+            <div class="col-span-2 sm:col-span-1">
+              <label class="text-sm font-medium">Jméno</label>
+              <input required class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+            </div>
+            <div class="col-span-2 sm:col-span-1">
+              <label class="text-sm font-medium">E‑mail</label>
+              <input required type="email" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand" />
+            </div>
+            <div class="col-span-2">
+              <label class="text-sm font-medium">Zpráva</label>
+              <textarea rows="4" class="mt-1 w-full rounded-xl border border-slate-300 px-4 py-2.5 focus:ring-2 focus:ring-brand"></textarea>
+            </div>
+            <div class="col-span-2">
+              <button class="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 bg-slate-900 text-white font-semibold hover:bg-slate-800">
+                <i data-lucide="send" class="w-4 h-4"></i>
+                Odeslat zprávu
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-200 bg-white/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 text-sm">
+      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div>
+          <div class="font-display font-extrabold text-lg">Slevao.cz</div>
+          <p class="text-slate-600 mt-2">Centrální portál slev AO Group.</p>
+        </div>
+        <div>
+          <div class="font-semibold">AO projekty</div>
+          <ul class="mt-2 space-y-1 text-slate-600">
+            <li><a class="hover:text-brand" href="#">Reklamas.cz</a></li>
+            <li><a class="hover:text-brand" href="#">StartAO.cz</a></li>
+            <li><a class="hover:text-brand" href="#">DomenAO.cz</a></li>
+            <li><a class="hover:text-brand" href="#">Autao.cz</a></li>
+            <li><a class="hover:text-brand" href="#">Chatao.cz</a></li>
+            <li><a class="hover:text-brand" href="#">Fitnao.cz</a></li>
+            <li><a class="hover:text-brand" href="#">Farmao.cz</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="font-semibold">Užitečné</div>
+          <ul class="mt-2 space-y-1 text-slate-600">
+            <li><a class="hover:text-brand" href="#jak-funguje">Jak to funguje</a></li>
+            <li><a class="hover:text-brand" href="#newsletter">Hlídač slev</a></li>
+            <li><a class="hover:text-brand" href="#pridat">Přidat akci</a></li>
+          </ul>
+        </div>
+        <div>
+          <div class="font-semibold">Právní</div>
+          <ul class="mt-2 space-y-1 text-slate-600">
+            <li><a class="hover:text-brand" href="#">Obchodní podmínky</a></li>
+            <li><a class="hover:text-brand" href="#">Zásady ochrany osobních údajů</a></li>
+          </ul>
+        </div>
+      </div>
+      <div class="mt-6 text-slate-500">© <span id="year"></span> Slevao.cz – AO Group</div>
+    </div>
+  </footer>
+
+  <!-- Datový model a skriptování -->
+  <script>
+    // ====== Ikony ======
+    window.addEventListener('DOMContentLoaded', () => {
+      lucide.createIcons();
+      document.getElementById('year').textContent = new Date().getFullYear();
+    });
+
+    // ====== Mobilní menu (auto-close po kliknutí) ======
+    const hamburger = document.getElementById('hamburger');
+    const mobileMenu = document.getElementById('mobile-menu');
+    const toggleMenu = () => {
+      const isOpen = !mobileMenu.classList.contains('hidden');
+      if (isOpen) {
+        mobileMenu.classList.add('hidden');
+        hamburger.setAttribute('aria-expanded', 'false');
+      } else {
+        mobileMenu.classList.remove('hidden');
+        hamburger.setAttribute('aria-expanded', 'true');
+      }
+    };
+    hamburger.addEventListener('click', toggleMenu);
+    mobileMenu.querySelectorAll('[data-close-menu]').forEach(a => a.addEventListener('click', () => {
+      mobileMenu.classList.add('hidden');
+      hamburger.setAttribute('aria-expanded', 'false');
+    }));
+
+    // ====== Demo data nabídek ======
+    const offers = [
+      {
+        id: 'reklamas-50',
+        title: 'Reklamas.cz – mobilní reklama',
+        desc: 'Podzimní balíček na eventy ve Zlínském kraji. Vyzkoušej Reklamas hrdinu v terénu.',
+        category: 'Reklamas',
+        discount: 50,
+        until: addDays(10),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'startao-30',
+        title: 'StartAO.cz – logo + miniweb',
+        desc: 'Startovní balíček pro začínající projekty. Logo, doména, jednostránkový web.',
+        category: 'StartAO',
+        discount: 30,
+        until: addDays(7),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'domenao-70',
+        title: 'DomenAO.cz – vybrané domény',
+        desc: 'Výprodej vybraných .cz domén z portfolia AO. Omezeno do vyprodání.',
+        category: 'DomenAO',
+        discount: 70,
+        until: addDays(3),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'autao-20',
+        title: 'Autao.cz – pronájem dodávek',
+        desc: 'Krátkodobý pronájem dodávek a osobních aut. Podzimní sleva pro podnikatele.',
+        category: 'Autao',
+        discount: 20,
+        until: addDays(14),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'chatao-35',
+        title: 'Chatao.cz – víkend na chatě',
+        desc: 'Sleva na víkendové pobyty v Beskydech a na Slovácku. Dárkový poukaz k rezervaci.',
+        category: 'Chatao',
+        discount: 35,
+        until: addDays(21),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'fitnao-40',
+        title: 'Fitnao.cz – startovací set',
+        desc: 'Gumy, podložka a plán pro redukci hmotnosti. Včetně PDF s cviky na záda.',
+        category: 'Fitnao',
+        discount: 40,
+        until: addDays(5),
+        link: '#',
+        image: null
+      },
+      {
+        id: 'farmao-25',
+        title: 'Farmao.cz – bedýnka zeleniny',
+        desc: 'Sezónní bedýnka od místních farmářů. Doprava po UH a okolí.',
+        category: 'Farmao',
+        discount: 25,
+        until: addDays(9),
+        link: '#',
+        image: null
+      }
+    ];
+
+    function addDays(d){ const dt = new Date(); dt.setDate(dt.getDate()+d); return dt; }
+
+    // Kategorie z dat
+    const categories = [...new Set(offers.map(o => o.category))];
+    const categoryChips = document.getElementById('categoryChips');
+    const selected = new Set();
+
+    categories.forEach(cat => {
+      const chip = document.createElement('button');
+      chip.type = 'button';
+      chip.className = 'chip inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-slate-300 bg-white text-sm';
+      chip.textContent = cat;
+      chip.dataset.category = cat;
+      chip.addEventListener('click', () => {
+        if (selected.has(cat)) {
+          selected.delete(cat); chip.classList.remove('ring-2','ring-brand','border-brand');
+        } else {
+          selected.add(cat); chip.classList.add('ring-2','ring-brand','border-brand');
+        }
+        render();
+      });
+      categoryChips.appendChild(chip);
+    });
+
+    // Vyhledávání & třídění
+    const searchInput = document.getElementById('search');
+    const sortSelect = document.getElementById('sort');
+    searchInput.addEventListener('input', () => render());
+    sortSelect.addEventListener('change', () => render());
+
+    // Grid rendering + lazy paging
+    const grid = document.getElementById('offersGrid');
+    const loadMoreBtn = document.getElementById('loadMore');
+    let page = 1; const pageSize = 6;
+
+    function timeLeftStr(date){
+      const ms = new Date(date) - new Date();
+      if (ms <= 0) return 'vypršelo';
+      const d = Math.floor(ms/86400000);
+      const h = Math.floor((ms%86400000)/3600000);
+      return d>0 ? `${d} d ${h} h` : `${h} h`;
+    }
+
+    function applyFilters(data){
+      const q = searchInput.value.trim().toLowerCase();
+      let list = data.filter(o => (!selected.size || selected.has(o.category)));
+      if (q) list = list.filter(o => (o.title+o.desc+o.category).toLowerCase().includes(q));
+      switch (sortSelect.value){
+        case 'discount': list.sort((a,b)=>b.discount-a.discount); break;
+        case 'new': list.sort((a,b)=>b.until - a.until); break; // demo: "nové" ~ delší platnost
+        case 'ending': list.sort((a,b)=>a.until - b.until); break;
+        default: /* pop */ list.sort((a,b)=>b.discount - a.discount);
+      }
+      return list;
+    }
+
+    function offerCard(o){
+      const daysLeft = timeLeftStr(o.until);
+      return `
+        <article class="group rounded-2xl border border-slate-200 bg-white shadow-soft overflow-hidden" data-category="${o.category}" data-discount="${o.discount}" data-until="${o.until.toISOString()}">
+          <div class="aspect-[16/9] bg-gradient-to-tr from-brand/10 to-accent/20 relative">
+            <div class="absolute top-3 left-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-brand text-white text-xs font-semibold">-${o.discount}%</div>
+            <div class="absolute top-3 right-3 inline-flex items-center gap-1 px-2 py-1 rounded-full bg-black/80 text-white text-xs" title="Zbývá času">${daysLeft}</div>
+            <div class="absolute inset-0 grid place-items-center text-center px-6">
+              <div class="font-display font-extrabold text-lg">${o.title}</div>
+              <div class="text-xs text-slate-600">${o.category}</div>
+            </div>
+          </div>
+          <div class="p-4">
+            <h3 class="font-semibold line-clamp-2">${o.title}</h3>
+            <p class="text-sm text-slate-600 mt-1 line-clamp-3">${o.desc}</p>
+            <div class="mt-3 flex items-center justify-between">
+              <div class="text-xs text-slate-500">Končí za <span class="font-medium">${daysLeft}</span></div>
+              <a href="${o.link}" class="inline-flex items-center gap-2 rounded-xl px-3 py-2 bg-slate-900 text-white text-sm font-semibold hover:bg-slate-800">
+                <i data-lucide="link" class="w-4 h-4"></i>
+                Detail
+              </a>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function render(){
+      const filtered = applyFilters(offers);
+      const cap = page * pageSize;
+      const visible = filtered.slice(0, cap);
+      grid.innerHTML = visible.map(offerCard).join('');
+      lucide.createIcons();
+      loadMoreBtn.classList.toggle('hidden', visible.length >= filtered.length);
+    }
+
+    loadMoreBtn.addEventListener('click', () => { page++; render(); });
+
+    // Hero odpočet
+    function updateHeroTimer(){
+      const ms = addDays(2) - new Date();
+      const el = document.getElementById('heroTimer');
+      if (!el) return;
+      if (ms <= 0) { el.textContent = 'vypršelo'; return; }
+      const d = Math.floor(ms/86400000);
+      const h = Math.floor((ms%86400000)/3600000);
+      const m = Math.floor((ms%3600000)/60000);
+      el.textContent = (d>0?`${d} d `:'') + `${h} h ${m} min`;
+    }
+    setInterval(updateHeroTimer, 1000*30); // každých 30 s
+    updateHeroTimer();
+
+    // Init
+    render();
+  </script>
+</body>
+</html>
