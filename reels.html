@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b1220" />
+  <title>SLEVAO – Reels</title>
+  <meta name="description" content="SLEVAO reels – fullscreen feed jako Instagram." />
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            soft: "0 20px 55px rgba(0,0,0,0.45)",
+            glow: "0 0 0 1px rgba(255,255,255,0.08), 0 18px 60px rgba(236,72,153,0.20)",
+          },
+          borderRadius: {
+            "3xl": "1.75rem",
+            "4xl": "2.25rem",
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    :root{ --bg0:#070b14; --bg1:#0b1220; }
+    html,body{ height:100%; }
+    body{
+      background:
+        radial-gradient(1200px 700px at 15% 10%, rgba(236,72,153,.20), transparent 60%),
+        radial-gradient(900px 600px at 85% 15%, rgba(245,158,11,.18), transparent 55%),
+        radial-gradient(900px 700px at 55% 85%, rgba(16,185,129,.12), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+      color:#fff;
+      overscroll-behavior: none;
+    }
+    .glass{ background: rgba(15,23,42,.55); backdrop-filter: blur(14px); }
+    .focus-ring:focus{ outline:none; box-shadow: 0 0 0 3px rgba(56,189,248,.35); }
+    .hide-scroll::-webkit-scrollbar{ display:none; }
+    .hide-scroll{ scrollbar-width:none; }
+    .tap{ -webkit-tap-highlight-color: rgba(236,72,153,.18); }
+  </style>
+</head>
+<body class="min-h-screen">
+
+<!-- TOP OVERLAY -->
+<header class="fixed top-0 left-0 right-0 z-40">
+  <div class="glass border-b border-white/10">
+    <div class="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+      <a href="./index.html" class="flex items-center gap-2 tap">
+        <span class="inline-flex h-10 w-10 rounded-2xl bg-gradient-to-br from-fuchsia-500/30 via-neutral-900 to-amber-500/20 border border-white/10 shadow-soft items-center justify-center">✨</span>
+        <div class="leading-tight">
+          <div class="flex items-center gap-2">
+            <span class="text-lg font-extrabold">SLEVAO</span>
+            <span class="text-xs px-2 py-0.5 rounded-full border border-white/10 bg-white/5 text-white/70">Reels</span>
+          </div>
+          <div class="text-xs text-white/60">Šipky / swipe • Enter = detail</div>
+        </div>
+      </a>
+
+      <div class="ml-auto flex items-center gap-2">
+        <a href="./account.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 tap">👤</a>
+        <a href="./submit.html" class="focus-ring h-10 px-4 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10 tap">➕</a>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- VIEWPORT -->
+<main class="h-screen pt-[68px]">
+  <div id="wrap" class="h-[calc(100vh-68px)] overflow-hidden relative">
+
+    <!-- Current slide -->
+    <section id="slide" class="absolute inset-0">
+      <div class="h-full w-full grid place-items-center">
+        <div class="relative h-full w-full max-w-[520px]">
+
+          <!-- media -->
+          <div class="absolute inset-0 rounded-4xl overflow-hidden border border-white/10 shadow-glow bg-black">
+            <img id="img" class="w-full h-full object-cover" alt="" />
+            <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-black/35"></div>
+            <div class="absolute inset-0 bg-[radial-gradient(circle_at_50%_15%,rgba(255,255,255,.10),transparent_55%)]"></div>
+          </div>
+
+          <!-- left: meta -->
+          <div class="absolute bottom-0 left-0 right-0 p-4">
+            <div class="flex flex-wrap gap-2 items-center">
+              <span id="badge" class="inline-flex items-center gap-2 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">✨ SLEVAO</span>
+              <span id="disc" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">🏷️ <b class="font-extrabold">-0%</b></span>
+              <span id="exp" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">⏳ Platí</span>
+              <span id="tag" class="inline-flex items-center gap-1 text-xs px-3 py-1 rounded-full border border-white/15 bg-white/10">#</span>
+            </div>
+
+            <div id="title" class="mt-3 text-2xl font-extrabold leading-tight">—</div>
+            <div id="sub" class="mt-1 text-white/75">—</div>
+
+            <div class="mt-3 flex items-center justify-between">
+              <div class="text-base">
+                <span id="old" class="line-through text-white/40">0 Kč</span>
+                <span id="neu" class="ml-2 font-extrabold">0 Kč</span>
+              </div>
+              <div class="text-xs text-white/60">(<span id="pos">1</span>/<span id="total">1</span>)</div>
+            </div>
+          </div>
+
+          <!-- right: actions -->
+          <div class="absolute right-3 top-1/2 -translate-y-1/2 flex flex-col gap-3">
+            <button id="btnSave" class="focus-ring tap h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-lg">🤍</button>
+            <button id="btnShare" class="focus-ring tap h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-lg">🔗</button>
+            <button id="btnDetail" class="focus-ring tap h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-lg">↗️</button>
+            <button id="btnNext" class="focus-ring tap h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-lg">⬇️</button>
+            <button id="btnPrev" class="focus-ring tap h-12 w-12 rounded-2xl bg-white/10 border border-white/15 grid place-items-center text-lg">⬆️</button>
+          </div>
+
+          <!-- hint -->
+          <div class="absolute top-3 left-3 right-3 flex items-center justify-between">
+            <div class="text-xs text-white/60">Swipe ↑↓</div>
+            <div id="origin" class="text-xs text-white/50 hidden md:block"></div>
+          </div>
+
+        </div>
+      </div>
+    </section>
+
+    <!-- empty -->
+    <section id="empty" class="hidden absolute inset-0 grid place-items-center text-center px-6">
+      <div class="max-w-md">
+        <div class="text-4xl">🫥</div>
+        <div class="mt-2 text-2xl font-extrabold">Žádné nabídky</div>
+        <div class="mt-2 text-white/70">Nahraj demo v adminu nebo schval nabídky z čekárny.</div>
+        <div class="mt-4 flex justify-center gap-2 flex-wrap">
+          <a href="./admin.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">⚙️ Admin</a>
+          <a href="./moderation.html" class="focus-ring h-11 px-5 rounded-2xl bg-white/5 border border-white/10 hover:bg-white/10">🧰 Moderace</a>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<!-- TOAST -->
+<div id="toast" class="hidden fixed left-1/2 -translate-x-1/2 bottom-6 z-[60]">
+  <div class="rounded-2xl border border-white/10 bg-[#0b1220] shadow-soft px-4 py-3 text-sm"></div>
+</div>
+
+<script>
+  const KEY_OFFERS = 'slevao_offers_v1';
+  const KEY_SAVED  = 'slevao_saved_v1';
+
+  const $ = (s,r=document)=>r.querySelector(s);
+  const safeJson = (v,f)=>{ try{return JSON.parse(v)}catch(e){return f} };
+  const fmtCZK = (n) => new Intl.NumberFormat('cs-CZ').format(Math.round(Number(n)||0)) + ' Kč';
+
+  const el = {
+    img: $('#img'),
+    badge: $('#badge'),
+    disc: $('#disc'),
+    exp: $('#exp'),
+    tag: $('#tag'),
+    title: $('#title'),
+    sub: $('#sub'),
+    old: $('#old'),
+    neu: $('#neu'),
+    pos: $('#pos'),
+    total: $('#total'),
+    origin: $('#origin'),
+
+    btnSave: $('#btnSave'),
+    btnShare: $('#btnShare'),
+    btnDetail: $('#btnDetail'),
+    btnNext: $('#btnNext'),
+    btnPrev: $('#btnPrev'),
+
+    empty: $('#empty'),
+    toast: $('#toast'),
+  };
+
+  let offers = [];
+  let saved = [];
+  let idx = 0;
+
+  function toast(msg){
+    el.toast.firstElementChild.textContent = msg;
+    el.toast.classList.remove('hidden');
+    setTimeout(()=> el.toast.classList.add('hidden'), 2000);
+  }
+
+  function catLabel(cat){
+    if(cat==='food') return '🍔 GURMAO · Jídlo';
+    if(cat==='stay') return '🏕️ CHATAO · Pobyt';
+    return '🛍️ SLEVAO · Produkty';
+  }
+
+  function expLabel(d){
+    d = Number(d||0);
+    if(d===0) return 'Končí dnes';
+    if(d===1) return 'Končí zítra';
+    if(d<=7) return `Končí za ${d} dny`;
+    return `Platí ještě ${d} dní`;
+  }
+
+  function loadOffers(){
+    const arr = safeJson(localStorage.getItem(KEY_OFFERS), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function loadSaved(){
+    const arr = safeJson(localStorage.getItem(KEY_SAVED), []);
+    return Array.isArray(arr) ? arr : [];
+  }
+
+  function saveSaved(arr){
+    localStorage.setItem(KEY_SAVED, JSON.stringify(Array.isArray(arr)?arr:[]));
+  }
+
+  function setSavedUI(isSaved){
+    el.btnSave.textContent = isSaved ? '❤️' : '🤍';
+  }
+
+  async function shareLink(url){
+    try{
+      if(navigator.share){
+        await navigator.share({ title: document.title, url });
+        toast('Sdíleno ✅');
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast('Link zkopírován ✅');
+      }
+    }catch(e){ toast('Sdílení zrušeno'); }
+  }
+
+  function render(){
+    if(!offers.length){
+      el.empty.classList.remove('hidden');
+      return;
+    }
+    el.empty.classList.add('hidden');
+
+    const o = offers[idx];
+    const img = o.img || 'https://images.unsplash.com/photo-1520975682031-a4fe3c694bcd?auto=format&fit=crop&w=1600&q=80';
+
+    el.img.src = img;
+    el.badge.textContent = catLabel(o.cat);
+    el.disc.innerHTML = `🏷️ <b class="font-extrabold">-${Number(o.discount||0)}%</b>`;
+    el.exp.textContent = `⏳ ${expLabel(o.expiresInDays)}`;
+    el.tag.textContent = `#${(o.tags && o.tags[0]) ? o.tags[0] : 'sleva'}`;
+    el.title.textContent = o.title || '—';
+    el.sub.textContent = o.subtitle || '—';
+    el.old.textContent = fmtCZK(o.oldPrice||0);
+    el.neu.textContent = fmtCZK(o.newPrice||0);
+
+    el.pos.textContent = String(idx+1);
+    el.total.textContent = String(offers.length);
+
+    setSavedUI(saved.includes(o.id));
+
+    // url state (hladké sdílení)
+    const u = new URL(location.href);
+    u.searchParams.set('id', o.id);
+    history.replaceState({}, '', u);
+
+    document.title = `${o.title} – SLEVAO Reels`;
+  }
+
+  function next(){
+    if(!offers.length) return;
+    idx = (idx + 1) % offers.length;
+    render();
+  }
+
+  function prev(){
+    if(!offers.length) return;
+    idx = (idx - 1 + offers.length) % offers.length;
+    render();
+  }
+
+  function openDetail(){
+    if(!offers.length) return;
+    const o = offers[idx];
+    location.href = `./detail.html?id=${encodeURIComponent(o.id)}&t=${Date.now()}`;
+  }
+
+  function toggleSave(){
+    if(!offers.length) return;
+    const o = offers[idx];
+    const i = saved.indexOf(o.id);
+    if(i >= 0) saved.splice(i,1);
+    else saved.push(o.id);
+    saveSaved(saved);
+    setSavedUI(saved.includes(o.id));
+    toast(saved.includes(o.id) ? 'Uloženo ❤️' : 'Odebráno');
+  }
+
+  // touch swipe
+  let y0 = null;
+  function onTouchStart(e){ y0 = e.touches?.[0]?.clientY ?? null; }
+  function onTouchMove(e){
+    if(y0 === null) return;
+    const y = e.touches?.[0]?.clientY ?? null;
+    if(y === null) return;
+    const dy = y - y0;
+    if(Math.abs(dy) > 55){
+      if(dy < 0) next();
+      else prev();
+      y0 = null;
+    }
+  }
+  function onTouchEnd(){ y0 = null; }
+
+  // bindings
+  el.btnNext.addEventListener('click', next);
+  el.btnPrev.addEventListener('click', prev);
+  el.btnDetail.addEventListener('click', openDetail);
+  el.btnSave.addEventListener('click', toggleSave);
+  el.btnShare.addEventListener('click', ()=> shareLink(location.href));
+
+  document.addEventListener('keydown', (e)=>{
+    if(e.key === 'ArrowDown' || e.key === 'PageDown') next();
+    if(e.key === 'ArrowUp' || e.key === 'PageUp') prev();
+    if(e.key === 'Enter') openDetail();
+    if(e.key.toLowerCase() === 's') toggleSave();
+  });
+
+  const wrap = $('#wrap');
+  wrap.addEventListener('touchstart', onTouchStart, {passive:true});
+  wrap.addEventListener('touchmove', onTouchMove, {passive:true});
+  wrap.addEventListener('touchend', onTouchEnd, {passive:true});
+
+  // init
+  offers = loadOffers();
+  saved = loadSaved();
+  el.origin.textContent = location.origin;
+
+  // start position by ?id=
+  const params = new URLSearchParams(location.search);
+  const startId = params.get('id');
+  if(startId){
+    const j = offers.findIndex(x=>String(x.id)===String(startId));
+    if(j >= 0) idx = j;
+  }
+
+  render();
+  toast('Reels připraveny 🎬');
+</script>
+</body>
+</html>
