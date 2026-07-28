@@ -3,8 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
-const AI_EXTRACTOR_URL = Deno.env.get('AI_EXTRACTOR_URL') || '';
-const AI_EXTRACTOR_KEY = Deno.env.get('AI_EXTRACTOR_KEY') || '';
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
+const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini';
 const STORAGE_BUCKET = Deno.env.get('LEAFLET_BUCKET') || 'leaflets';
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -13,24 +13,30 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 type ExtractedItem = {
   title: string;
-  brand?: string | null;
-  quantity_text?: string | null;
-  price?: number | null;
-  old_price?: number | null;
-  unit_price?: number | null;
-  unit_label?: string | null;
-  image_url?: string | null;
-  source_page?: number | null;
-  confidence?: number | null;
-  category_name?: string | null;
-  raw_data?: Record<string, unknown>;
+  brand: string | null;
+  quantity_text: string | null;
+  price: number | null;
+  old_price: number | null;
+  unit_price: number | null;
+  unit_label: string | null;
+  image_url: string | null;
+  source_page: number | null;
+  confidence: number | null;
+  category_name: string | null;
+};
+
+type ExtractionResult = {
+  valid_from: string | null;
+  valid_to: string | null;
+  page_count: number | null;
+  items: ExtractedItem[];
 };
 
 async function fail(importId: string, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
   await db.from('leaflet_imports').update({
     status: 'failed',
-    error_message: message,
+    error_message: message.slice(0, 2000),
     finished_at: new Date().toISOString(),
   }).eq('id', importId);
   return Response.json({ error: message }, { status: 500 });
@@ -38,18 +44,121 @@ async function fail(importId: string, error: unknown) {
 
 async function ensureBucket() {
   const { data } = await db.storage.getBucket(STORAGE_BUCKET);
-  if (!data) await db.storage.createBucket(STORAGE_BUCKET, { public: false, fileSizeLimit: 50 * 1024 * 1024 });
+  if (!data) {
+    const { error } = await db.storage.createBucket(STORAGE_BUCKET, {
+      public: false,
+      fileSizeLimit: 50 * 1024 * 1024,
+    });
+    if (error) throw error;
+  }
 }
 
 async function categoryMap() {
-  const { data } = await db.from('categories').select('id,name');
+  const { data, error } = await db.from('categories').select('id,name');
+  if (error) throw error;
   return new Map((data || []).map((row: any) => [String(row.name).toLocaleLowerCase('cs'), row.id]));
+}
+
+function responseText(payload: any): string {
+  if (typeof payload?.output_text === 'string' && payload.output_text.trim()) return payload.output_text;
+  for (const item of payload?.output || []) {
+    for (const part of item?.content || []) {
+      if (typeof part?.text === 'string' && part.text.trim()) return part.text;
+    }
+  }
+  return '';
+}
+
+async function extractWithOpenAI(documentUrl: string, storeName: string, filename: string): Promise<ExtractionResult> {
+  if (!OPENAI_API_KEY) throw new Error('V Supabase chybí secret OPENAI_API_KEY.');
+
+  const schema = {
+    type: 'object',
+    additionalProperties: false,
+    required: ['valid_from', 'valid_to', 'page_count', 'items'],
+    properties: {
+      valid_from: { type: ['string', 'null'], description: 'Datum začátku platnosti ve formátu YYYY-MM-DD.' },
+      valid_to: { type: ['string', 'null'], description: 'Datum konce platnosti ve formátu YYYY-MM-DD.' },
+      page_count: { type: ['integer', 'null'] },
+      items: {
+        type: 'array',
+        maxItems: 300,
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['title', 'brand', 'quantity_text', 'price', 'old_price', 'unit_price', 'unit_label', 'image_url', 'source_page', 'confidence', 'category_name'],
+          properties: {
+            title: { type: 'string' },
+            brand: { type: ['string', 'null'] },
+            quantity_text: { type: ['string', 'null'] },
+            price: { type: ['number', 'null'] },
+            old_price: { type: ['number', 'null'] },
+            unit_price: { type: ['number', 'null'] },
+            unit_label: { type: ['string', 'null'] },
+            image_url: { type: ['string', 'null'] },
+            source_page: { type: ['integer', 'null'] },
+            confidence: { type: ['number', 'null'], minimum: 0, maximum: 1 },
+            category_name: { type: ['string', 'null'] },
+          },
+        },
+      },
+    },
+  };
+
+  const aiResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      store: false,
+      input: [{
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
+          },
+          {
+            type: 'input_file',
+            file_url: documentUrl,
+            filename,
+          },
+        ],
+      }],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'slevao_leaflet_v1',
+          strict: true,
+          schema,
+        },
+      },
+    }),
+  });
+
+  const payload = await aiResponse.json().catch(() => ({}));
+  if (!aiResponse.ok) {
+    const detail = payload?.error?.message || `HTTP ${aiResponse.status}`;
+    throw new Error(`OpenAI zpracování selhalo: ${detail}`);
+  }
+
+  const text = responseText(payload);
+  if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
+
+  try {
+    return JSON.parse(text) as ExtractionResult;
+  } catch {
+    throw new Error('OpenAI vrátila neplatný JSON.');
+  }
 }
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
   const authorization = request.headers.get('authorization') || '';
-  const allowed = authorization === `Bearer ${SERVICE_ROLE_KEY}` || (!CRON_SECRET || request.headers.get('x-cron-secret') === CRON_SECRET);
+  const allowed = authorization === `Bearer ${SERVICE_ROLE_KEY}` || Boolean(CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET);
   if (!allowed) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   let importId = '';
@@ -64,7 +173,9 @@ Deno.serve(async (request) => {
       .eq('id', importId)
       .single();
     if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
-    if (['processing', 'published', 'ignored'].includes(job.status)) return Response.json({ ok: true, skipped: true, status: job.status });
+    if (['processing', 'published', 'ignored'].includes(job.status)) {
+      return Response.json({ ok: true, skipped: true, status: job.status });
+    }
 
     await db.from('leaflet_imports').update({
       status: 'downloading',
@@ -94,42 +205,31 @@ Deno.serve(async (request) => {
 
     await db.from('leaflet_imports').update({
       status: 'processing',
-      metadata: { ...(job.metadata || {}), storage_bucket: STORAGE_BUCKET, storage_path: storagePath, bytes: bytes.length },
+      metadata: {
+        ...(job.metadata || {}),
+        storage_bucket: STORAGE_BUCKET,
+        storage_path: storagePath,
+        bytes: bytes.length,
+        ai_model: OPENAI_MODEL,
+      },
     }).eq('id', importId);
 
-    if (!AI_EXTRACTOR_URL) {
-      await db.from('leaflet_imports').update({
-        status: 'review',
-        error_message: 'Leták byl automaticky stažen. Pro rozpoznání produktů je nutné nastavit AI_EXTRACTOR_URL.',
-        finished_at: new Date().toISOString(),
-      }).eq('id', importId);
-      return Response.json({ ok: true, downloaded: true, extraction_configured: false });
-    }
-
-    const signed = await db.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 60 * 30);
+    const signed = await db.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 60 * 60);
     if (signed.error || !signed.data?.signedUrl) throw signed.error || new Error('Nepodařilo se vytvořit odkaz pro AI zpracování.');
 
-    const aiResponse = await fetch(AI_EXTRACTOR_URL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        ...(AI_EXTRACTOR_KEY ? { authorization: `Bearer ${AI_EXTRACTOR_KEY}` } : {}),
-      },
-      body: JSON.stringify({
-        document_url: signed.data.signedUrl,
-        language: 'cs',
-        currency: 'CZK',
-        output_schema: 'slevao_leaflet_v1',
-      }),
-    });
-    if (!aiResponse.ok) throw new Error(`AI zpracování selhalo: HTTP ${aiResponse.status}`);
-    const result = await aiResponse.json();
-    const items: ExtractedItem[] = Array.isArray(result.items) ? result.items : [];
+    const result = await extractWithOpenAI(
+      signed.data.signedUrl,
+      job.leaflet_sources?.name || '',
+      `letak-${importId}.${extension}`,
+    );
+    const items = Array.isArray(result.items) ? result.items : [];
     if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
+
+    await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
 
     const categories = await categoryMap();
     const rows = items
-      .filter((item) => item.title && Number(item.price) > 0)
+      .filter((item) => item.title?.trim() && Number(item.price) > 0)
       .map((item) => ({
         import_id: importId,
         category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
@@ -137,16 +237,17 @@ Deno.serve(async (request) => {
         brand: item.brand || null,
         quantity_text: item.quantity_text || null,
         price: Number(item.price),
-        old_price: item.old_price ? Number(item.old_price) : null,
+        old_price: item.old_price && Number(item.old_price) > Number(item.price) ? Number(item.old_price) : null,
         unit_price: item.unit_price ? Number(item.unit_price) : null,
         unit_label: item.unit_label || null,
         image_url: item.image_url || null,
         source_page: item.source_page || null,
-        confidence: item.confidence || null,
+        confidence: item.confidence ?? null,
         status: 'review',
-        raw_data: item.raw_data || item,
+        raw_data: item,
       }));
 
+    if (!rows.length) throw new Error('AI nevrátila žádné nabídky s platnou cenou.');
     const { error: insertError } = await db.from('leaflet_import_items').insert(rows);
     if (insertError) throw insertError;
 
@@ -159,10 +260,29 @@ Deno.serve(async (request) => {
       detected_valid_from: result.valid_from || null,
       detected_valid_to: result.valid_to || null,
       page_count: result.page_count || null,
+      error_message: null,
       finished_at: new Date().toISOString(),
     }).eq('id', importId);
 
-    return Response.json({ ok: true, import_id: importId, products: rows.length, auto_publish: autoPublish });
+    if (autoPublish) {
+      fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ import_id: importId }),
+      }).catch(() => undefined);
+    }
+
+    return Response.json({
+      ok: true,
+      import_id: importId,
+      products: rows.length,
+      confidence: averageConfidence,
+      auto_publish: autoPublish,
+      model: OPENAI_MODEL,
+    });
   } catch (error) {
     return importId ? await fail(importId, error) : Response.json({ error: String(error) }, { status: 500 });
   }
