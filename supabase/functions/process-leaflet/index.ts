@@ -69,7 +69,17 @@ function responseText(payload: any): string {
   return '';
 }
 
-async function extractWithOpenAI(documentUrl: string, storeName: string, filename: string): Promise<ExtractionResult> {
+function runInBackground(task: Promise<unknown>) {
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
+  else task.catch(() => undefined);
+}
+
+async function extractWithOpenAI(
+  documentUrl: string,
+  storeName: string,
+  extension: string,
+): Promise<ExtractionResult> {
   if (!OPENAI_API_KEY) throw new Error('V Supabase chybí secret OPENAI_API_KEY.');
 
   const schema = {
@@ -77,8 +87,8 @@ async function extractWithOpenAI(documentUrl: string, storeName: string, filenam
     additionalProperties: false,
     required: ['valid_from', 'valid_to', 'page_count', 'items'],
     properties: {
-      valid_from: { type: ['string', 'null'], description: 'Datum začátku platnosti ve formátu YYYY-MM-DD.' },
-      valid_to: { type: ['string', 'null'], description: 'Datum konce platnosti ve formátu YYYY-MM-DD.' },
+      valid_from: { type: ['string', 'null'] },
+      valid_to: { type: ['string', 'null'] },
       page_count: { type: ['integer', 'null'] },
       items: {
         type: 'array',
@@ -105,6 +115,10 @@ async function extractWithOpenAI(documentUrl: string, storeName: string, filenam
     },
   };
 
+  const documentInput = extension === 'pdf'
+    ? { type: 'input_file', file_url: documentUrl }
+    : { type: 'input_image', image_url: documentUrl, detail: 'high' };
+
   const aiResponse = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
     headers: {
@@ -121,11 +135,7 @@ async function extractWithOpenAI(documentUrl: string, storeName: string, filenam
             type: 'input_text',
             text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
           },
-          {
-            type: 'input_file',
-            file_url: documentUrl,
-            filename,
-          },
+          documentInput,
         ],
       }],
       text: {
@@ -147,19 +157,11 @@ async function extractWithOpenAI(documentUrl: string, storeName: string, filenam
 
   const text = responseText(payload);
   if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
-
   try {
     return JSON.parse(text) as ExtractionResult;
   } catch {
     throw new Error('OpenAI vrátila neplatný JSON.');
   }
-}
-
-function runInBackground(task: Promise<unknown>) {
-  // deno-lint-ignore no-explicit-any
-  const edgeRuntime = (globalThis as any).EdgeRuntime;
-  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
-  else task.catch(() => undefined);
 }
 
 Deno.serve(async (request) => {
@@ -180,7 +182,7 @@ Deno.serve(async (request) => {
       .eq('id', importId)
       .single();
     if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
-    if (['processing', 'published', 'ignored'].includes(job.status)) {
+    if (['published', 'ignored'].includes(job.status)) {
       return Response.json({ ok: true, skipped: true, status: job.status });
     }
 
@@ -227,13 +229,12 @@ Deno.serve(async (request) => {
     const result = await extractWithOpenAI(
       signed.data.signedUrl,
       job.leaflet_sources?.name || '',
-      `letak-${importId}.${extension}`,
+      extension,
     );
     const items = Array.isArray(result.items) ? result.items : [];
     if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
 
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
-
     const categories = await categoryMap();
     const rows = items
       .filter((item) => item.title?.trim() && Number(item.price) > 0)
