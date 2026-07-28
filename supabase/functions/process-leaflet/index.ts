@@ -75,6 +75,35 @@ function runInBackground(task: Promise<unknown>) {
   else task.catch(() => undefined);
 }
 
+async function uploadPdfToOpenAI(documentUrl: string, filename: string): Promise<string> {
+  const response = await fetch(documentUrl);
+  if (!response.ok) throw new Error(`Stažení PDF pro OpenAI selhalo: HTTP ${response.status}`);
+
+  const blob = await response.blob();
+  const form = new FormData();
+  form.append('purpose', 'user_data');
+  form.append('file', blob, filename);
+
+  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+    method: 'POST',
+    headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
+    body: form,
+  });
+  const payload = await uploadResponse.json().catch(() => ({}));
+  if (!uploadResponse.ok || !payload?.id) {
+    const detail = payload?.error?.message || `HTTP ${uploadResponse.status}`;
+    throw new Error(`Nahrání PDF do OpenAI selhalo: ${detail}`);
+  }
+  return String(payload.id);
+}
+
+async function deleteOpenAIFile(fileId: string) {
+  await fetch(`https://api.openai.com/v1/files/${fileId}`, {
+    method: 'DELETE',
+    headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
+  }).catch(() => undefined);
+}
+
 async function extractWithOpenAI(
   documentUrl: string,
   storeName: string,
@@ -115,52 +144,63 @@ async function extractWithOpenAI(
     },
   };
 
-  const documentInput = extension === 'pdf'
-    ? { type: 'input_file', file_url: documentUrl }
-    : { type: 'input_image', image_url: documentUrl, detail: 'high' };
-
-  const aiResponse = await fetch('https://api.openai.com/v1/responses', {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${OPENAI_API_KEY}`,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: OPENAI_MODEL,
-      store: false,
-      input: [{
-        role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
-          },
-          documentInput,
-        ],
-      }],
-      text: {
-        format: {
-          type: 'json_schema',
-          name: 'slevao_leaflet_v1',
-          strict: true,
-          schema,
-        },
-      },
-    }),
-  });
-
-  const payload = await aiResponse.json().catch(() => ({}));
-  if (!aiResponse.ok) {
-    const detail = payload?.error?.message || `HTTP ${aiResponse.status}`;
-    throw new Error(`OpenAI zpracování selhalo: ${detail}`);
-  }
-
-  const text = responseText(payload);
-  if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
+  let uploadedFileId = '';
   try {
-    return JSON.parse(text) as ExtractionResult;
-  } catch {
-    throw new Error('OpenAI vrátila neplatný JSON.');
+    const documentInput = extension === 'pdf'
+      ? {
+          type: 'input_file',
+          file_id: uploadedFileId = await uploadPdfToOpenAI(
+            documentUrl,
+            `letak-${crypto.randomUUID()}.pdf`,
+          ),
+        }
+      : { type: 'input_image', image_url: documentUrl, detail: 'high' };
+
+    const aiResponse = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${OPENAI_API_KEY}`,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        store: false,
+        input: [{
+          role: 'user',
+          content: [
+            {
+              type: 'input_text',
+              text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
+            },
+            documentInput,
+          ],
+        }],
+        text: {
+          format: {
+            type: 'json_schema',
+            name: 'slevao_leaflet_v1',
+            strict: true,
+            schema,
+          },
+        },
+      }),
+    });
+
+    const payload = await aiResponse.json().catch(() => ({}));
+    if (!aiResponse.ok) {
+      const detail = payload?.error?.message || `HTTP ${aiResponse.status}`;
+      throw new Error(`OpenAI zpracování selhalo: ${detail}`);
+    }
+
+    const text = responseText(payload);
+    if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
+    try {
+      return JSON.parse(text) as ExtractionResult;
+    } catch {
+      throw new Error('OpenAI vrátila neplatný JSON.');
+    }
+  } finally {
+    if (uploadedFileId) await deleteOpenAIFile(uploadedFileId);
   }
 }
 
