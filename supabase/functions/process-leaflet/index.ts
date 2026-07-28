@@ -155,6 +155,13 @@ async function extractWithOpenAI(documentUrl: string, storeName: string, filenam
   }
 }
 
+function runInBackground(task: Promise<unknown>) {
+  // deno-lint-ignore no-explicit-any
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
+  else task.catch(() => undefined);
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
   const authorization = request.headers.get('authorization') || '';
@@ -195,7 +202,7 @@ Deno.serve(async (request) => {
 
     await ensureBucket();
     const contentType = sourceResponse.headers.get('content-type') || 'application/pdf';
-    const extension = contentType.includes('pdf') ? 'pdf' : contentType.includes('png') ? 'png' : 'jpg';
+    const extension = contentType.includes('pdf') ? 'pdf' : contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
     const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${extension}`;
     const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
       contentType,
@@ -265,14 +272,19 @@ Deno.serve(async (request) => {
     }).eq('id', importId);
 
     if (autoPublish) {
-      fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+      runInBackground(fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           'content-type': 'application/json',
         },
         body: JSON.stringify({ import_id: importId }),
-      }).catch(() => undefined);
+      }).then(async (response) => {
+        if (!response.ok) {
+          const detail = await response.text().catch(() => '');
+          throw new Error(`Publikace HTTP ${response.status}: ${detail.slice(0, 500)}`);
+        }
+      }));
     }
 
     return Response.json({
