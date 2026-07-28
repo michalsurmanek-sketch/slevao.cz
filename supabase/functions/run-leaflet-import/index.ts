@@ -1,7 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const ANON_KEY = Deno.env.get('SUPABASE_ANON_KEY')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 
@@ -10,23 +9,37 @@ const corsHeaders = {
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
-  if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405, headers: corsHeaders });
+  if (request.method !== 'POST') {
+    return Response.json({ error: 'Method not allowed' }, { status: 405, headers: corsHeaders });
+  }
 
   const authorization = request.headers.get('authorization') || '';
-  if (!authorization.startsWith('Bearer ')) {
+  const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
+  if (!accessToken) {
     return Response.json({ error: 'Chybí přihlášení.' }, { status: 401, headers: corsHeaders });
   }
 
-  const userClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { authorization } },
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
-  const { data: userData, error: userError } = await userClient.auth.getUser();
-  const role = userData.user?.app_metadata?.role;
-  if (userError || !userData.user || !['admin', 'editor'].includes(role)) {
-    return Response.json({ error: 'Nemáš oprávnění spustit automatický import.' }, { status: 403, headers: corsHeaders });
+  const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
+  const user = userData.user;
+  const role = String(user?.app_metadata?.role || user?.user_metadata?.role || '').toLowerCase();
+
+  if (userError || !user) {
+    console.error('run-leaflet-import auth error', userError?.message || 'user not found');
+    return Response.json({ error: 'Přihlášení je neplatné nebo vypršelo.' }, { status: 401, headers: corsHeaders });
+  }
+
+  if (!['admin', 'editor'].includes(role)) {
+    console.error('run-leaflet-import forbidden', { user_id: user.id, role: role || null });
+    return Response.json({
+      error: 'Nemáš oprávnění spustit automatický import.',
+      detected_role: role || null,
+    }, { status: 403, headers: corsHeaders });
   }
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/discover-leaflets`, {
@@ -41,7 +54,11 @@ Deno.serve(async (request) => {
 
   const text = await response.text();
   let payload: unknown;
-  try { payload = JSON.parse(text); } catch { payload = { message: text }; }
+  try {
+    payload = JSON.parse(text);
+  } catch {
+    payload = { message: text };
+  }
 
   return Response.json(payload, {
     status: response.status,
