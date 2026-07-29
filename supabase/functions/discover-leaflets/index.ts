@@ -22,33 +22,45 @@ const REJECT_HINTS = [
   'favicon', 'apple-touch-icon', 'logo', 'sprite', 'placeholder', 'avatar',
   'tracking', 'pixel', 'analytics', 'icon-', '/icon/', '/icons/', 'manifest',
   'social', 'facebook', 'instagram', 'youtube', 'linkedin', 'twitter',
+  'banner', 'hero', 'teaser', 'thumbnail', 'thumb', 'preview', 'promo',
+  'mobile', 'phone', 'smartphone', 'ruka-', 'hand-', 'app-store', 'google-play',
+  'header', 'footer', 'navigation', 'nav-', 'background', 'bg-', 'cover-small',
 ];
 
 function normalizedUrl(url: string): string {
   try {
-    const parsed = new URL(url);
+    const parsed = new URL(url.replace(/&amp;/g, '&'));
     parsed.hash = '';
     return parsed.toString();
   } catch {
-    return url;
+    return url.replace(/&amp;/g, '&');
   }
 }
 
-function isLeafletCandidate(url: string): boolean {
+function candidateScore(url: string): number {
   const lower = decodeURIComponent(url).toLocaleLowerCase('cs');
-  if (REJECT_HINTS.some((hint) => lower.includes(hint))) return false;
-  if (/\.(pdf)(?:\?|$)/i.test(lower)) return true;
+  if (REJECT_HINTS.some((hint) => lower.includes(hint))) return -100;
+  if (/\.pdf(?:\?|$)/i.test(lower)) return 100;
 
   const isImage = /\.(jpg|jpeg|png|webp)(?:\?|$)/i.test(lower);
-  if (!isImage) return false;
+  if (!isImage) return -100;
 
-  // Obrázky jsou přijaty jen tehdy, pokud URL výslovně vypadá jako stránka letáku.
-  // Tím se vyloučí favicony, loga a běžná grafika webu.
-  return LEAFLET_HINTS.some((hint) => lower.includes(hint));
+  let score = 0;
+  if (LEAFLET_HINTS.some((hint) => lower.includes(hint))) score += 30;
+  if (/(?:page|strana|spread|doublepage)[-_]?\d{1,4}/i.test(lower)) score += 45;
+  if (/\b(?:a4|a3|210x297|2480x3508|web_leaflet)\b/i.test(lower)) score += 20;
+  if (/[?&](?:w|width)=([1-9]\d{3,})/i.test(lower)) score += 10;
+  if (/[?&](?:h|height)=([1-9]\d{3,})/i.test(lower)) score += 10;
+
+  return score;
+}
+
+function isLeafletCandidate(url: string): boolean {
+  return candidateScore(url) >= 30;
 }
 
 function extractDocumentCandidates(text: string, baseUrl: string): string[] {
-  const urls = new Set<string>();
+  const urls = new Map<string, number>();
   const patterns = [
     /href=["']([^"']+\.(?:pdf|jpg|jpeg|png|webp)(?:\?[^"']*)?)["']/gi,
     /(?:pdfUrl|pdf_url|downloadUrl|download_url|documentUrl|document_url|leafletUrl|leaflet_url|catalogUrl|catalog_url|imageUrl|image_url)["']?\s*[:=]\s*["']([^"']+)["']/gi,
@@ -59,13 +71,17 @@ function extractDocumentCandidates(text: string, baseUrl: string): string[] {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text))) {
       const candidate = match[1] || match[0];
-      const absolute = absoluteUrl(baseUrl, candidate.replace(/\\u0026/g, '&').replace(/\\\//g, '/'));
+      const absolute = absoluteUrl(baseUrl, candidate.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&'));
       if (!absolute) continue;
       const url = normalizedUrl(absolute);
-      if (isLeafletCandidate(url)) urls.add(url);
+      const score = candidateScore(url);
+      if (score >= 30) urls.set(url, Math.max(score, urls.get(url) || 0));
     }
   }
-  return [...urls];
+
+  return [...urls.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .map(([url]) => url);
 }
 
 async function sha256(value: string): Promise<string> {
@@ -124,7 +140,7 @@ async function discoverSource(source: any) {
 
     documents = [...new Set(documents)].slice(0, 12);
     if (!documents.length) {
-      throw new Error('Na stránce nebyl nalezen důvěryhodný PDF nebo obrázkový leták. Ikony, loga a běžná grafika byly ignorovány.');
+      throw new Error('Na stránce nebyl nalezen důvěryhodný PDF nebo obrázkový leták. Reklamní bannery, náhledy, ikony a grafika aplikací byly ignorovány.');
     }
 
     let created = 0;
@@ -145,7 +161,8 @@ async function discoverSource(source: any) {
           source_name: source.name,
           source_etag: etag || null,
           source_last_modified: lastModified || null,
-          candidate_filter: 'leaflet-v2',
+          candidate_filter: 'leaflet-v3',
+          candidate_score: candidateScore(documentUrl),
         },
       }, { onConflict: 'source_hash', ignoreDuplicates: true }).select('id,status').maybeSingle();
 
