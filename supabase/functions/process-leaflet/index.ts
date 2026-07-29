@@ -308,7 +308,7 @@ async function processImport(importId: string) {
       && validFrom <= validTo
       && validTo >= today
       && (Date.parse(validTo + 'T12:00:00Z') - Date.parse(validFrom + 'T12:00:00Z')) <= 62 * 86_400_000;
-    const minimumAutoPublishConfidence = job.stores?.slug === 'tesco' ? 0.88 : 0.92;
+    const minimumAutoPublishConfidence = ['tesco', 'makro'].includes(String(job.stores?.slug || '')) ? 0.88 : 0.92;
     const autoPublish = Boolean(job.leaflet_sources?.auto_publish)
       && rows.length >= 8
       && averageConfidence >= minimumAutoPublishConfidence
