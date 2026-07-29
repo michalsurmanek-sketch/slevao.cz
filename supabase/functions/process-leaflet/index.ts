@@ -209,7 +209,7 @@ async function extractWithOpenAI(
 async function processImport(importId: string) {
   try {
     const { data: job, error: jobError } = await db.from('leaflet_imports')
-      .select('*,leaflet_sources(auto_publish,name)').eq('id', importId).single();
+      .select('*,leaflet_sources(auto_publish,name),stores(slug)').eq('id', importId).single();
     if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
     if (['published', 'ignored'].includes(job.status)) return;
 
@@ -287,9 +287,10 @@ async function processImport(importId: string) {
       && validFrom <= validTo
       && validTo >= today
       && (Date.parse(validTo + 'T12:00:00Z') - Date.parse(validFrom + 'T12:00:00Z')) <= 62 * 86_400_000;
+    const minimumAutoPublishConfidence = job.stores?.slug === 'tesco' ? 0.88 : 0.92;
     const autoPublish = Boolean(job.leaflet_sources?.auto_publish)
       && rows.length >= 8
-      && averageConfidence >= 0.92
+      && averageConfidence >= minimumAutoPublishConfidence
       && validDates;
     await db.from('leaflet_imports').update({
       status: autoPublish ? 'publishing' : 'review',
