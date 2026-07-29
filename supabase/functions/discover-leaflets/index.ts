@@ -11,7 +11,7 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const BROWSER_HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
-  accept: 'text/html,application/xhtml+xml,application/pdf,application/json,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+  accept: 'text/html,application/xhtml+xml,application/pdf,application/json,image/webp,image/png,image/jpeg,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
   'cache-control': 'no-cache',
 };
@@ -110,6 +110,26 @@ function candidateScore(url: string, storeSlug = ''): number {
     } catch { /* ignore */ }
   }
   return score;
+}
+
+function filterStoreDocuments(documents: string[], storeSlug = ''): string[] {
+  if (storeSlug !== 'tesco') return documents;
+
+  const pdfs = documents.filter((url) => {
+    try { return /\.pdf$/i.test(new URL(url).pathname); }
+    catch { return /\.pdf(?:\?|$)/i.test(url); }
+  });
+  if (!pdfs.length) return documents.filter((url) => !/\.avif(?:\?|$)/i.test(url));
+
+  const dated = pdfs.map((url) => {
+    const match = decodeURIComponent(url).match(/(?:^|[_/-])(\d{4})_P(\d{1,2})(?:[_./-]|$)/i);
+    return { url, issue: match ? Number(match[1]) * 100 + Number(match[2]) : null };
+  });
+  const newestIssue = Math.max(...dated.flatMap((item) => item.issue === null ? [] : [item.issue]));
+
+  return Number.isFinite(newestIssue)
+    ? dated.filter((item) => item.issue === newestIssue).map((item) => item.url)
+    : pdfs;
 }
 
 function extractDocumentCandidates(text: string, baseUrl: string, storeSlug = ''): string[] {
@@ -247,9 +267,9 @@ async function discoverSource(source: any) {
       documents = await discoverFromHtml(await response.text(), response.url, storeSlug);
     }
 
-    documents = [...new Set(documents)]
+    documents = filterStoreDocuments([...new Set(documents)], storeSlug)
       .sort((a, b) => candidateScore(b, storeSlug) - candidateScore(a, storeSlug))
-      .slice(0, 8);
+      .slice(0, storeSlug === 'tesco' ? 2 : 8);
 
     if (!documents.length) throw new Error(`Adaptér ${adapter} nenašel PDF ani dostatečně velké stránky letáku.`);
 
