@@ -27,7 +27,9 @@ const REJECT_HINTS = [
   'instagram', 'youtube', 'linkedin', 'twitter', 'banner', 'hero', 'teaser', 'thumbnail',
   'thumb', 'preview', 'promo', 'mobile', 'phone', 'smartphone', 'ruka-', 'hand-',
   'app-store', 'google-play', 'header', 'footer', 'navigation', 'nav-', 'background',
-  'bg-', 'cover-small', 'cookie', 'consent', 'newsletter',
+  'bg-', 'cover-small', 'cookie', 'consent', 'newsletter', 'privacy', 'gdpr',
+  'ochrana-osobnich', 'ochrane-osobnich', 'udrzitel', 'sustainability', 'vyrocni-zprava',
+  'annual-report', 'obchodni-podminky', 'terms-and-conditions', 'press-release',
 ];
 
 const STORE_RULES: Record<string, { allowHosts: string[]; boosts: string[] }> = {
@@ -50,6 +52,10 @@ function normalizedUrl(url: string): string {
     const parsed = new URL(url.replace(/&amp;/g, '&'));
     parsed.hash = '';
     ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid'].forEach((key) => parsed.searchParams.delete(key));
+    if (/\.(?:jpg|jpeg|png|webp|avif)$/i.test(parsed.pathname)) {
+      ['w', 'width', 'h', 'height', 'q', 'quality', 'dpr', 'fm', 'fit', 'crop'].forEach((key) => parsed.searchParams.delete(key));
+    }
+    parsed.searchParams.sort();
     return parsed.toString();
   } catch {
     return url.replace(/&amp;/g, '&');
@@ -101,7 +107,7 @@ function extractDocumentCandidates(text: string, baseUrl: string, storeSlug = ''
         if (!absolute) continue;
         const url = normalizedUrl(absolute);
         const score = candidateScore(url, storeSlug);
-        if (score >= 30) urls.set(url, Math.max(score, urls.get(url) || 0));
+        if (score >= 60) urls.set(url, Math.max(score, urls.get(url) || 0));
       }
     }
   }
@@ -204,7 +210,7 @@ async function discoverSource(source: any) {
 
     documents = [...new Set(documents)]
       .sort((a, b) => candidateScore(b, storeSlug) - candidateScore(a, storeSlug))
-      .slice(0, 24);
+      .slice(0, 8);
 
     if (!documents.length) throw new Error(`Adaptér ${adapter} nenašel PDF ani dostatečně velké stránky letáku.`);
 
