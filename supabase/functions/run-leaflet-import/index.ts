@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
+const AUTO_PUBLISH_MIN_CONFIDENCE = 0.90;
 
 const corsHeaders = {
   'access-control-allow-origin': '*',
@@ -21,7 +22,7 @@ async function publishImport(importId: string) {
     headers: {
       authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       'content-type': 'application/json',
-      'x-cron-secret': CRON_SECRET,
+      ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
     },
     body: JSON.stringify({ import_id: importId }),
   });
@@ -47,18 +48,20 @@ async function publishReviewedAutoImports() {
 
   const { data: jobs, error: jobError } = await adminClient
     .from('leaflet_imports')
-    .select('id,source_id,updated_at')
+    .select('id,source_id,updated_at,confidence,detected_valid_from,detected_valid_to,product_count')
     .eq('status', 'review')
     .in('source_id', sourceIds)
+    .gte('confidence', AUTO_PUBLISH_MIN_CONFIDENCE)
+    .not('detected_valid_from', 'is', null)
+    .not('detected_valid_to', 'is', null)
+    .gt('product_count', 0)
     .order('updated_at', { ascending: true })
     .limit(50);
 
   if (jobError) throw jobError;
 
   const results = [];
-  for (const job of jobs || []) {
-    results.push(await publishImport(job.id));
-  }
+  for (const job of jobs || []) results.push(await publishImport(job.id));
   return results;
 }
 
@@ -106,7 +109,7 @@ Deno.serve(async (request) => {
     headers: {
       authorization: `Bearer ${SERVICE_ROLE_KEY}`,
       'content-type': 'application/json',
-      'x-cron-secret': CRON_SECRET,
+      ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
     },
     body: '{}',
   });
@@ -116,7 +119,6 @@ Deno.serve(async (request) => {
   try { payload = JSON.parse(text); }
   catch { payload = { message: text }; }
 
-  // Krátký druhý průchod zachytí rychle dokončené importy vytvořené touto kontrolou.
   await sleep(8000);
   try {
     publishedAfter = await publishReviewedAutoImports();
@@ -130,6 +132,7 @@ Deno.serve(async (request) => {
     discovery: payload,
     reviewed_auto_publish_before: publishedBefore,
     reviewed_auto_publish_after: publishedAfter,
+    auto_publish_min_confidence: AUTO_PUBLISH_MIN_CONFIDENCE,
     publish_error: publishError,
   }, {
     status: response.status,
