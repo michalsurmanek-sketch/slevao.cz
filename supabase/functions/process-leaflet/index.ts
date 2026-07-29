@@ -32,14 +32,20 @@ type ExtractionResult = {
   items: ExtractedItem[];
 };
 
-async function fail(importId: string, error: unknown) {
+function runInBackground(task: Promise<unknown>) {
+  const edgeRuntime = (globalThis as any).EdgeRuntime;
+  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
+  else task.catch((error) => console.error('Background task failed:', error));
+}
+
+async function markFailed(importId: string, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
+  console.error('Import failed', importId, message);
   await db.from('leaflet_imports').update({
     status: 'failed',
     error_message: message.slice(0, 2000),
     finished_at: new Date().toISOString(),
   }).eq('id', importId);
-  return Response.json({ error: message }, { status: 500 });
 }
 
 async function ensureBucket() {
@@ -69,45 +75,29 @@ function responseText(payload: any): string {
   return '';
 }
 
-function runInBackground(task: Promise<unknown>) {
-  const edgeRuntime = (globalThis as any).EdgeRuntime;
-  if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
-  else task.catch(() => undefined);
-}
-
-async function uploadPdfToOpenAI(documentUrl: string, filename: string): Promise<string> {
-  const response = await fetch(documentUrl);
-  if (!response.ok) throw new Error(`Stažení PDF pro OpenAI selhalo: HTTP ${response.status}`);
-
-  const blob = await response.blob();
+async function uploadPdfToOpenAI(bytes: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('purpose', 'user_data');
-  form.append('file', blob, filename);
+  form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
 
-  const uploadResponse = await fetch('https://api.openai.com/v1/files', {
+  const response = await fetch('https://api.openai.com/v1/files', {
     method: 'POST',
     headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
     body: form,
   });
-  const payload = await uploadResponse.json().catch(() => ({}));
-  if (!uploadResponse.ok || !payload?.id) {
-    const detail = payload?.error?.message || `HTTP ${uploadResponse.status}`;
-    throw new Error(`Nahrání PDF do OpenAI selhalo: ${detail}`);
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || !payload?.id) {
+    throw new Error(`Nahrání PDF do OpenAI selhalo: ${payload?.error?.message || `HTTP ${response.status}`}`);
   }
   return String(payload.id);
-}
-
-async function deleteOpenAIFile(fileId: string) {
-  await fetch(`https://api.openai.com/v1/files/${fileId}`, {
-    method: 'DELETE',
-    headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
-  }).catch(() => undefined);
 }
 
 async function extractWithOpenAI(
   documentUrl: string,
   storeName: string,
   extension: string,
+  bytes: Uint8Array,
+  importId: string,
 ): Promise<ExtractionResult> {
   if (!OPENAI_API_KEY) throw new Error('V Supabase chybí secret OPENAI_API_KEY.');
 
@@ -144,87 +134,68 @@ async function extractWithOpenAI(
     },
   };
 
-  let uploadedFileId = '';
-  try {
-    const documentInput = extension === 'pdf'
-      ? {
-          type: 'input_file',
-          file_id: uploadedFileId = await uploadPdfToOpenAI(
-            documentUrl,
-            `letak-${crypto.randomUUID()}.pdf`,
-          ),
-        }
-      : { type: 'input_image', image_url: documentUrl, detail: 'high' };
+  let documentInput: Record<string, unknown>;
+  if (extension === 'pdf') {
+    const fileId = await uploadPdfToOpenAI(bytes, `letak-${importId}.pdf`);
+    documentInput = { type: 'input_file', file_id: fileId };
+  } else {
+    documentInput = { type: 'input_image', image_url: documentUrl, detail: 'high' };
+  }
 
-    const aiResponse = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${OPENAI_API_KEY}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        store: false,
-        input: [{
-          role: 'user',
-          content: [
-            {
-              type: 'input_text',
-              text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
-            },
-            documentInput,
-          ],
-        }],
-        text: {
-          format: {
-            type: 'json_schema',
-            name: 'slevao_leaflet_v1',
-            strict: true,
-            schema,
+  const aiResponse = await fetch('https://api.openai.com/v1/responses', {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${OPENAI_API_KEY}`,
+      'content-type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: OPENAI_MODEL,
+      store: false,
+      input: [{
+        role: 'user',
+        content: [
+          {
+            type: 'input_text',
+            text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
           },
+          documentInput,
+        ],
+      }],
+      text: {
+        format: {
+          type: 'json_schema',
+          name: 'slevao_leaflet_v1',
+          strict: true,
+          schema,
         },
-      }),
-    });
+      },
+    }),
+  });
 
-    const payload = await aiResponse.json().catch(() => ({}));
-    if (!aiResponse.ok) {
-      const detail = payload?.error?.message || `HTTP ${aiResponse.status}`;
-      throw new Error(`OpenAI zpracování selhalo: ${detail}`);
-    }
+  const payload = await aiResponse.json().catch(() => ({}));
+  if (!aiResponse.ok) {
+    throw new Error(`OpenAI zpracování selhalo: ${payload?.error?.message || `HTTP ${aiResponse.status}`}`);
+  }
 
-    const text = responseText(payload);
-    if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
-    try {
-      return JSON.parse(text) as ExtractionResult;
-    } catch {
-      throw new Error('OpenAI vrátila neplatný JSON.');
-    }
-  } finally {
-    if (uploadedFileId) await deleteOpenAIFile(uploadedFileId);
+  const text = responseText(payload);
+  if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
+  try {
+    return JSON.parse(text) as ExtractionResult;
+  } catch {
+    throw new Error('OpenAI vrátila neplatný JSON.');
   }
 }
 
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok');
-  const authorization = request.headers.get('authorization') || '';
-  const allowed = authorization === `Bearer ${SERVICE_ROLE_KEY}` || Boolean(CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET);
-  if (!allowed) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
-  let importId = '';
+async function processImport(importId: string) {
   try {
-    const body = await request.json();
-    importId = String(body.import_id || '');
-    if (!importId) return Response.json({ error: 'Missing import_id' }, { status: 400 });
-
+    console.log('Processing import', importId);
     const { data: job, error: jobError } = await db
       .from('leaflet_imports')
       .select('*,leaflet_sources(auto_publish,name)')
       .eq('id', importId)
       .single();
     if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
-    if (['published', 'ignored'].includes(job.status)) {
-      return Response.json({ ok: true, skipped: true, status: job.status });
-    }
+    if (['published', 'ignored'].includes(job.status)) return;
 
     await db.from('leaflet_imports').update({
       status: 'downloading',
@@ -260,17 +231,14 @@ Deno.serve(async (request) => {
         storage_path: storagePath,
         bytes: bytes.length,
         ai_model: OPENAI_MODEL,
+        processing_started_at: new Date().toISOString(),
       },
     }).eq('id', importId);
 
     const signed = await db.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 60 * 60);
     if (signed.error || !signed.data?.signedUrl) throw signed.error || new Error('Nepodařilo se vytvořit odkaz pro AI zpracování.');
 
-    const result = await extractWithOpenAI(
-      signed.data.signedUrl,
-      job.leaflet_sources?.name || '',
-      extension,
-    );
+    const result = await extractWithOpenAI(signed.data.signedUrl, job.leaflet_sources?.name || '', extension, bytes, importId);
     const items = Array.isArray(result.items) ? result.items : [];
     if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
 
@@ -313,30 +281,47 @@ Deno.serve(async (request) => {
     }).eq('id', importId);
 
     if (autoPublish) {
-      runInBackground(fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
         method: 'POST',
         headers: {
           authorization: `Bearer ${SERVICE_ROLE_KEY}`,
           'content-type': 'application/json',
         },
         body: JSON.stringify({ import_id: importId }),
-      }).then(async (response) => {
-        if (!response.ok) {
-          const detail = await response.text().catch(() => '');
-          throw new Error(`Publikace HTTP ${response.status}: ${detail.slice(0, 500)}`);
-        }
-      }));
+      });
+      if (!response.ok) {
+        const detail = await response.text().catch(() => '');
+        throw new Error(`Publikace HTTP ${response.status}: ${detail.slice(0, 500)}`);
+      }
     }
-
-    return Response.json({
-      ok: true,
-      import_id: importId,
-      products: rows.length,
-      confidence: averageConfidence,
-      auto_publish: autoPublish,
-      model: OPENAI_MODEL,
-    });
+    console.log('Import completed', importId, rows.length);
   } catch (error) {
-    return importId ? await fail(importId, error) : Response.json({ error: String(error) }, { status: 500 });
+    await markFailed(importId, error);
   }
+}
+
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') return new Response('ok');
+  const authorization = request.headers.get('authorization') || '';
+  const allowed = authorization === `Bearer ${SERVICE_ROLE_KEY}` || Boolean(CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET);
+  if (!allowed) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await request.json().catch(() => ({}));
+  const importId = String(body.import_id || '');
+  if (!importId) return Response.json({ error: 'Missing import_id' }, { status: 400 });
+
+  const { data: job, error } = await db.from('leaflet_imports').select('id,status').eq('id', importId).single();
+  if (error || !job) return Response.json({ error: 'Import nebyl nalezen.' }, { status: 404 });
+  if (['published', 'ignored'].includes(job.status)) {
+    return Response.json({ ok: true, skipped: true, status: job.status });
+  }
+
+  await db.from('leaflet_imports').update({
+    status: 'queued',
+    error_message: null,
+    finished_at: null,
+  }).eq('id', importId);
+
+  runInBackground(processImport(importId));
+  return Response.json({ ok: true, accepted: true, import_id: importId }, { status: 202 });
 });
