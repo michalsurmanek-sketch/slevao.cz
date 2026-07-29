@@ -219,7 +219,11 @@ async function processImport(importId: string) {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
         accept: 'application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
         'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
-        referer: job.source_document_url.includes('tesco.com') ? 'https://www.itesco.cz/' : new URL(job.source_document_url).origin + '/',
+        referer: job.source_document_url.includes('tesco.com')
+          ? 'https://www.itesco.cz/'
+          : job.source_document_url.includes('gapi.globus.cz')
+            ? 'https://www.globus.cz/'
+            : new URL(job.source_document_url).origin + '/',
       },
       redirect: 'follow',
     });
