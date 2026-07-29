@@ -5,6 +5,46 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
 
+function normalizeTitle(value: string): string {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('cs')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+
+async function findExistingProduct(item: any): Promise<string | null> {
+  const title = String(item.title || '').trim();
+  if (!title) return null;
+
+  const { data, error } = await db
+    .from('products')
+    .select('id,name')
+    .ilike('name', title)
+    .limit(10);
+  if (error) throw error;
+
+  const normalized = normalizeTitle(title);
+  const match = (data || []).find((row: any) => normalizeTitle(row.name) === normalized);
+  return match?.id || null;
+}
+
+async function offerAlreadyExists(job: any, item: any, validFrom: string, validTo: string): Promise<boolean> {
+  const { data, error } = await db
+    .from('offers')
+    .select('id,title,price')
+    .eq('store_id', job.store_id)
+    .eq('valid_from', validFrom)
+    .eq('valid_to', validTo)
+    .eq('price', item.price)
+    .limit(50);
+  if (error) throw error;
+
+  const normalized = normalizeTitle(item.title);
+  return (data || []).some((row: any) => normalizeTitle(row.title) === normalized);
+}
+
 async function publishImport(job: any) {
   const { data: items, error } = await db
     .from('leaflet_import_items')
@@ -17,10 +57,21 @@ async function publishImport(job: any) {
   const validFrom = job.detected_valid_from || new Date().toISOString().slice(0, 10);
   const validTo = job.detected_valid_to || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
   let published = 0;
+  let skippedDuplicates = 0;
+  let failed = 0;
 
   for (const item of items) {
     try {
-      let productId = item.product_id;
+      if (await offerAlreadyExists(job, item, validFrom, validTo)) {
+        await db.from('leaflet_import_items').update({
+          status: 'ignored',
+          raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' },
+        }).eq('id', item.id);
+        skippedDuplicates++;
+        continue;
+      }
+
+      let productId = item.product_id || await findExistingProduct(item);
       if (!productId) {
         const { data: product, error: productError } = await db.from('products').insert({
           name: item.title,
@@ -50,6 +101,7 @@ async function publishImport(job: any) {
       await db.from('leaflet_import_items').update({ status: 'published', product_id: productId }).eq('id', item.id);
       published++;
     } catch (itemError) {
+      failed++;
       await db.from('leaflet_import_items').update({
         status: 'failed',
         raw_data: { ...(item.raw_data || {}), publish_error: itemError instanceof Error ? itemError.message : String(itemError) },
@@ -57,14 +109,23 @@ async function publishImport(job: any) {
     }
   }
 
+  const completed = published > 0 || skippedDuplicates > 0;
   await db.from('leaflet_imports').update({
-    status: published ? 'published' : 'failed',
+    status: completed ? 'published' : 'failed',
     product_count: published,
-    error_message: published ? null : 'Nepodařilo se publikovat žádný produkt.',
+    error_message: completed
+      ? (failed ? `${failed} položek se nepodařilo publikovat. ${skippedDuplicates} duplicit bylo přeskočeno.` : null)
+      : 'Nepodařilo se publikovat žádný produkt.',
+    metadata: {
+      ...(job.metadata || {}),
+      published_count: published,
+      duplicate_count: skippedDuplicates,
+      failed_count: failed,
+    },
     finished_at: new Date().toISOString(),
   }).eq('id', job.id);
 
-  return { import_id: job.id, published };
+  return { import_id: job.id, published, duplicates: skippedDuplicates, failed };
 }
 
 Deno.serve(async (request) => {
