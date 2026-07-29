@@ -252,7 +252,7 @@ async function processImport(importId: string) {
 
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
     const categories = await categoryMap();
-    const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0).map((item) => ({
+    const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0 && Number(item.price) <= 1_000_000 && Number(item.confidence ?? 0) >= 0.75).map((item) => ({
       import_id: importId,
       category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
       title: item.title.trim(),
@@ -274,7 +274,18 @@ async function processImport(importId: string) {
     if (insertError) throw insertError;
 
     const averageConfidence = rows.reduce((sum, row) => sum + Number(row.confidence || 0), 0) / rows.length;
-    const autoPublish = Boolean(job.leaflet_sources?.auto_publish) && averageConfidence >= 0.92;
+    const today = new Date().toISOString().slice(0, 10);
+    const validFrom = result.valid_from || '';
+    const validTo = result.valid_to || '';
+    const validDates = /^\d{4}-\d{2}-\d{2}$/.test(validFrom)
+      && /^\d{4}-\d{2}-\d{2}$/.test(validTo)
+      && validFrom <= validTo
+      && validTo >= today
+      && (Date.parse(validTo + 'T12:00:00Z') - Date.parse(validFrom + 'T12:00:00Z')) <= 62 * 86_400_000;
+    const autoPublish = Boolean(job.leaflet_sources?.auto_publish)
+      && rows.length >= 8
+      && averageConfidence >= 0.92
+      && validDates;
     await db.from('leaflet_imports').update({
       status: autoPublish ? 'publishing' : 'review',
       product_count: rows.length,
