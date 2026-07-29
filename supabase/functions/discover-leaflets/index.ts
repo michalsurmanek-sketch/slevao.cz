@@ -414,7 +414,9 @@ async function discoverSource(source: any) {
         ? `${source.id}|${documentUrl}|${globusCampaignSignature || 'legacy'}|globus-html-v2`
         : storeSlug === 'makro'
           ? `${source.id}|${documentUrl}|makro-v3`
-          : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
+          : storeSlug === 'kaufland'
+            ? `${source.id}|${documentUrl}|${etag}|${lastModified}|kaufland-images-v1`
+            : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')
         .eq('source_hash', sourceHash)
