@@ -13,37 +13,52 @@ const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-async function publishReviewedAutoImports() {
-  const { data: jobs, error } = await adminClient
-    .from('leaflet_imports')
-    .select('id,leaflet_sources!inner(auto_publish)')
-    .eq('status', 'review')
-    .eq('leaflet_sources.auto_publish', true)
-    .order('updated_at', { ascending: true })
-    .limit(20);
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  if (error) throw error;
+async function publishImport(importId: string) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      'content-type': 'application/json',
+      'x-cron-secret': CRON_SECRET,
+    },
+    body: JSON.stringify({ import_id: importId }),
+  });
+
+  const text = await response.text();
+  let payload: unknown;
+  try { payload = JSON.parse(text); }
+  catch { payload = { message: text }; }
+
+  return { import_id: importId, ok: response.ok, status: response.status, payload };
+}
+
+async function publishReviewedAutoImports() {
+  const { data: sources, error: sourceError } = await adminClient
+    .from('leaflet_sources')
+    .select('id')
+    .eq('auto_publish', true)
+    .eq('is_active', true);
+
+  if (sourceError) throw sourceError;
+  const sourceIds = (sources || []).map((source) => source.id);
+  if (!sourceIds.length) return [];
+
+  const { data: jobs, error: jobError } = await adminClient
+    .from('leaflet_imports')
+    .select('id,source_id,updated_at')
+    .eq('status', 'review')
+    .in('source_id', sourceIds)
+    .order('updated_at', { ascending: true })
+    .limit(50);
+
+  if (jobError) throw jobError;
 
   const results = [];
   for (const job of jobs || []) {
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
-      method: 'POST',
-      headers: {
-        authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-        'content-type': 'application/json',
-        'x-cron-secret': CRON_SECRET,
-      },
-      body: JSON.stringify({ import_id: job.id }),
-    });
-
-    const text = await response.text();
-    let payload: unknown;
-    try { payload = JSON.parse(text); }
-    catch { payload = { message: text }; }
-
-    results.push({ import_id: job.id, ok: response.ok, status: response.status, payload });
+    results.push(await publishImport(job.id));
   }
-
   return results;
 }
 
@@ -69,11 +84,21 @@ Deno.serve(async (request) => {
   }
 
   if (!['admin', 'editor'].includes(role)) {
-    console.error('run-leaflet-import forbidden', { user_id: user.id, role: role || null });
     return Response.json({
       error: 'Nemáš oprávnění spustit automatický import.',
       detected_role: role || null,
     }, { status: 403, headers: corsHeaders });
+  }
+
+  let publishedBefore: unknown[] = [];
+  let publishedAfter: unknown[] = [];
+  let publishError: string | null = null;
+
+  try {
+    publishedBefore = await publishReviewedAutoImports();
+  } catch (error) {
+    publishError = error instanceof Error ? error.message : String(error);
+    console.error('Publishing existing reviewed imports failed', publishError);
   }
 
   const response = await fetch(`${SUPABASE_URL}/functions/v1/discover-leaflets`, {
@@ -88,24 +113,23 @@ Deno.serve(async (request) => {
 
   const text = await response.text();
   let payload: unknown;
-  try {
-    payload = JSON.parse(text);
-  } catch {
-    payload = { message: text };
-  }
+  try { payload = JSON.parse(text); }
+  catch { payload = { message: text }; }
 
-  let publishedReviews: unknown[] = [];
-  let publishError: string | null = null;
+  // Krátký druhý průchod zachytí rychle dokončené importy vytvořené touto kontrolou.
+  await sleep(8000);
   try {
-    publishedReviews = await publishReviewedAutoImports();
+    publishedAfter = await publishReviewedAutoImports();
   } catch (error) {
-    publishError = error instanceof Error ? error.message : String(error);
-    console.error('Publishing reviewed imports failed', publishError);
+    const message = error instanceof Error ? error.message : String(error);
+    publishError = publishError ? `${publishError}; ${message}` : message;
+    console.error('Publishing new reviewed imports failed', message);
   }
 
   return Response.json({
     discovery: payload,
-    reviewed_auto_publish: publishedReviews,
+    reviewed_auto_publish_before: publishedBefore,
+    reviewed_auto_publish_after: publishedAfter,
     publish_error: publishError,
   }, {
     status: response.status,
