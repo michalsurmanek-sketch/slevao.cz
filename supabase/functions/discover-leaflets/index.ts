@@ -252,29 +252,57 @@ async function discoverSource(source: any) {
       }).eq('id', staleJob.id);
       if (cleanupError) throw cleanupError;
     }
-    const sourceUrls = [...new Set([
-      source.source_url,
-      ...(STORE_SOURCE_FALLBACKS[storeSlug] || []),
-    ])];
     let response: Response | null = null;
-    let lastSourceError: unknown;
-    for (const sourceUrl of sourceUrls) {
-      try {
-        response = await fetchWithRetry(sourceUrl);
-        break;
-      } catch (error) {
-        lastSourceError = error;
-        console.warn('Source URL skipped', sourceUrl, error instanceof Error ? error.message : String(error));
+    if (storeSlug === 'lidl') {
+      response = await fetchWithRetry(
+        'https://endpoints.leaflets.schwarz/v4/overview?client_locale=lidl%2Fcs-CZ',
+        'application/json,*/*;q=0.8',
+      );
+    } else {
+      const sourceUrls = [...new Set([
+        source.source_url,
+        ...(STORE_SOURCE_FALLBACKS[storeSlug] || []),
+      ])];
+      let lastSourceError: unknown;
+      for (const sourceUrl of sourceUrls) {
+        try {
+          response = await fetchWithRetry(sourceUrl);
+          break;
+        } catch (error) {
+          lastSourceError = error;
+          console.warn('Source URL skipped', sourceUrl, error instanceof Error ? error.message : String(error));
+        }
       }
+      if (!response) throw lastSourceError instanceof Error ? lastSourceError : new Error('Všechny oficiální adresy zdroje selhaly.');
     }
-    if (!response) throw lastSourceError instanceof Error ? lastSourceError : new Error('Všechny oficiální adresy zdroje selhaly.');
     const contentType = response.headers.get('content-type') || '';
     const etag = response.headers.get('etag') || '';
     const lastModified = response.headers.get('last-modified') || '';
     let documents: string[] = [];
     let adapter = storeSlug && STORE_RULES[storeSlug] ? `store:${storeSlug}` : 'generic';
 
-    if (source.source_type === 'pdf' || contentType.includes('application/pdf') || /\.pdf(?:\?|$)/i.test(response.url)) {
+    if (storeSlug === 'lidl') {
+      const overview = await response.json();
+      const today = new Date().toISOString().slice(0, 10);
+      const flyers = (overview.categories || []).flatMap((category: any) =>
+        (category.subcategories || []).flatMap((subcategory: any) =>
+          String(subcategory.name || '').toLocaleLowerCase('cs').includes('akční letáky')
+            ? (subcategory.flyers || [])
+            : []
+        )
+      ).filter((flyer: any) =>
+        flyer.isActive !== false
+        && typeof flyer.pdfUrl === 'string'
+        && flyer.pdfUrl.startsWith('https://')
+        && String(flyer.offerStartDate || flyer.startDate || '') <= today
+        && String(flyer.offerEndDate || flyer.endDate || '') >= today
+      ).sort((a: any, b: any) =>
+        String(b.offerStartDate || b.startDate || '').localeCompare(String(a.offerStartDate || a.startDate || ''))
+      );
+      if (!flyers.length) throw new Error('Oficiální Lidl API nevrátilo právě platný akční leták.');
+      documents = [normalizedUrl(flyers[0].pdfUrl)];
+      adapter = 'store:lidl-api';
+    } else if (source.source_type === 'pdf' || contentType.includes('application/pdf') || /\.pdf(?:\?|$)/i.test(response.url)) {
       documents = [normalizedUrl(response.url)];
     } else if (contentType.startsWith('image/') || /\.(jpg|jpeg|png|webp|avif)(?:\?|$)/i.test(response.url)) {
       documents = candidateScore(response.url, storeSlug) >= 30 ? [normalizedUrl(response.url)] : [];
@@ -292,7 +320,9 @@ async function discoverSource(source: any) {
 
     let created = 0;
     for (const documentUrl of documents) {
-      const sourceHash = await sha256(`${source.id}|${documentUrl}|${etag}|${lastModified}`);
+      const sourceHash = await sha256(storeSlug === 'lidl'
+        ? `${source.id}|${documentUrl}`
+        : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')
         .eq('source_hash', sourceHash)
