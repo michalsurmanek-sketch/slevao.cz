@@ -3,7 +3,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
-const AUTO_PUBLISH_MIN_CONFIDENCE = 0.90;
+const AUTO_PUBLISH_MIN_CONFIDENCE = 0.92;
+const AUTO_PUBLISH_MIN_PRODUCTS = 8;
 
 const corsHeaders = {
   'access-control-allow-origin': '*',
@@ -54,7 +55,7 @@ async function publishReviewedAutoImports() {
     .gte('confidence', AUTO_PUBLISH_MIN_CONFIDENCE)
     .not('detected_valid_from', 'is', null)
     .not('detected_valid_to', 'is', null)
-    .gt('product_count', 0)
+    .gte('product_count', AUTO_PUBLISH_MIN_PRODUCTS)
     .order('updated_at', { ascending: true })
     .limit(50);
 
@@ -133,6 +134,7 @@ Deno.serve(async (request) => {
     reviewed_auto_publish_before: publishedBefore,
     reviewed_auto_publish_after: publishedAfter,
     auto_publish_min_confidence: AUTO_PUBLISH_MIN_CONFIDENCE,
+    auto_publish_min_products: AUTO_PUBLISH_MIN_PRODUCTS,
     publish_error: publishError,
   }, {
     status: response.status,
