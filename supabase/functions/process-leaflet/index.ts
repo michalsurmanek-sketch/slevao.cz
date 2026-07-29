@@ -75,11 +75,39 @@ function responseText(payload: any): string {
   return '';
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function detectDocumentType(contentType: string, bytes: Uint8Array) {
+  const normalized = contentType.toLowerCase().split(';')[0].trim();
+  if (normalized === 'application/pdf' || (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46)) {
+    return { extension: 'pdf', mime: 'application/pdf' };
+  }
+  if (normalized === 'image/png' || (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)) {
+    return { extension: 'png', mime: 'image/png' };
+  }
+  if (normalized === 'image/webp' || (bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50)) {
+    return { extension: 'webp', mime: 'image/webp' };
+  }
+  if (normalized === 'image/gif' || (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46)) {
+    return { extension: 'gif', mime: 'image/gif' };
+  }
+  if (normalized === 'image/jpeg' || (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff)) {
+    return { extension: 'jpg', mime: 'image/jpeg' };
+  }
+  throw new Error(`Stažená adresa nevrátila platný PDF ani obrázek. Content-Type: ${contentType || 'neuveden'}`);
+}
+
 async function uploadPdfToOpenAI(bytes: Uint8Array, filename: string): Promise<string> {
   const form = new FormData();
   form.append('purpose', 'user_data');
   form.append('file', new Blob([bytes], { type: 'application/pdf' }), filename);
-
   const response = await fetch('https://api.openai.com/v1/files', {
     method: 'POST',
     headers: { authorization: `Bearer ${OPENAI_API_KEY}` },
@@ -93,9 +121,9 @@ async function uploadPdfToOpenAI(bytes: Uint8Array, filename: string): Promise<s
 }
 
 async function extractWithOpenAI(
-  documentUrl: string,
   storeName: string,
   extension: string,
+  mime: string,
   bytes: Uint8Array,
   importId: string,
 ): Promise<ExtractionResult> {
@@ -139,7 +167,8 @@ async function extractWithOpenAI(
     const fileId = await uploadPdfToOpenAI(bytes, `letak-${importId}.pdf`);
     documentInput = { type: 'input_file', file_id: fileId };
   } else {
-    documentInput = { type: 'input_image', image_url: documentUrl, detail: 'high' };
+    const dataUrl = `data:${mime};base64,${bytesToBase64(bytes)}`;
+    documentInput = { type: 'input_image', image_url: dataUrl, detail: 'high' };
   }
 
   const aiResponse = await fetch('https://api.openai.com/v1/responses', {
@@ -153,13 +182,10 @@ async function extractWithOpenAI(
       store: false,
       input: [{
         role: 'user',
-        content: [
-          {
-            type: 'input_text',
-            text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
-          },
-          documentInput,
-        ],
+        content: [{
+          type: 'input_text',
+          text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
+        }, documentInput],
       }],
       text: {
         format: {
@@ -173,38 +199,23 @@ async function extractWithOpenAI(
   });
 
   const payload = await aiResponse.json().catch(() => ({}));
-  if (!aiResponse.ok) {
-    throw new Error(`OpenAI zpracování selhalo: ${payload?.error?.message || `HTTP ${aiResponse.status}`}`);
-  }
-
+  if (!aiResponse.ok) throw new Error(`OpenAI zpracování selhalo: ${payload?.error?.message || `HTTP ${aiResponse.status}`}`);
   const text = responseText(payload);
   if (!text) throw new Error('OpenAI nevrátila strukturovaný výsledek.');
-  try {
-    return JSON.parse(text) as ExtractionResult;
-  } catch {
-    throw new Error('OpenAI vrátila neplatný JSON.');
-  }
+  try { return JSON.parse(text) as ExtractionResult; }
+  catch { throw new Error('OpenAI vrátila neplatný JSON.'); }
 }
 
 async function processImport(importId: string) {
   try {
-    console.log('Processing import', importId);
-    const { data: job, error: jobError } = await db
-      .from('leaflet_imports')
-      .select('*,leaflet_sources(auto_publish,name)')
-      .eq('id', importId)
-      .single();
+    const { data: job, error: jobError } = await db.from('leaflet_imports')
+      .select('*,leaflet_sources(auto_publish,name)').eq('id', importId).single();
     if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
     if (['published', 'ignored'].includes(job.status)) return;
 
-    await db.from('leaflet_imports').update({
-      status: 'downloading',
-      started_at: new Date().toISOString(),
-      error_message: null,
-    }).eq('id', importId);
-
+    await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
     const sourceResponse = await fetch(job.source_document_url, {
-      headers: { 'user-agent': 'SlevaoBot/1.0 (+https://slevao.cz)' },
+      headers: { 'user-agent': 'Mozilla/5.0 SlevaoBot/1.0', accept: 'application/pdf,image/avif,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8' },
       redirect: 'follow',
     });
     if (!sourceResponse.ok) throw new Error(`Stažení letáku selhalo: HTTP ${sourceResponse.status}`);
@@ -213,12 +224,11 @@ async function processImport(importId: string) {
     if (!bytes.length) throw new Error('Stažený leták je prázdný.');
     if (bytes.length > 50 * 1024 * 1024) throw new Error('Leták je větší než 50 MB.');
 
+    const detected = detectDocumentType(sourceResponse.headers.get('content-type') || '', bytes);
     await ensureBucket();
-    const contentType = sourceResponse.headers.get('content-type') || 'application/pdf';
-    const extension = contentType.includes('pdf') ? 'pdf' : contentType.includes('png') ? 'png' : contentType.includes('webp') ? 'webp' : 'jpg';
-    const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${extension}`;
+    const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${detected.extension}`;
     const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
-      contentType,
+      contentType: detected.mime,
       upsert: true,
     });
     if (uploadError) throw uploadError;
@@ -230,38 +240,34 @@ async function processImport(importId: string) {
         storage_bucket: STORAGE_BUCKET,
         storage_path: storagePath,
         bytes: bytes.length,
+        detected_mime: detected.mime,
         ai_model: OPENAI_MODEL,
         processing_started_at: new Date().toISOString(),
       },
     }).eq('id', importId);
 
-    const signed = await db.storage.from(STORAGE_BUCKET).createSignedUrl(storagePath, 60 * 60);
-    if (signed.error || !signed.data?.signedUrl) throw signed.error || new Error('Nepodařilo se vytvořit odkaz pro AI zpracování.');
-
-    const result = await extractWithOpenAI(signed.data.signedUrl, job.leaflet_sources?.name || '', extension, bytes, importId);
+    const result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
     const items = Array.isArray(result.items) ? result.items : [];
     if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
 
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
     const categories = await categoryMap();
-    const rows = items
-      .filter((item) => item.title?.trim() && Number(item.price) > 0)
-      .map((item) => ({
-        import_id: importId,
-        category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
-        title: item.title.trim(),
-        brand: item.brand || null,
-        quantity_text: item.quantity_text || null,
-        price: Number(item.price),
-        old_price: item.old_price && Number(item.old_price) > Number(item.price) ? Number(item.old_price) : null,
-        unit_price: item.unit_price ? Number(item.unit_price) : null,
-        unit_label: item.unit_label || null,
-        image_url: item.image_url || null,
-        source_page: item.source_page || null,
-        confidence: item.confidence ?? null,
-        status: 'review',
-        raw_data: item,
-      }));
+    const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0).map((item) => ({
+      import_id: importId,
+      category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
+      title: item.title.trim(),
+      brand: item.brand || null,
+      quantity_text: item.quantity_text || null,
+      price: Number(item.price),
+      old_price: item.old_price && Number(item.old_price) > Number(item.price) ? Number(item.old_price) : null,
+      unit_price: item.unit_price ? Number(item.unit_price) : null,
+      unit_label: item.unit_label || null,
+      image_url: item.image_url || null,
+      source_page: item.source_page || null,
+      confidence: item.confidence ?? null,
+      status: 'review',
+      raw_data: item,
+    }));
 
     if (!rows.length) throw new Error('AI nevrátila žádné nabídky s platnou cenou.');
     const { error: insertError } = await db.from('leaflet_import_items').insert(rows);
@@ -283,18 +289,11 @@ async function processImport(importId: string) {
     if (autoPublish) {
       const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
         method: 'POST',
-        headers: {
-          authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-          'content-type': 'application/json',
-        },
+        headers: { authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'content-type': 'application/json' },
         body: JSON.stringify({ import_id: importId }),
       });
-      if (!response.ok) {
-        const detail = await response.text().catch(() => '');
-        throw new Error(`Publikace HTTP ${response.status}: ${detail.slice(0, 500)}`);
-      }
+      if (!response.ok) throw new Error(`Publikace HTTP ${response.status}: ${(await response.text().catch(() => '')).slice(0, 500)}`);
     }
-    console.log('Import completed', importId, rows.length);
   } catch (error) {
     await markFailed(importId, error);
   }
@@ -312,16 +311,9 @@ Deno.serve(async (request) => {
 
   const { data: job, error } = await db.from('leaflet_imports').select('id,status').eq('id', importId).single();
   if (error || !job) return Response.json({ error: 'Import nebyl nalezen.' }, { status: 404 });
-  if (['published', 'ignored'].includes(job.status)) {
-    return Response.json({ ok: true, skipped: true, status: job.status });
-  }
+  if (['published', 'ignored'].includes(job.status)) return Response.json({ ok: true, skipped: true, status: job.status });
 
-  await db.from('leaflet_imports').update({
-    status: 'queued',
-    error_message: null,
-    finished_at: null,
-  }).eq('id', importId);
-
+  await db.from('leaflet_imports').update({ status: 'queued', error_message: null, finished_at: null }).eq('id', importId);
   runInBackground(processImport(importId));
   return Response.json({ ok: true, accepted: true, import_id: importId }, { status: 202 });
 });
