@@ -77,7 +77,20 @@ async function publishImport(job: any) {
         continue;
       }
       if (existingOffer && Number(existingOffer.price) === Number(item.price)) {
-        await db.from('leaflet_import_items').update({ status: 'ignored', raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' } }).eq('id', item.id);
+        let imageBackfilled = false;
+        if (item.image_url) {
+          const { error: imageOfferError } = await db.from('offers').update({ image_url: item.image_url }).eq('id', existingOffer.id);
+          if (imageOfferError) throw imageOfferError;
+          if (existingOffer.product_id) {
+            const { error: imageProductError } = await db.from('products').update({ image_url: item.image_url }).eq('id', existingOffer.product_id);
+            if (imageProductError) throw imageProductError;
+          }
+          imageBackfilled = true;
+        }
+        await db.from('leaflet_import_items').update({
+          status: 'ignored',
+          raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer', image_backfilled: imageBackfilled },
+        }).eq('id', item.id);
         skippedDuplicates++;
         continue;
       }
