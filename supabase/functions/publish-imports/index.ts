@@ -22,20 +22,19 @@ async function findExistingProduct(item: any): Promise<string | null> {
   return (data || []).find((row: any) => normalizeTitle(row.name) === normalized)?.id || null;
 }
 
-async function offerAlreadyExists(job: any, item: any, validFrom: string, validTo: string): Promise<boolean> {
-  let query = db.from('offers').select('id,title,price')
+async function findExistingOffer(job: any, item: any, validFrom: string, validTo: string): Promise<any | null> {
+  let query = db.from('offers').select('id,product_id,title,price')
     .eq('store_id', job.store_id)
     .eq('valid_from', validFrom)
     .eq('valid_to', validTo)
-    .eq('price', item.price)
     .eq('coverage_scope', job.coverage_scope || 'national');
   if (job.region_code) query = query.eq('region_code', job.region_code); else query = query.is('region_code', null);
   if (job.city_name) query = query.eq('city_name', job.city_name); else query = query.is('city_name', null);
   if (job.store_location_name) query = query.eq('store_location_name', job.store_location_name); else query = query.is('store_location_name', null);
-  const { data, error } = await query.limit(50);
+  const { data, error } = await query.limit(100);
   if (error) throw error;
   const normalized = normalizeTitle(item.title);
-  return (data || []).some((row: any) => normalizeTitle(row.title) === normalized);
+  return (data || []).find((row: any) => normalizeTitle(row.title) === normalized) || null;
 }
 
 async function publishImport(job: any) {
@@ -63,7 +62,21 @@ async function publishImport(job: any) {
     try {
       if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
 
-      if (await offerAlreadyExists(job, item, validFrom, validTo)) {
+      const existingOffer = await findExistingOffer(job, item, validFrom, validTo);
+      if (existingOffer && String(job.metadata?.adapter || '') === 'store:makro') {
+        const { error: updateOfferError } = await db.from('offers').update({
+          price: item.price,
+          old_price: item.old_price,
+          image_url: item.image_url,
+          is_verified: Number(item.confidence || 0) >= 0.9,
+          published_at: new Date().toISOString(),
+        }).eq('id', existingOffer.id);
+        if (updateOfferError) throw updateOfferError;
+        await db.from('leaflet_import_items').update({ status: 'published', product_id: existingOffer.product_id }).eq('id', item.id);
+        published++;
+        continue;
+      }
+      if (existingOffer && Number(existingOffer.price) === Number(item.price)) {
         await db.from('leaflet_import_items').update({ status: 'ignored', raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' } }).eq('id', item.id);
         skippedDuplicates++;
         continue;
