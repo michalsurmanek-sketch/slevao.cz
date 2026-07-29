@@ -43,6 +43,24 @@ const STORE_RULES: Record<string, { allowHosts: string[]; boosts: string[] }> = 
   makro: { allowHosts: ['makro.cz', 'metro-group.com'], boosts: ['katalog', 'letak', 'catalog'] },
 };
 
+const STORE_SOURCE_FALLBACKS: Record<string, string[]> = {
+  lidl: [
+    'https://www.lidl.cz/c/akcni-letak/s10008644',
+    'https://www.lidl.cz/c/akcni-letak/s10008880',
+  ],
+  makro: [
+    'https://www.makro.cz/aktualni-nabidka',
+  ],
+  globus: [
+    'https://www.globus.cz/letaky',
+    'https://www.globus.cz/globus/letaky',
+  ],
+  tesco: [
+    'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy',
+    'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy/tesco-hypermarket-uherske-hradiste',
+  ],
+};
+
 function absoluteUrl(base: string, href: string): string | null {
   try { return new URL(href, base).toString(); } catch { return null; }
 }
@@ -70,6 +88,12 @@ function candidateScore(url: string, storeSlug = ''): number {
   if (/\.pdf(?:\?|$)/i.test(lower)) score += 100;
   const isImage = /\.(jpg|jpeg|png|webp|avif)(?:\?|$)/i.test(lower);
   if (!isImage && !/\.pdf(?:\?|$)/i.test(lower)) return -100;
+  if (
+    storeSlug === 'tesco' &&
+    isImage &&
+    !/(?:page|strana|spread|doublepage|cover_page)[-_]?\d{1,4}/i.test(lower) &&
+    !/[?&](?:w|width|h|height)=([1-9]\d{3,})/i.test(lower)
+  ) return -100;
 
   if (LEAFLET_HINTS.some((hint) => lower.includes(hint))) score += 30;
   if (/(?:page|strana|spread|doublepage|cover_page)[-_]?\d{0,4}/i.test(lower)) score += 45;
@@ -191,7 +215,22 @@ async function discoverSource(source: any) {
   const checkedAt = new Date().toISOString();
   const storeSlug = String(source.stores?.slug || '');
   try {
-    const response = await fetchWithRetry(source.source_url);
+    const sourceUrls = [...new Set([
+      source.source_url,
+      ...(STORE_SOURCE_FALLBACKS[storeSlug] || []),
+    ])];
+    let response: Response | null = null;
+    let lastSourceError: unknown;
+    for (const sourceUrl of sourceUrls) {
+      try {
+        response = await fetchWithRetry(sourceUrl);
+        break;
+      } catch (error) {
+        lastSourceError = error;
+        console.warn('Source URL skipped', sourceUrl, error instanceof Error ? error.message : String(error));
+      }
+    }
+    if (!response) throw lastSourceError instanceof Error ? lastSourceError : new Error('Všechny oficiální adresy zdroje selhaly.');
     const contentType = response.headers.get('content-type') || '';
     const etag = response.headers.get('etag') || '';
     const lastModified = response.headers.get('last-modified') || '';
