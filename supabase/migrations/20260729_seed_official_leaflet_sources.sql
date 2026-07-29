@@ -1,9 +1,10 @@
 -- Slevao.cz: výchozí oficiální zdroje letáků pro celou ČR
 -- Vloží se pouze pro obchody, které už existují v tabulce stores.
+-- Migrace je opakovatelná: existující zdroje podle source_url pouze aktualizuje.
 
 with source_seed(slug, name, source_url, source_type, check_interval_minutes, auto_publish) as (
   values
-    ('kaufland', 'Kaufland – oficiální aktuální letáky', 'https://prodejny.kaufland.cz/letak.html', 'html', 180, true),
+    ('kaufland'::text, 'Kaufland – oficiální aktuální letáky'::text, 'https://prodejny.kaufland.cz/letak.html'::text, 'html'::text, 180::integer, true),
     ('tesco', 'Tesco – akční letáky a katalogy', 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy', 'html', 180, false),
     ('albert', 'Albert – aktuální letáky', 'https://www.albert.cz/aktualni-letaky', 'html', 180, false),
     ('penny', 'PENNY – aktuální letáky', 'https://www.penny.cz/letaky', 'html', 180, false),
@@ -20,8 +21,7 @@ insert into public.leaflet_sources (
   is_active,
   auto_publish,
   check_interval_minutes,
-  geographic_scope,
-  country_code
+  coverage_scope
 )
 select
   s.id,
@@ -31,8 +31,7 @@ select
   true,
   seed.auto_publish,
   seed.check_interval_minutes,
-  'national',
-  'CZ'
+  'national'
 from source_seed seed
 join public.stores s on s.slug = seed.slug
 on conflict (source_url) do update set
@@ -40,7 +39,7 @@ on conflict (source_url) do update set
   name = excluded.name,
   source_type = excluded.source_type,
   is_active = true,
+  auto_publish = excluded.auto_publish,
   check_interval_minutes = excluded.check_interval_minutes,
-  geographic_scope = 'national',
-  country_code = 'CZ',
+  coverage_scope = 'national',
   updated_at = now();
