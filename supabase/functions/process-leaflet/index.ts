@@ -254,10 +254,22 @@ async function processImport(importId: string) {
     const result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
     const items = Array.isArray(result.items) ? result.items : [];
     if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
+    const isMakro = job.stores?.slug === 'makro';
+    let detectedValidFrom = result.valid_from || '';
+    let detectedValidTo = result.valid_to || '';
+    const hasValidIsoRange = /^\d{4}-\d{2}-\d{2}$/.test(detectedValidFrom)
+      && /^\d{4}-\d{2}-\d{2}$/.test(detectedValidTo)
+      && detectedValidFrom <= detectedValidTo;
+    if (isMakro && !hasValidIsoRange) {
+      const start = new Date();
+      const end = new Date(start);
+      end.setUTCDate(end.getUTCDate() + 6);
+      detectedValidFrom = start.toISOString().slice(0, 10);
+      detectedValidTo = end.toISOString().slice(0, 10);
+    }
 
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
     const categories = await categoryMap();
-    const isMakro = job.stores?.slug === 'makro';
     const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0 && Number(item.price) <= 1_000_000 && Number(item.confidence ?? 0) >= 0.75).map((item) => {
       let price = Number(item.price);
       let oldPrice = item.old_price && Number(item.old_price) > price ? Number(item.old_price) : null;
@@ -289,8 +301,8 @@ async function processImport(importId: string) {
 
     const averageConfidence = rows.reduce((sum, row) => sum + Number(row.confidence || 0), 0) / rows.length;
     const today = new Date().toISOString().slice(0, 10);
-    const validFrom = result.valid_from || '';
-    const validTo = result.valid_to || '';
+    const validFrom = detectedValidFrom;
+    const validTo = detectedValidTo;
     const validDates = /^\d{4}-\d{2}-\d{2}$/.test(validFrom)
       && /^\d{4}-\d{2}-\d{2}$/.test(validTo)
       && validFrom <= validTo
@@ -305,8 +317,8 @@ async function processImport(importId: string) {
       status: autoPublish ? 'publishing' : 'review',
       product_count: rows.length,
       confidence: averageConfidence || null,
-      detected_valid_from: result.valid_from || null,
-      detected_valid_to: result.valid_to || null,
+      detected_valid_from: detectedValidFrom || null,
+      detected_valid_to: detectedValidTo || null,
       page_count: result.page_count || null,
       error_message: null,
       finished_at: new Date().toISOString(),
