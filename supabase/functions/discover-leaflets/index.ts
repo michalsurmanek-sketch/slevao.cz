@@ -10,11 +10,7 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 });
 
 function absoluteUrl(base: string, href: string): string | null {
-  try {
-    return new URL(href, base).toString();
-  } catch {
-    return null;
-  }
+  try { return new URL(href, base).toString(); } catch { return null; }
 }
 
 function extractDocumentCandidates(text: string, baseUrl: string): string[] {
@@ -24,7 +20,6 @@ function extractDocumentCandidates(text: string, baseUrl: string): string[] {
     /(?:pdfUrl|pdf_url|downloadUrl|download_url|documentUrl|document_url|imageUrl|image_url)["']?\s*[:=]\s*["']([^"']+)["']/gi,
     /https?:\/\/[^\s"'<>]+\.(?:pdf|jpg|jpeg|png|webp)(?:\?[^\s"'<>]*)?/gi,
   ];
-
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text))) {
@@ -62,9 +57,6 @@ async function queueProcessor(importId: string) {
       throw new Error(`Processor HTTP ${response.status}: ${detail.slice(0, 500)}`);
     }
   });
-
-  // Supabase Edge Runtime udrží požadavek na pozadí i po vrácení odpovědi.
-  // deno-lint-ignore no-explicit-any
   const edgeRuntime = (globalThis as any).EdgeRuntime;
   if (edgeRuntime?.waitUntil) edgeRuntime.waitUntil(task);
   else await task;
@@ -87,16 +79,10 @@ async function discoverSource(source: any) {
     const lastModified = response.headers.get('last-modified') || '';
     let documents: string[] = [];
 
-    if (
-      source.source_type === 'pdf' ||
-      contentType.includes('application/pdf') ||
-      contentType.startsWith('image/') ||
-      /\.(pdf|jpg|jpeg|png|webp)(?:\?|$)/i.test(response.url)
-    ) {
+    if (source.source_type === 'pdf' || contentType.includes('application/pdf') || contentType.startsWith('image/') || /\.(pdf|jpg|jpeg|png|webp)(?:\?|$)/i.test(response.url)) {
       documents = [response.url];
     } else if (source.source_type === 'json' || contentType.includes('application/json')) {
-      const payload = await response.json();
-      documents = extractDocumentCandidates(JSON.stringify(payload), response.url);
+      documents = extractDocumentCandidates(JSON.stringify(await response.json()), response.url);
     } else {
       documents = extractDocumentCandidates(await response.text(), response.url);
     }
@@ -106,66 +92,46 @@ async function discoverSource(source: any) {
 
     let created = 0;
     for (const documentUrl of documents) {
-      // ETag/Last-Modified zajistí nový import i tehdy, když obchod přepisuje leták na stejné URL.
       const sourceHash = await sha256(`${source.id}|${documentUrl}|${etag}|${lastModified}`);
-      const { data, error } = await db
-        .from('leaflet_imports')
-        .upsert({
-          source_id: source.id,
-          store_id: source.store_id,
-          source_document_url: documentUrl,
-          source_hash: sourceHash,
-          status: 'queued',
-          metadata: {
-            discovered_at: checkedAt,
-            source_name: source.name,
-            source_etag: etag || null,
-            source_last_modified: lastModified || null,
-          },
-        }, { onConflict: 'source_hash', ignoreDuplicates: true })
-        .select('id,status')
-        .maybeSingle();
+      const { data, error } = await db.from('leaflet_imports').upsert({
+        source_id: source.id,
+        store_id: source.store_id,
+        source_document_url: documentUrl,
+        source_hash: sourceHash,
+        status: 'queued',
+        coverage_scope: source.coverage_scope || 'national',
+        region_code: source.region_code || null,
+        city_name: source.city_name || null,
+        store_location_name: source.store_location_name || null,
+        metadata: {
+          discovered_at: checkedAt,
+          source_name: source.name,
+          source_etag: etag || null,
+          source_last_modified: lastModified || null,
+        },
+      }, { onConflict: 'source_hash', ignoreDuplicates: true }).select('id,status').maybeSingle();
 
       if (error) throw error;
-      if (data?.id) {
-        created++;
-        await queueProcessor(data.id);
-      }
+      if (data?.id) { created++; await queueProcessor(data.id); }
     }
 
-    await db.from('leaflet_sources').update({
-      last_checked_at: checkedAt,
-      last_success_at: checkedAt,
-      last_error: null,
-    }).eq('id', source.id);
-
+    await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_success_at: checkedAt, last_error: null }).eq('id', source.id);
     return { source: source.name, found: documents.length, queued: created };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await db.from('leaflet_sources').update({
-      last_checked_at: checkedAt,
-      last_error: message.slice(0, 2000),
-    }).eq('id', source.id);
+    await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_error: message.slice(0, 2000) }).eq('id', source.id);
     return { source: source.name, error: message };
   }
 }
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
-  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: sources, error } = await db
-    .from('leaflet_sources')
-    .select('*')
-    .eq('is_active', true)
-    .limit(100);
-
+  const { data: sources, error } = await db.from('leaflet_sources').select('*').eq('is_active', true).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
   const dueSources = (sources || []).filter((source: any) => isDue(source));
   const results = [];
   for (const source of dueSources) results.push(await discoverSource(source));
-
   return Response.json({ ok: true, active: sources?.length || 0, checked: results.length, results });
 });
