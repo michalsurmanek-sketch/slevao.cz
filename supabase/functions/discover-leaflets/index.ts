@@ -276,6 +276,30 @@ async function discoverSource(source: any) {
     let created = 0;
     for (const documentUrl of documents) {
       const sourceHash = await sha256(`${source.id}|${documentUrl}|${etag}|${lastModified}`);
+      const { data: existing, error: existingError } = await db.from('leaflet_imports')
+        .select('id,status,updated_at')
+        .eq('source_hash', sourceHash)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      if (existing) {
+        const ageMs = Date.now() - new Date(existing.updated_at || 0).getTime();
+        const staleProcessing = ['queued', 'downloading', 'processing'].includes(String(existing.status || ''))
+          && ageMs >= 8 * 60_000;
+        const retryableFailure = existing.status === 'failed' && ageMs >= 60 * 60_000;
+        if (!staleProcessing && !retryableFailure) continue;
+
+        const { error: archiveError } = await db.from('leaflet_imports').update({
+          source_hash: `${sourceHash}:archived:${existing.id}:${Date.now()}`,
+          ...(staleProcessing ? {
+            status: 'failed',
+            error_message: 'Automatické zpracování překročilo časový limit a bude bezpečně zopakováno.',
+            finished_at: new Date().toISOString(),
+          } : {}),
+        }).eq('id', existing.id);
+        if (archiveError) throw archiveError;
+      }
+
       const { data, error } = await db.from('leaflet_imports').upsert({
         source_id: source.id,
         store_id: source.store_id,
@@ -301,6 +325,7 @@ async function discoverSource(source: any) {
       if (data?.id) {
         created++;
         await queueProcessor(data.id);
+        if (storeSlug === 'tesco') break;
       }
     }
 
