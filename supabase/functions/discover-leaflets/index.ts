@@ -53,8 +53,8 @@ const STORE_SOURCE_FALLBACKS: Record<string, string[]> = {
     'https://www.makro.cz/aktualni-nabidka',
   ],
   globus: [
-    'https://www.globus.cz/letaky',
-    'https://www.globus.cz/globus/letaky',
+    'https://www.globus.cz/globus/letaky/aktualni',
+    'https://www.globus.cz/olomouc/letaky/aktualni',
   ],
   tesco: [
     'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy',
@@ -328,7 +328,15 @@ async function discoverSource(source: any) {
     } else if (source.source_type === 'json' || contentType.includes('application/json')) {
       documents = extractDocumentCandidates(JSON.stringify(await response.json()), response.url, storeSlug);
     } else {
-      documents = await discoverFromHtml(await response.text(), response.url, storeSlug);
+      const html = await response.text();
+      if (storeSlug === 'globus') {
+        const pdfMatch = html.replace(/&amp;/g, '&').match(/https:\/\/gapi\.globus\.cz\/OnlineAsset\/\d+\/asset\?assetID=[0-9a-f-]{36}/i);
+        if (!pdfMatch) throw new Error('Oficiální stránka Globusu neobsahuje aktuální PDF leták.');
+        documents = [normalizedUrl(pdfMatch[0])];
+        adapter = 'store:globus-pdf';
+      } else {
+        documents = await discoverFromHtml(html, response.url, storeSlug);
+      }
     }
 
     documents = filterStoreDocuments([...new Set(documents)], storeSlug)
@@ -339,7 +347,7 @@ async function discoverSource(source: any) {
 
     let created = 0;
     for (const documentUrl of documents) {
-      const sourceHash = await sha256(storeSlug === 'lidl'
+      const sourceHash = await sha256(['lidl', 'globus'].includes(storeSlug)
         ? `${source.id}|${documentUrl}`
         : storeSlug === 'makro'
           ? `${source.id}|${documentUrl}|makro-v3`
