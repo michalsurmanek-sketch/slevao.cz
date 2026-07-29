@@ -230,6 +230,55 @@ async function discoverFromHtml(html: string, pageUrl: string, storeSlug: string
   return [...found];
 }
 
+
+function parseNuxtPayload(html: string): any {
+  const match = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match) throw new Error('Stránka Globusu neobsahuje strukturovaná data.');
+  const payload = JSON.parse(match[1]);
+  const cache = new Map<number, any>();
+  const resolve = (index: any): any => {
+    if (typeof index !== 'number') return index;
+    if (index < 0) return index === -1 ? undefined : index === -2 ? Number.NaN : index === -3 ? Infinity : index === -4 ? -Infinity : index === -5 ? -0 : null;
+    if (cache.has(index)) return cache.get(index);
+    const value = payload[index];
+    if (value === null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) {
+      if (typeof value[0] === 'string' && ['Reactive', 'ShallowReactive', 'Ref', 'ShallowRef'].includes(value[0])) return resolve(value[1]);
+      if (value[0] === 'Date') return resolve(value[1]);
+      const result: any[] = [];
+      cache.set(index, result);
+      for (const item of value) result.push(resolve(item));
+      return result;
+    }
+    const result: Record<string, any> = {};
+    cache.set(index, result);
+    for (const [key, item] of Object.entries(value)) result[key] = resolve(item);
+    return result;
+  };
+  return resolve(0);
+}
+
+function globusProductsFromHtml(html: string): { products: any[]; totalCount: number } {
+  const root = parseNuxtPayload(html);
+  const data = root?.data || {};
+  const listing = Object.entries(data).find(([key]) => key.startsWith('actionOfferProductListing-'))?.[1] as any;
+  if (!listing || !Array.isArray(listing.products)) throw new Error('Globus nevrátil produkty aktuálního letáku.');
+  return { products: listing.products, totalCount: Number(listing.totalCount || listing.products.length) };
+}
+
+function globusCampaign(items: any[]): { validFrom: string; validTo: string; signature: string } {
+  const today = new Date().toISOString().slice(0, 10);
+  const active = items.map((item: any) => ({
+    from: String(item?.productInHouse?.priceValidFrom || '').slice(0, 10),
+    to: String(item?.productInHouse?.priceValidTo || '').slice(0, 10),
+  })).filter((range: any) => /^\d{4}-\d{2}-\d{2}$/.test(range.from) && /^\d{4}-\d{2}-\d{2}$/.test(range.to) && range.from <= today && range.to >= today);
+  if (!active.length) throw new Error('Globus nevrátil žádnou právě platnou akční nabídku.');
+  const validTo = active.map((range: any) => range.to).sort()[0];
+  const starts = active.filter((range: any) => range.to === validTo).map((range: any) => range.from);
+  const validFrom = [...new Set(starts)].sort((a, b) => starts.filter((v) => v === b).length - starts.filter((v) => v === a).length)[0];
+  return { validFrom, validTo, signature: validFrom + '|' + validTo };
+}
+
 async function sha256(value: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -298,6 +347,8 @@ async function discoverSource(source: any) {
     const etag = response.headers.get('etag') || '';
     const lastModified = response.headers.get('last-modified') || '';
     let documents: string[] = [];
+    let adapterMetadata: Record<string, unknown> = {};
+    let globusCampaignSignature = '';
     let adapter = storeSlug && STORE_RULES[storeSlug] ? `store:${storeSlug}` : 'generic';
 
     if (storeSlug === 'lidl') {
@@ -330,10 +381,22 @@ async function discoverSource(source: any) {
     } else {
       const html = await response.text();
       if (storeSlug === 'globus') {
-        const pdfMatch = html.replace(/&amp;/g, '&').match(/https:\/\/gapi\.globus\.cz\/OnlineAsset\/\d+\/asset\?assetID=[0-9a-f-]{36}/i);
-        if (!pdfMatch) throw new Error('Oficiální stránka Globusu neobsahuje aktuální PDF leták.');
-        documents = [normalizedUrl(pdfMatch[0])];
-        adapter = 'store:globus-pdf';
+        const listingUrl = 'https://www.globus.cz/olomouc/letaky/aktualni';
+        const listingResponse = response.url === listingUrl
+          ? response
+          : await fetchWithRetry(listingUrl, 'text/html,application/xhtml+xml,*/*;q=0.8');
+        const listingHtml = listingResponse === response ? html : await listingResponse.text();
+        const listing = globusProductsFromHtml(listingHtml);
+        const campaign = globusCampaign(listing.products);
+        documents = [listingUrl];
+        adapter = 'store:globus-html';
+        globusCampaignSignature = campaign.signature;
+        adapterMetadata = {
+          campaign_valid_from: campaign.validFrom,
+          campaign_valid_to: campaign.validTo,
+          listing_total_items: listing.totalCount,
+          highlighted_products: listing.products.length,
+        };
       } else {
         documents = await discoverFromHtml(html, response.url, storeSlug);
       }
@@ -348,7 +411,7 @@ async function discoverSource(source: any) {
     let created = 0;
     for (const documentUrl of documents) {
       const sourceHash = await sha256(['lidl', 'globus'].includes(storeSlug)
-        ? `${source.id}|${documentUrl}`
+        ? `${source.id}|${documentUrl}|${globusCampaignSignature || 'legacy'}|globus-html-v1`
         : storeSlug === 'makro'
           ? `${source.id}|${documentUrl}|makro-v3`
           : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
@@ -393,6 +456,7 @@ async function discoverSource(source: any) {
           source_last_modified: lastModified || null,
           candidate_filter: 'leaflet-v4-adapters',
           adapter,
+          ...adapterMetadata,
           candidate_score: candidateScore(documentUrl, storeSlug),
         },
       }, { onConflict: 'source_hash', ignoreDuplicates: true }).select('id,status').maybeSingle();
