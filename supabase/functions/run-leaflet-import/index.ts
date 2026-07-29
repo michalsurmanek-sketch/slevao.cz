@@ -13,6 +13,40 @@ const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+async function publishReviewedAutoImports() {
+  const { data: jobs, error } = await adminClient
+    .from('leaflet_imports')
+    .select('id,leaflet_sources!inner(auto_publish)')
+    .eq('status', 'review')
+    .eq('leaflet_sources.auto_publish', true)
+    .order('updated_at', { ascending: true })
+    .limit(20);
+
+  if (error) throw error;
+
+  const results = [];
+  for (const job of jobs || []) {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        'content-type': 'application/json',
+        'x-cron-secret': CRON_SECRET,
+      },
+      body: JSON.stringify({ import_id: job.id }),
+    });
+
+    const text = await response.text();
+    let payload: unknown;
+    try { payload = JSON.parse(text); }
+    catch { payload = { message: text }; }
+
+    results.push({ import_id: job.id, ok: response.ok, status: response.status, payload });
+  }
+
+  return results;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') {
@@ -60,7 +94,20 @@ Deno.serve(async (request) => {
     payload = { message: text };
   }
 
-  return Response.json(payload, {
+  let publishedReviews: unknown[] = [];
+  let publishError: string | null = null;
+  try {
+    publishedReviews = await publishReviewedAutoImports();
+  } catch (error) {
+    publishError = error instanceof Error ? error.message : String(error);
+    console.error('Publishing reviewed imports failed', publishError);
+  }
+
+  return Response.json({
+    discovery: payload,
+    reviewed_auto_publish: publishedReviews,
+    publish_error: publishError,
+  }, {
     status: response.status,
     headers: corsHeaders,
   });
