@@ -342,7 +342,7 @@ async function discoverSource(source: any) {
       const sourceHash = await sha256(storeSlug === 'lidl'
         ? `${source.id}|${documentUrl}`
         : storeSlug === 'makro'
-          ? `${source.id}|${documentUrl}|makro-v2`
+          ? `${source.id}|${documentUrl}|makro-v3`
           : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')
