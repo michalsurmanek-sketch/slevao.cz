@@ -411,7 +411,7 @@ async function discoverSource(source: any) {
     let created = 0;
     for (const documentUrl of documents) {
       const sourceHash = await sha256(['lidl', 'globus'].includes(storeSlug)
-        ? `${source.id}|${documentUrl}|${globusCampaignSignature || 'legacy'}|globus-html-v1`
+        ? `${source.id}|${documentUrl}|${globusCampaignSignature || 'legacy'}|globus-html-v2`
         : storeSlug === 'makro'
           ? `${source.id}|${documentUrl}|makro-v3`
           : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
