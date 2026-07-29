@@ -235,6 +235,23 @@ async function discoverSource(source: any) {
   const checkedAt = new Date().toISOString();
   const storeSlug = String(source.stores?.slug || '');
   try {
+    const staleCutoff = new Date(Date.now() - 8 * 60_000).toISOString();
+    const { data: staleJobs, error: staleError } = await db.from('leaflet_imports')
+      .select('id,source_hash')
+      .eq('source_id', source.id)
+      .in('status', ['queued', 'downloading', 'processing'])
+      .lt('updated_at', staleCutoff);
+    if (staleError) throw staleError;
+
+    for (const staleJob of staleJobs || []) {
+      const { error: cleanupError } = await db.from('leaflet_imports').update({
+        source_hash: `${staleJob.source_hash}:stale:${staleJob.id}:${Date.now()}`,
+        status: 'failed',
+        error_message: 'Automatické zpracování překročilo časový limit a bylo bezpečně ukončeno.',
+        finished_at: new Date().toISOString(),
+      }).eq('id', staleJob.id);
+      if (cleanupError) throw cleanupError;
+    }
     const sourceUrls = [...new Set([
       source.source_url,
       ...(STORE_SOURCE_FALLBACKS[storeSlug] || []),
