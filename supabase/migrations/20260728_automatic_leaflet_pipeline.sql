@@ -58,17 +58,30 @@ create table if not exists public.leaflet_import_items (
   image_url text,
   source_page integer,
   confidence numeric(5,4),
-  status text not null default 'review' check (status in ('review','approved','rejected','published','failed')),
+  status text not null default 'review',
   raw_data jsonb not null default '{}'::jsonb,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- Udrží migraci opakovatelnou a dovolí stav ignored používaný při přeskočení duplicit.
+alter table public.leaflet_import_items drop constraint if exists leaflet_import_items_status_check;
+alter table public.leaflet_import_items add constraint leaflet_import_items_status_check
+  check (status in ('review','approved','rejected','published','failed','ignored'));
 
 create index if not exists leaflet_import_items_import_idx on public.leaflet_import_items(import_id, status);
 
 alter table public.leaflet_sources enable row level security;
 alter table public.leaflet_imports enable row level security;
 alter table public.leaflet_import_items enable row level security;
+
+-- PostgreSQL nemá CREATE POLICY IF NOT EXISTS, proto je nejdříve bezpečně odstraníme.
+drop policy if exists "staff read leaflet sources" on public.leaflet_sources;
+drop policy if exists "staff manage leaflet sources" on public.leaflet_sources;
+drop policy if exists "staff read leaflet imports" on public.leaflet_imports;
+drop policy if exists "staff manage leaflet imports" on public.leaflet_imports;
+drop policy if exists "staff read leaflet items" on public.leaflet_import_items;
+drop policy if exists "staff manage leaflet items" on public.leaflet_import_items;
 
 -- Přístup pro přihlášené administrátory/editory. Service role RLS obchází.
 create policy "staff read leaflet sources" on public.leaflet_sources for select to authenticated using ((auth.jwt() -> 'app_metadata' ->> 'role') in ('admin','editor'));
