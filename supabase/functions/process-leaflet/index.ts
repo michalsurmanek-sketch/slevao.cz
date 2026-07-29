@@ -206,6 +206,99 @@ async function extractWithOpenAI(
   catch { throw new Error('OpenAI vrátila neplatný JSON.'); }
 }
 
+
+function parseNuxtPayload(html: string): any {
+  const match = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+  if (!match) throw new Error('Stránka Globusu neobsahuje strukturovaná data.');
+  const payload = JSON.parse(match[1]);
+  const cache = new Map<number, any>();
+  const resolve = (index: any): any => {
+    if (typeof index !== 'number') return index;
+    if (index < 0) return index === -1 ? undefined : index === -2 ? Number.NaN : index === -3 ? Infinity : index === -4 ? -Infinity : index === -5 ? -0 : null;
+    if (cache.has(index)) return cache.get(index);
+    const value = payload[index];
+    if (value === null || typeof value !== 'object') return value;
+    if (Array.isArray(value)) {
+      if (typeof value[0] === 'string' && ['Reactive', 'ShallowReactive', 'Ref', 'ShallowRef'].includes(value[0])) return resolve(value[1]);
+      if (value[0] === 'Date') return resolve(value[1]);
+      const result: any[] = [];
+      cache.set(index, result);
+      for (const item of value) result.push(resolve(item));
+      return result;
+    }
+    const result: Record<string, any> = {};
+    cache.set(index, result);
+    for (const [key, item] of Object.entries(value)) result[key] = resolve(item);
+    return result;
+  };
+  return resolve(0);
+}
+
+function globusCategory(item: any): string {
+  const placements = Array.isArray(item?.productInHouse?.placements) ? item.productInHouse.placements : [];
+  const haystack = [
+    ...placements.flatMap((placement: any) => [placement?.department, placement?.category, placement?.subcategory]),
+    ...(Array.isArray(item?.productCategories) ? item.productCategories : []),
+    item?.name,
+  ].filter(Boolean).join(' ').toLocaleLowerCase('cs');
+  if (/alkohol|pivo|víno|vino|lihov|nápoj|napoj/.test(haystack)) return 'Nápoje';
+  if (/droger|hygien|kosmet|prací|praci|čistic|cistic/.test(haystack)) return 'Drogerie';
+  if (/zvíř|zvir|chovatel|krmiv|kočk|kock|pes|psi/.test(haystack)) return 'Chovatelské potřeby';
+  if (/elektr|spotřebič|spotrebic/.test(haystack)) return 'Elektronika';
+  if (/zahrad|gril|rostlin/.test(haystack)) return 'Zahrada';
+  if (/textil|móda|moda|obleč|oblec|obuv/.test(haystack)) return 'Oblečení';
+  if (/domác|domac|kuchyň|kuchyn|nábytek|nabytek/.test(haystack)) return 'Domácnost';
+  return 'Potraviny';
+}
+
+function globusExtraction(html: string, metadata: any): ExtractionResult {
+  const root = parseNuxtPayload(html);
+  const data = root?.data || {};
+  const listing = Object.entries(data).find(([key]) => key.startsWith('actionOfferProductListing-'))?.[1] as any;
+  if (!listing || !Array.isArray(listing.products)) throw new Error('Globus nevrátil produkty aktuálního letáku.');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const validFrom = String(metadata?.campaign_valid_from || '');
+  const validTo = String(metadata?.campaign_valid_to || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(validFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(validTo)) {
+    throw new Error('Globus import nemá spolehlivou platnost kampaně.');
+  }
+
+  const seen = new Set<string>();
+  const items: ExtractedItem[] = [];
+  for (const product of listing.products) {
+    const house = product?.productInHouse || {};
+    const itemFrom = String(house.priceValidFrom || '').slice(0, 10);
+    const itemTo = String(house.priceValidTo || '').slice(0, 10);
+    const price = Number(product?.calculatedPrice?.currentPrice ?? house.actualPrice);
+    const normalPrice = Number(product?.calculatedPrice?.normalPrice ?? house.originalPrice);
+    const title = String(product?.name || product?.billName || '').trim();
+    const key = String(product?.vanr || title + '|' + price);
+    if (!title || !(price > 0) || itemFrom > today || itemTo !== validTo || house.isActive === false || house.availability === 'N' || seen.has(key)) continue;
+    seen.add(key);
+
+    const rawBrand = product?.commonBrand?.name || product?.brand?.name || null;
+    const brand = rawBrand && !/^normální$/i.test(String(rawBrand)) ? String(rawBrand) : null;
+    const comparisonPrice = Number(house.comparisonPrice);
+    items.push({
+      title,
+      brand,
+      quantity_text: product?.sellUnitSizeText ? String(product.sellUnitSizeText) : null,
+      price,
+      old_price: normalPrice > price ? normalPrice : null,
+      unit_price: comparisonPrice > 0 ? comparisonPrice : null,
+      unit_label: house.comparisonSaleUnitSizeText ? String(house.comparisonSaleUnitSizeText) : null,
+      image_url: product?.imgDetail ? String(product.imgDetail) : null,
+      source_page: 1,
+      confidence: 0.98,
+      category_name: globusCategory(product),
+    });
+  }
+
+  if (!items.length) throw new Error('Globus nevrátil žádné produkty z právě platného letáku.');
+  return { valid_from: validFrom, valid_to: validTo, page_count: 1, items };
+}
+
 async function processImport(importId: string) {
   try {
     const { data: job, error: jobError } = await db.from('leaflet_imports')
@@ -217,7 +310,7 @@ async function processImport(importId: string) {
     const sourceResponse = await fetch(job.source_document_url, {
       headers: {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
-        accept: 'application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+        accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
         'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
         referer: job.source_document_url.includes('tesco.com')
           ? 'https://www.itesco.cz/'
@@ -229,35 +322,52 @@ async function processImport(importId: string) {
     });
     if (!sourceResponse.ok) throw new Error(`Stažení letáku selhalo: HTTP ${sourceResponse.status}`);
 
-    const bytes = new Uint8Array(await sourceResponse.arrayBuffer());
-    if (!bytes.length) throw new Error('Stažený leták je prázdný.');
-    if (bytes.length > 50 * 1024 * 1024) throw new Error('Leták je větší než 50 MB.');
+    let result: ExtractionResult;
+    const isGlobusHtml = job.stores?.slug === 'globus' && job.metadata?.adapter === 'store:globus-html';
+    if (isGlobusHtml) {
+      const html = await sourceResponse.text();
+      result = globusExtraction(html, job.metadata || {});
+      await db.from('leaflet_imports').update({
+        status: 'processing',
+        metadata: {
+          ...(job.metadata || {}),
+          bytes: new TextEncoder().encode(html).length,
+          detected_mime: 'text/html',
+          structured_source: true,
+          processing_started_at: new Date().toISOString(),
+        },
+      }).eq('id', importId);
+    } else {
+      const bytes = new Uint8Array(await sourceResponse.arrayBuffer());
+      if (!bytes.length) throw new Error('Stažený leták je prázdný.');
+      if (bytes.length > 50 * 1024 * 1024) throw new Error('Leták je větší než 50 MB.');
 
-    const detected = detectDocumentType(sourceResponse.headers.get('content-type') || '', bytes);
-    await ensureBucket();
-    const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${detected.extension}`;
-    const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
-      contentType: detected.mime,
-      upsert: true,
-    });
-    if (uploadError) throw uploadError;
+      const detected = detectDocumentType(sourceResponse.headers.get('content-type') || '', bytes);
+      await ensureBucket();
+      const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${detected.extension}`;
+      const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
+        contentType: detected.mime,
+        upsert: true,
+      });
+      if (uploadError) throw uploadError;
 
-    await db.from('leaflet_imports').update({
-      status: 'processing',
-      metadata: {
-        ...(job.metadata || {}),
-        storage_bucket: STORAGE_BUCKET,
-        storage_path: storagePath,
-        bytes: bytes.length,
-        detected_mime: detected.mime,
-        ai_model: OPENAI_MODEL,
-        processing_started_at: new Date().toISOString(),
-      },
-    }).eq('id', importId);
+      await db.from('leaflet_imports').update({
+        status: 'processing',
+        metadata: {
+          ...(job.metadata || {}),
+          storage_bucket: STORAGE_BUCKET,
+          storage_path: storagePath,
+          bytes: bytes.length,
+          detected_mime: detected.mime,
+          ai_model: OPENAI_MODEL,
+          processing_started_at: new Date().toISOString(),
+        },
+      }).eq('id', importId);
 
-    const result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
+      result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
+    }
     const items = Array.isArray(result.items) ? result.items : [];
-    if (!items.length) throw new Error('AI v letáku nerozpoznala žádné produkty.');
+    if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
     let detectedValidFrom = result.valid_from || '';
     let detectedValidTo = result.valid_to || '';
