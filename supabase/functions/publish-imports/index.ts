@@ -9,6 +9,10 @@ function normalizeTitle(value: string): string {
   return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('cs').replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
+function isIsoDate(value: unknown): value is string {
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
+}
+
 async function findExistingProduct(item: any): Promise<string | null> {
   const title = String(item.title || '').trim();
   if (!title) return null;
@@ -35,16 +39,30 @@ async function offerAlreadyExists(job: any, item: any, validFrom: string, validT
 }
 
 async function publishImport(job: any) {
+  if (!['review', 'publishing'].includes(String(job.status || ''))) {
+    throw new Error(`Import ve stavu ${job.status || 'neznámý'} nelze publikovat.`);
+  }
+
   const { data: items, error } = await db.from('leaflet_import_items').select('*').eq('import_id', job.id).in('status', ['approved', 'review']);
   if (error) throw error;
   if (!items?.length) throw new Error('Import nemá žádné produkty k publikaci.');
 
-  const validFrom = job.detected_valid_from || new Date().toISOString().slice(0, 10);
-  const validTo = job.detected_valid_to || new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  if (!isIsoDate(job.detected_valid_from) || !isIsoDate(job.detected_valid_to)) {
+    throw new Error('Import nemá spolehlivě rozpoznanou platnost letáku.');
+  }
+
+  const validFrom = job.detected_valid_from;
+  const validTo = job.detected_valid_to;
+  if (validFrom > validTo) throw new Error('Začátek platnosti je později než konec platnosti.');
+  const today = new Date().toISOString().slice(0, 10);
+  if (validTo < today) throw new Error('Leták už není platný.');
+
   let published = 0, skippedDuplicates = 0, failed = 0;
 
   for (const item of items) {
     try {
+      if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
+
       if (await offerAlreadyExists(job, item, validFrom, validTo)) {
         await db.from('leaflet_import_items').update({ status: 'ignored', raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' } }).eq('id', item.id);
         skippedDuplicates++;
@@ -107,12 +125,17 @@ async function publishImport(job: any) {
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
-  const authorized = request.headers.get('authorization') === `Bearer ${SERVICE_ROLE_KEY}` || (!CRON_SECRET || request.headers.get('x-cron-secret') === CRON_SECRET);
-  if (!authorized) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
 
-  const body = request.method === 'POST' ? await request.json().catch(() => ({})) : {};
+  const authHeader = request.headers.get('authorization') || '';
+  const cronHeader = request.headers.get('x-cron-secret') || '';
+  const authorizedByServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
+  const authorizedByCron = Boolean(CRON_SECRET && cronHeader === CRON_SECRET);
+  if (!authorizedByServiceRole && !authorizedByCron) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const body = await request.json().catch(() => ({}));
   let query = db.from('leaflet_imports').select('*').eq('status', 'publishing').limit(10);
-  if (body.import_id) query = db.from('leaflet_imports').select('*').eq('id', body.import_id).limit(1);
+  if (body.import_id) query = db.from('leaflet_imports').select('*').eq('id', String(body.import_id)).limit(1);
   const { data: jobs, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
