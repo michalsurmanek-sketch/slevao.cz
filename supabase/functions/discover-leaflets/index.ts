@@ -9,79 +9,156 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
-function absoluteUrl(base: string, href: string): string | null {
-  try { return new URL(href, base).toString(); } catch { return null; }
-}
+const BROWSER_HEADERS = {
+  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+  accept: 'text/html,application/xhtml+xml,application/pdf,application/json,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+  'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+  'cache-control': 'no-cache',
+};
 
 const LEAFLET_HINTS = [
   'letak', 'leták', 'leaflet', 'catalog', 'katalog', 'akcni', 'akční',
-  'offers', 'nabidk', 'prospekt', 'brochure', 'flipbook', 'weekly',
+  'offers', 'nabidk', 'prospekt', 'brochure', 'flipbook', 'weekly', 'page', 'strana',
 ];
 
 const REJECT_HINTS = [
-  'favicon', 'apple-touch-icon', 'logo', 'sprite', 'placeholder', 'avatar',
-  'tracking', 'pixel', 'analytics', 'icon-', '/icon/', '/icons/', 'manifest',
-  'social', 'facebook', 'instagram', 'youtube', 'linkedin', 'twitter',
-  'banner', 'hero', 'teaser', 'thumbnail', 'thumb', 'preview', 'promo',
-  'mobile', 'phone', 'smartphone', 'ruka-', 'hand-', 'app-store', 'google-play',
-  'header', 'footer', 'navigation', 'nav-', 'background', 'bg-', 'cover-small',
+  'favicon', 'apple-touch-icon', 'logo', 'sprite', 'placeholder', 'avatar', 'tracking',
+  'pixel', 'analytics', 'icon-', '/icon/', '/icons/', 'manifest', 'social', 'facebook',
+  'instagram', 'youtube', 'linkedin', 'twitter', 'banner', 'hero', 'teaser', 'thumbnail',
+  'thumb', 'preview', 'promo', 'mobile', 'phone', 'smartphone', 'ruka-', 'hand-',
+  'app-store', 'google-play', 'header', 'footer', 'navigation', 'nav-', 'background',
+  'bg-', 'cover-small', 'cookie', 'consent', 'newsletter',
 ];
+
+const STORE_RULES: Record<string, { allowHosts: string[]; boosts: string[] }> = {
+  kaufland: { allowHosts: ['kaufland.cz', 'kaufland.com'], boosts: ['letak', 'prospekt', 'page'] },
+  albert: { allowHosts: ['albert.cz', 'letaky.albert.cz'], boosts: ['letak', 'cover_page', 'page'] },
+  tesco: { allowHosts: ['itesco.cz', 'tesco.com'], boosts: ['letak', 'catalog', 'leaflet'] },
+  billa: { allowHosts: ['billa.cz', 'shopfully.cloud'], boosts: ['letak', 'prospekt', 'page'] },
+  lidl: { allowHosts: ['lidl.cz', 'lidl.com', 'leaflets.schwarz'], boosts: ['letak', 'prospekt', 'page'] },
+  globus: { allowHosts: ['globus.cz'], boosts: ['letak', 'prospekt', 'page'] },
+  penny: { allowHosts: ['penny.cz', 'penny.eu'], boosts: ['letak', 'prospekt', 'page'] },
+  makro: { allowHosts: ['makro.cz', 'metro-group.com'], boosts: ['katalog', 'letak', 'catalog'] },
+};
+
+function absoluteUrl(base: string, href: string): string | null {
+  try { return new URL(href, base).toString(); } catch { return null; }
+}
 
 function normalizedUrl(url: string): string {
   try {
     const parsed = new URL(url.replace(/&amp;/g, '&'));
     parsed.hash = '';
+    ['utm_source', 'utm_medium', 'utm_campaign', 'gclid', 'fbclid'].forEach((key) => parsed.searchParams.delete(key));
     return parsed.toString();
   } catch {
     return url.replace(/&amp;/g, '&');
   }
 }
 
-function candidateScore(url: string): number {
+function candidateScore(url: string, storeSlug = ''): number {
   const lower = decodeURIComponent(url).toLocaleLowerCase('cs');
   if (REJECT_HINTS.some((hint) => lower.includes(hint))) return -100;
-  if (/\.pdf(?:\?|$)/i.test(lower)) return 100;
-
-  const isImage = /\.(jpg|jpeg|png|webp)(?:\?|$)/i.test(lower);
-  if (!isImage) return -100;
 
   let score = 0;
+  if (/\.pdf(?:\?|$)/i.test(lower)) score += 100;
+  const isImage = /\.(jpg|jpeg|png|webp|avif)(?:\?|$)/i.test(lower);
+  if (!isImage && !/\.pdf(?:\?|$)/i.test(lower)) return -100;
+
   if (LEAFLET_HINTS.some((hint) => lower.includes(hint))) score += 30;
-  if (/(?:page|strana|spread|doublepage)[-_]?\d{1,4}/i.test(lower)) score += 45;
+  if (/(?:page|strana|spread|doublepage|cover_page)[-_]?\d{0,4}/i.test(lower)) score += 45;
   if (/\b(?:a4|a3|210x297|2480x3508|web_leaflet)\b/i.test(lower)) score += 20;
   if (/[?&](?:w|width)=([1-9]\d{3,})/i.test(lower)) score += 10;
   if (/[?&](?:h|height)=([1-9]\d{3,})/i.test(lower)) score += 10;
 
+  const rule = STORE_RULES[storeSlug];
+  if (rule) {
+    try {
+      const host = new URL(url).hostname;
+      if (rule.allowHosts.some((allowed) => host === allowed || host.endsWith(`.${allowed}`))) score += 20;
+      if (rule.boosts.some((hint) => lower.includes(hint))) score += 20;
+    } catch { /* ignore */ }
+  }
   return score;
 }
 
-function isLeafletCandidate(url: string): boolean {
-  return candidateScore(url) >= 30;
-}
-
-function extractDocumentCandidates(text: string, baseUrl: string): string[] {
+function extractDocumentCandidates(text: string, baseUrl: string, storeSlug = ''): string[] {
   const urls = new Map<string, number>();
   const patterns = [
-    /href=["']([^"']+\.(?:pdf|jpg|jpeg|png|webp)(?:\?[^"']*)?)["']/gi,
-    /(?:pdfUrl|pdf_url|downloadUrl|download_url|documentUrl|document_url|leafletUrl|leaflet_url|catalogUrl|catalog_url|imageUrl|image_url)["']?\s*[:=]\s*["']([^"']+)["']/gi,
-    /https?:\/\/[^\s"'<>]+\.(?:pdf|jpg|jpeg|png|webp)(?:\?[^\s"'<>]*)?/gi,
+    /(?:href|src|data-src|data-url|data-image|content)=["']([^"']+\.(?:pdf|jpg|jpeg|png|webp|avif)(?:\?[^"']*)?)["']/gi,
+    /srcset=["']([^"']+)["']/gi,
+    /(?:pdfUrl|pdf_url|downloadUrl|download_url|documentUrl|document_url|leafletUrl|leaflet_url|catalogUrl|catalog_url|imageUrl|image_url|pages|pageImage|page_image)["']?\s*[:=]\s*["']([^"']+)["']/gi,
+    /https?:\/\/[^\s"'<>\\]+\.(?:pdf|jpg|jpeg|png|webp|avif)(?:\?[^\s"'<>\\]*)?/gi,
   ];
 
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text))) {
-      const candidate = match[1] || match[0];
-      const absolute = absoluteUrl(baseUrl, candidate.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&'));
-      if (!absolute) continue;
-      const url = normalizedUrl(absolute);
-      const score = candidateScore(url);
-      if (score >= 30) urls.set(url, Math.max(score, urls.get(url) || 0));
+      const raw = match[1] || match[0];
+      const variants = raw.includes(',') ? raw.split(',').map((part) => part.trim().split(/\s+/)[0]) : [raw];
+      for (const variant of variants) {
+        const absolute = absoluteUrl(baseUrl, variant.replace(/\\u0026/g, '&').replace(/\\\//g, '/').replace(/&amp;/g, '&'));
+        if (!absolute) continue;
+        const url = normalizedUrl(absolute);
+        const score = candidateScore(url, storeSlug);
+        if (score >= 30) urls.set(url, Math.max(score, urls.get(url) || 0));
+      }
     }
   }
 
-  return [...urls.entries()]
-    .sort((a, b) => b[1] - a[1])
-    .map(([url]) => url);
+  return [...urls.entries()].sort((a, b) => b[1] - a[1]).map(([url]) => url);
+}
+
+function extractLinkedResources(html: string, baseUrl: string): string[] {
+  const resources = new Set<string>();
+  const pattern = /<(?:script|link)[^>]+(?:src|href)=["']([^"']+)["']/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const absolute = absoluteUrl(baseUrl, match[1]);
+    if (!absolute) continue;
+    try {
+      const url = new URL(absolute);
+      const base = new URL(baseUrl);
+      if (url.hostname === base.hostname && /\.(?:js|json)(?:\?|$)/i.test(url.pathname + url.search)) resources.add(url.toString());
+    } catch { /* ignore */ }
+  }
+  return [...resources].slice(0, 10);
+}
+
+async function fetchWithRetry(url: string, accept = BROWSER_HEADERS.accept): Promise<Response> {
+  let lastError: unknown;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const response = await fetch(url, {
+        headers: { ...BROWSER_HEADERS, accept, referer: new URL(url).origin + '/' },
+        redirect: 'follow',
+      });
+      if (response.ok) return response;
+      lastError = new Error(`HTTP ${response.status}`);
+      if (![403, 429, 500, 502, 503, 504].includes(response.status)) break;
+    } catch (error) {
+      lastError = error;
+    }
+    await new Promise((resolve) => setTimeout(resolve, attempt * 700));
+  }
+  throw lastError instanceof Error ? lastError : new Error(String(lastError || 'Stažení selhalo'));
+}
+
+async function discoverFromHtml(html: string, pageUrl: string, storeSlug: string): Promise<string[]> {
+  const found = new Set(extractDocumentCandidates(html, pageUrl, storeSlug));
+  if (found.size >= 4) return [...found];
+
+  for (const resourceUrl of extractLinkedResources(html, pageUrl)) {
+    try {
+      const response = await fetchWithRetry(resourceUrl, 'application/javascript,application/json,text/plain,*/*;q=0.7');
+      const text = await response.text();
+      for (const candidate of extractDocumentCandidates(text, response.url, storeSlug)) found.add(candidate);
+      if (found.size >= 12) break;
+    } catch (error) {
+      console.warn('Linked resource skipped', resourceUrl, error instanceof Error ? error.message : String(error));
+    }
+  }
+  return [...found];
 }
 
 async function sha256(value: string): Promise<string> {
@@ -98,50 +175,38 @@ function isDue(source: any, now = Date.now()): boolean {
 async function queueProcessor(importId: string) {
   const response = await fetch(PROCESSOR_URL, {
     method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      'x-cron-secret': CRON_SECRET,
-    },
+    headers: { 'content-type': 'application/json', authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'x-cron-secret': CRON_SECRET },
     body: JSON.stringify({ import_id: importId }),
   });
-  if (!response.ok) {
-    const detail = await response.text().catch(() => '');
-    throw new Error(`Processor HTTP ${response.status}: ${detail.slice(0, 500)}`);
-  }
+  if (!response.ok) throw new Error(`Processor HTTP ${response.status}: ${(await response.text().catch(() => '')).slice(0, 500)}`);
 }
 
 async function discoverSource(source: any) {
   const checkedAt = new Date().toISOString();
+  const storeSlug = String(source.stores?.slug || '');
   try {
-    const response = await fetch(source.source_url, {
-      headers: {
-        'user-agent': 'SlevaoBot/1.0 (+https://slevao.cz)',
-        accept: 'text/html,application/pdf,application/json,image/*;q=0.9,*/*;q=0.8',
-      },
-      redirect: 'follow',
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
+    const response = await fetchWithRetry(source.source_url);
     const contentType = response.headers.get('content-type') || '';
     const etag = response.headers.get('etag') || '';
     const lastModified = response.headers.get('last-modified') || '';
     let documents: string[] = [];
+    let adapter = storeSlug && STORE_RULES[storeSlug] ? `store:${storeSlug}` : 'generic';
 
     if (source.source_type === 'pdf' || contentType.includes('application/pdf') || /\.pdf(?:\?|$)/i.test(response.url)) {
       documents = [normalizedUrl(response.url)];
-    } else if (contentType.startsWith('image/') || /\.(jpg|jpeg|png|webp)(?:\?|$)/i.test(response.url)) {
-      documents = isLeafletCandidate(response.url) ? [normalizedUrl(response.url)] : [];
+    } else if (contentType.startsWith('image/') || /\.(jpg|jpeg|png|webp|avif)(?:\?|$)/i.test(response.url)) {
+      documents = candidateScore(response.url, storeSlug) >= 30 ? [normalizedUrl(response.url)] : [];
     } else if (source.source_type === 'json' || contentType.includes('application/json')) {
-      documents = extractDocumentCandidates(JSON.stringify(await response.json()), response.url);
+      documents = extractDocumentCandidates(JSON.stringify(await response.json()), response.url, storeSlug);
     } else {
-      documents = extractDocumentCandidates(await response.text(), response.url);
+      documents = await discoverFromHtml(await response.text(), response.url, storeSlug);
     }
 
-    documents = [...new Set(documents)].slice(0, 12);
-    if (!documents.length) {
-      throw new Error('Na stránce nebyl nalezen důvěryhodný PDF nebo obrázkový leták. Reklamní bannery, náhledy, ikony a grafika aplikací byly ignorovány.');
-    }
+    documents = [...new Set(documents)]
+      .sort((a, b) => candidateScore(b, storeSlug) - candidateScore(a, storeSlug))
+      .slice(0, 24);
+
+    if (!documents.length) throw new Error(`Adaptér ${adapter} nenašel PDF ani dostatečně velké stránky letáku.`);
 
     let created = 0;
     for (const documentUrl of documents) {
@@ -161,8 +226,9 @@ async function discoverSource(source: any) {
           source_name: source.name,
           source_etag: etag || null,
           source_last_modified: lastModified || null,
-          candidate_filter: 'leaflet-v3',
-          candidate_score: candidateScore(documentUrl),
+          candidate_filter: 'leaflet-v4-adapters',
+          adapter,
+          candidate_score: candidateScore(documentUrl, storeSlug),
         },
       }, { onConflict: 'source_hash', ignoreDuplicates: true }).select('id,status').maybeSingle();
 
@@ -173,30 +239,20 @@ async function discoverSource(source: any) {
       }
     }
 
-    await db.from('leaflet_sources').update({
-      last_checked_at: checkedAt,
-      last_success_at: checkedAt,
-      last_error: null,
-    }).eq('id', source.id);
-
-    return { source: source.name, found: documents.length, queued: created };
+    await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_success_at: checkedAt, last_error: null }).eq('id', source.id);
+    return { source: source.name, adapter, found: documents.length, queued: created };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await db.from('leaflet_sources').update({
-      last_checked_at: checkedAt,
-      last_error: message.slice(0, 2000),
-    }).eq('id', source.id);
-    return { source: source.name, error: message };
+    await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_error: message.slice(0, 2000) }).eq('id', source.id);
+    return { source: source.name, adapter: storeSlug ? `store:${storeSlug}` : 'generic', error: message };
   }
 }
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
-  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) {
-    return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { data: sources, error } = await db.from('leaflet_sources').select('*').eq('is_active', true).limit(100);
+  const { data: sources, error } = await db.from('leaflet_sources').select('*,stores(slug)').eq('is_active', true).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const dueSources = (sources || []).filter((source: any) => isDue(source));
