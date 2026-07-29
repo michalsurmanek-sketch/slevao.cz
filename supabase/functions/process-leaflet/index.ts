@@ -184,7 +184,7 @@ async function extractWithOpenAI(
         role: 'user',
         content: [{
           type: 'input_text',
-          text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.`,
+          text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je v letáku výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada, Chovatelské potřeby. Neodhaduj chybějící údaje. Nevytvářej produkty z nadpisů, kupónů, věrnostních bodů ani obecných reklamních textů. Confidence sniž při nejasné ceně nebo názvu.${storeName.toLocaleLowerCase('cs').includes('makro') ? ' U MAKRO vždy použij jako price konečnou cenu s DPH. Menší cenu bez DPH a větší cenu s DPH nikdy nevykládej jako akční a původní cenu; old_price v takovém případě musí být null.' : ''}`,
         }, documentInput],
       }],
       text: {
@@ -257,22 +257,31 @@ async function processImport(importId: string) {
 
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
     const categories = await categoryMap();
-    const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0 && Number(item.price) <= 1_000_000 && Number(item.confidence ?? 0) >= 0.75).map((item) => ({
-      import_id: importId,
-      category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
-      title: item.title.trim(),
-      brand: item.brand || null,
-      quantity_text: item.quantity_text || null,
-      price: Number(item.price),
-      old_price: item.old_price && Number(item.old_price) > Number(item.price) ? Number(item.old_price) : null,
-      unit_price: item.unit_price ? Number(item.unit_price) : null,
-      unit_label: item.unit_label || null,
-      image_url: item.image_url || null,
-      source_page: item.source_page || null,
-      confidence: item.confidence ?? null,
-      status: 'review',
-      raw_data: item,
-    }));
+    const isMakro = job.stores?.slug === 'makro';
+    const rows = items.filter((item) => item.title?.trim() && Number(item.price) > 0 && Number(item.price) <= 1_000_000 && Number(item.confidence ?? 0) >= 0.75).map((item) => {
+      let price = Number(item.price);
+      let oldPrice = item.old_price && Number(item.old_price) > price ? Number(item.old_price) : null;
+      if (isMakro && oldPrice) {
+        price = oldPrice;
+        oldPrice = null;
+      }
+      return {
+        import_id: importId,
+        category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
+        title: item.title.trim(),
+        brand: item.brand || null,
+        quantity_text: item.quantity_text || null,
+        price,
+        old_price: oldPrice,
+        unit_price: item.unit_price ? Number(item.unit_price) : null,
+        unit_label: item.unit_label || null,
+        image_url: item.image_url || null,
+        source_page: item.source_page || null,
+        confidence: item.confidence ?? null,
+        status: 'review',
+        raw_data: { ...item, makro_vat_price_normalized: isMakro && Boolean(item.old_price) },
+      };
+    });
 
     if (!rows.length) throw new Error('AI nevrátila žádné nabídky s platnou cenou.');
     const { error: insertError } = await db.from('leaflet_import_items').insert(rows);
