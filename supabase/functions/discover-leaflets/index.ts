@@ -49,6 +49,7 @@ const STORE_SOURCE_FALLBACKS: Record<string, string[]> = {
     'https://www.lidl.cz/c/akcni-letak/s10008880',
   ],
   makro: [
+    'https://letaky.makro.cz/ultra-fresh-nabidka',
     'https://www.makro.cz/aktualni-nabidka',
   ],
   globus: [
@@ -113,6 +114,24 @@ function candidateScore(url: string, storeSlug = ''): number {
 }
 
 function filterStoreDocuments(documents: string[], storeSlug = ''): string[] {
+  if (storeSlug === 'makro') {
+    const pageImages = documents.filter((url) => {
+      try {
+        const pathname = new URL(url).pathname;
+        return /\/pages\/[^/]+-at1600\.(?:jpg|jpeg|png)$/i.test(pathname);
+      } catch {
+        return /\/pages\/[^/]+-at1600\.(?:jpg|jpeg|png)(?:\?|$)/i.test(url);
+      }
+    });
+    if (pageImages.length) return pageImages.slice(0, 1);
+
+    const pdfs = documents.filter((url) => {
+      try { return /\.pdf$/i.test(new URL(url).pathname); }
+      catch { return /\.pdf(?:\?|$)/i.test(url); }
+    });
+    return pdfs.slice(0, 1);
+  }
+
   if (storeSlug !== 'tesco') return documents;
 
   const pdfs = documents.filter((url) => {
@@ -320,7 +339,7 @@ async function discoverSource(source: any) {
 
     let created = 0;
     for (const documentUrl of documents) {
-      const sourceHash = await sha256(storeSlug === 'lidl'
+      const sourceHash = await sha256(['lidl', 'makro'].includes(storeSlug)
         ? `${source.id}|${documentUrl}`
         : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
