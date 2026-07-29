@@ -251,6 +251,83 @@ function globusCategory(item: any): string {
   return 'Potraviny';
 }
 
+function decodeHtml(value: string): string {
+  return String(value || '')
+    .replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)));
+}
+
+function htmlAttribute(tag: string, name: string): string {
+  const match = tag.match(new RegExp("\\b" + name + "=[\"']([^\"']*)[\"']", "i"));
+  return decodeHtml(match?.[1] || '').trim();
+}
+
+function imageMatchWords(value: string): string[] {
+  const stop = new Set(['akce', 'ruzne', 'druhy', 'vybrane', 'baleni', 'cena', 'pouze', 'kus', 'kusu', 'jvp']);
+  return [...new Set(String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/\b\d+(?:[,.]\d+)?\s*(?:kg|g|l|ml|ks|%)\b/g, ' ')
+    .replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/).filter((word) => word.length > 2 && !stop.has(word)))];
+}
+
+function productImageScore(left: string, right: string): number {
+  const a = imageMatchWords(left);
+  const b = imageMatchWords(right);
+  if (a.length < 2 || b.length < 2) return 0;
+  const setB = new Set(b);
+  const common = a.filter((word) => setB.has(word)).length;
+  if (common < 2) return 0;
+  const containment = common / Math.min(a.length, b.length);
+  const precision = common / Math.max(a.length, b.length);
+  return containment * 0.72 + precision * 0.28;
+}
+
+async function enrichKauflandImages(items: ExtractedItem[]): Promise<ExtractedItem[]> {
+  try {
+    const response = await fetch('https://prodejny.kaufland.cz/nabidka/prehled.html', {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; SlevaoBot/1.0; +https://slevao.cz)',
+        accept: 'text/html,application/xhtml+xml',
+        'accept-language': 'cs-CZ,cs;q=0.9',
+      },
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    const html = await response.text();
+    const catalog: Array<{ title: string; image: string }> = [];
+    for (const match of html.matchAll(/<img\b[^>]*class=["'][^"']*k-product-tile__main-image[^"']*["'][^>]*>/gi)) {
+      const tag = match[0];
+      const title = htmlAttribute(tag, 'alt').replace(/\s+/g, ' ').trim();
+      const image = htmlAttribute(tag, 'src');
+      if (title && /^https:\/\/kaufland\.media\.schwarz\/is\/image\//i.test(image)) catalog.push({ title, image });
+    }
+    if (!catalog.length) throw new Error('Oficiální stránka neobsahuje produktové fotografie.');
+
+    return items.map((item) => {
+      if (item.image_url) return item;
+      let best: { title: string; image: string } | null = null;
+      let bestScore = 0;
+      let secondScore = 0;
+      const query = [item.brand, item.title].filter(Boolean).join(' ');
+      for (const candidate of catalog) {
+        const score = productImageScore(query, candidate.title);
+        if (score > bestScore) {
+          secondScore = bestScore;
+          bestScore = score;
+          best = candidate;
+        } else if (score > secondScore) secondScore = score;
+      }
+      const queryWords = imageMatchWords(query);
+      const candidateWords = imageMatchWords(best?.title || '');
+      const exactContainment = queryWords.length >= 2 && candidateWords.length >= 2
+        && (queryWords.every((word) => candidateWords.includes(word)) || candidateWords.every((word) => queryWords.includes(word)));
+      if (!best || bestScore < 0.78 || (!exactContainment && bestScore - secondScore < 0.08)) return item;
+      return { ...item, image_url: best.image };
+    });
+  } catch (error) {
+    console.warn('Kaufland image enrichment skipped:', error instanceof Error ? error.message : String(error));
+    return items;
+  }
+}
+
 function globusExtraction(html: string, metadata: any): ExtractionResult {
   const root = parseNuxtPayload(html);
   const data = root?.data || {};
@@ -366,7 +443,8 @@ async function processImport(importId: string) {
 
       result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
     }
-    const items = Array.isArray(result.items) ? result.items : [];
+    const extractedItems = Array.isArray(result.items) ? result.items : [];
+    const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems) : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
     let detectedValidFrom = result.valid_from || '';
