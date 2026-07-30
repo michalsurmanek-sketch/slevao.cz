@@ -6,6 +6,10 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini';
 const STORAGE_BUCKET = Deno.env.get('LEAFLET_BUCKET') || 'leaflets';
+const CORS_HEADERS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
+};
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -872,7 +876,7 @@ async function processImport(importId: string) {
 }
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok');
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   const authorization = request.headers.get('authorization') || '';
   const body = await request.json().catch(() => ({}));
   const allowedByService = authorization === `Bearer ${SERVICE_ROLE_KEY}`;
@@ -883,23 +887,23 @@ Deno.serve(async (request) => {
     const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
     allowedByUser = ['admin', 'editor'].includes(role);
   }
-  if (!allowedByService && !allowedByCron && !allowedByUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!allowedByService && !allowedByCron && !allowedByUser) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
 
   if (body.action === 'backfill-billa-images') {
     const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'billa').single();
-    if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Billa nebyl nalezen.' }, { status: 404 });
+    if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Billa nebyl nalezen.' }, { status: 404, headers: CORS_HEADERS });
     const result = await backfillBillaPublishedImages(store.id);
-    return Response.json({ ok: true, ...result });
+    return Response.json({ ok: true, ...result }, { headers: CORS_HEADERS });
   }
 
   const importId = String(body.import_id || '');
-  if (!importId) return Response.json({ error: 'Missing import_id' }, { status: 400 });
+  if (!importId) return Response.json({ error: 'Missing import_id' }, { status: 400, headers: CORS_HEADERS });
 
   const { data: job, error } = await db.from('leaflet_imports').select('id,status').eq('id', importId).single();
-  if (error || !job) return Response.json({ error: 'Import nebyl nalezen.' }, { status: 404 });
-  if (['published', 'ignored'].includes(job.status)) return Response.json({ ok: true, skipped: true, status: job.status });
+  if (error || !job) return Response.json({ error: 'Import nebyl nalezen.' }, { status: 404, headers: CORS_HEADERS });
+  if (['published', 'ignored'].includes(job.status)) return Response.json({ ok: true, skipped: true, status: job.status }, { headers: CORS_HEADERS });
 
   await db.from('leaflet_imports').update({ status: 'queued', error_message: null, finished_at: null }).eq('id', importId);
   runInBackground(processImport(importId));
-  return Response.json({ ok: true, accepted: true, import_id: importId }, { status: 202 });
+  return Response.json({ ok: true, accepted: true, import_id: importId }, { status: 202, headers: CORS_HEADERS });
 });
