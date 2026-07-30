@@ -1,0 +1,123 @@
+name: Apply Tesco cookie download fix
+
+on:
+  push:
+    paths:
+      - '.github/workflows/apply-tesco-cookie-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Patch Tesco download only
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('supabase/functions/process-leaflet/index.ts')
+          text = path.read_text(encoding='utf-8')
+
+          marker = "async function processImport(importId: string) {"
+          helper = r'''async function fetchLeafletSource(url: string, storeSlug: string): Promise<Response> {
+  const browserHeaders: Record<string, string> = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+    accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+    'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+  };
+
+  if (storeSlug !== 'tesco') {
+    return fetch(url, {
+      headers: { ...browserHeaders, referer: new URL(url).origin + '/' },
+      redirect: 'follow',
+    });
+  }
+
+  const landingUrl = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
+  const landing = await fetch(landingUrl, {
+    headers: browserHeaders,
+    redirect: 'follow',
+  });
+
+  const cookieValues = typeof (landing.headers as any).getSetCookie === 'function'
+    ? (landing.headers as any).getSetCookie()
+    : [landing.headers.get('set-cookie') || ''];
+  const cookie = cookieValues
+    .filter(Boolean)
+    .map((value: string) => value.split(';', 1)[0])
+    .join('; ');
+
+  const response = await fetch(url, {
+    headers: {
+      ...browserHeaders,
+      accept: 'application/pdf,image/*,*/*;q=0.8',
+      referer: landing.url || landingUrl,
+      origin: 'https://www.itesco.cz',
+      ...(cookie ? { cookie } : {}),
+    },
+    redirect: 'follow',
+  });
+
+  if (response.status !== 403) return response;
+
+  return fetch(url, {
+    headers: {
+      ...browserHeaders,
+      accept: 'application/pdf,image/*,*/*;q=0.8',
+      referer: 'https://www.itesco.cz/',
+      origin: 'https://www.itesco.cz',
+      ...(cookie ? { cookie } : {}),
+      'cache-control': 'no-cache',
+      pragma: 'no-cache',
+    },
+    redirect: 'follow',
+  });
+}
+
+'''
+
+          if helper.strip() not in text:
+            if marker not in text:
+              raise SystemExit('processImport marker not found')
+            text = text.replace(marker, helper + marker, 1)
+
+          old = r'''    const sourceResponse = await fetch(job.source_document_url, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+        accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        referer: job.source_document_url.includes('tesco.com')
+          ? 'https://www.itesco.cz/'
+          : job.source_document_url.includes('gapi.globus.cz')
+            ? 'https://www.globus.cz/'
+            : new URL(job.source_document_url).origin + '/',
+      },
+      redirect: 'follow',
+    });'''
+          new = r'''    const sourceResponse = await fetchLeafletSource(
+      job.source_document_url,
+      String(job.stores?.slug || ''),
+    );'''
+
+          if old in text:
+            text = text.replace(old, new, 1)
+          elif new not in text:
+            raise SystemExit('Expected download block not found')
+
+          path.write_text(text, encoding='utf-8')
+      - name: Commit Tesco fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/process-leaflet/index.ts
+          if git diff --cached --quiet; then
+            echo "No changes needed"
+            exit 0
+          fi
+          git commit -m "fix(tesco): download leaflet with Tesco session cookies"
+          git push origin main
