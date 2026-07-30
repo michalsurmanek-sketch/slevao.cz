@@ -631,6 +631,11 @@ function productImageScore(left: string, right: string): number {
   return containment * 0.72 + precision * 0.28;
 }
 
+function isUsableProductImage(value: unknown): boolean {
+  const image = String(value || '').trim();
+  return /^https?:\/\//i.test(image) && !/google\.com\/s2\/favicons|favicon|(?:^|[\/_-])logo(?:[\/_.-]|$)/i.test(image);
+}
+
 function findBillaImage(title: string): string | null {
   const normalized = normalizedImageTitle(title);
   const exact = BILLA_IMAGE_BY_TITLE.get(normalized);
@@ -689,7 +694,7 @@ async function enrichFromPublishedCatalog(items: ExtractedItem[], storeId: strin
   try {
     const catalog = await publishedImageCatalog(storeId);
     return items.map((item) => {
-      if (item.image_url) return item;
+      if (isUsableProductImage(item.image_url)) return item;
       const image = findCatalogImage(item.title, catalog);
       return image ? { ...item, image_url: image } : item;
     });
@@ -707,7 +712,7 @@ async function backfillPublishedCatalogImages(storeId: string): Promise<{ update
   ]);
   if (offersError) throw offersError;
   const matches = (offers || [])
-    .filter((offer: any) => !String(offer.image_url || '').trim())
+    .filter((offer: any) => !isUsableProductImage(offer.image_url))
     .map((offer: any) => {
       const image = findCatalogImage(String(offer.title || ''), catalog);
       return image ? { ...offer, image } : null;
@@ -806,7 +811,7 @@ async function backfillAlbertPublishedImages(storeId: string): Promise<{ updated
   if (error) throw error;
 
   const matches: Array<any> = [];
-  const missing = (offers || []).filter((offer: any) => !String(offer.image_url || '').trim()).slice(0, 48);
+  const missing = (offers || []).filter((offer: any) => !isUsableProductImage(offer.image_url)).slice(0, 48);
   for (let offset = 0; offset < missing.length; offset += 6) {
     const batch = missing.slice(offset, offset + 6);
     const images = await Promise.all(batch.map((offer: any) => findOfficialTescoImage(String(offer.title || ''))));
