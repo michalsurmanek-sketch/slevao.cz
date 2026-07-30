@@ -57,7 +57,7 @@ async function ensureBucket() {
   if (!data) {
     const { error } = await db.storage.createBucket(STORAGE_BUCKET, {
       public: false,
-      fileSizeLimit: 50 * 1024 * 1024,
+      fileSizeLimit: 120 * 1024 * 1024,
     });
     if (error) throw error;
   }
@@ -1082,7 +1082,7 @@ async function processImport(importId: string) {
     } else {
       const bytes = new Uint8Array(await sourceResponse.arrayBuffer());
       if (!bytes.length) throw new Error('Stažený leták je prázdný.');
-      if (bytes.length > 50 * 1024 * 1024) throw new Error('Leták je větší než 50 MB.');
+      if (bytes.length > 120 * 1024 * 1024) throw new Error('Leták je větší než 120 MB.');
 
       const detected = detectDocumentType(sourceResponse.headers.get('content-type') || '', bytes);
       await ensureBucket();

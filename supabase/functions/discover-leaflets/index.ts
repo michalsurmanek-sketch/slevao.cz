@@ -303,7 +303,7 @@ async function discoverSource(source: any) {
   const checkedAt = new Date().toISOString();
   const storeSlug = String(source.stores?.slug || '');
   try {
-    const staleCutoff = new Date(Date.now() - 8 * 60_000).toISOString();
+    const staleCutoff = new Date(Date.now() - 35 * 60_000).toISOString();
     const { data: staleJobs, error: staleError } = await db.from('leaflet_imports')
       .select('id,source_hash')
       .eq('source_id', source.id)
@@ -428,7 +428,7 @@ async function discoverSource(source: any) {
       if (existing) {
         const ageMs = Date.now() - new Date(existing.updated_at || 0).getTime();
         const staleProcessing = ['queued', 'downloading', 'processing'].includes(String(existing.status || ''))
-          && ageMs >= 8 * 60_000;
+          && ageMs >= 35 * 60_000;
         const retryableFailure = existing.status === 'failed' && ageMs >= 60 * 60_000;
         if (!staleProcessing && !retryableFailure) continue;
 
