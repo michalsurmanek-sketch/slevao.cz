@@ -49,10 +49,10 @@ async function publishReviewedAutoImports() {
 
   const { data: jobs, error: jobError } = await adminClient
     .from('leaflet_imports')
-    .select('id,source_id,updated_at,confidence,detected_valid_from,detected_valid_to,product_count')
+    .select('id,source_id,updated_at,confidence,detected_valid_from,detected_valid_to,product_count,stores(slug)')
     .eq('status', 'review')
     .in('source_id', sourceIds)
-    .gte('confidence', AUTO_PUBLISH_MIN_CONFIDENCE)
+    .gte('confidence', 0.88)
     .not('detected_valid_from', 'is', null)
     .not('detected_valid_to', 'is', null)
     .gte('product_count', AUTO_PUBLISH_MIN_PRODUCTS)
@@ -62,7 +62,10 @@ async function publishReviewedAutoImports() {
   if (jobError) throw jobError;
 
   const results = [];
-  for (const job of jobs || []) results.push(await publishImport(job.id));
+  for (const job of jobs || []) {
+    const threshold = job.stores?.slug === 'billa' ? 0.88 : AUTO_PUBLISH_MIN_CONFIDENCE;
+    if (Number(job.confidence || 0) >= threshold) results.push(await publishImport(job.id));
+  }
   return results;
 }
 
