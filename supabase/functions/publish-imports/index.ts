@@ -157,7 +157,16 @@ Deno.serve(async (request) => {
   const cronHeader = request.headers.get('x-cron-secret') || '';
   const authorizedByServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
   const authorizedByCron = Boolean(CRON_SECRET && cronHeader === CRON_SECRET);
-  if (!authorizedByServiceRole && !authorizedByCron) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  let authorizedByUser = false;
+  if (!authorizedByServiceRole && !authorizedByCron && authHeader.startsWith('Bearer ')) {
+    const accessToken = authHeader.slice(7).trim();
+    const { data: userData } = await db.auth.getUser(accessToken);
+    const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+    authorizedByUser = ['admin', 'editor'].includes(role);
+  }
+  if (!authorizedByServiceRole && !authorizedByCron && !authorizedByUser) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const body = await request.json().catch(() => ({}));
   let query = db.from('leaflet_imports').select('*').eq('status', 'publishing').limit(10);
