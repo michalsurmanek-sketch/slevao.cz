@@ -1039,6 +1039,46 @@ function globusExtraction(html: string, metadata: any): ExtractionResult {
   return { valid_from: validFrom, valid_to: validTo, page_count: 1, items };
 }
 
+async function fetchTescoDocument(url: string): Promise<Response> {
+  const landingUrl = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
+  const browserHeaders = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+    accept: 'text/html,application/xhtml+xml,application/pdf,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+    'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+    'cache-control': 'no-cache',
+    pragma: 'no-cache',
+  };
+
+  const landing = await fetch(landingUrl, {
+    headers: browserHeaders,
+    redirect: 'follow',
+  });
+  const cookies = landing.headers.getSetCookie?.() || [];
+  const cookie = cookies.map((value) => value.split(';', 1)[0]).filter(Boolean).join('; ');
+
+  const response = await fetch(url, {
+    headers: {
+      ...browserHeaders,
+      accept: 'application/pdf,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+      referer: landingUrl,
+      ...(cookie ? { cookie } : {}),
+    },
+    redirect: 'follow',
+  });
+  if (response.ok) return response;
+
+  return await fetch(url, {
+    headers: {
+      ...browserHeaders,
+      accept: 'application/pdf,*/*;q=0.8',
+      referer: 'https://www.itesco.cz/',
+      origin: 'https://www.itesco.cz',
+      ...(cookie ? { cookie } : {}),
+    },
+    redirect: 'follow',
+  });
+}
+
 async function processImport(importId: string) {
   try {
     const { data: job, error: jobError } = await db.from('leaflet_imports')
@@ -1049,19 +1089,19 @@ async function processImport(importId: string) {
     await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
     if (job.stores?.slug === 'billa') await backfillBillaPublishedImages(job.store_id);
     if (job.stores?.slug === 'albert') await backfillAlbertPublishedImages(job.store_id);
-    const sourceResponse = await fetch(job.source_document_url, {
-      headers: {
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
-        accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
-        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
-        referer: job.source_document_url.includes('tesco.com')
-          ? 'https://www.itesco.cz/'
-          : job.source_document_url.includes('gapi.globus.cz')
-            ? 'https://www.globus.cz/'
-            : new URL(job.source_document_url).origin + '/',
-      },
-      redirect: 'follow',
-    });
+    const sourceResponse = job.stores?.slug === 'tesco'
+      ? await fetchTescoDocument(job.source_document_url)
+      : await fetch(job.source_document_url, {
+          headers: {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+            accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+            'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+            referer: job.source_document_url.includes('gapi.globus.cz')
+              ? 'https://www.globus.cz/'
+              : new URL(job.source_document_url).origin + '/',
+          },
+          redirect: 'follow',
+        });
     if (!sourceResponse.ok) throw new Error(`Stažení letáku selhalo: HTTP ${sourceResponse.status}`);
 
     let result: ExtractionResult;
