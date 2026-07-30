@@ -417,7 +417,7 @@ async function discoverSource(source: any) {
           : storeSlug === 'kaufland'
             ? `${source.id}|${documentUrl}|${etag}|${lastModified}|kaufland-images-v1`
             : storeSlug === 'billa'
-              ? `${source.id}|${documentUrl}|${etag}|${lastModified}|billa-images-v1`
+              ? `${source.id}|${documentUrl}|${etag}|${lastModified}|billa-images-v2`
               : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')
