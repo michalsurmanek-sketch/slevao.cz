@@ -463,7 +463,7 @@ function normalizedImageTitle(value: string): string {
 function enrichBillaImages(items: ExtractedItem[]): ExtractedItem[] {
   return items.map((item) => {
     if (item.image_url) return item;
-    const image = BILLA_IMAGE_BY_TITLE.get(normalizedImageTitle(item.title));
+    const image = findBillaImage(item.title);
     return image ? { ...item, image_url: image } : item;
   });
 }
@@ -540,6 +540,83 @@ function productImageScore(left: string, right: string): number {
   const containment = common / Math.min(a.length, b.length);
   const precision = common / Math.max(a.length, b.length);
   return containment * 0.72 + precision * 0.28;
+}
+
+function findBillaImage(title: string): string | null {
+  const normalized = normalizedImageTitle(title);
+  const exact = BILLA_IMAGE_BY_TITLE.get(normalized);
+  if (exact) return exact;
+
+  let bestImage: string | null = null;
+  let bestScore = 0;
+  let secondScore = 0;
+  for (const [candidateTitle, image] of BILLA_IMAGE_BY_TITLE) {
+    const score = productImageScore(normalized, candidateTitle);
+    if (score > bestScore) {
+      secondScore = bestScore;
+      bestScore = score;
+      bestImage = image;
+    } else if (score > secondScore) secondScore = score;
+  }
+  return bestImage && bestScore >= 0.86 && bestScore - secondScore >= 0.06 ? bestImage : null;
+}
+
+function findCatalogImage(title: string, catalog: Array<{ title: string; image: string }>): string | null {
+  const normalized = normalizedImageTitle(title);
+  const exact = catalog.find((candidate) => normalizedImageTitle(candidate.title) === normalized);
+  if (exact) return exact.image;
+
+  let best: { title: string; image: string } | null = null;
+  let bestScore = 0;
+  let secondScore = 0;
+  for (const candidate of catalog) {
+    const score = productImageScore(title, candidate.title);
+    if (score > bestScore) {
+      secondScore = bestScore;
+      bestScore = score;
+      best = candidate;
+    } else if (score > secondScore) secondScore = score;
+  }
+  if (!best || bestScore < 0.9 || bestScore - secondScore < 0.08) return null;
+  return best.image;
+}
+
+async function backfillBillaPublishedImages(storeId: string): Promise<{ updated: number; staticMatches: number; catalogMatches: number }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: billaOffers, error: billaError }, { data: imageOffers, error: imageError }] = await Promise.all([
+    db.from('offers').select('id,product_id,title,image_url').eq('store_id', storeId).eq('status', 'published').gte('valid_to', today).limit(1000),
+    db.from('offers').select('title,image_url').eq('status', 'published').gte('valid_to', today).not('image_url', 'is', null).limit(1000),
+  ]);
+  if (billaError) throw billaError;
+  if (imageError) throw imageError;
+
+  const catalog = (imageOffers || [])
+    .filter((row: any) => /^https?:\/\//i.test(String(row.image_url || '')))
+    .map((row: any) => ({ title: String(row.title || ''), image: String(row.image_url) }));
+  const matches = (billaOffers || []).filter((offer: any) => !String(offer.image_url || '').trim()).map((offer: any) => {
+    const staticImage = findBillaImage(String(offer.title || ''));
+    const image = staticImage || findCatalogImage(String(offer.title || ''), catalog);
+    return image ? { ...offer, image, source: staticImage ? 'static' : 'catalog' } : null;
+  }).filter(Boolean) as Array<any>;
+
+  let updated = 0;
+  for (let offset = 0; offset < matches.length; offset += 8) {
+    const batch = matches.slice(offset, offset + 8);
+    await Promise.all(batch.map(async (match) => {
+      const { error: offerError } = await db.from('offers').update({ image_url: match.image }).eq('id', match.id);
+      if (offerError) throw offerError;
+      if (match.product_id) {
+        const { error: productError } = await db.from('products').update({ image_url: match.image }).eq('id', match.product_id);
+        if (productError) throw productError;
+      }
+      updated++;
+    }));
+  }
+  return {
+    updated,
+    staticMatches: matches.filter((match) => match.source === 'static').length,
+    catalogMatches: matches.filter((match) => match.source === 'catalog').length,
+  };
 }
 
 async function enrichKauflandImages(items: ExtractedItem[]): Promise<ExtractedItem[]> {
@@ -645,6 +722,7 @@ async function processImport(importId: string) {
     if (['published', 'ignored'].includes(job.status)) return;
 
     await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
+    if (job.stores?.slug === 'billa') await backfillBillaPublishedImages(job.store_id);
     const sourceResponse = await fetch(job.source_document_url, {
       headers: {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
@@ -796,10 +874,24 @@ async function processImport(importId: string) {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
   const authorization = request.headers.get('authorization') || '';
-  const allowed = authorization === `Bearer ${SERVICE_ROLE_KEY}` || Boolean(CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET);
-  if (!allowed) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
   const body = await request.json().catch(() => ({}));
+  const allowedByService = authorization === `Bearer ${SERVICE_ROLE_KEY}`;
+  const allowedByCron = Boolean(CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET);
+  let allowedByUser = false;
+  if (!allowedByService && !allowedByCron && authorization.startsWith('Bearer ')) {
+    const { data: userData } = await db.auth.getUser(authorization.slice(7).trim());
+    const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+    allowedByUser = ['admin', 'editor'].includes(role);
+  }
+  if (!allowedByService && !allowedByCron && !allowedByUser) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
+  if (body.action === 'backfill-billa-images') {
+    const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'billa').single();
+    if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Billa nebyl nalezen.' }, { status: 404 });
+    const result = await backfillBillaPublishedImages(store.id);
+    return Response.json({ ok: true, ...result });
+  }
+
   const importId = String(body.import_id || '');
   if (!importId) return Response.json({ error: 'Missing import_id' }, { status: 400 });
 
