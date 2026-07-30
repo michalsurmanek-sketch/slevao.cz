@@ -464,12 +464,21 @@ function normalizedImageTitle(value: string): string {
     .replace(/[^a-z0-9]+/g, ' ').trim();
 }
 
-function enrichBillaImages(items: ExtractedItem[]): ExtractedItem[] {
-  return items.map((item) => {
+async function enrichBillaImages(items: ExtractedItem[]): Promise<ExtractedItem[]> {
+  const enriched = items.map((item) => {
     if (item.image_url) return item;
     const image = findBillaImage(item.title);
     return image ? { ...item, image_url: image } : item;
   });
+  const missingIndexes = enriched.map((item, index) => item.image_url ? -1 : index).filter((index) => index >= 0);
+  for (let offset = 0; offset < missingIndexes.length; offset += 4) {
+    const batch = missingIndexes.slice(offset, offset + 4);
+    const images = await Promise.all(batch.map((index) => findOfficialBillaImage(enriched[index].title)));
+    images.forEach((image, position) => {
+      if (image) enriched[batch[position]] = { ...enriched[batch[position]], image_url: image };
+    });
+  }
+  return enriched;
 }
 
 function parseNuxtPayload(html: string): any {
@@ -585,7 +594,60 @@ function findCatalogImage(title: string, catalog: Array<{ title: string; image: 
   return best.image;
 }
 
-async function backfillBillaPublishedImages(storeId: string): Promise<{ updated: number; staticMatches: number; catalogMatches: number }> {
+function billaCatalogFromHtml(html: string): Array<{ title: string; image: string }> {
+  const catalog: Array<{ title: string; image: string }> = [];
+  for (const match of html.matchAll(/<li\b[^>]*data-teaser-name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/li>/gi)) {
+    const title = decodeHtml(match[1]).replace(/\s+/g, ' ').trim();
+    const imageMatch = match[2].match(/https:\/\/images\.cdn\.europe-west1\.gcp\.commercetools\.com\/[^"' <]+/i);
+    const image = decodeHtml(imageMatch?.[0] || '').replace(/&amp;/g, '&');
+    if (title && image) catalog.push({ title, image });
+  }
+  for (const match of html.matchAll(/"([^"]{2,180})"[^"]{0,160}"(https:\\u002F\\u002Fimages\.cdn\.europe-west1\.gcp\.commercetools\.com[^"]+)"/gi)) {
+    const title = decodeHtml(match[1]).replace(/\s+/g, ' ').trim();
+    const image = match[2].replace(/\\u002F/gi, '/').replace(/\\u0026/gi, '&');
+    if (title && image && !catalog.some((candidate) => candidate.title === title)) catalog.push({ title, image });
+  }
+  return catalog;
+}
+
+async function findOfficialBillaImage(title: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://www.billa.cz/vyhledavani/${encodeURIComponent(title)}?tab=products`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; SlevaoBot/1.0; +https://slevao.cz)',
+        accept: 'text/html,application/xhtml+xml',
+        'accept-language': 'cs-CZ,cs;q=0.9',
+      },
+    });
+    if (!response.ok) return null;
+    const catalog = billaCatalogFromHtml(await response.text());
+    if (!catalog.length) return null;
+    const normalized = normalizedImageTitle(title);
+    const exact = catalog.find((candidate) => {
+      const candidateTitle = candidate.title.replace(/\s+•.*$/, '').trim();
+      return normalizedImageTitle(candidateTitle) === normalized;
+    });
+    if (exact) return exact.image;
+
+    let best: { title: string; image: string } | null = null;
+    let bestScore = 0;
+    let secondScore = 0;
+    for (const candidate of catalog) {
+      const score = productImageScore(title, candidate.title.replace(/\s+•.*$/, ''));
+      if (score > bestScore) {
+        secondScore = bestScore;
+        bestScore = score;
+        best = candidate;
+      } else if (score > secondScore) secondScore = score;
+    }
+    return best && bestScore >= 0.88 && bestScore - secondScore >= 0.06 ? best.image : null;
+  } catch (error) {
+    console.warn('Billa official image lookup skipped:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+async function backfillBillaPublishedImages(storeId: string): Promise<{ updated: number; staticMatches: number; catalogMatches: number; officialMatches: number }> {
   const today = new Date().toISOString().slice(0, 10);
   const [{ data: billaOffers, error: billaError }, { data: imageOffers, error: imageError }] = await Promise.all([
     db.from('offers').select('id,product_id,title,image_url').eq('store_id', storeId).eq('status', 'published').gte('valid_to', today).limit(1000),
@@ -597,11 +659,22 @@ async function backfillBillaPublishedImages(storeId: string): Promise<{ updated:
   const catalog = (imageOffers || [])
     .filter((row: any) => /^https?:\/\//i.test(String(row.image_url || '')))
     .map((row: any) => ({ title: String(row.title || ''), image: String(row.image_url) }));
-  const matches = (billaOffers || []).filter((offer: any) => !String(offer.image_url || '').trim()).map((offer: any) => {
+  const missingOffers = (billaOffers || []).filter((offer: any) => !String(offer.image_url || '').trim());
+  const matches = missingOffers.map((offer: any) => {
     const staticImage = findBillaImage(String(offer.title || ''));
     const image = staticImage || findCatalogImage(String(offer.title || ''), catalog);
     return image ? { ...offer, image, source: staticImage ? 'static' : 'catalog' } : null;
   }).filter(Boolean) as Array<any>;
+  const alreadyMatched = new Set(matches.map((match) => match.id));
+  const unmatched = missingOffers.filter((offer: any) => !alreadyMatched.has(offer.id));
+  for (let offset = 0; offset < unmatched.length; offset += 4) {
+    const batch = unmatched.slice(offset, offset + 4);
+    const officialMatches = await Promise.all(batch.map(async (offer: any) => {
+      const image = await findOfficialBillaImage(String(offer.title || ''));
+      return image ? { ...offer, image, source: 'official' } : null;
+    }));
+    matches.push(...officialMatches.filter(Boolean));
+  }
 
   let updated = 0;
   for (let offset = 0; offset < matches.length; offset += 8) {
@@ -620,6 +693,7 @@ async function backfillBillaPublishedImages(storeId: string): Promise<{ updated:
     updated,
     staticMatches: matches.filter((match) => match.source === 'static').length,
     catalogMatches: matches.filter((match) => match.source === 'catalog').length,
+    officialMatches: matches.filter((match) => match.source === 'official').length,
   };
 }
 
@@ -788,7 +862,7 @@ async function processImport(importId: string) {
     }
     const extractedItems = Array.isArray(result.items) ? result.items : [];
     const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)
-      : job.stores?.slug === 'billa' ? enrichBillaImages(extractedItems)
+      : job.stores?.slug === 'billa' ? await enrichBillaImages(extractedItems)
         : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
