@@ -1,0 +1,32 @@
+name: Patch publish-imports CORS
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-publish-imports-cors.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply CORS patch
+        run: python .github/scripts/patch_publish_imports_cors.py
+
+      - name: Commit CORS fix
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/publish-imports/index.ts
+          git commit -m "fix(publish): return CORS headers for all responses"
+          git push origin main
