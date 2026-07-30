@@ -4,6 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const SOURCE_URL = 'https://www.coopclub.cz/letaky/';
+const PROCESSOR_URL = Deno.env.get('LEAFLET_PROCESSOR_URL') || `${SUPABASE_URL}/functions/v1/process-leaflet`;
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
@@ -24,64 +25,157 @@ async function isAllowed(request: Request): Promise<boolean> {
   return ['admin', 'editor'].includes(role);
 }
 
+function abs(base: string, href: string): string | null {
+  try { return new URL(href.replace(/&amp;/g, '&'), base).toString(); } catch { return null; }
+}
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function parseCzechDate(value: string): string | null {
+  const m = value.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/);
+  if (!m) return null;
+  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+}
+
+function activeDetailPages(html: string, baseUrl: string): Array<{ url: string; from: string; to: string; score: number }> {
+  const today = todayIso();
+  const out: Array<{ url: string; from: string; to: string; score: number }> = [];
+  const linkRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = linkRe.exec(html))) {
+    const text = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const dates = [...text.matchAll(/\d{1,2}\.\d{1,2}\.\d{4}/g)].map(x => parseCzechDate(x[0])).filter(Boolean) as string[];
+    if (dates.length < 2) continue;
+    const from = dates[0];
+    const to = dates[1];
+    if (!(from <= today && to >= today)) continue;
+    const url = abs(baseUrl, m[1]);
+    if (!url || !/\/letaky\//i.test(url)) continue;
+    const lower = text.toLocaleLowerCase('cs');
+    let score = 0;
+    if (/csc\s*\d+/.test(lower)) score += 50;
+    if (/sč\s*\d+|sc\s*\d+/.test(lower)) score += 40;
+    if (/vč\s*\d+|vc\s*\d+/.test(lower)) score += 30;
+    if (/jč\s*\d+|jc\s*\d+/.test(lower)) score += 25;
+    if (/zč\s*\d+|zc\s*\d+/.test(lower)) score += 20;
+    if (/delikates|seznam prodejen|hity|rádce|casopis|časopis/.test(lower)) score -= 80;
+    out.push({ url, from, to, score });
+  }
+  return out.sort((a, b) => b.score - a.score || b.from.localeCompare(a.from));
+}
+
+function pdfFromDetail(html: string, baseUrl: string): string {
+  const candidates: string[] = [];
+  for (const m of html.matchAll(/href=["']([^"']+\.pdf(?:\?[^"']*)?)["']/gi)) {
+    const url = abs(baseUrl, m[1]);
+    if (url) candidates.push(url);
+  }
+  for (const m of html.matchAll(/https?:\/\/[^\s"'<>]+\.pdf(?:\?[^\s"'<>]*)?/gi)) candidates.push(m[0]);
+  const filtered = [...new Set(candidates)].filter(url => !/clanek|article|pravidla|seznam-prodejen/i.test(url));
+  if (!filtered.length) throw new Error('Aktuální stránka COOP neobsahuje PDF letáku.');
+  return filtered[0];
+}
+
+async function sha256(value: string): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
+  return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function queue(importId: string): Promise<void> {
+  const response = await fetch(PROCESSOR_URL, {
+    method: 'POST',
+    headers: {
+      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: SERVICE_ROLE_KEY,
+      'content-type': 'application/json',
+      ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
+    },
+    body: JSON.stringify({ import_id: importId }),
+  });
+  if (!response.ok) throw new Error(`process-leaflet HTTP ${response.status}: ${(await response.text().catch(() => '')).slice(0, 300)}`);
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (!(await isAllowed(request))) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
 
+  const checkedAt = new Date().toISOString();
   try {
-    const { data: store, error: storeError } = await db
-      .from('stores')
-      .select('id,name,slug')
-      .eq('slug', 'coop')
-      .maybeSingle();
-
+    const { data: store, error: storeError } = await db.from('stores').select('id,name,slug').eq('slug', 'coop').maybeSingle();
     if (storeError) throw storeError;
-    if (!store) {
-      return Response.json({
-        ok: false,
-        skipped: true,
-        reason: 'V tabulce stores zatím chybí obchod se slugem coop.',
-      }, { headers: CORS_HEADERS });
-    }
+    if (!store) return Response.json({ ok: false, skipped: true, reason: 'V tabulce stores chybí obchod coop.' }, { headers: CORS_HEADERS });
 
-    const { data: existing, error: sourceError } = await db
-      .from('leaflet_sources')
-      .select('id,source_url,is_active,auto_publish')
-      .eq('store_id', store.id)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
+    const { data: existing, error: sourceError } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).order('created_at', { ascending: true }).limit(1).maybeSingle();
     if (sourceError) throw sourceError;
 
-    if (existing) {
-      const { error } = await db.from('leaflet_sources').update({
-        name: 'COOP – aktuální letáky',
-        source_url: SOURCE_URL,
-        source_type: 'html',
-        is_active: true,
-        auto_publish: true,
-        check_interval_minutes: 360,
-        last_error: null,
-      }).eq('id', existing.id);
-      if (error) throw error;
-      return Response.json({ ok: true, created: false, source_id: existing.id, store: store.name }, { headers: CORS_HEADERS });
-    }
-
-    const { data: created, error: insertError } = await db.from('leaflet_sources').insert({
-      store_id: store.id,
-      name: 'COOP – aktuální letáky',
+    const payload = {
+      name: 'COOP – aktuální regionální leták',
       source_url: SOURCE_URL,
       source_type: 'html',
-      coverage_scope: 'national',
-      check_interval_minutes: 360,
-      auto_publish: true,
       is_active: true,
-    }).select('id').single();
+      auto_publish: true,
+      check_interval_minutes: 360,
+      coverage_scope: 'national',
+      last_error: null,
+    };
 
-    if (insertError) throw insertError;
-    return Response.json({ ok: true, created: true, source_id: created.id, store: store.name }, { headers: CORS_HEADERS });
+    let sourceId: string;
+    if (existing) {
+      const { error } = await db.from('leaflet_sources').update(payload).eq('id', existing.id);
+      if (error) throw error;
+      sourceId = existing.id;
+    } else {
+      const { data: created, error } = await db.from('leaflet_sources').insert({ store_id: store.id, ...payload }).select('id').single();
+      if (error) throw error;
+      sourceId = created.id;
+    }
+
+    const overviewResponse = await fetch(SOURCE_URL, { headers: { 'user-agent': 'Mozilla/5.0', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
+    if (!overviewResponse.ok) throw new Error(`COOP přehled vrátil HTTP ${overviewResponse.status}.`);
+    const overviewHtml = await overviewResponse.text();
+    const pages = activeDetailPages(overviewHtml, overviewResponse.url || SOURCE_URL);
+    if (!pages.length) throw new Error('COOP přehled neobsahuje právě platný produktový leták.');
+
+    const selected = pages[0];
+    const detailResponse = await fetch(selected.url, { headers: { 'user-agent': 'Mozilla/5.0', referer: SOURCE_URL }, redirect: 'follow' });
+    if (!detailResponse.ok) throw new Error(`COOP detail vrátil HTTP ${detailResponse.status}.`);
+    const detailHtml = await detailResponse.text();
+    const pdfUrl = pdfFromDetail(detailHtml, detailResponse.url || selected.url);
+    const sourceHash = await sha256(`${sourceId}|${pdfUrl}|${selected.from}|${selected.to}|coop-region-v2`);
+
+    const { data: old, error: oldError } = await db.from('leaflet_imports').select('id,status,updated_at').eq('source_hash', sourceHash).maybeSingle();
+    if (oldError) throw oldError;
+    let importId = old?.id || null;
+    let created = false;
+
+    if (!old) {
+      const { data: row, error } = await db.from('leaflet_imports').insert({
+        source_id: sourceId,
+        store_id: store.id,
+        source_document_url: pdfUrl,
+        source_hash: sourceHash,
+        status: 'queued',
+        coverage_scope: 'national',
+        detected_valid_from: selected.from,
+        detected_valid_to: selected.to,
+        metadata: { adapter: 'store:coop-current-pdf-v2', detail_url: selected.url, discovered_at: checkedAt },
+      }).select('id').single();
+      if (error) throw error;
+      importId = row.id;
+      created = true;
+      await queue(importId);
+    }
+
+    await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_success_at: checkedAt, last_error: null }).eq('id', sourceId);
+    return Response.json({ ok: true, source_id: sourceId, import_id: importId, import_created: created, detail_url: selected.url, pdf_url: pdfUrl, valid_from: selected.from, valid_to: selected.to, adapter: 'store:coop-current-pdf-v2' }, { headers: CORS_HEADERS });
   } catch (error) {
-    return Response.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500, headers: CORS_HEADERS });
+    const message = error instanceof Error ? error.message : String(error);
+    try {
+      const { data: store } = await db.from('stores').select('id').eq('slug', 'coop').maybeSingle();
+      if (store?.id) await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_error: message }).eq('store_id', store.id);
+    } catch { /* keep original error */ }
+    return Response.json({ error: message }, { status: 500, headers: CORS_HEADERS });
   }
 });
