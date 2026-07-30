@@ -155,10 +155,14 @@ Deno.serve(async (request) => {
   let imageMaintenance: unknown[] = [];
   let recoveredSources: unknown[] = [];
   let coopSource: unknown = null;
+  let hruskaSource: unknown = null;
   const warnings: string[] = [];
 
   try { coopSource = await callFunction('sync-coop-source', {}); }
   catch (error) { warnings.push(`COOP zdroj: ${error instanceof Error ? error.message : String(error)}`); }
+
+  try { hruskaSource = await callFunction('sync-hruska-source', {}); }
+  catch (error) { warnings.push(`Hruška zdroj: ${error instanceof Error ? error.message : String(error)}`); }
 
   try { recoveredSources = await recoverUnhealthySources(); }
   catch (error) { warnings.push(`Obnova zdrojů: ${error instanceof Error ? error.message : String(error)}`); }
@@ -179,6 +183,7 @@ Deno.serve(async (request) => {
   return Response.json({
     ok: discovery.ok,
     coop_source: coopSource,
+    hruska_source: hruskaSource,
     discovery: discovery.payload,
     recovered_sources: recoveredSources,
     reviewed_auto_publish_before: publishedBefore,
