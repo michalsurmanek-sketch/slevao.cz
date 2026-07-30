@@ -504,6 +504,34 @@ const BILLA_IMAGE_BY_TITLE = new Map<string, string>([
   [
     "perla",
     "https://digitalcontent.api.tesco.com/v2/media/ghs/03075e47-7875-4547-a457-569ff51e0282/dd560cbc-1c2c-4c6e-a365-fb739bd0b9e9_685861521.jpeg?w=500"
+  ],
+  [
+    "kureci stripsy obalovane z tepleho pultu",
+    "https://karambapizza.cz/assets/images/e0aa3aef6870b9c87bc80b2e46ec916c/171-400.png"
+  ],
+  [
+    "dr pekar bezlepkovy remeslny chleb",
+    "https://www.rohlik.cz/cdn-cgi/image/f%3Dauto%2Cw%3D800%2Ch%3D800%2Cq%3D75/https%3A//cdn.rohlik.cz/images/grocery/products/1406182/1406182-1637774056969.jpg"
+  ],
+  [
+    "aperol laurenza prosecco kombo",
+    "https://www.elpalaciodehierro.com/dw/image/v2/BDKB_PRD/on/demandware.static/-/Sites-palacio-master-catalog/default/dw80b53670/images/44643486/large/44643486_x1.jpg?sh=1152&sw=960"
+  ],
+  [
+    "aperol 0 7 l laurenza prosecco d o c 0 75 l kombo",
+    "https://www.elpalaciodehierro.com/dw/image/v2/BDKB_PRD/on/demandware.static/-/Sites-palacio-master-catalog/default/dw80b53670/images/44643486/large/44643486_x1.jpg?sh=1152&sw=960"
+  ],
+  [
+    "astra rezana 1 svazek",
+    "https://media.loukykvet.app/e8ad6efb-8cc0-4c6d-bcb2-2e4939b29374/product-card.jpg"
+  ],
+  [
+    "anturie mix kvetinac 14 cm",
+    "https://bilder.obi.pl/745883f8-e59f-4ac0-b486-cb07c3a6ca09/pr08A/image.jpeg"
+  ],
+  [
+    "billa toaletni papir",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-311354-0853575896-u331KK5e-medium.jpg"
   ]
 ]);
 
