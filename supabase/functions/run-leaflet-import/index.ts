@@ -74,14 +74,16 @@ async function publishReviewedAutoImports() {
 }
 
 async function runAutomaticImageMaintenance() {
+  const taskNames = ['billa', 'albert', 'lidl-penny'];
   const tasks = [
     callFunction('process-leaflet', { action: 'backfill-billa-images' }),
     callFunction('process-leaflet', { action: 'backfill-albert-images' }),
+    callFunction('backfill-lidl-images', { store: 'all' }),
   ];
   const settled = await Promise.allSettled(tasks);
   return settled.map((result, index) => result.status === 'fulfilled'
     ? result.value
-    : { function: index === 0 ? 'billa-images' : 'albert-images', ok: false, error: String(result.reason) });
+    : { function: taskNames[index], ok: false, error: String(result.reason) });
 }
 
 Deno.serve(async (request) => {
