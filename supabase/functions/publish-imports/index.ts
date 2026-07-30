@@ -75,9 +75,15 @@ async function publishImport(job: any) {
   let published = 0, skippedDuplicates = 0, failed = 0;
 
   if (String(job.stores?.slug || '') === 'tesco') {
+    const { data: tescoStores, error: tescoStoresError } = await db.from('stores')
+      .select('id')
+      .eq('slug', 'tesco');
+    if (tescoStoresError) throw tescoStoresError;
+    const tescoStoreIds = (tescoStores || []).map((store: any) => store.id).filter(Boolean);
+    if (!tescoStoreIds.length) throw new Error('Obchod Tesco nebyl v databázi nalezen.');
     const { error: deleteOldOffersError } = await db.from('offers')
       .delete()
-      .eq('store_id', job.store_id)
+      .in('store_id', tescoStoreIds)
       .eq('status', 'published');
     if (deleteOldOffersError) throw deleteOldOffersError;
   }
