@@ -456,6 +456,54 @@ const BILLA_IMAGE_BY_TITLE = new Map<string, string>([
   [
     "marila standard mleta kava",
     "https://digitalcontent.api.tesco.com/v2/media/ghs/908ef93f-8954-4978-bbef-13a06d2fb582/b4a4b3e1-2a9a-486c-9938-a13409b37053_833201803.jpeg?w=500"
+  ],
+  [
+    "pfanner ledovy caj",
+    "https://www.minimani.fi/media/catalog/product/cache/9b19c45c70084e218fc0ce0c3e43ed6e/a/2/a206b24e3470faa65b2dfbe32de3545ca876e330_9006900011512.jpg"
+  ],
+  [
+    "milko recky jogurt 0",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/18515572-1a13-4d6f-827c-dd36cc5664e8/e33c7a9f-b00f-4355-bb29-b8b152caa16a_1597447296.jpeg?w=500"
+  ],
+  [
+    "cibulka lahudkova",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-304648-0171512348-3d5jq2Yb-large.jpg"
+  ],
+  [
+    "sunka nejvyssi jakosti z pultu lahudek",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-317109-432000175-xsiy0Co6-large.jpg"
+  ],
+  [
+    "grill party bile klobasky",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-342035-1998604648-Olg_oHPN-large.jpg"
+  ],
+  [
+    "billa olivovy olej extra panensky",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-366152-0175634158-pf9xUr_n.jpg"
+  ],
+  [
+    "veprovy valecek falesna svickova vakuum",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-351507-1393556153-8nYrHyaz-medium.jpg"
+  ],
+  [
+    "veprovy valecek falesna svickova",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-351507-1393556153-8nYrHyaz-medium.jpg"
+  ],
+  [
+    "grill party mini berner parecky se syrem obalene slaninou",
+    "https://images.cdn.europe-west1.gcp.commercetools.com/1df039f1-4705-4f79-aa90-cf907a6ec063/82-343291-0778637306-ZSFKECW3-large.jpg"
+  ],
+  [
+    "philadelphia cottage",
+    "https://livraricampina.ro/cdn/shop/products/9f337317de7be4b6a931ab6f11a6_530x%402x.jpg?v=1651596917"
+  ],
+  [
+    "saturo nutricne kompletni jidlo",
+    "https://saturo.com/cdn/shop/files/saturo-trinkmahlzeit-1x400ml-vanilla-packshot-0deg-dr006020010-whitebg-1024x1024px.jpg?v=1759413854&width=500"
+  ],
+  [
+    "perla",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/03075e47-7875-4547-a457-569ff51e0282/dd560cbc-1c2c-4c6e-a365-fb739bd0b9e9_685861521.jpeg?w=500"
   ]
 ]);
 
