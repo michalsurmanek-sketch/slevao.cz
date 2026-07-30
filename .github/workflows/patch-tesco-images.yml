@@ -1,0 +1,32 @@
+name: Patch Tesco image enrichment
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-tesco-images.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Apply Tesco image patch
+        run: python .github/scripts/patch_tesco_images.py
+
+      - name: Commit Tesco image enrichment
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/process-leaflet/index.ts
+          git commit -m "fix(tesco): automatically enrich and backfill product images"
+          git push origin main
