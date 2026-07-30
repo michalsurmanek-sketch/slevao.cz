@@ -207,6 +207,267 @@ async function extractWithOpenAI(
 }
 
 
+
+const BILLA_IMAGE_BY_TITLE = new Map<string, string>([
+  [
+    "veprova kyta bez kosti",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/020e437c-e74b-43e0-9133-9868444ef09c/68849906-4cc0-47e1-9c09-35ab5999a6c0_1991338358.jpeg?w=500"
+  ],
+  [
+    "magnum nanuk",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/873c2870-e766-4c78-bb37-2b761d6d8ac8/81a5e3e4-2da8-4cc9-88bb-98fa53fc3f8c_2010089195.jpeg?w=500"
+  ],
+  [
+    "nowaco file porce msc",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/52186b17-10b8-4330-a9f1-97856917ccc8/2eed35c5-d067-485a-8e9d-03453d61cf81_1348029786.jpeg?w=500"
+  ],
+  [
+    "boruvky",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/b84ad6a7-19da-41f3-a3b2-909d201ec0fd/1dd10ae2-7d4c-4be6-a120-6444d82464a4_1478619578.jpeg?w=500"
+  ],
+  [
+    "magnum pint 440 ml",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/3a2fc66e-316d-47ba-ab34-4c7dd89eaee4/4a49f438-f6b1-4e01-80f0-5d83b0b84bd1_1137021950.jpeg?w=500"
+  ],
+  [
+    "kureci rizky prsni",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/1dae57c6-d11f-4cfc-8d14-34d3b8685e8c/8e87c368-b188-44b5-85ba-6a6ecf2766ea_1794428997.jpeg?w=500"
+  ],
+  [
+    "babicciny testoviny vajecne",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/4b05f2b4-c588-40f6-82cf-13bdc863948b/5856aaff-cdbf-4061-b3c7-c5d1a58bb9f1_1457543959.jpeg?w=500"
+  ],
+  [
+    "milko maslo",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/882cc963-b022-4700-9024-4bf4c55f9ba9/0ce42b6f-9cc6-4409-a638-4adf5a2d40bf_2046288442.jpeg?w=500"
+  ],
+  [
+    "gemerka",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/4d65295e-796a-44f4-aa45-113a24f29492/4d1860c2-36c4-4de3-98d6-7c49a8bd2661_951649151.jpeg?w=500"
+  ],
+  [
+    "svestky volne",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/d8dc51a3-67f3-489e-9229-b61db00a139a/8caf9581-9ff1-4d35-9c2b-903e48d8f0cd_1486138815.jpeg?w=500"
+  ],
+  [
+    "activia",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/871f0fbd-efc3-4784-ba6e-809d5ef5b004/8d08419f-048e-461e-8444-e86f29c9c381_1505553318.jpeg?w=500"
+  ],
+  [
+    "kabanos exclusive",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/8764c0d4-4099-4caf-9dc8-8c9ff5f79a0c/099f35de-a8f6-457d-92c8-f15676d21b38_187808136.jpeg?w=500"
+  ],
+  [
+    "meloun vodni se snizenym obsahem semen",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/27d9d03a-6d7d-473d-8ab1-136595a0adba/cb4dc9fe-af72-46f5-9178-fbadd3aa2cc9_1313614292.jpeg?w=500"
+  ],
+  [
+    "pomeranc",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/c9e6115a-b71b-4753-9db8-15fa7c412002/d4fe5680-8b60-4ab6-a2f1-4d7ff3a271b7_1271024454.jpeg?w=500"
+  ],
+  [
+    "vejce m podestylkova",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/19bddc1d-e93c-43b9-9bfa-0342e778c1b0/b09fa217-7d8c-4979-b3e2-c2b001477e4a.jpeg?w=500"
+  ],
+  [
+    "jihocesky tvaroh polotucny",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/4b5cc06f-ed76-429a-9594-300f78b9065d/4046ec93-d512-45c7-99e4-6837ce7c5054_1272116368.jpeg?w=500"
+  ],
+  [
+    "nice bites pistacie prazene solene",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/3125e2d4-30f6-4729-be51-ef7b94a08896/cf9288e2-aaf0-4662-8899-7f9bf2b50e99_1985562440.jpeg?w=500"
+  ],
+  [
+    "donut s jahodovou polevou",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/2df148bf-ab85-4a6f-aef3-52d0ed174bf7/4c71e7fd-c7cb-435a-ae99-1536ed3738ad_719275835.jpeg?w=500"
+  ],
+  [
+    "hovezi gulas porcovany",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/3a311727-8ee8-4931-b927-583fae980532/4e7effb2-c663-4e1a-b9c2-4f1141622955_856369638.jpeg?w=500"
+  ],
+  [
+    "monte snack",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/85cebef1-2eee-46bc-8685-579cab6816b0/2de7eb5a-91e2-4085-a32c-e51e0f3991a5_1590806353.jpeg?w=500"
+  ],
+  [
+    "kedlubna",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/11e80b04-0c09-413a-8f8c-43292d8fc956/0c9295c2-f2ba-4a60-96f6-96e924f2dd30_662356509.jpeg?w=500"
+  ],
+  [
+    "poctiva sunka z pultu lahudek",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/b2c9dfd9-8c0d-4fa3-918f-9c78ebd62e32/e03ee7fd-7ef5-42b7-90e8-c441ba34d82f_314659344.jpeg?w=500"
+  ],
+  [
+    "actimel 12 100 g",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/bdf39fff-01b3-4451-91a8-fcd34e9f57a3/48fcc07b-9635-4e17-8c64-b9a16e4a48c2_1015483807.jpeg?w=500"
+  ],
+  [
+    "milka cokolada",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/06b74d3f-6bd8-45e1-8fb6-c52292854969/b1f8cebf-fcca-4126-b03a-21b3ea879689_530812285.jpeg?w=500"
+  ],
+  [
+    "kureci ctvrtky",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/4247578d-d6a9-4981-a323-1ad0595a67a8/969fac4b-28e1-4af2-94cb-d23e592ea3a2_908022659.jpeg?w=500"
+  ],
+  [
+    "jablko golden delicious",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/ae8e3c0b-3724-4170-b3bf-e2493a5a18e2/54be1b67-66c4-44b5-8193-810759595e86_515899824.jpeg?w=500"
+  ],
+  [
+    "ostruziny",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/303a524e-2674-4a92-90c7-c0e97325a538/026fc772-64e8-4112-9346-8324850a9f1f_155018035.jpeg?w=500"
+  ],
+  [
+    "vocilka spekacky",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/5d102103-974a-490c-b7d8-62bae6388e62/636afca7-ecad-4693-aecd-4d7547717949_1378529470.jpeg?w=500"
+  ],
+  [
+    "krevety varene loupane",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/27fd1b66-166d-473a-985b-8fc3b8905661/d7ed3f45-ebbd-4d75-8172-7c786060ee48_1386613966.jpeg?w=500"
+  ],
+  [
+    "chaluparsky bochnik",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/1ef07f24-f945-4387-9138-da2a4365c1a8/6ca7c867-895b-4943-9a74-52139186786e_105512089.jpeg?w=500"
+  ],
+  [
+    "dynovy chleb kvaskovy",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/33c487b4-ac79-4817-a37d-146c99efb7a6/f0ea8c9f-79b5-4546-9c4e-ff7e3f2bd43e_359458541.jpeg?w=500"
+  ],
+  [
+    "croissant s parkem",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/ece7b9eb-1109-4783-9fcb-347b4360388b/8caed4b8-6a24-4050-a270-28608adbe241_1340311438.jpeg?w=500"
+  ],
+  [
+    "nekton losos uzeny",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/26e77bee-b26a-40b9-bf6e-d35ee5940bcb/b4c7c4c1-7ac5-40a6-8d89-16d37127e183_1775290673.jpeg?w=500"
+  ],
+  [
+    "anglicka slanina special",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/0c5d691d-92d2-4c2e-9d5c-9cf4d7518f3f/140d43ae-33cf-4fe8-84db-b5e54f81e612_1736993505.jpeg?w=500"
+  ],
+  [
+    "vincentka",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/52bfd3d7-0bf7-46d2-88e6-881f1e1dd526/2a4ba9f1-0575-4fa5-9608-e891e24c711f_1904340761.jpeg?w=500"
+  ],
+  [
+    "rohlik s anglickou slaninou",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/587aecc0-50a4-4a29-9f38-bfc8f913124c/28e32533-4b74-40a5-ab2b-487d97c14c30_1776557630.jpeg?w=500"
+  ],
+  [
+    "heinz kecup jemny",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/2cb35bca-93ea-4fa1-bd9b-428c2ecfccc3/81cafc79-eab4-4393-8a01-efdf5a3a03fc_877903662.jpeg?w=500"
+  ],
+  [
+    "gambrinus original",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/deb1043b-6077-46d6-a162-b6dc2d0e9224/0cf7dc76-32ea-4652-9857-c14b36d57703_1191440403.jpeg?w=500"
+  ],
+  [
+    "dr oetker pizza feliciana",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/df7a82ae-4f09-41e8-a62c-ea477f49c922/afe6075a-72ae-4e5c-8a21-cf844a3a0eb8_1634605082.jpeg?w=500"
+  ],
+  [
+    "nescafe gold crema instantni kava",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/09c600e4-cee5-4c4e-ab40-ac496ec95b6c/74e96207-30fc-45f0-838f-bbe181ff63ab_1256360779.jpeg?w=500"
+  ],
+  [
+    "podebradka ochucena",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/9047f656-b539-4f96-8bea-0de34872b0da/f67c1d4c-f518-4826-97c4-54983c89cdb8_347834432.jpeg?w=500"
+  ],
+  [
+    "lagris pohanka xxl",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/86b46cd1-52bc-43a6-b493-f9b7f18edad8/fbc8fa6f-f86d-4361-9f51-8ef96b2d0fc8_1718993162.jpeg?w=500"
+  ],
+  [
+    "menu gold ryze jasminova",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/bdbc4774-85c9-4e9e-abb9-1e6f3ae620f5/7f7c5672-7651-429e-be7f-d76a0ec2c3ab_2003101079.jpeg?w=500"
+  ],
+  [
+    "persil prostredek na prani",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/bb406918-156e-4fb6-bcb3-381405b6b3c9/3979b91a-5b73-4a50-9f34-603e8d97e738_1586222171.jpeg?w=500"
+  ],
+  [
+    "hanacka vodka",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/af1d9384-5ea0-4bd0-a6ec-1e8d2fad875c/4c84f0b1-9e4d-49a5-8e24-8645e5bf0c8a_622027711.jpeg?w=500"
+  ],
+  [
+    "paprika zeleninova na leco sitka",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/2a254146-6db5-45ad-9113-5356e70db182/29a1c864-9313-4496-b0ab-8086a5ec4cf0_1770138109.jpeg?w=500"
+  ],
+  [
+    "mletne maso veprove",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/5cff7b05-5b60-4748-8c06-0301b7412867/6c76b128-f80b-4031-8b78-6fbf71f41cc9_192646682.jpeg?w=500"
+  ],
+  [
+    "melnene maso veprove mlete",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/5cff7b05-5b60-4748-8c06-0301b7412867/6c76b128-f80b-4031-8b78-6fbf71f41cc9_192646682.jpeg?w=500"
+  ],
+  [
+    "magnum pint",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/3a2fc66e-316d-47ba-ab34-4c7dd89eaee4/4a49f438-f6b1-4e01-80f0-5d83b0b84bd1_1137021950.jpeg?w=500"
+  ],
+  [
+    "broskve paraguayo",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/f0189a42-8638-47ab-9878-ed456a34b4a3/6c4045bd-5473-46b4-9ed9-d2d484b6e901_146062765.jpeg?w=500"
+  ],
+  [
+    "svestky",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/d8dc51a3-67f3-489e-9229-b61db00a139a/8caf9581-9ff1-4d35-9c2b-903e48d8f0cd_1486138815.jpeg?w=500"
+  ],
+  [
+    "pomeranc volny",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/c9e6115a-b71b-4753-9db8-15fa7c412002/d4fe5680-8b60-4ab6-a2f1-4d7ff3a271b7_1271024454.jpeg?w=500"
+  ],
+  [
+    "srdce domova vejce m podestylkova",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/19bddc1d-e93c-43b9-9bfa-0342e778c1b0/b09fa217-7d8c-4979-b3e2-c2b001477e4a.jpeg?w=500"
+  ],
+  [
+    "brick croissant",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/7bcd23f4-59d3-4570-a215-464da3da4906/cd891de7-8ef4-4c0e-9f16-fb8437f53f97_1435104628.jpeg?w=500"
+  ],
+  [
+    "billa ready potato gnocchi",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/41ce39bc-ad44-430d-80e5-751ef0393d80/324a901e-91d7-4f48-b19c-b66febb17f92_829973610.jpeg?w=500"
+  ],
+  [
+    "billa croquettes",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/d13c9d75-da0c-4516-b04d-6af00ab3133e/cba39fd7-5664-4f30-80ae-b1e5cf64280e_313592111.jpeg?w=500"
+  ],
+  [
+    "haagen dazs multipack 4 95 ml",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/1530197d-4aac-47a4-8c54-2c3dc0d4a1ad/75dbdfc6-770d-48e1-bf11-17a80ab1bd26_544144699.jpeg?w=500"
+  ],
+  [
+    "eduscho instantni kava",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/15dbe48b-e61d-4994-9100-88c9618552b0/4dda9db3-8b23-431c-aabb-486b98482ff9_1514751508.jpeg?w=500"
+  ],
+  [
+    "tchibo espresso zrno",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/4abe5a55-9776-469e-8de5-9ce9b182ae47/46be8cca-7e6a-4df7-9f31-03856ff721c6_2037792380.jpeg?w=500"
+  ],
+  [
+    "corny big cerealni tycinka",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/e5c45f73-29ca-4b46-a0b9-c2dd24651141/63ae34f4-00db-4621-a331-40573341a32f_2048586651.jpeg?w=500"
+  ],
+  [
+    "marila standard mleta kava",
+    "https://digitalcontent.api.tesco.com/v2/media/ghs/908ef93f-8954-4978-bbef-13a06d2fb582/b4a4b3e1-2a9a-486c-9938-a13409b37053_833201803.jpeg?w=500"
+  ]
+]);
+
+function normalizedImageTitle(value: string): string {
+  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
+function enrichBillaImages(items: ExtractedItem[]): ExtractedItem[] {
+  return items.map((item) => {
+    if (item.image_url) return item;
+    const image = BILLA_IMAGE_BY_TITLE.get(normalizedImageTitle(item.title));
+    return image ? { ...item, image_url: image } : item;
+  });
+}
+
 function parseNuxtPayload(html: string): any {
   const match = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
   if (!match) throw new Error('Stránka Globusu neobsahuje strukturovaná data.');
@@ -444,7 +705,7 @@ async function processImport(importId: string) {
       result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
     }
     const extractedItems = Array.isArray(result.items) ? result.items : [];
-    const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems) : extractedItems;
+    const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)\n      : job.stores?.slug === 'billa' ? enrichBillaImages(extractedItems)\n        : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
     let detectedValidFrom = result.valid_from || '';
