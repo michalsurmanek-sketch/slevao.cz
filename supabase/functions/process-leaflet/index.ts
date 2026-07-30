@@ -802,12 +802,11 @@ async function backfillAlbertPublishedImages(storeId: string): Promise<{ updated
     .eq('store_id', storeId)
     .eq('status', 'published')
     .gte('valid_to', today)
-    .is('image_url', null)
-    .limit(48);
+    .limit(1000);
   if (error) throw error;
 
   const matches: Array<any> = [];
-  const missing = offers || [];
+  const missing = (offers || []).filter((offer: any) => !String(offer.image_url || '').trim()).slice(0, 48);
   for (let offset = 0; offset < missing.length; offset += 6) {
     const batch = missing.slice(offset, offset + 6);
     const images = await Promise.all(batch.map((offer: any) => findOfficialTescoImage(String(offer.title || ''))));
