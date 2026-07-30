@@ -1,0 +1,123 @@
+name: Patch Tesco session download
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-tesco-session-download.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch Tesco-only download flow
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('supabase/functions/process-leaflet/index.ts')
+          text = p.read_text(encoding='utf-8')
+
+          marker = "async function processImport(importId: string) {"
+          helper = r'''async function fetchTescoDocument(url: string): Promise<Response> {
+            const landingUrl = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
+            const browserHeaders = {
+              'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+              accept: 'text/html,application/xhtml+xml,application/pdf,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+              'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+              'cache-control': 'no-cache',
+              pragma: 'no-cache',
+              'sec-fetch-dest': 'document',
+              'sec-fetch-mode': 'navigate',
+              'sec-fetch-site': 'same-site',
+              'upgrade-insecure-requests': '1',
+            };
+
+            const landing = await fetch(landingUrl, {
+              headers: browserHeaders,
+              redirect: 'follow',
+            });
+            const cookies = landing.headers.getSetCookie?.() || [];
+            const cookie = cookies.map((value) => value.split(';', 1)[0]).filter(Boolean).join('; ');
+
+            const response = await fetch(url, {
+              headers: {
+                ...browserHeaders,
+                accept: 'application/pdf,image/avif,image/webp,image/png,image/jpeg,*/*;q=0.8',
+                referer: landingUrl,
+                ...(cookie ? { cookie } : {}),
+              },
+              redirect: 'follow',
+            });
+            if (response.ok) return response;
+
+            const retry = await fetch(url, {
+              headers: {
+                ...browserHeaders,
+                accept: 'application/pdf,*/*;q=0.8',
+                referer: 'https://www.itesco.cz/',
+                origin: 'https://www.itesco.cz',
+                ...(cookie ? { cookie } : {}),
+              },
+              redirect: 'follow',
+            });
+            return retry;
+          }
+
+          '''
+
+          if 'async function fetchTescoDocument(' not in text:
+              if marker not in text:
+                  raise SystemExit('processImport marker not found')
+              text = text.replace(marker, helper + marker, 1)
+
+          old = """    const sourceResponse = await fetch(job.source_document_url, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+        accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        referer: job.source_document_url.includes('tesco.com')
+          ? 'https://www.itesco.cz/'
+          : job.source_document_url.includes('gapi.globus.cz')
+            ? 'https://www.globus.cz/'
+            : new URL(job.source_document_url).origin + '/',
+      },
+      redirect: 'follow',
+    });"""
+
+          new = """    const sourceResponse = job.stores?.slug === 'tesco'
+      ? await fetchTescoDocument(job.source_document_url)
+      : await fetch(job.source_document_url, {
+          headers: {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
+            accept: 'text/html,application/xhtml+xml,application/pdf,image/webp,image/png,image/jpeg,image/gif,*/*;q=0.8',
+            'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+            referer: job.source_document_url.includes('gapi.globus.cz')
+              ? 'https://www.globus.cz/'
+              : new URL(job.source_document_url).origin + '/',
+          },
+          redirect: 'follow',
+        });"""
+
+          if old not in text:
+              raise SystemExit('Expected source download block not found')
+          text = text.replace(old, new, 1)
+          p.write_text(text, encoding='utf-8')
+
+          Path('.github/workflows/patch-tesco-session-download.yml').unlink()
+
+      - name: Commit Tesco-only fix
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/process-leaflet/index.ts .github/workflows/patch-tesco-session-download.yml
+          git commit -m "fix(tesco): download leaflet through Tesco browser session"
+          git push origin main
