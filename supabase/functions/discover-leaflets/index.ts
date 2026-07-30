@@ -416,7 +416,9 @@ async function discoverSource(source: any) {
           ? `${source.id}|${documentUrl}|makro-v3`
           : storeSlug === 'kaufland'
             ? `${source.id}|${documentUrl}|${etag}|${lastModified}|kaufland-images-v1`
-            : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
+            : storeSlug === 'billa'
+              ? `${source.id}|${documentUrl}|${etag}|${lastModified}|billa-images-v1`
+              : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')
         .eq('source_hash', sourceHash)
