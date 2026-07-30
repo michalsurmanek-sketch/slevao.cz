@@ -1,0 +1,51 @@
+name: Patch large leaflet processing
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-large-leaflets.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Increase safe leaflet size and processing timeout
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p = Path('supabase/functions/process-leaflet/index.ts')
+          text = p.read_text(encoding='utf-8')
+          text2 = text.replace('fileSizeLimit: 50 * 1024 * 1024', 'fileSizeLimit: 120 * 1024 * 1024')
+          text2 = text2.replace("if (bytes.length > 50 * 1024 * 1024) throw new Error('Leták je větší než 50 MB.');", "if (bytes.length > 120 * 1024 * 1024) throw new Error('Leták je větší než 120 MB.');")
+          if text2 == text:
+              raise SystemExit('Expected 50 MB limits were not found')
+          p.write_text(text2, encoding='utf-8')
+
+          d = Path('supabase/functions/discover-leaflets/index.ts')
+          text = d.read_text(encoding='utf-8')
+          text2 = text.replace('Date.now() - 8 * 60_000', 'Date.now() - 35 * 60_000')
+          text2 = text2.replace('ageMs >= 8 * 60_000', 'ageMs >= 35 * 60_000')
+          if text2 != text:
+              d.write_text(text2, encoding='utf-8')
+
+          Path('.github/workflows/patch-large-leaflets.yml').unlink()
+
+      - name: Commit backend fixes
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add supabase/functions/process-leaflet/index.ts supabase/functions/discover-leaflets/index.ts .github/workflows/patch-large-leaflets.yml
+          git commit -m "fix: support large leaflets and longer AI processing"
+          git push origin main
+
+# trigger 2
