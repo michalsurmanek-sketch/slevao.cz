@@ -730,6 +730,111 @@ async function backfillPublishedCatalogImages(storeId: string): Promise<{ update
   return { updated, catalogMatches: matches.length };
 }
 
+function tescoCatalogFromHtml(html: string): Array<{ title: string; image: string }> {
+  const catalog: Array<{ title: string; image: string }> = [];
+  for (const match of html.matchAll(/<li\b[^>]*data-testid=["'][^"']+["'][^>]*>([\s\S]*?)<\/li>/gi)) {
+    const card = match[1];
+    const titleMatch = card.match(/<h2\b[\s\S]*?<a\b[^>]*>([\s\S]*?)<\/a>/i);
+    const imageMatch = card.match(/<img\b[^>]*\bsrc=["'](https:\/\/digitalcontent\.api\.tesco\.com\/[^"']+)["']/i);
+    const title = decodeHtml(String(titleMatch?.[1] || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
+    const image = decodeHtml(imageMatch?.[1] || '').replace(/[?&]w=\d+/i, '?w=500');
+    if (title && image) catalog.push({ title, image });
+  }
+  return catalog;
+}
+
+async function findOfficialTescoImage(title: string): Promise<string | null> {
+  try {
+    const response = await fetch(`https://nakup.itesco.cz/shop/cs-CZ/search?query=${encodeURIComponent(title)}&inputType=free%20text`, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (compatible; SlevaoBot/1.0; +https://slevao.cz)',
+        accept: 'text/html,application/xhtml+xml',
+        'accept-language': 'cs-CZ,cs;q=0.9',
+      },
+    });
+    if (!response.ok) return null;
+    const catalog = tescoCatalogFromHtml(await response.text());
+    if (!catalog.length) return null;
+    const normalized = normalizedImageTitle(title);
+    const exact = catalog.find((candidate) => normalizedImageTitle(candidate.title) === normalized);
+    if (exact) return exact.image;
+
+    let best: { title: string; image: string } | null = null;
+    let bestScore = 0;
+    let secondScore = 0;
+    for (const candidate of catalog) {
+      const score = productImageScore(title, candidate.title);
+      if (score > bestScore) {
+        secondScore = bestScore;
+        bestScore = score;
+        best = candidate;
+      } else if (score > secondScore) secondScore = score;
+    }
+    const queryWords = imageMatchWords(title);
+    const candidateWords = imageMatchWords(best?.title || '');
+    const queryContained = queryWords.length >= 2 && queryWords.every((word) => candidateWords.includes(word));
+    if (!best || bestScore < 0.74 || (!queryContained && bestScore - secondScore < 0.08)) return null;
+    return best.image;
+  } catch (error) {
+    console.warn('Tesco official image lookup skipped:', error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
+async function enrichAlbertImages(items: ExtractedItem[], storeId: string): Promise<ExtractedItem[]> {
+  const enriched = await enrichFromPublishedCatalog(items, storeId);
+  const missingIndexes = enriched.map((item, index) => item.image_url ? -1 : index).filter((index) => index >= 0);
+  for (let offset = 0; offset < missingIndexes.length; offset += 6) {
+    const batch = missingIndexes.slice(offset, offset + 6);
+    const images = await Promise.all(batch.map((index) => findOfficialTescoImage(enriched[index].title)));
+    images.forEach((image, position) => {
+      if (image) enriched[batch[position]] = { ...enriched[batch[position]], image_url: image };
+    });
+  }
+  return enriched;
+}
+
+async function backfillAlbertPublishedImages(storeId: string): Promise<{ updated: number; catalogMatches: number; officialMatches: number }> {
+  const catalogResult = await backfillPublishedCatalogImages(storeId);
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: offers, error } = await db.from('offers')
+    .select('id,product_id,title,image_url')
+    .eq('store_id', storeId)
+    .eq('status', 'published')
+    .gte('valid_to', today)
+    .is('image_url', null)
+    .limit(48);
+  if (error) throw error;
+
+  const matches: Array<any> = [];
+  const missing = offers || [];
+  for (let offset = 0; offset < missing.length; offset += 6) {
+    const batch = missing.slice(offset, offset + 6);
+    const images = await Promise.all(batch.map((offer: any) => findOfficialTescoImage(String(offer.title || ''))));
+    images.forEach((image, position) => {
+      if (image) matches.push({ ...batch[position], image });
+    });
+  }
+  let officialMatches = 0;
+  for (let offset = 0; offset < matches.length; offset += 8) {
+    const batch = matches.slice(offset, offset + 8);
+    await Promise.all(batch.map(async (match) => {
+      const { error: offerError } = await db.from('offers').update({ image_url: match.image }).eq('id', match.id);
+      if (offerError) throw offerError;
+      if (match.product_id) {
+        const { error: productError } = await db.from('products').update({ image_url: match.image }).eq('id', match.product_id);
+        if (productError) throw productError;
+      }
+      officialMatches++;
+    }));
+  }
+  return {
+    updated: catalogResult.updated + officialMatches,
+    catalogMatches: catalogResult.catalogMatches,
+    officialMatches,
+  };
+}
+
 function billaCatalogFromHtml(html: string): Array<{ title: string; image: string }> {
   const catalog: Array<{ title: string; image: string }> = [];
   for (const match of html.matchAll(/<li\b[^>]*data-teaser-name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/li>/gi)) {
@@ -937,7 +1042,7 @@ async function processImport(importId: string) {
 
     await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
     if (job.stores?.slug === 'billa') await backfillBillaPublishedImages(job.store_id);
-    if (job.stores?.slug === 'albert') await backfillPublishedCatalogImages(job.store_id);
+    if (job.stores?.slug === 'albert') await backfillAlbertPublishedImages(job.store_id);
     const sourceResponse = await fetch(job.source_document_url, {
       headers: {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
@@ -1000,7 +1105,7 @@ async function processImport(importId: string) {
     const extractedItems = Array.isArray(result.items) ? result.items : [];
     const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)
       : job.stores?.slug === 'billa' ? await enrichBillaImages(extractedItems)
-        : job.stores?.slug === 'albert' ? await enrichFromPublishedCatalog(extractedItems, job.store_id)
+        : job.stores?.slug === 'albert' ? await enrichAlbertImages(extractedItems, job.store_id)
         : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
@@ -1111,7 +1216,7 @@ Deno.serve(async (request) => {
   if (body.action === 'backfill-albert-images') {
     const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'albert').single();
     if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Albert nebyl nalezen.' }, { status: 404, headers: CORS_HEADERS });
-    const result = await backfillPublishedCatalogImages(store.id);
+    const result = await backfillAlbertPublishedImages(store.id);
     return Response.json({ ok: true, ...result }, { headers: CORS_HEADERS });
   }
 
