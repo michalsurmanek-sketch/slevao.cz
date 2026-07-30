@@ -74,6 +74,14 @@ async function publishImport(job: any) {
 
   let published = 0, skippedDuplicates = 0, failed = 0;
 
+  if (String(job.stores?.slug || '') === 'tesco') {
+    const { error: deleteOldOffersError } = await db.from('offers')
+      .delete()
+      .eq('store_id', job.store_id)
+      .eq('status', 'published');
+    if (deleteOldOffersError) throw deleteOldOffersError;
+  }
+
   for (const item of items) {
     try {
       if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
@@ -189,8 +197,8 @@ Deno.serve(async (request) => {
     }
 
     const body = await request.json().catch(() => ({}));
-    let query = db.from('leaflet_imports').select('*').eq('status', 'publishing').limit(10);
-    if (body.import_id) query = db.from('leaflet_imports').select('*').eq('id', String(body.import_id)).limit(1);
+    let query = db.from('leaflet_imports').select('*,stores(slug)').eq('status', 'publishing').limit(10);
+    if (body.import_id) query = db.from('leaflet_imports').select('*,stores(slug)').eq('id', String(body.import_id)).limit(1);
     const { data: jobs, error } = await query;
     if (error) return jsonResponse({ error: error.message }, 500);
 
