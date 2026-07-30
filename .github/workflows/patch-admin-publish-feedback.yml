@@ -1,0 +1,32 @@
+name: Patch admin publish feedback
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-admin-publish-feedback.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Patch admin publish feedback
+        run: python .github/scripts/patch_admin_publish_feedback.py
+
+      - name: Commit admin feedback fix
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add admin-automatizace.html
+          git commit -m "fix(admin): show inline result after approving import"
+          git push origin main
