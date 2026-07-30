@@ -17,23 +17,27 @@ const adminClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-async function publishImport(importId: string) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/publish-imports`, {
+async function callFunction(name: string, body: Record<string, unknown> = {}) {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: SERVICE_ROLE_KEY,
       'content-type': 'application/json',
       ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
     },
-    body: JSON.stringify({ import_id: importId }),
+    body: JSON.stringify(body),
   });
 
   const text = await response.text();
   let payload: unknown;
   try { payload = JSON.parse(text); }
   catch { payload = { message: text }; }
+  return { function: name, ok: response.ok, status: response.status, payload };
+}
 
-  return { import_id: importId, ok: response.ok, status: response.status, payload };
+async function publishImport(importId: string) {
+  return await callFunction('publish-imports', { import_id: importId });
 }
 
 async function publishReviewedAutoImports() {
@@ -69,6 +73,17 @@ async function publishReviewedAutoImports() {
   return results;
 }
 
+async function runAutomaticImageMaintenance() {
+  const tasks = [
+    callFunction('process-leaflet', { action: 'backfill-billa-images' }),
+    callFunction('process-leaflet', { action: 'backfill-albert-images' }),
+  ];
+  const settled = await Promise.allSettled(tasks);
+  return settled.map((result, index) => result.status === 'fulfilled'
+    ? result.value
+    : { function: index === 0 ? 'billa-images' : 'albert-images', ok: false, error: String(result.reason) });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (request.method !== 'POST') {
@@ -77,70 +92,52 @@ Deno.serve(async (request) => {
 
   const authorization = request.headers.get('authorization') || '';
   const accessToken = authorization.startsWith('Bearer ') ? authorization.slice(7).trim() : '';
-  if (!accessToken) {
+  const suppliedCronSecret = request.headers.get('x-cron-secret') || '';
+  const isTrustedCron = Boolean(CRON_SECRET && suppliedCronSecret === CRON_SECRET);
+  const isServiceRole = accessToken === SERVICE_ROLE_KEY;
+
+  if (!accessToken && !isTrustedCron) {
     return Response.json({ error: 'Chybí přihlášení.' }, { status: 401, headers: corsHeaders });
   }
 
-  const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
-  const user = userData.user;
-  const role = String(user?.app_metadata?.role || user?.user_metadata?.role || '').toLowerCase();
-
-  if (userError || !user) {
-    console.error('run-leaflet-import auth error', userError?.message || 'user not found');
-    return Response.json({ error: 'Přihlášení je neplatné nebo vypršelo.' }, { status: 401, headers: corsHeaders });
-  }
-
-  if (!['admin', 'editor'].includes(role)) {
-    return Response.json({
-      error: 'Nemáš oprávnění spustit automatický import.',
-      detected_role: role || null,
-    }, { status: 403, headers: corsHeaders });
+  if (!isTrustedCron && !isServiceRole) {
+    const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
+    const user = userData.user;
+    const role = String(user?.app_metadata?.role || user?.user_metadata?.role || '').toLowerCase();
+    if (userError || !user) {
+      return Response.json({ error: 'Přihlášení je neplatné nebo vypršelo.' }, { status: 401, headers: corsHeaders });
+    }
+    if (!['admin', 'editor'].includes(role)) {
+      return Response.json({ error: 'Nemáš oprávnění spustit automatický import.' }, { status: 403, headers: corsHeaders });
+    }
   }
 
   let publishedBefore: unknown[] = [];
   let publishedAfter: unknown[] = [];
-  let publishError: string | null = null;
+  let imageMaintenance: unknown[] = [];
+  const warnings: string[] = [];
 
-  try {
-    publishedBefore = await publishReviewedAutoImports();
-  } catch (error) {
-    publishError = error instanceof Error ? error.message : String(error);
-    console.error('Publishing existing reviewed imports failed', publishError);
-  }
+  try { publishedBefore = await publishReviewedAutoImports(); }
+  catch (error) { warnings.push(`Publikace před kontrolou: ${error instanceof Error ? error.message : String(error)}`); }
 
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/discover-leaflets`, {
-    method: 'POST',
-    headers: {
-      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      'content-type': 'application/json',
-      ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
-    },
-    body: '{}',
-  });
+  const discovery = await callFunction('discover-leaflets', {});
 
-  const text = await response.text();
-  let payload: unknown;
-  try { payload = JSON.parse(text); }
-  catch { payload = { message: text }; }
+  await sleep(9000);
 
-  await sleep(8000);
-  try {
-    publishedAfter = await publishReviewedAutoImports();
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    publishError = publishError ? `${publishError}; ${message}` : message;
-    console.error('Publishing new reviewed imports failed', message);
-  }
+  try { publishedAfter = await publishReviewedAutoImports(); }
+  catch (error) { warnings.push(`Publikace po kontrole: ${error instanceof Error ? error.message : String(error)}`); }
+
+  try { imageMaintenance = await runAutomaticImageMaintenance(); }
+  catch (error) { warnings.push(`Automatické fotografie: ${error instanceof Error ? error.message : String(error)}`); }
 
   return Response.json({
-    discovery: payload,
+    ok: discovery.ok,
+    discovery: discovery.payload,
     reviewed_auto_publish_before: publishedBefore,
     reviewed_auto_publish_after: publishedAfter,
+    automatic_image_maintenance: imageMaintenance,
     auto_publish_min_confidence: AUTO_PUBLISH_MIN_CONFIDENCE,
     auto_publish_min_products: AUTO_PUBLISH_MIN_PRODUCTS,
-    publish_error: publishError,
-  }, {
-    status: response.status,
-    headers: corsHeaders,
-  });
+    warnings,
+  }, { status: discovery.status, headers: corsHeaders });
 });
