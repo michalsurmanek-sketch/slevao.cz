@@ -1089,6 +1089,7 @@ async function processImport(importId: string) {
     await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
     if (job.stores?.slug === 'billa') await backfillBillaPublishedImages(job.store_id);
     if (job.stores?.slug === 'albert') await backfillAlbertPublishedImages(job.store_id);
+    if (job.stores?.slug === 'tesco') await backfillAlbertPublishedImages(job.store_id);
     const sourceResponse = job.stores?.slug === 'tesco'
       ? await fetchTescoDocument(job.source_document_url)
       : await fetch(job.source_document_url, {
@@ -1152,7 +1153,8 @@ async function processImport(importId: string) {
     const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)
       : job.stores?.slug === 'billa' ? await enrichBillaImages(extractedItems)
         : job.stores?.slug === 'albert' ? await enrichAlbertImages(extractedItems, job.store_id)
-        : extractedItems;
+          : job.stores?.slug === 'tesco' ? await enrichAlbertImages(extractedItems, job.store_id)
+          : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
     let detectedValidFrom = result.valid_from || '';
