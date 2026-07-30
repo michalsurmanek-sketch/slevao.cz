@@ -670,6 +670,66 @@ function findCatalogImage(title: string, catalog: Array<{ title: string; image: 
   return best.image;
 }
 
+async function publishedImageCatalog(excludedStoreId: string): Promise<Array<{ title: string; image: string }>> {
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await db.from('offers')
+    .select('title,image_url')
+    .eq('status', 'published')
+    .gte('valid_to', today)
+    .neq('store_id', excludedStoreId)
+    .not('image_url', 'is', null)
+    .limit(3000);
+  if (error) throw error;
+  return (data || [])
+    .filter((row: any) => /^https?:\/\//i.test(String(row.image_url || '')))
+    .map((row: any) => ({ title: String(row.title || ''), image: String(row.image_url) }));
+}
+
+async function enrichFromPublishedCatalog(items: ExtractedItem[], storeId: string): Promise<ExtractedItem[]> {
+  try {
+    const catalog = await publishedImageCatalog(storeId);
+    return items.map((item) => {
+      if (item.image_url) return item;
+      const image = findCatalogImage(item.title, catalog);
+      return image ? { ...item, image_url: image } : item;
+    });
+  } catch (error) {
+    console.warn('Published image catalog enrichment skipped:', error instanceof Error ? error.message : String(error));
+    return items;
+  }
+}
+
+async function backfillPublishedCatalogImages(storeId: string): Promise<{ updated: number; catalogMatches: number }> {
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: offers, error: offersError }, catalog] = await Promise.all([
+    db.from('offers').select('id,product_id,title,image_url').eq('store_id', storeId).eq('status', 'published').gte('valid_to', today).limit(1000),
+    publishedImageCatalog(storeId),
+  ]);
+  if (offersError) throw offersError;
+  const matches = (offers || [])
+    .filter((offer: any) => !String(offer.image_url || '').trim())
+    .map((offer: any) => {
+      const image = findCatalogImage(String(offer.title || ''), catalog);
+      return image ? { ...offer, image } : null;
+    })
+    .filter(Boolean) as Array<any>;
+
+  let updated = 0;
+  for (let offset = 0; offset < matches.length; offset += 8) {
+    const batch = matches.slice(offset, offset + 8);
+    await Promise.all(batch.map(async (match) => {
+      const { error: offerError } = await db.from('offers').update({ image_url: match.image }).eq('id', match.id);
+      if (offerError) throw offerError;
+      if (match.product_id) {
+        const { error: productError } = await db.from('products').update({ image_url: match.image }).eq('id', match.product_id);
+        if (productError) throw productError;
+      }
+      updated++;
+    }));
+  }
+  return { updated, catalogMatches: matches.length };
+}
+
 function billaCatalogFromHtml(html: string): Array<{ title: string; image: string }> {
   const catalog: Array<{ title: string; image: string }> = [];
   for (const match of html.matchAll(/<li\b[^>]*data-teaser-name=["']([^"']+)["'][^>]*>([\s\S]*?)<\/li>/gi)) {
@@ -877,6 +937,7 @@ async function processImport(importId: string) {
 
     await db.from('leaflet_imports').update({ status: 'downloading', started_at: new Date().toISOString(), error_message: null }).eq('id', importId);
     if (job.stores?.slug === 'billa') await backfillBillaPublishedImages(job.store_id);
+    if (job.stores?.slug === 'albert') await backfillPublishedCatalogImages(job.store_id);
     const sourceResponse = await fetch(job.source_document_url, {
       headers: {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
@@ -939,6 +1000,7 @@ async function processImport(importId: string) {
     const extractedItems = Array.isArray(result.items) ? result.items : [];
     const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)
       : job.stores?.slug === 'billa' ? await enrichBillaImages(extractedItems)
+        : job.stores?.slug === 'albert' ? await enrichFromPublishedCatalog(extractedItems, job.store_id)
         : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
@@ -1043,6 +1105,13 @@ Deno.serve(async (request) => {
     const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'billa').single();
     if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Billa nebyl nalezen.' }, { status: 404, headers: CORS_HEADERS });
     const result = await backfillBillaPublishedImages(store.id);
+    return Response.json({ ok: true, ...result }, { headers: CORS_HEADERS });
+  }
+
+  if (body.action === 'backfill-albert-images') {
+    const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'albert').single();
+    if (storeError || !store) return Response.json({ error: storeError?.message || 'Obchod Albert nebyl nalezen.' }, { status: 404, headers: CORS_HEADERS });
+    const result = await backfillPublishedCatalogImages(store.id);
     return Response.json({ ok: true, ...result }, { headers: CORS_HEADERS });
   }
 
