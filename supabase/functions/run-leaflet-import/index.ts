@@ -73,17 +73,53 @@ async function publishReviewedAutoImports() {
   return results;
 }
 
+async function recoverUnhealthySources() {
+  const { data: sources, error } = await adminClient
+    .from('leaflet_sources')
+    .select('id,name,last_checked_at,last_error,check_interval_minutes')
+    .eq('is_active', true)
+    .limit(500);
+
+  if (error) throw error;
+
+  const now = Date.now();
+  const recovered: Array<{ id: string; name: string; reason: string }> = [];
+
+  for (const source of sources || []) {
+    const intervalMinutes = Math.max(60, Number(source.check_interval_minutes || 360));
+    const checkedAt = source.last_checked_at ? Date.parse(source.last_checked_at) : 0;
+    const overdueMs = Math.max(intervalMinutes * 3, 720) * 60_000;
+    const isStale = !checkedAt || now - checkedAt > overdueMs;
+    const hasError = Boolean(String(source.last_error || '').trim());
+
+    if (!isStale && !hasError) continue;
+
+    const { error: updateError } = await adminClient
+      .from('leaflet_sources')
+      .update({ last_checked_at: null, last_error: null })
+      .eq('id', source.id);
+
+    if (updateError) throw updateError;
+    recovered.push({
+      id: source.id,
+      name: String(source.name || 'Zdroj'),
+      reason: hasError ? 'předchozí chyba' : 'zastaralá kontrola',
+    });
+  }
+
+  return recovered;
+}
+
 async function runAutomaticImageMaintenance() {
-  const taskNames = ['billa', 'albert', 'lidl-penny'];
   const tasks = [
     callFunction('process-leaflet', { action: 'backfill-billa-images' }),
     callFunction('process-leaflet', { action: 'backfill-albert-images' }),
-    callFunction('backfill-lidl-images', { store: 'all' }),
+    callFunction('backfill-lidl-images', { stores: ['lidl', 'penny'] }),
   ];
   const settled = await Promise.allSettled(tasks);
   return settled.map((result, index) => result.status === 'fulfilled'
     ? result.value
-    : { function: taskNames[index], ok: false, error: String(result.reason) });
+    : { function: ['billa-images', 'albert-images', 'lidl-penny-images'][index], ok: false, error: String(result.reason) });
 }
 
 Deno.serve(async (request) => {
@@ -117,7 +153,11 @@ Deno.serve(async (request) => {
   let publishedBefore: unknown[] = [];
   let publishedAfter: unknown[] = [];
   let imageMaintenance: unknown[] = [];
+  let recoveredSources: unknown[] = [];
   const warnings: string[] = [];
+
+  try { recoveredSources = await recoverUnhealthySources(); }
+  catch (error) { warnings.push(`Obnova zdrojů: ${error instanceof Error ? error.message : String(error)}`); }
 
   try { publishedBefore = await publishReviewedAutoImports(); }
   catch (error) { warnings.push(`Publikace před kontrolou: ${error instanceof Error ? error.message : String(error)}`); }
@@ -135,6 +175,7 @@ Deno.serve(async (request) => {
   return Response.json({
     ok: discovery.ok,
     discovery: discovery.payload,
+    recovered_sources: recoveredSources,
     reviewed_auto_publish_before: publishedBefore,
     reviewed_auto_publish_after: publishedAfter,
     automatic_image_maintenance: imageMaintenance,
