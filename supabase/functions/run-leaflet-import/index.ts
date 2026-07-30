@@ -110,6 +110,48 @@ async function recoverUnhealthySources() {
   return recovered;
 }
 
+async function prepareForcedRetry(requestedSourceId = '') {
+  let sourceQuery = adminClient
+    .from('leaflet_sources')
+    .select('id,name')
+    .eq('is_active', true);
+  if (requestedSourceId) sourceQuery = sourceQuery.eq('id', requestedSourceId);
+
+  const { data: sources, error: sourceError } = await sourceQuery.limit(500);
+  if (sourceError) throw sourceError;
+
+  const sourceIds = (sources || []).map((source) => String(source.id));
+  if (!sourceIds.length) return { sources_reset: 0, failed_imports_unlocked: 0 };
+
+  const { error: resetError } = await adminClient
+    .from('leaflet_sources')
+    .update({ last_checked_at: null, last_error: null })
+    .in('id', sourceIds);
+  if (resetError) throw resetError;
+
+  const { data: failedJobs, error: failedError } = await adminClient
+    .from('leaflet_imports')
+    .select('id,source_hash')
+    .in('source_id', sourceIds)
+    .eq('status', 'failed')
+    .order('updated_at', { ascending: false })
+    .limit(200);
+  if (failedError) throw failedError;
+
+  let unlocked = 0;
+  for (const job of failedJobs || []) {
+    const originalHash = String(job.source_hash || 'failed-import');
+    const { error: archiveError } = await adminClient
+      .from('leaflet_imports')
+      .update({ source_hash: `${originalHash}:manual-retry:${job.id}:${Date.now()}` })
+      .eq('id', job.id);
+    if (archiveError) throw archiveError;
+    unlocked++;
+  }
+
+  return { sources_reset: sourceIds.length, failed_imports_unlocked: unlocked };
+}
+
 async function runAutomaticImageMaintenance() {
   const tasks = [
     callFunction('process-leaflet', { action: 'backfill-billa-images' }),
@@ -133,6 +175,7 @@ Deno.serve(async (request) => {
   const suppliedCronSecret = request.headers.get('x-cron-secret') || '';
   const isTrustedCron = Boolean(CRON_SECRET && suppliedCronSecret === CRON_SECRET);
   const isServiceRole = accessToken === SERVICE_ROLE_KEY;
+  const body = await request.json().catch(() => ({}));
 
   if (!accessToken && !isTrustedCron) {
     return Response.json({ error: 'Chybí přihlášení.' }, { status: 401, headers: corsHeaders });
@@ -150,6 +193,10 @@ Deno.serve(async (request) => {
     }
   }
 
+  const requestedSourceId = String(body?.source_id || '').trim();
+  const forceRetry = Boolean(body?.force) || (!isTrustedCron && !isServiceRole);
+
+  let forcedRetry: unknown = null;
   let publishedBefore: unknown[] = [];
   let publishedAfter: unknown[] = [];
   let imageMaintenance: unknown[] = [];
@@ -157,6 +204,11 @@ Deno.serve(async (request) => {
   let coopSource: unknown = null;
   let hruskaSource: unknown = null;
   const warnings: string[] = [];
+
+  if (forceRetry) {
+    try { forcedRetry = await prepareForcedRetry(requestedSourceId); }
+    catch (error) { warnings.push(`Vynucený nový pokus: ${error instanceof Error ? error.message : String(error)}`); }
+  }
 
   try { coopSource = await callFunction('sync-coop-source', {}); }
   catch (error) { warnings.push(`COOP zdroj: ${error instanceof Error ? error.message : String(error)}`); }
@@ -170,7 +222,7 @@ Deno.serve(async (request) => {
   try { publishedBefore = await publishReviewedAutoImports(); }
   catch (error) { warnings.push(`Publikace před kontrolou: ${error instanceof Error ? error.message : String(error)}`); }
 
-  const discovery = await callFunction('discover-leaflets', {});
+  const discovery = await callFunction('discover-leaflets', requestedSourceId ? { source_id: requestedSourceId } : {});
 
   await sleep(9000);
 
@@ -182,6 +234,7 @@ Deno.serve(async (request) => {
 
   return Response.json({
     ok: discovery.ok,
+    forced_retry: forcedRetry,
     coop_source: coopSource,
     hruska_source: hruskaSource,
     discovery: discovery.payload,
