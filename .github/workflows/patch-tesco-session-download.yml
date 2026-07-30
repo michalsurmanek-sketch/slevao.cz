@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/patch-tesco-session-download.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
