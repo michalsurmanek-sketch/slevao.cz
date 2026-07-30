@@ -705,7 +705,9 @@ async function processImport(importId: string) {
       result = await extractWithOpenAI(job.leaflet_sources?.name || '', detected.extension, detected.mime, bytes, importId);
     }
     const extractedItems = Array.isArray(result.items) ? result.items : [];
-    const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)\n      : job.stores?.slug === 'billa' ? enrichBillaImages(extractedItems)\n        : extractedItems;
+    const items = job.stores?.slug === 'kaufland' ? await enrichKauflandImages(extractedItems)
+      : job.stores?.slug === 'billa' ? enrichBillaImages(extractedItems)
+        : extractedItems;
     if (!items.length) throw new Error(isGlobusHtml ? 'Globus nevrátil žádné produkty.' : 'AI v letáku nerozpoznala žádné produkty.');
     const isMakro = job.stores?.slug === 'makro';
     let detectedValidFrom = result.valid_from || '';
