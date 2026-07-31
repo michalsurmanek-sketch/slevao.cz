@@ -1,0 +1,44 @@
+name: Výřezy produktů z letáků
+
+on:
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: Maximální počet produktů
+        required: false
+        default: '40'
+  schedule:
+    - cron: '17 */3 * * *'
+
+concurrency:
+  group: crop-leaflet-product-images
+  cancel-in-progress: false
+
+jobs:
+  crop-images:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Instalace závislostí
+        run: pip install --disable-pip-version-check pymupdf pillow requests
+
+      - name: Vytvořit výřezy produktů
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_VISION_MODEL: gpt-5-mini
+          LEAFLET_IMAGE_BUCKET: product-images
+          CROP_LIMIT: ${{ github.event.inputs.limit || '40' }}
+        run: python scripts/crop_leaflet_product_images.py
