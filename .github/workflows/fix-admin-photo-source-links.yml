@@ -1,0 +1,60 @@
+name: Opravit odkazy u návrhů fotografií
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-admin-photo-source-links.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Opravit rozlišení produktové stránky a přímého obrázku
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('admin-pridat-fotografii.html')
+          text = path.read_text(encoding='utf-8')
+
+          old = "const showAuto=(text,type='ok')=>{$('autoMsg').className='msg '+type;$('autoMsg').textContent=text};"
+          new = old + "\nconst isDirectImageUrl=url=>{try{const u=new URL(String(url||''));return /\\.(?:avif|gif|jpe?g|png|webp|svg)(?:$|[?#])/i.test(u.pathname)||/(?:digitalcontent\\.api\\.tesco\\.com|media\\.schwarz|images?|img|cdn|static)/i.test(u.hostname)}catch{return false}};\nconst isProductPageUrl=url=>/^https:\\/\\//i.test(String(url||''))&&!isDirectImageUrl(url);"
+          if old not in text:
+              raise SystemExit('Nenalezen bod pro vložení URL helperů')
+          text = text.replace(old, new, 1)
+
+          old = "${c.source_url?`<a class=\"sourceLink\" href=\"${esc(c.source_url)}\" target=\"_blank\" rel=\"noopener\">Otevřít produktovou stránku ↗</a>`:''}"
+          new = "${c.source_url?`<a class=\"sourceLink\" href=\"${esc(c.source_url)}\" target=\"_blank\" rel=\"noopener\">${isDirectImageUrl(c.source_url)?'Otevřít obrázek':'Otevřít produktovou stránku'} ↗</a>`:''}"
+          if old not in text:
+              raise SystemExit('Nenalezen odkaz v kartě kandidáta')
+          text = text.replace(old, new, 1)
+
+          old = "const firstSource=candidates.find(c=>typeof c?.source_url==='string'&&/^https:\\/\\//i.test(c.source_url));if(firstSource){$('pageUrl').value=firstSource.source_url;$('pageUrl').dispatchEvent(new Event('input',{bubbles:true}))}showAuto(`Nalezeno ${candidates.length} návrhů. Všechny byly uloženy do fronty ke schválení.${firstSource?' Odkaz na produkt byl automaticky doplněn níže.':''}`)"
+          new = "const firstSource=candidates.find(c=>isProductPageUrl(c?.source_url));if(firstSource){$('pageUrl').value=firstSource.source_url;$('pageUrl').dispatchEvent(new Event('input',{bubbles:true}))}else{$('pageUrl').value=''}showAuto(`Nalezeno ${candidates.length} návrhů. Všechny byly uloženy do fronty ke schválení.${firstSource?' Produktová stránka byla automaticky doplněna níže.':' Zdroj poskytl pouze přímý obrázek; ten už není potřeba znovu načítat.'}`)"
+          if old not in text:
+              raise SystemExit('Nenalezen blok automatického doplnění URL')
+          text = text.replace(old, new, 1)
+
+          old = "if(!page_url){show('Vlož odkaz na konkrétní produktovou stránku.','err');return}$('inspect').disabled=true;"
+          new = "if(!page_url){show('Vlož odkaz na konkrétní produktovou stránku.','err');return}if(isDirectImageUrl(page_url)){show('Toto je přímý odkaz na obrázek, ne produktová stránka. Fotografie už je uložená ve frontě ke schválení.','err');return}$('inspect').disabled=true;"
+          if old not in text:
+              raise SystemExit('Nenalezen blok validace ručního odkazu')
+          text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commit změny
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin-pridat-fotografii.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix(admin): distinguish image CDN from product page"
+          git push
