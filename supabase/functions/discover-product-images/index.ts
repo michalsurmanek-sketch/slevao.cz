@@ -15,7 +15,7 @@ type Product = {
 
 type Candidate = {
   image_url: string;
-  source_url: string | null;
+  source_url: string;
   source_domain: string | null;
   source_type: "retailer" | "official_catalog" | "barcode_database" | "unknown";
   width: number | null;
@@ -65,26 +65,35 @@ function domainOf(url: unknown): string | null {
   try { return new URL(String(url)).hostname; } catch { return null; }
 }
 
+function validHttpsUrl(value: unknown): value is string {
+  return typeof value === "string" && /^https:\/\//i.test(value);
+}
+
 function validImageUrl(value: unknown): value is string {
-  return typeof value === "string" && /^https:\/\//i.test(value) && !/placeholder|no[-_ ]?image|default-image/i.test(value);
+  return validHttpsUrl(value) && !/placeholder|no[-_ ]?image|default-image/i.test(value);
+}
+
+function sourceOrImage(sourceUrl: unknown, imageUrl: string): string {
+  return validHttpsUrl(sourceUrl) ? sourceUrl : imageUrl;
 }
 
 async function existingCandidates(db: any, master: Product): Promise<Candidate[]> {
   const found: Candidate[] = [];
   const seen = new Set<string>();
-  const add = (url: unknown, source: string, score: number, sourceUrl: unknown = null) => {
+  const add = (url: unknown, source: string, score: number, sourceUrl: unknown = null, metadata: Record<string, unknown> = {}) => {
     if (!validImageUrl(url) || seen.has(url) || found.length >= 3) return;
+    const finalSourceUrl = sourceOrImage(sourceUrl, url);
     seen.add(url);
     found.push({
       image_url: url,
-      source_url: typeof sourceUrl === "string" ? sourceUrl : null,
-      source_domain: domainOf(sourceUrl) || domainOf(url),
+      source_url: finalSourceUrl,
+      source_domain: domainOf(finalSourceUrl) || domainOf(url),
       source_type: source === "products" ? "official_catalog" : "retailer",
       width: null,
       height: null,
       quality_score: score,
       match_score: 1,
-      metadata: { provider: `slevao_${source}`, exact_product_id: true },
+      metadata: { provider: `slevao_${source}`, exact_product_id: true, ...metadata },
     });
   };
 
@@ -94,21 +103,37 @@ async function existingCandidates(db: any, master: Product): Promise<Candidate[]
     .maybeSingle();
   add(productRow?.image_url, "products", 88, productRow?.image_source);
 
+  // Import má skutečný zdrojový dokument. Musí se zpracovat před nabídkou,
+  // jinak stejný obrázek z offers obsadí deduplikační klíč bez source_url.
+  const { data: imports } = await db.from("leaflet_import_items")
+    .select("image_url,created_at,source_page,import_id,leaflet_imports(source_document_url)")
+    .eq("product_id", master.id)
+    .not("image_url", "is", null)
+    .order("created_at", { ascending: false })
+    .limit(20);
+  for (const row of imports || []) {
+    const importRow = Array.isArray(row.leaflet_imports) ? row.leaflet_imports[0] : row.leaflet_imports;
+    const documentUrl = importRow?.source_document_url || null;
+    add(row.image_url, "leaflet_import_items", 86, documentUrl, {
+      import_id: row.import_id || null,
+      source_page: row.source_page || null,
+      source_document_url: documentUrl,
+    });
+  }
+
   const { data: offers } = await db.from("offers")
     .select("image_url,published_at,stores(name,slug)")
     .eq("product_id", master.id)
     .not("image_url", "is", null)
     .order("published_at", { ascending: false })
     .limit(20);
-  for (const row of offers || []) add(row.image_url, "offers", 84, null);
-
-  const { data: imports } = await db.from("leaflet_import_items")
-    .select("image_url,created_at")
-    .eq("product_id", master.id)
-    .not("image_url", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(20);
-  for (const row of imports || []) add(row.image_url, "leaflet_import_items", 78, null);
+  for (const row of offers || []) {
+    const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
+    add(row.image_url, "offers", 82, row.image_url, {
+      store_name: store?.name || null,
+      store_slug: store?.slug || null,
+    });
+  }
 
   return found;
 }
@@ -126,7 +151,7 @@ async function factsCandidates(master: Product): Promise<Candidate[]> {
     let products: any[] = [];
     try {
       if (/^\d{8,14}$/.test(cleanEan)) {
-        const r = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(cleanEan)}.json`, { headers: { "User-Agent": "Slevao.cz/1.4" } });
+        const r = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(cleanEan)}.json`, { headers: { "User-Agent": "Slevao.cz/1.5" } });
         const data = r.ok ? await r.json() : null;
         if (data?.status === 1 && data.product) products = [data.product];
       }
@@ -138,7 +163,7 @@ async function factsCandidates(master: Product): Promise<Candidate[]> {
         url.searchParams.set("json", "1");
         url.searchParams.set("page_size", "8");
         url.searchParams.set("fields", "code,product_name,product_name_cs,generic_name_cs,brands,quantity,image_url,image_front_url,image_front_width,image_front_height,selected_images");
-        const r = await fetch(url, { headers: { "User-Agent": "Slevao.cz/1.4" } });
+        const r = await fetch(url, { headers: { "User-Agent": "Slevao.cz/1.5" } });
         const data = r.ok ? await r.json() : null;
         products = Array.isArray(data?.products) ? data.products : [];
       }
@@ -151,10 +176,11 @@ async function factsCandidates(master: Product): Promise<Candidate[]> {
       const foundText = [product?.brands, product?.product_name_cs, product?.product_name, product?.quantity].filter(Boolean).join(" ");
       const match = exactEan ? 1 : similarity(productQuery(master), foundText);
       if (!exactEan && match < 0.58) continue;
+      const productPage = `https://${provider.host}/product/${encodeURIComponent(String(product?.code || cleanEan))}`;
       seen.add(image);
       found.push({
         image_url: image,
-        source_url: `https://${provider.host}/product/${encodeURIComponent(String(product?.code || cleanEan))}`,
+        source_url: productPage,
         source_domain: provider.host,
         source_type: "barcode_database",
         width: Number(product?.image_front_width) || null,
@@ -208,7 +234,7 @@ Deno.serve(async (req) => {
 
       if (!found.length) {
         withoutMatch++;
-        results.push({ product_id: master.id, name: repairMojibake(master.name), status: "not_found", searched: productQuery(master), sources_checked: ["products", "offers", "leaflet_import_items", ...providers.map(p => p.key)] });
+        results.push({ product_id: master.id, name: repairMojibake(master.name), status: "not_found", searched: productQuery(master), sources_checked: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)] });
         continue;
       }
 
@@ -235,7 +261,7 @@ Deno.serve(async (req) => {
       results.push({ product_id: master.id, name: repairMojibake(master.name), status: "candidates", count: productCreated, candidates: found });
     }
 
-    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, sources: ["products", "offers", "leaflet_import_items", ...providers.map(p => p.key)], results }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, sources: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)], results }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error?.message ?? error) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
   }
