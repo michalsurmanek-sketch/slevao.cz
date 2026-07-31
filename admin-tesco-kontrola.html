@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kontrola Tesco | Slevao.cz</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--b:#34d6c7;--bd:#159e94;--ink:#172222;--muted:#667373;--line:#dde8e7;--bg:#f5f8f8;--bad:#c62828;--ok:#16794c;--warn:#9a6500}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}.wrap{width:min(1400px,calc(100% - 28px));margin:24px auto}.top{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap}.top h1{margin:0}.actions{display:flex;gap:10px}.btn{border:1px solid var(--line);background:#fff;border-radius:13px;padding:11px 15px;font-weight:900;color:var(--ink);text-decoration:none}.btn.primary{background:var(--b);border-color:var(--b)}.summary{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:12px;margin:20px 0}.card{background:#fff;border:1px solid var(--line);border-radius:18px;padding:16px}.card b{display:block;font-size:28px;margin-top:5px}.muted{color:var(--muted)}.bad{color:var(--bad)}.ok{color:var(--ok)}.warn{color:var(--warn)}.panel{background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden}.toolbar{padding:14px;display:flex;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line)}input,select{height:42px;border:1px solid var(--line);border-radius:12px;padding:0 12px;background:#fff}input{flex:1;min-width:220px}table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:11px;border-bottom:1px solid #edf2f1;vertical-align:top}th{position:sticky;top:0;background:#f8fbfb;z-index:1}.thumb{width:56px;height:56px;border:1px solid var(--line);border-radius:10px;display:grid;place-items:center;overflow:hidden;background:#fafcfc}.thumb img{max-width:100%;max-height:100%;object-fit:contain}.tag{display:inline-block;padding:4px 7px;border-radius:999px;background:#eef5f4;font-size:12px;font-weight:800}.tag.bad{background:#fff0f0}.tag.warn{background:#fff6df}.empty{padding:30px;text-align:center;color:var(--muted)}@media(max-width:900px){.summary{grid-template-columns:1fr 1fr}.panel{overflow:auto}table{min-width:1000px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top">
+    <div><h1>Kontrola Tesco</h1><div class="muted">Živá data z tabulky offers.</div></div>
+    <div class="actions"><a class="btn" href="admin-automatizace.html">← Automatizace</a><button class="btn primary" id="reload">Obnovit kontrolu</button></div>
+  </div>
+  <div class="summary">
+    <div class="card"><span class="muted">Aktuální nabídky</span><b id="count">–</b></div>
+    <div class="card"><span class="muted">Unikátní názvy</span><b id="unique">–</b></div>
+    <div class="card"><span class="muted">Duplicitní řádky</span><b class="bad" id="duplicates">–</b></div>
+    <div class="card"><span class="muted">Bez fotografie</span><b class="warn" id="missingImages">–</b></div>
+    <div class="card"><span class="muted">Různá store_id</span><b id="storeIds">–</b></div>
+  </div>
+  <div class="panel">
+    <div class="toolbar">
+      <input id="search" type="search" placeholder="Hledat produkt…">
+      <select id="filter"><option value="all">Všechny</option><option value="duplicates">Jen duplicity</option><option value="missing">Bez fotografie</option></select>
+    </div>
+    <div id="table"><div class="empty">Načítám Tesco produkty…</div></div>
+  </div>
+</div>
+<script>
+const SUPABASE_URL='https://uhampjdqjxmbhaptgitn.supabase.co';
+const SUPABASE_PUBLISHABLE_KEY='sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+const db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+let rows=[];
+const fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt=v=>v?new Intl.DateTimeFormat('cs-CZ',{dateStyle:'short',timeStyle:'short'}).format(new Date(v)):'–';
+function duplicateMap(){const map=new Map();for(const r of rows){const k=fold(r.title);map.set(k,(map.get(k)||0)+1)}return map}
+function render(){const dups=duplicateMap();const q=fold(document.getElementById('search').value);const filter=document.getElementById('filter').value;let view=rows.filter(r=>!q||fold(r.title).includes(q));if(filter==='duplicates')view=view.filter(r=>(dups.get(fold(r.title))||0)>1);if(filter==='missing')view=view.filter(r=>!r.image_url);document.getElementById('count').textContent=rows.length;document.getElementById('unique').textContent=new Set(rows.map(r=>fold(r.title))).size;document.getElementById('duplicates').textContent=rows.filter(r=>(dups.get(fold(r.title))||0)>1).length;document.getElementById('missingImages').textContent=rows.filter(r=>!r.image_url).length;document.getElementById('storeIds').textContent=new Set(rows.map(r=>r.store_id)).size;if(!view.length){document.getElementById('table').innerHTML='<div class="empty">Žádné odpovídající produkty.</div>';return}document.getElementById('table').innerHTML=`<table><thead><tr><th>Foto</th><th>Produkt</th><th>Cena</th><th>Platnost</th><th>Publikováno</th><th>store_id</th><th>Kontrola</th></tr></thead><tbody>${view.map(r=>{const n=dups.get(fold(r.title))||0;return `<tr><td><div class="thumb">${r.image_url?`<img src="${esc(r.image_url)}" alt="">`:'—'}</div></td><td><strong>${esc(r.title)}</strong><br><span class="muted">${esc(r.id)}</span></td><td><strong>${Number(r.price||0).toLocaleString('cs-CZ')} Kč</strong>${r.old_price?`<br><span class="muted"><s>${Number(r.old_price).toLocaleString('cs-CZ')} Kč</s></span>`:''}</td><td>${esc(r.valid_from)} – ${esc(r.valid_to)}</td><td>${fmt(r.published_at)}</td><td><code>${esc(r.store_id)}</code><br><span class="muted">${esc(r.stores?.name||'')}</span></td><td>${n>1?`<span class="tag bad">Duplicita ${n}×</span>`:'<span class="tag">OK název</span>'}${!r.image_url?'<br><span class="tag warn">Bez foto</span>':''}</td></tr>`}).join('')}</tbody></table>`}
+async function load(){document.getElementById('table').innerHTML='<div class="empty">Načítám Tesco produkty…</div>';const {data:stores,error:storeError}=await db.from('stores').select('id,name,slug').or('slug.eq.tesco,name.ilike.%tesco%');if(storeError)throw storeError;const ids=(stores||[]).map(s=>s.id);if(!ids.length){rows=[];render();return}const today=new Date().toISOString().slice(0,10);const {data,error}=await db.from('offers').select('id,title,price,old_price,image_url,valid_from,valid_to,status,published_at,store_id,stores(name,slug)').in('store_id',ids).eq('status','published').gte('valid_to',today).order('published_at',{ascending:false}).limit(2000);if(error)throw error;rows=data||[];render()}
+document.getElementById('reload').onclick=()=>load().catch(e=>document.getElementById('table').innerHTML=`<div class="empty bad">${esc(e.message)}</div>`);document.getElementById('search').oninput=render;document.getElementById('filter').onchange=render;load().catch(e=>document.getElementById('table').innerHTML=`<div class="empty bad">${esc(e.message)}</div>`);
+</script>
+</body>
+</html>
