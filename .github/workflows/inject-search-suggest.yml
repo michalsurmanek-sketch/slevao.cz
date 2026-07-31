@@ -1,0 +1,38 @@
+name: Nasadit produktový našeptávač
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/search-suggest.css'
+      - 'assets/search-suggest.js'
+      - 'scripts/inject-search-suggest.py'
+      - '.github/workflows/inject-search-suggest.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  inject:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Připojit našeptávač
+        run: python scripts/inject-search-suggest.py
+      - name: Commitnout změnu indexu
+        run: |
+          if git diff --quiet -- index.html; then
+            echo 'index.html už je aktuální'
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add index.html
+          git commit -m 'Zapojit produktový našeptávač na web'
+          git push
