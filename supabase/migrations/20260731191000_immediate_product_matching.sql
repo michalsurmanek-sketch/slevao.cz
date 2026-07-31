@@ -68,10 +68,15 @@ begin
         and p.image_verified = true
         and coalesce(p.image_quality, 0) >= 70
         and p.image_url not like '%/leaflet-crops/%'
+    ), approved_ranked as (
+      select id, image_url, count(*) over () as total
+      from approved
+      order by id
     )
-    select min(id), min(image_url), count(*)
+    select id, image_url, total
     into matched_product_id, matched_image_url, candidate_count
-    from approved;
+    from approved_ranked
+    limit 1;
 
     if candidate_count = 1 then
       new.product_id := matched_product_id;
