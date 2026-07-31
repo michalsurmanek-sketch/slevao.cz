@@ -1,14 +1,5 @@
 #!/usr/bin/env python3
-"""Doplni chybejici fotografie vyrezem primo z PDF letaku.
-
-Worker:
-1. nacte publikovane leaflet_import_items s source_page a bez obrazku,
-2. stahne puvodni PDF letaku,
-3. vyrenderuje prislusnou stranu pres PyMuPDF,
-4. pozada OpenAI vision o bounding box produktu,
-5. vyrez ulozi do Supabase Storage,
-6. aktualizuje leaflet_import_items, offers a products.
-"""
+"""Doplní čisté fotografie produktů výřezem přímo z PDF letáku."""
 
 from __future__ import annotations
 
@@ -22,7 +13,7 @@ import time
 import unicodedata
 from typing import Any
 
-import fitz  # PyMuPDF
+import fitz
 import requests
 from PIL import Image
 
@@ -70,8 +61,6 @@ def ensure_bucket() -> None:
 
 
 def load_jobs() -> list[dict[str, Any]]:
-    # leaflet_imports ma podle migrace sloupec source_document_url.
-    # Predchozi verze zadala neexistujici source_url/storage_path a PostgREST vracel HTTP 400.
     select = (
         "id,import_id,product_id,title,source_page,image_url,status,"
         "leaflet_imports(id,source_document_url,metadata,store_id)"
@@ -81,7 +70,7 @@ def load_jobs() -> list[dict[str, Any]]:
         "status": "eq.published",
         "source_page": "not.is.null",
         "order": "created_at.desc",
-        "limit": str(LIMIT),
+        "limit": str(max(LIMIT * 3, 120)),
     }
     response = requests.get(
         f"{SUPABASE_URL}/rest/v1/leaflet_import_items",
@@ -90,11 +79,17 @@ def load_jobs() -> list[dict[str, Any]]:
         timeout=60,
     )
     if response.status_code >= 400:
-        raise RuntimeError(
-            f"Supabase nacitani polozek selhalo HTTP {response.status_code}: {response.text[:1200]}"
-        )
-    rows = response.json()
-    return [row for row in rows if not str(row.get("image_url") or "").strip()]
+        raise RuntimeError(f"Supabase HTTP {response.status_code}: {response.text[:1200]}")
+
+    jobs: list[dict[str, Any]] = []
+    for row in response.json():
+        image_url = str(row.get("image_url") or "").strip()
+        # Znovu zpracujeme i dřívější vadné výřezy celého reklamního bloku.
+        if not image_url or "/product-images/leaflet-crops/" in image_url:
+            jobs.append(row)
+        if len(jobs) >= LIMIT:
+            break
+    return jobs
 
 
 def resolve_pdf_url(job: dict[str, Any]) -> str | None:
@@ -119,7 +114,7 @@ def download_pdf(url: str) -> bytes:
     response = requests.get(url, headers=headers, timeout=90)
     response.raise_for_status()
     if not response.content.startswith(b"%PDF"):
-        raise ValueError(f"Zdroj neni PDF: {response.headers.get('content-type')}")
+        raise ValueError(f"Zdroj není PDF: {response.headers.get('content-type')}")
     return response.content
 
 
@@ -127,19 +122,21 @@ def render_page(pdf: bytes, page_number: int) -> Image.Image:
     document = fitz.open(stream=pdf, filetype="pdf")
     index = max(0, min(page_number - 1, document.page_count - 1))
     page = document.load_page(index)
-    matrix = fitz.Matrix(2.0, 2.0)
-    pix = page.get_pixmap(matrix=matrix, alpha=False)
+    pix = page.get_pixmap(matrix=fitz.Matrix(2.5, 2.5), alpha=False)
     return Image.open(io.BytesIO(pix.tobytes("png"))).convert("RGB")
 
 
-def locate_product(image: Image.Image, title: str) -> tuple[float, float, float, float] | None:
+def image_data_url(image: Image.Image) -> str:
     buffer = io.BytesIO()
-    image.save(buffer, format="JPEG", quality=88, optimize=True)
-    data_url = "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+    image.save(buffer, format="JPEG", quality=90, optimize=True)
+    return "data:image/jpeg;base64," + base64.b64encode(buffer.getvalue()).decode()
+
+
+def vision_box(image: Image.Image, instruction: str, schema_name: str) -> dict[str, Any]:
     schema = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["found", "x", "y", "width", "height", "confidence"],
+        "required": ["found", "x", "y", "width", "height", "confidence", "contains_text"],
         "properties": {
             "found": {"type": "boolean"},
             "x": {"type": "number", "minimum": 0, "maximum": 1},
@@ -147,6 +144,7 @@ def locate_product(image: Image.Image, title: str) -> tuple[float, float, float,
             "width": {"type": "number", "minimum": 0, "maximum": 1},
             "height": {"type": "number", "minimum": 0, "maximum": 1},
             "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+            "contains_text": {"type": "boolean"},
         },
     }
     payload = {
@@ -155,21 +153,17 @@ def locate_product(image: Image.Image, title: str) -> tuple[float, float, float,
         "input": [{
             "role": "user",
             "content": [
-                {"type": "input_text", "text": (
-                    f"Na teto strane ceskeho akcniho letaku najdi fotografii produktu: {title}. "
-                    "Vrat normalizovany obdelnik pouze samotne fotografie produktu, bez cenovky, textu, loga a pozadi. "
-                    "Kdyz produkt na strane neni, found=false."
-                )},
-                {"type": "input_image", "image_url": data_url, "detail": "high"},
+                {"type": "input_text", "text": instruction},
+                {"type": "input_image", "image_url": image_data_url(image), "detail": "high"},
             ],
         }],
-        "text": {"format": {"type": "json_schema", "name": "product_crop", "strict": True, "schema": schema}},
+        "text": {"format": {"type": "json_schema", "name": schema_name, "strict": True, "schema": schema}},
     }
     response = requests.post(
         "https://api.openai.com/v1/responses",
         headers={"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"},
         data=json.dumps(payload),
-        timeout=120,
+        timeout=150,
     )
     response.raise_for_status()
     result = response.json()
@@ -180,26 +174,68 @@ def locate_product(image: Image.Image, title: str) -> tuple[float, float, float,
                 if content.get("text"):
                     text = content["text"]
                     break
-    box = json.loads(text or "{}")
-    if not box.get("found") or float(box.get("confidence", 0)) < 0.65:
+    return json.loads(text or "{}")
+
+
+def parse_box(result: dict[str, Any], min_confidence: float) -> tuple[float, float, float, float] | None:
+    if not result.get("found") or float(result.get("confidence", 0)) < min_confidence:
         return None
-    x, y, w, h = (float(box[k]) for k in ("x", "y", "width", "height"))
-    if w < 0.04 or h < 0.04:
+    x, y, w, h = (float(result.get(k, 0)) for k in ("x", "y", "width", "height"))
+    if w < 0.025 or h < 0.025 or x + w > 1.02 or y + h > 1.02:
         return None
     return x, y, w, h
 
 
-def crop_image(image: Image.Image, box: tuple[float, float, float, float]) -> bytes:
+def crop_pixels(image: Image.Image, box: tuple[float, float, float, float], padding: float = 0) -> Image.Image:
     x, y, w, h = box
-    pad_x, pad_y = w * 0.04, h * 0.04
-    left = max(0, int((x - pad_x) * image.width))
-    top = max(0, int((y - pad_y) * image.height))
-    right = min(image.width, int((x + w + pad_x) * image.width))
-    bottom = min(image.height, int((y + h + pad_y) * image.height))
-    crop = image.crop((left, top, right, bottom))
-    crop.thumbnail((900, 900), Image.Resampling.LANCZOS)
+    px = w * padding
+    py = h * padding
+    left = max(0, int((x - px) * image.width))
+    top = max(0, int((y - py) * image.height))
+    right = min(image.width, int((x + w + px) * image.width))
+    bottom = min(image.height, int((y + h + py) * image.height))
+    return image.crop((left, top, right, bottom))
+
+
+def locate_clean_product(page: Image.Image, title: str) -> Image.Image | None:
+    # 1) Najde celý reklamní blok, aby se správně určil konkrétní produkt na přeplněné stránce.
+    block_result = vision_box(
+        page,
+        f"Najdi na stránce reklamní blok nabídky produktu '{title}'. "
+        "Obdélník může obsahovat fotografii, název a cenu. Vyber pouze správný blok tohoto produktu. "
+        "contains_text nastav podle toho, zda blok obsahuje text.",
+        "offer_block",
+    )
+    block_box = parse_box(block_result, 0.65)
+    if block_box is None:
+        return None
+    block = crop_pixels(page, block_box, padding=0.03)
+
+    # 2) Uvnitř bloku najde jen fyzický produkt. Cenovky, popisky a barevné reklamní plochy musí zůstat mimo.
+    product_result = vision_box(
+        block,
+        f"V tomto reklamním bloku je produkt '{title}'. Vrať těsný obdélník pouze kolem skutečné fotografie "
+        "výrobku nebo potraviny. NESMÍ obsahovat cenu, procenta, název produktu, gramáž, Clubcard štítek, "
+        "barevný reklamní panel, logo obchodu ani jiný text. Pokud čistou fotografii nelze oddělit, found=false. "
+        "contains_text=true pouze pokud navržený obdélník stále zasahuje jakýkoli tištěný text nebo cenovku.",
+        "clean_product_photo",
+    )
+    product_box = parse_box(product_result, 0.72)
+    if product_box is None or product_result.get("contains_text"):
+        return None
+    product = crop_pixels(block, product_box, padding=0.015)
+
+    # Nepovolíme extrémně široký reklamní pruh; produktové fotografie bývají kompaktní.
+    ratio = product.width / max(product.height, 1)
+    if product.width < 80 or product.height < 80 or ratio > 3.2 or ratio < 0.18:
+        return None
+    return product
+
+
+def encode_webp(image: Image.Image) -> bytes:
+    image.thumbnail((900, 900), Image.Resampling.LANCZOS)
     output = io.BytesIO()
-    crop.save(output, "WEBP", quality=88, method=6)
+    image.save(output, "WEBP", quality=90, method=6)
     return output.getvalue()
 
 
@@ -246,7 +282,7 @@ def save_result(job: dict[str, Any], image_url: str) -> None:
 def main() -> int:
     ensure_bucket()
     jobs = load_jobs()
-    print(f"Nalezeno {len(jobs)} produktu k vyrezu.")
+    print(f"Nalezeno {len(jobs)} produktů k čistému výřezu.")
     pdf_cache: dict[str, bytes] = {}
     success = missing = failed = 0
 
@@ -254,7 +290,7 @@ def main() -> int:
         try:
             url = resolve_pdf_url(job)
             if not url:
-                print(f"SKIP {job['title']}: chybi URL PDF")
+                print(f"SKIP {job['title']}: chybí URL PDF")
                 missing += 1
                 continue
             pdf = pdf_cache.get(url)
@@ -262,17 +298,17 @@ def main() -> int:
                 pdf = download_pdf(url)
                 pdf_cache[url] = pdf
             page = render_page(pdf, int(job.get("source_page") or 1))
-            box = locate_product(page, str(job.get("title") or ""))
-            if box is None:
-                print(f"NOT FOUND {job['title']} (strana {job.get('source_page')})")
+            product = locate_clean_product(page, str(job.get("title") or ""))
+            if product is None:
+                print(f"NOT FOUND CLEAN {job['title']} (strana {job.get('source_page')})")
                 missing += 1
                 continue
-            image_url = upload_crop(job, crop_image(page, box))
+            image_url = upload_crop(job, encode_webp(product))
             save_result(job, image_url)
-            print(f"OK {job['title']} -> {image_url}")
+            print(f"OK CLEAN {job['title']} -> {image_url}")
             success += 1
-            time.sleep(0.2)
-        except Exception as exc:  # noqa: BLE001
+            time.sleep(0.25)
+        except Exception as exc:
             failed += 1
             print(f"ERROR {job.get('title')}: {exc}", file=sys.stderr)
 
