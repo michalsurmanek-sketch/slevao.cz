@@ -14,19 +14,28 @@ const CORS_HEADERS = {
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
-    headers: {
-      ...CORS_HEADERS,
-      'content-type': 'application/json; charset=utf-8',
-    },
+    headers: { ...CORS_HEADERS, 'content-type': 'application/json; charset=utf-8' },
   });
 }
 
 function normalizeTitle(value: string): string {
-  return String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('cs').replace(/[^a-z0-9]+/g, ' ').trim();
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('cs')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
 }
 
 function isIsoDate(value: unknown): value is string {
   return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
+}
+
+function isTescoJob(job: any): boolean {
+  const slug = String(job.stores?.slug || '').toLowerCase();
+  const adapter = String(job.metadata?.adapter || '').toLowerCase();
+  const sourceUrl = String(job.source_url || job.metadata?.source_url || '').toLowerCase();
+  return slug.includes('tesco') || adapter.includes('tesco') || sourceUrl.includes('tesco');
 }
 
 async function findExistingProduct(item: any): Promise<string | null> {
@@ -47,10 +56,51 @@ async function findExistingOffer(job: any, item: any, validFrom: string, validTo
   if (job.region_code) query = query.eq('region_code', job.region_code); else query = query.is('region_code', null);
   if (job.city_name) query = query.eq('city_name', job.city_name); else query = query.is('city_name', null);
   if (job.store_location_name) query = query.eq('store_location_name', job.store_location_name); else query = query.is('store_location_name', null);
-  const { data, error } = await query.limit(100);
+  const { data, error } = await query.limit(200);
   if (error) throw error;
   const normalized = normalizeTitle(item.title);
   return (data || []).find((row: any) => normalizeTitle(row.title) === normalized) || null;
+}
+
+async function deleteAllOldTescoOffers(): Promise<{ deleted: number; storeIds: string[] }> {
+  const { data: stores, error: storesError } = await db.from('stores')
+    .select('id,slug,name')
+    .or('slug.ilike.%tesco%,name.ilike.%tesco%');
+  if (storesError) throw storesError;
+
+  const storeIds = [...new Set((stores || []).map((store: any) => String(store.id || '')).filter(Boolean))];
+  if (!storeIds.length) throw new Error('Obchod Tesco nebyl v databázi nalezen.');
+
+  const { data: deletedRows, error: deleteError } = await db.from('offers')
+    .delete()
+    .in('store_id', storeIds)
+    .select('id');
+  if (deleteError) throw deleteError;
+
+  const { count, error: remainingError } = await db.from('offers')
+    .select('id', { count: 'exact', head: true })
+    .in('store_id', storeIds);
+  if (remainingError) throw remainingError;
+  if ((count || 0) !== 0) throw new Error(`Po vyčištění zůstalo ${count} starých Tesco nabídek.`);
+
+  return { deleted: deletedRows?.length || 0, storeIds };
+}
+
+function deduplicateItems(items: any[]): { unique: any[]; duplicateIds: string[] } {
+  const seen = new Set<string>();
+  const unique: any[] = [];
+  const duplicateIds: string[] = [];
+
+  for (const item of items) {
+    const key = `${normalizeTitle(item.title)}|${Number(item.price || 0).toFixed(2)}|${Number(item.old_price || 0).toFixed(2)}`;
+    if (!normalizeTitle(item.title) || seen.has(key)) {
+      if (item.id) duplicateIds.push(item.id);
+      continue;
+    }
+    seen.add(key);
+    unique.push(item);
+  }
+  return { unique, duplicateIds };
 }
 
 async function publishImport(job: any) {
@@ -58,9 +108,12 @@ async function publishImport(job: any) {
     throw new Error(`Import ve stavu ${job.status || 'neznámý'} nelze publikovat.`);
   }
 
-  const { data: items, error } = await db.from('leaflet_import_items').select('*').eq('import_id', job.id).in('status', ['approved', 'review']);
+  const { data: loadedItems, error } = await db.from('leaflet_import_items')
+    .select('*')
+    .eq('import_id', job.id)
+    .in('status', ['approved', 'review']);
   if (error) throw error;
-  if (!items?.length) throw new Error('Import nemá žádné produkty k publikaci.');
+  if (!loadedItems?.length) throw new Error('Import nemá žádné produkty k publikaci.');
 
   if (!isIsoDate(job.detected_valid_from) || !isIsoDate(job.detected_valid_to)) {
     throw new Error('Import nemá spolehlivě rozpoznanou platnost letáku.');
@@ -72,27 +125,34 @@ async function publishImport(job: any) {
   const today = new Date().toISOString().slice(0, 10);
   if (validTo < today) throw new Error('Leták už není platný.');
 
-  let published = 0, skippedDuplicates = 0, failed = 0;
+  const tesco = isTescoJob(job);
+  let deletedOldOffers = 0;
+  let tescoStoreIds: string[] = [];
 
-  if (String(job.stores?.slug || '') === 'tesco') {
-    const { data: tescoStores, error: tescoStoresError } = await db.from('stores')
-      .select('id')
-      .eq('slug', 'tesco');
-    if (tescoStoresError) throw tescoStoresError;
-    const tescoStoreIds = (tescoStores || []).map((store: any) => store.id).filter(Boolean);
-    if (!tescoStoreIds.length) throw new Error('Obchod Tesco nebyl v databázi nalezen.');
-    const { error: deleteOldOffersError } = await db.from('offers')
-      .delete()
-      .in('store_id', tescoStoreIds)
-      .eq('status', 'published');
-    if (deleteOldOffersError) throw deleteOldOffersError;
+  if (tesco) {
+    const cleanup = await deleteAllOldTescoOffers();
+    deletedOldOffers = cleanup.deleted;
+    tescoStoreIds = cleanup.storeIds;
   }
+
+  const deduplicated = deduplicateItems(loadedItems);
+  const items = deduplicated.unique;
+  if (deduplicated.duplicateIds.length) {
+    await db.from('leaflet_import_items').update({
+      status: 'ignored',
+      raw_data: { ignored_reason: 'duplicate_inside_import' },
+    }).in('id', deduplicated.duplicateIds);
+  }
+
+  let published = 0;
+  let skippedDuplicates = deduplicated.duplicateIds.length;
+  let failed = 0;
 
   for (const item of items) {
     try {
       if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
 
-      const existingOffer = await findExistingOffer(job, item, validFrom, validTo);
+      const existingOffer = tesco ? null : await findExistingOffer(job, item, validFrom, validTo);
       if (existingOffer && String(job.metadata?.adapter || '') === 'store:makro') {
         const { error: updateOfferError } = await db.from('offers').update({
           price: item.price,
@@ -106,20 +166,11 @@ async function publishImport(job: any) {
         published++;
         continue;
       }
+
       if (existingOffer && Number(existingOffer.price) === Number(item.price)) {
-        let imageBackfilled = false;
-        if (item.image_url) {
-          const { error: imageOfferError } = await db.from('offers').update({ image_url: item.image_url }).eq('id', existingOffer.id);
-          if (imageOfferError) throw imageOfferError;
-          if (existingOffer.product_id) {
-            const { error: imageProductError } = await db.from('products').update({ image_url: item.image_url }).eq('id', existingOffer.product_id);
-            if (imageProductError) throw imageProductError;
-          }
-          imageBackfilled = true;
-        }
         await db.from('leaflet_import_items').update({
           status: 'ignored',
-          raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer', image_backfilled: imageBackfilled },
+          raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' },
         }).eq('id', item.id);
         skippedDuplicates++;
         continue;
@@ -135,6 +186,9 @@ async function publishImport(job: any) {
         }).select('id').single();
         if (productError) throw productError;
         productId = product.id;
+      } else if (item.image_url) {
+        const { error: productImageError } = await db.from('products').update({ image_url: item.image_url }).eq('id', productId);
+        if (productImageError) throw productImageError;
       }
 
       const { error: offerError } = await db.from('offers').insert({
@@ -167,22 +221,47 @@ async function publishImport(job: any) {
     }
   }
 
+  if (tesco) {
+    const { count, error: finalCountError } = await db.from('offers')
+      .select('id', { count: 'exact', head: true })
+      .in('store_id', tescoStoreIds)
+      .eq('status', 'published');
+    if (finalCountError) throw finalCountError;
+    if ((count || 0) !== published) {
+      throw new Error(`Kontrola Tesco selhala: publikováno ${published}, ale v databázi je ${count || 0} nabídek.`);
+    }
+  }
+
   const completed = published > 0 || skippedDuplicates > 0;
   await db.from('leaflet_imports').update({
     status: completed ? 'published' : 'failed',
     product_count: published,
-    error_message: completed ? (failed ? `${failed} položek se nepodařilo publikovat. ${skippedDuplicates} duplicit bylo přeskočeno.` : null) : 'Nepodařilo se publikovat žádný produkt.',
-    metadata: { ...(job.metadata || {}), published_count: published, duplicate_count: skippedDuplicates, failed_count: failed },
+    error_message: completed
+      ? (failed ? `${failed} položek se nepodařilo publikovat. ${skippedDuplicates} duplicit bylo přeskočeno.` : null)
+      : 'Nepodařilo se publikovat žádný produkt.',
+    metadata: {
+      ...(job.metadata || {}),
+      published_count: published,
+      duplicate_count: skippedDuplicates,
+      failed_count: failed,
+      deleted_old_offers: deletedOldOffers,
+      tesco_full_replacement: tesco,
+    },
     finished_at: new Date().toISOString(),
   }).eq('id', job.id);
 
-  return { import_id: job.id, published, duplicates: skippedDuplicates, failed };
+  return {
+    import_id: job.id,
+    published,
+    duplicates: skippedDuplicates,
+    failed,
+    deleted_old_offers: deletedOldOffers,
+    tesco_full_replacement: tesco,
+  };
 }
 
 Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') {
-    return new Response('ok', { headers: CORS_HEADERS });
-  }
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
 
   try {
     if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
@@ -192,19 +271,21 @@ Deno.serve(async (request) => {
     const authorizedByServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
     const authorizedByCron = Boolean(CRON_SECRET && cronHeader === CRON_SECRET);
     let authorizedByUser = false;
+
     if (!authorizedByServiceRole && !authorizedByCron && authHeader.startsWith('Bearer ')) {
       const accessToken = authHeader.slice(7).trim();
       const { data: userData } = await db.auth.getUser(accessToken);
       const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
       authorizedByUser = ['admin', 'editor'].includes(role);
     }
+
     if (!authorizedByServiceRole && !authorizedByCron && !authorizedByUser) {
       return jsonResponse({ error: 'Unauthorized' }, 401);
     }
 
     const body = await request.json().catch(() => ({}));
-    let query = db.from('leaflet_imports').select('*,stores(slug)').eq('status', 'publishing').limit(10);
-    if (body.import_id) query = db.from('leaflet_imports').select('*,stores(slug)').eq('id', String(body.import_id)).limit(1);
+    let query = db.from('leaflet_imports').select('*,stores(slug,name)').eq('status', 'publishing').limit(10);
+    if (body.import_id) query = db.from('leaflet_imports').select('*,stores(slug,name)').eq('id', String(body.import_id)).limit(1);
     const { data: jobs, error } = await query;
     if (error) return jsonResponse({ error: error.message }, 500);
 
@@ -218,6 +299,7 @@ Deno.serve(async (request) => {
         results.push({ import_id: job.id, error: message });
       }
     }
+
     return jsonResponse({ ok: true, processed: results.length, results });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
