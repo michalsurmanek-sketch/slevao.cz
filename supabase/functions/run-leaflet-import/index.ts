@@ -157,11 +157,13 @@ async function runAutomaticImageMaintenance() {
     callFunction('process-leaflet', { action: 'backfill-billa-images' }),
     callFunction('process-leaflet', { action: 'backfill-albert-images' }),
     callFunction('backfill-lidl-images', { stores: ['lidl', 'penny'] }),
+    callFunction('backfill-tesco-images', { limit: 100 }),
   ];
   const settled = await Promise.allSettled(tasks);
+  const names = ['billa-images', 'albert-images', 'lidl-penny-images', 'tesco-images'];
   return settled.map((result, index) => result.status === 'fulfilled'
     ? result.value
-    : { function: ['billa-images', 'albert-images', 'lidl-penny-images'][index], ok: false, error: String(result.reason) });
+    : { function: names[index], ok: false, error: String(result.reason) });
 }
 
 Deno.serve(async (request) => {
