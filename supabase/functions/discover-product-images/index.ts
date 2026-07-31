@@ -125,7 +125,7 @@ function buildCandidate(master: Product, product: any, exactEan: boolean, provid
 async function byEan(ean: string, provider: Provider): Promise<any | null> {
   try {
     const response = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(ean)}.json`, {
-      headers: { "User-Agent": "Slevao.cz/1.1 (product image review)" },
+      headers: { "User-Agent": "Slevao.cz/1.2 (product image review)" },
     });
     if (!response.ok) return null;
     const data = await response.json();
@@ -146,7 +146,7 @@ async function byName(product: Product, provider: Provider): Promise<any[]> {
     url.searchParams.set("json", "1");
     url.searchParams.set("page_size", "8");
     url.searchParams.set("fields", "code,product_name,product_name_cs,generic_name_cs,brands,quantity,image_url,image_front_url,image_front_width,image_front_height,selected_images,images");
-    const response = await fetch(url, { headers: { "User-Agent": "Slevao.cz/1.1 (product image review)" } });
+    const response = await fetch(url, { headers: { "User-Agent": "Slevao.cz/1.2 (product image review)" } });
     if (!response.ok) return [];
     const data = await response.json();
     return Array.isArray(data?.products) ? data.products : [];
@@ -164,16 +164,27 @@ Deno.serve(async (req) => {
 
     const body = await req.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(Number(body?.limit ?? 30), 100));
+    const productId = typeof body?.product_id === "string" ? body.product_id.trim() : "";
     const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
 
-    const { data: products, error } = await db
+    let query = db
       .from("products_missing_verified_images")
       .select("id,name,brand,ean,quantity_text,active_offer_count,last_offer_at")
-      .gt("active_offer_count", 0)
+      .gt("active_offer_count", 0);
+
+    if (productId) query = query.eq("id", productId);
+    else query = query
       .order("active_offer_count", { ascending: false })
-      .order("last_offer_at", { ascending: false, nullsFirst: false })
-      .limit(limit);
+      .order("last_offer_at", { ascending: false, nullsFirst: false });
+
+    const { data: products, error } = await query.limit(productId ? 1 : limit);
     if (error) throw error;
+    if (productId && !(products ?? []).length) {
+      return new Response(JSON.stringify({ ok: false, error: "Vybraný produkt nebyl nalezen nebo už má ověřenou fotografii." }), {
+        status: 404,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
+    }
 
     let checked = 0;
     let created = 0;
@@ -215,12 +226,7 @@ Deno.serve(async (req) => {
 
       if (!found.length) {
         withoutMatch++;
-        results.push({
-          product_id: master.id,
-          name: repairMojibake(master.name),
-          original_name: master.name,
-          status: "not_found",
-        });
+        results.push({ product_id: master.id, name: repairMojibake(master.name), original_name: master.name, status: "not_found" });
         continue;
       }
 
@@ -247,15 +253,10 @@ Deno.serve(async (req) => {
           productCreated++;
         }
       }
-      results.push({
-        product_id: master.id,
-        name: repairMojibake(master.name),
-        status: "candidates",
-        count: productCreated,
-      });
+      results.push({ product_id: master.id, name: repairMojibake(master.name), status: "candidates", count: productCreated, candidates: found });
     }
 
-    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, providers: providers.map((p) => p.key), results }), {
+    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, providers: providers.map((p) => p.key), results }), {
       headers: { ...cors, "Content-Type": "application/json" },
     });
   } catch (error) {
