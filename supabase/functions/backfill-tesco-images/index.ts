@@ -25,7 +25,7 @@ function normalize(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('cs')
-    .replace(/\b(akce|clubcard|tesco|baleni|vybrane druhy|dle nabidky)\b/g, ' ')
+    .replace(/\b(akce|clubcard|tesco|baleni|vybrane druhy|dle nabidky|filet|chlazene|cerstve)\b/g, ' ')
     .replace(/\b\d+(?:[.,]\d+)?\s*(?:g|kg|ml|l|ks|%)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -45,58 +45,119 @@ function similarity(a: unknown, b: unknown): number {
   const union = new Set([...left, ...right]).size;
   const jaccard = union ? intersection / union : 0;
   const coverage = intersection / Math.min(left.size, right.size);
-  return (jaccard * 0.45) + (coverage * 0.55);
+  return (jaccard * 0.4) + (coverage * 0.6);
 }
 
 function validImageUrl(value: unknown): string | null {
-  const url = String(value || '').trim();
+  const url = String(value || '').trim().replace(/\\u0026/g, '&').replace(/\\\//g, '/');
   if (!/^https:\/\//i.test(url)) return null;
+  if (!/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(url) && !url.includes('digitalcontent.api.tesco.com')) return null;
   return url;
 }
 
-async function findImage(title: string): Promise<{ url: string; source: string; score: number } | null> {
-  const query = normalize(title);
-  if (!query) return null;
+async function findExistingCatalogImage(title: string): Promise<{ url: string; source: string; score: number } | null> {
+  const words = [...tokens(title)];
+  if (!words.length) return null;
+  const probe = words[0];
 
+  const [productsResult, offersResult] = await Promise.all([
+    db.from('products').select('name,image_url').not('image_url', 'is', null).ilike('name', `%${probe}%`).limit(80),
+    db.from('offers').select('title,image_url').not('image_url', 'is', null).ilike('title', `%${probe}%`).limit(120),
+  ]);
+
+  const candidates = [
+    ...((productsResult.data || []).map((row: any) => ({ name: row.name, url: row.image_url, source: 'products' }))),
+    ...((offersResult.data || []).map((row: any) => ({ name: row.title, url: row.image_url, source: 'offers' }))),
+  ];
+
+  let best: { url: string; source: string; score: number } | null = null;
+  for (const candidate of candidates) {
+    const url = validImageUrl(candidate.url);
+    const score = similarity(title, candidate.name);
+    if (!url || score < 0.72) continue;
+    if (!best || score > best.score) best = { url, source: candidate.source, score };
+  }
+  return best;
+}
+
+async function findTescoWebImage(title: string): Promise<{ url: string; source: string; score: number } | null> {
+  const searchUrl = `https://nakup.itesco.cz/groceries/cs-CZ/search?query=${encodeURIComponent(title)}`;
+  const response = await fetch(searchUrl, {
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/130 Safari/537.36',
+      accept: 'text/html,application/xhtml+xml',
+      'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+    },
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  if (!response?.ok) return null;
+
+  const html = await response.text();
+  const normalizedHtml = html.replace(/\\u0026/g, '&').replace(/\\\//g, '/');
+  const urls = [...normalizedHtml.matchAll(/https:\/\/digitalcontent\.api\.tesco\.com\/[^"'<>\s]+/g)]
+    .map((match) => validImageUrl(match[0]))
+    .filter(Boolean) as string[];
+
+  if (!urls.length) return null;
+  const productUrl = urls.find((url) => /\/media\/ghs\//.test(url) && !/banner|icon|logo/i.test(url));
+  return productUrl ? { url: productUrl, source: 'tesco-web', score: 0.7 } : null;
+}
+
+async function queryOpenFoodFacts(title: string, query: string): Promise<{ url: string; source: string; score: number } | null> {
   const endpoint = new URL('https://world.openfoodfacts.org/cgi/search.pl');
   endpoint.searchParams.set('search_terms', query);
   endpoint.searchParams.set('search_simple', '1');
   endpoint.searchParams.set('action', 'process');
   endpoint.searchParams.set('json', '1');
-  endpoint.searchParams.set('page_size', '12');
+  endpoint.searchParams.set('page_size', '20');
   endpoint.searchParams.set('fields', 'product_name,product_name_cs,generic_name,brands,image_front_url,image_front_small_url,image_url');
 
   const response = await fetch(endpoint, {
-    headers: {
-      'user-agent': 'Slevao.cz/1.0 (product image enrichment)',
-      accept: 'application/json',
-    },
+    headers: { 'user-agent': 'Slevao.cz/1.1 (product image enrichment)', accept: 'application/json' },
     signal: AbortSignal.timeout(12_000),
-  });
-  if (!response.ok) return null;
+  }).catch(() => null);
+  if (!response?.ok) return null;
 
   const payload = await response.json().catch(() => ({}));
   let best: { url: string; source: string; score: number } | null = null;
-
   for (const product of payload?.products || []) {
     const candidateName = [product.product_name_cs, product.product_name, product.generic_name, product.brands]
-      .filter(Boolean)
-      .join(' ');
+      .filter(Boolean).join(' ');
     const score = similarity(title, candidateName);
     const url = validImageUrl(product.image_front_url)
       || validImageUrl(product.image_url)
       || validImageUrl(product.image_front_small_url);
-    if (!url || score < 0.58) continue;
+    if (!url || score < 0.5) continue;
     if (!best || score > best.score) best = { url, source: 'openfoodfacts', score };
   }
+  return best;
+}
 
+async function findImage(title: string): Promise<{ url: string; source: string; score: number } | null> {
+  const catalog = await findExistingCatalogImage(title);
+  if (catalog) return catalog;
+
+  const tesco = await findTescoWebImage(title);
+  if (tesco) return tesco;
+
+  const variants = [...new Set([
+    normalize(title),
+    normalize(title).replace(/^tesco\s+/, ''),
+    normalize(title).split(' ').slice(0, 4).join(' '),
+  ].filter(Boolean))];
+
+  let best: { url: string; source: string; score: number } | null = null;
+  for (const variant of variants) {
+    const match = await queryOpenFoodFacts(title, variant);
+    if (match && (!best || match.score > best.score)) best = match;
+    if (best?.score && best.score >= 0.82) break;
+  }
   return best;
 }
 
 async function backfillTescoImages(limit = 80) {
   const { data: stores, error: storesError } = await db.from('stores')
-    .select('id')
-    .or('slug.ilike.%tesco%,name.ilike.%tesco%');
+    .select('id').or('slug.ilike.%tesco%,name.ilike.%tesco%');
   if (storesError) throw storesError;
   const storeIds = (stores || []).map((row: any) => row.id).filter(Boolean);
   if (!storeIds.length) throw new Error('Tesco nebylo nalezeno v tabulce stores.');
@@ -110,9 +171,8 @@ async function backfillTescoImages(limit = 80) {
     .limit(Math.max(1, Math.min(Number(limit) || 80, 150)));
   if (offersError) throw offersError;
 
-  let enriched = 0;
-  let notFound = 0;
-  let failed = 0;
+  let enriched = 0, notFound = 0, failed = 0;
+  const bySource: Record<string, number> = {};
   const results: any[] = [];
 
   for (const offer of offers || []) {
@@ -124,41 +184,30 @@ async function backfillTescoImages(limit = 80) {
         continue;
       }
 
-      const { error: offerUpdateError } = await db.from('offers')
-        .update({ image_url: match.url })
-        .eq('id', offer.id);
+      const { error: offerUpdateError } = await db.from('offers').update({ image_url: match.url }).eq('id', offer.id);
       if (offerUpdateError) throw offerUpdateError;
-
       if (offer.product_id) {
-        const { error: productUpdateError } = await db.from('products')
-          .update({ image_url: match.url })
-          .eq('id', offer.product_id);
+        const { error: productUpdateError } = await db.from('products').update({ image_url: match.url }).eq('id', offer.product_id);
         if (productUpdateError) throw productUpdateError;
       }
 
       enriched++;
+      bySource[match.source] = (bySource[match.source] || 0) + 1;
       results.push({ offer_id: offer.id, title: offer.title, status: 'enriched', score: match.score, source: match.source });
-      await new Promise((resolve) => setTimeout(resolve, 120));
+      await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       failed++;
-      results.push({
-        offer_id: offer.id,
-        title: offer.title,
-        status: 'failed',
-        error: error instanceof Error ? error.message : String(error),
-      });
+      results.push({ offer_id: offer.id, title: offer.title, status: 'failed', error: error instanceof Error ? error.message : String(error) });
     }
   }
 
-  return { checked: offers?.length || 0, enriched, not_found: notFound, failed, results };
+  return { checked: offers?.length || 0, enriched, not_found: notFound, failed, by_source: bySource, results };
 }
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
-
   try {
     if (request.method !== 'POST') return jsonResponse({ error: 'Method not allowed' }, 405);
-
     const authHeader = request.headers.get('authorization') || '';
     const cronHeader = request.headers.get('x-cron-secret') || '';
     const authorizedByServiceRole = authHeader === `Bearer ${SERVICE_ROLE_KEY}`;
@@ -171,10 +220,7 @@ Deno.serve(async (request) => {
       const role = String(data.user?.app_metadata?.role || data.user?.user_metadata?.role || '').toLowerCase();
       authorizedByUser = ['admin', 'editor'].includes(role);
     }
-
-    if (!authorizedByServiceRole && !authorizedByCron && !authorizedByUser) {
-      return jsonResponse({ error: 'Unauthorized' }, 401);
-    }
+    if (!authorizedByServiceRole && !authorizedByCron && !authorizedByUser) return jsonResponse({ error: 'Unauthorized' }, 401);
 
     const body = await request.json().catch(() => ({}));
     const result = await backfillTescoImages(body.limit);
