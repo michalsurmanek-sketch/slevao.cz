@@ -20,7 +20,6 @@ import re
 import sys
 import time
 import unicodedata
-from dataclasses import dataclass
 from typing import Any
 
 import fitz  # PyMuPDF
@@ -71,24 +70,29 @@ def ensure_bucket() -> None:
 
 
 def load_jobs() -> list[dict[str, Any]]:
+    # leaflet_imports ma podle migrace sloupec source_document_url.
+    # Predchozi verze zadala neexistujici source_url/storage_path a PostgREST vracel HTTP 400.
     select = (
         "id,import_id,product_id,title,source_page,image_url,status,"
-        "leaflet_imports(id,source_url,storage_path,metadata,store_id)"
+        "leaflet_imports(id,source_document_url,metadata,store_id)"
     )
     params = {
         "select": select,
         "status": "eq.published",
-        "image_url": "is.null",
         "source_page": "not.is.null",
         "order": "created_at.desc",
         "limit": str(LIMIT),
     }
-    response = requests.get(f"{SUPABASE_URL}/rest/v1/leaflet_import_items", headers=HEADERS, params=params, timeout=60)
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/leaflet_import_items",
+        headers=HEADERS,
+        params=params,
+        timeout=60,
+    )
     if response.status_code >= 400:
-        # Starsi schema muze mit obrazek prazdny retezec nebo jiny vztahovy alias.
-        params.pop("image_url", None)
-        response = requests.get(f"{SUPABASE_URL}/rest/v1/leaflet_import_items", headers=HEADERS, params=params, timeout=60)
-    response.raise_for_status()
+        raise RuntimeError(
+            f"Supabase nacitani polozek selhalo HTTP {response.status_code}: {response.text[:1200]}"
+        )
     rows = response.json()
     return [row for row in rows if not str(row.get("image_url") or "").strip()]
 
@@ -97,17 +101,14 @@ def resolve_pdf_url(job: dict[str, Any]) -> str | None:
     imp = job.get("leaflet_imports") or {}
     metadata = imp.get("metadata") or {}
     for value in (
-        imp.get("source_url"),
+        imp.get("source_document_url"),
+        metadata.get("source_document_url"),
         metadata.get("source_url"),
         metadata.get("pdf_url"),
         metadata.get("document_url"),
     ):
         if isinstance(value, str) and value.startswith("http"):
             return value
-
-    storage_path = imp.get("storage_path") or metadata.get("storage_path")
-    if storage_path:
-        return f"{SUPABASE_URL}/storage/v1/object/authenticated/leaflets/{storage_path}"
     return None
 
 
@@ -235,7 +236,11 @@ def save_result(job: dict[str, Any], image_url: str) -> None:
     patch_table("leaflet_import_items", {"id": job["id"]}, {"image_url": image_url})
     if job.get("product_id"):
         patch_table("products", {"id": job["product_id"]}, {"image_url": image_url})
-        patch_table("offers", {"product_id": job["product_id"], "store_id": (job.get("leaflet_imports") or {}).get("store_id")}, {"image_url": image_url})
+        store_id = (job.get("leaflet_imports") or {}).get("store_id")
+        filters = {"product_id": job["product_id"]}
+        if store_id:
+            filters["store_id"] = store_id
+        patch_table("offers", filters, {"image_url": image_url})
 
 
 def main() -> int:
