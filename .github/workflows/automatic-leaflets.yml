@@ -14,33 +14,13 @@ on:
 permissions:
   contents: read
 
-jobs:
-  discover:
-    name: Zkontrolovat stávající zdroje
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Spustit hledání nových letáků
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
-        run: |
-          set -euo pipefail
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_SERVICE_ROLE_KEY"
-          test -n "$CRON_SECRET"
-          curl --fail-with-body --retry 3 --retry-delay 10 \
-            --request POST \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --header "x-cron-secret: $CRON_SECRET" \
-            --data '{}' \
-            "$SUPABASE_URL/functions/v1/discover-leaflets"
+concurrency:
+  group: automatic-leaflets
+  cancel-in-progress: true
 
+jobs:
   sync-official:
     name: Doplnit ${{ matrix.store }}
-    needs: discover
     runs-on: ubuntu-latest
     timeout-minutes: 8
     strategy:
@@ -102,21 +82,36 @@ jobs:
           - pilulka
           - auto-kelly
     steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
       - name: Najít aktuální oficiální leták
         env:
           STORE_SLUG: ${{ matrix.store }}
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SUPABASE_URL: https://uhampjdqjxmbhaptgitn.supabase.co
         run: |
           set -euo pipefail
-          test -n "$SUPABASE_URL"
-          test -n "$SUPABASE_SERVICE_ROLE_KEY"
-          test -n "$CRON_SECRET"
-          curl --fail-with-body --retry 2 --retry-delay 5 --max-time 300 \
+          SUPABASE_PUBLISHABLE_KEY="$(sed -n "s/.*const KEY = '\([^']*\)'.*/\1/p" assets/store-feed.js | head -n 1)"
+          test -n "$SUPABASE_PUBLISHABLE_KEY"
+
+          response_file="$(mktemp)"
+          http_code="$(curl --silent --show-error --location \
+            --retry 2 \
+            --retry-delay 5 \
+            --max-time 300 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
             --request POST \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --header "x-cron-secret: $CRON_SECRET" \
-            --data "{\"store_slug\":\"$STORE_SLUG\",\"limit\":1,\"force\":true}" \
-            "$SUPABASE_URL/functions/v1/sync-official-leaflet-sources"
+            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            --header 'Content-Type: application/json' \
+            --data "{\"store_slug\":\"$STORE_SLUG\",\"limit\":1}" \
+            "$SUPABASE_URL/functions/v1/sync-official-leaflet-sources")"
+
+          cat "$response_file"
+          echo
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Synchronizace obchodu $STORE_SLUG skončila HTTP $http_code"
+            exit 1
+          fi
