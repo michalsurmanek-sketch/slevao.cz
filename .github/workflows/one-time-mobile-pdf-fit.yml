@@ -1,3 +1,4 @@
+# Jednorázový automat – po dokončení bude odstraněn.
 name: Jednorázové přizpůsobení PDF na mobilu
 
 on:
@@ -5,6 +6,7 @@ on:
     branches: ['main']
     paths:
       - '.github/workflows/one-time-mobile-pdf-fit.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
