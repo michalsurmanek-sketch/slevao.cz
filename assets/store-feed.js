@@ -1,12 +1,207 @@
-(()=>{
-const config=window.SLEVAO_STORE||{},SUPABASE_URL='https://uhampjdqjxmbhaptgitn.supabase.co',KEY='sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const price=o=>Number(o.price||0),old=o=>Number(o.old_price||0),saving=o=>Math.max(0,old(o)-price(o)),discount=o=>old(o)>price(o)?Math.round(saving(o)/old(o)*100):0,format=v=>v?new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric'}).format(new Date(v+'T12:00:00')):'';
-let offers=[],visible=24,store=null,loading=false;
-const request=async(table,params)=>{const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);try{const r=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${new URLSearchParams(params)}`,{headers:{apikey:KEY},cache:'no-store',signal:controller.signal});if(!r.ok)throw new Error(`Databáze odpověděla chybou ${r.status}.`);return await r.json()}finally{clearTimeout(timer)}};
-const unique=rows=>[...new Map(rows.map(o=>[[fold(o.title),o.valid_from,o.valid_to].join('|'),o])).values()];
-function render(){const q=fold($('q').value),sort=$('sort').value;let rows=offers.filter(o=>!q||fold([o.title,o.products?.name].join(' ')).includes(q));rows.sort((a,b)=>sort==='discount'?discount(b)-discount(a):sort==='saving'?saving(b)-saving(a):sort==='price'?price(a)-price(b):sort==='name'?String(a.title).localeCompare(String(b.title),'cs'):0);$('resultCount').textContent=`${rows.length} aktuálních nabídek`;$('grid').innerHTML=rows.length?rows.slice(0,visible).map(o=>`<article class="deal"><div class="media">${o.image_url?`<img src="${esc(o.image_url)}" alt="${esc(o.title)}" loading="lazy" onerror="this.remove()">`:'🏷️'}${discount(o)?`<span class="discount">−${discount(o)} %</span>`:''}</div><div class="body"><div class="storeName">${esc(store?.name||config.name)}</div><h3>${esc(o.title)}</h3><div class="prices"><span class="price">${price(o).toLocaleString('cs-CZ')} Kč</span>${old(o)?`<span class="old">${old(o).toLocaleString('cs-CZ')} Kč</span>`:''}</div>${saving(o)?`<span class="saving">Ušetříš ${saving(o).toLocaleString('cs-CZ')} Kč</span>`:''}<div class="validity">Platí ${format(o.valid_from)}–${format(o.valid_to)}</div></div></article>`).join(''):'<div class="empty"><strong>Aktuálně tu nejsou žádné platné nabídky</strong>Feed se automaticky doplní při dalším zpracování letáku.</div>';$('loadMore').hidden=rows.length<=visible}
-function apply(storeData,rows,status){store=storeData;offers=unique(rows);document.documentElement.style.setProperty('--store',store.primary_color||config.color||'#0b6f68');$('titleName').textContent=store.name;$('status').textContent=status;$('offerCount').textContent=`${offers.length} nabídek`;$('updated').textContent=`Aktualizováno ${new Intl.DateTimeFormat('cs-CZ',{hour:'2-digit',minute:'2-digit'}).format(new Date())}`;if(store.logo_url){$('storeLogo').src=store.logo_url;$('storeLogo').hidden=false}else $('storeLogo').hidden=true;render()}
-async function load(){if(loading)return;loading=true;$('status').textContent='Načítám aktuální leták…';try{const stores=await request('stores',{select:'id,name,slug,logo_url,primary_color',slug:`eq.${config.slug}`,limit:'1'});if(!stores[0])throw new Error('Obchod není v databázi aktivní.');const today=new Date().toISOString().slice(0,10),rows=await request('offers',{select:'id,title,price,old_price,image_url,valid_from,valid_to,products(name)',store_id:`eq.${stores[0].id}`,status:'eq.published',valid_from:`lte.${today}`,valid_to:`gte.${today}`,order:'published_at.desc'});apply(stores[0],rows,'✓ Živý feed')}catch(e){$('status').textContent='Feed není dostupný';$('grid').innerHTML=`<div class="error"><strong>Nabídky se nepodařilo načíst</strong>${esc(e?.message||'Zkus stránku obnovit.')}<br><button class="retry" id="retry">Zkusit znovu</button></div>`;$('retry')?.addEventListener('click',load)}finally{loading=false}}
-$('q').addEventListener('input',()=>{visible=24;render()});$('sort').addEventListener('change',()=>{visible=24;render()});$('loadMore').addEventListener('click',()=>{visible+=24;render()});window.addEventListener('online',load);load();setInterval(load,5*60*1000);
+(() => {
+  const config = window.SLEVAO_STORE || {};
+  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+  const KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const FAVORITES_KEY = 'slevao-favorite-offers-v1';
+
+  const $ = (id) => document.getElementById(id);
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[character]));
+  const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const price = (offer) => Number(offer.price || 0);
+  const old = (offer) => Number(offer.old_price || 0);
+  const saving = (offer) => Math.max(0, old(offer) - price(offer));
+  const discount = (offer) => old(offer) > price(offer) ? Math.round(saving(offer) / old(offer) * 100) : 0;
+  const format = (value) => value
+    ? new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric' }).format(new Date(`${value}T12:00:00`))
+    : '';
+
+  let offers = [];
+  let visible = 24;
+  let store = null;
+  let loading = false;
+  let activeCategory = 'all';
+  let showSaved = false;
+  let favorites = readFavorites();
+
+  function readFavorites() {
+    try {
+      const value = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
+      return new Set(Array.isArray(value) ? value.map(String) : []);
+    } catch {
+      return new Set();
+    }
+  }
+
+  function saveFavorites() {
+    try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favorites])); } catch { /* Storage can be disabled. */ }
+  }
+
+  const request = async (table, params) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/${table}?${new URLSearchParams(params)}`, {
+        headers: { apikey: KEY },
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Databáze odpověděla chybou ${response.status}.`);
+      return await response.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  const unique = (rows) => [...new Map(rows.map((offer) => [
+    [fold(offer.title), offer.valid_from, offer.valid_to].join('|'), offer,
+  ])).values()];
+
+  function searchableText(offer) {
+    const productName = Array.isArray(offer.products) ? offer.products[0]?.name : offer.products?.name;
+    return fold([offer.title, productName].join(' '));
+  }
+
+  function categoryFor(offer) {
+    const text = searchableText(offer);
+    if (/(pes|kock|granul|konzerv.*zvir|mazlic|steliv|whiskas|pedigree|purina)/.test(text)) return 'pets';
+    if (/(napoj|voda|pivo|vino|dzus|juice|cola|limonad|sirup|kava|caj|energy)/.test(text)) return 'drinks';
+    if (/(praci|avivaz|sampon|sprch|mydlo|zubni|drogeri|toalet|kosmetik|deodor|cistic|tablety do mycky)/.test(text)) return 'drugstore';
+    if (/(domac|nadobi|hrnec|panev|rucnik|povlec|baterie|zarov|papirnict|zahrad|naradi)/.test(text)) return 'home';
+    return 'food';
+  }
+
+  function updateFavoriteControls() {
+    if ($('savedCount')) $('savedCount').textContent = favorites.size.toLocaleString('cs-CZ');
+    if ($('savedToggle')) {
+      $('savedToggle').classList.toggle('active', showSaved);
+      $('savedToggle').setAttribute('aria-pressed', String(showSaved));
+    }
+  }
+
+  function renderHeroProducts(rows) {
+    const target = $('heroProducts');
+    if (!target) return;
+    const imageOffers = rows.filter((offer) => offer.image_url).slice(0, 3);
+    target.querySelectorAll('.heroProduct').forEach((slot, index) => {
+      const offer = imageOffers[index];
+      slot.innerHTML = offer
+        ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.title)}" loading="eager" onerror="this.closest('.heroProduct').hidden=true">`
+        : '';
+      slot.hidden = !offer;
+    });
+  }
+
+  function filteredOffers() {
+    const query = fold($('q').value);
+    const sort = $('sort').value;
+    const rows = offers.filter((offer) => {
+      if (query && !searchableText(offer).includes(query)) return false;
+      if (activeCategory !== 'all' && categoryFor(offer) !== activeCategory) return false;
+      return !showSaved || favorites.has(String(offer.id));
+    });
+    rows.sort((a, b) => sort === 'discount' ? discount(b) - discount(a)
+      : sort === 'saving' ? saving(b) - saving(a)
+        : sort === 'price' ? price(a) - price(b)
+          : sort === 'name' ? String(a.title).localeCompare(String(b.title), 'cs')
+            : 0);
+    return rows;
+  }
+
+  function offerCard(offer) {
+    const id = String(offer.id);
+    const isFavorite = favorites.has(id);
+    return `<article class="deal">
+      <div class="media">
+        ${offer.image_url ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.title)}" loading="lazy" onerror="this.remove()">` : '🏷️'}
+        ${discount(offer) ? `<span class="discount">−${discount(offer)} %</span>` : ''}
+        ${$('savedToggle') ? `<button class="favorite${isFavorite ? ' active' : ''}" type="button" data-favorite="${esc(id)}" aria-pressed="${isFavorite}" aria-label="${isFavorite ? 'Odebrat z uložených' : 'Uložit nabídku'}">${isFavorite ? '♥' : '♡'}</button>` : ''}
+      </div>
+      <div class="body">
+        <div class="storeName">${esc(store?.name || config.name)}</div>
+        <h3>${esc(offer.title)}</h3>
+        <div class="prices"><span class="price">${price(offer).toLocaleString('cs-CZ')} Kč</span>${old(offer) ? `<span class="old">${old(offer).toLocaleString('cs-CZ')} Kč</span>` : ''}</div>
+        ${saving(offer) ? `<span class="saving">Ušetříš ${saving(offer).toLocaleString('cs-CZ')} Kč</span>` : ''}
+        <div class="validity">Platí ${format(offer.valid_from)}–${format(offer.valid_to)}</div>
+      </div>
+    </article>`;
+  }
+
+  function render() {
+    const rows = filteredOffers();
+    $('resultCount').textContent = showSaved
+      ? `${rows.length} uložených nabídek`
+      : `${rows.length} aktuálních nabídek`;
+    $('grid').innerHTML = rows.length
+      ? rows.slice(0, visible).map(offerCard).join('')
+      : `<div class="empty"><strong>${showSaved ? 'Zatím nemáš uložené žádné nabídky' : 'Aktuálně tu nejsou žádné odpovídající nabídky'}</strong>${showSaved ? 'Ulož si produkt klepnutím na srdíčko.' : 'Zkus jinou kategorii nebo zruš hledání.'}</div>`;
+    $('loadMore').hidden = rows.length <= visible;
+    $('grid').querySelectorAll('[data-favorite]').forEach((button) => button.addEventListener('click', () => {
+      const id = String(button.dataset.favorite);
+      if (favorites.has(id)) favorites.delete(id); else favorites.add(id);
+      saveFavorites();
+      updateFavoriteControls();
+      render();
+    }));
+  }
+
+  function apply(storeData, rows, status) {
+    store = storeData;
+    offers = unique(rows);
+    document.documentElement.style.setProperty('--store', config.color || store.primary_color || '#0b6f68');
+    $('titleName').textContent = store.name;
+    $('status').textContent = status;
+    $('offerCount').textContent = `${offers.length} nabídek`;
+    $('updated').textContent = `Aktualizováno ${new Intl.DateTimeFormat('cs-CZ', { hour: '2-digit', minute: '2-digit' }).format(new Date())}`;
+    if ($('storeLogo')) {
+      const logo = config.logo || store.logo_url;
+      if (logo) { $('storeLogo').src = logo; $('storeLogo').hidden = false; } else $('storeLogo').hidden = true;
+    }
+    renderHeroProducts(offers);
+    updateFavoriteControls();
+    render();
+  }
+
+  async function load() {
+    if (loading) return;
+    loading = true;
+    $('status').textContent = 'Načítám aktuální leták…';
+    try {
+      const stores = await request('stores', {
+        select: 'id,name,slug,logo_url,primary_color', slug: `eq.${config.slug}`, limit: '1',
+      });
+      if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');
+      const today = new Date().toISOString().slice(0, 10);
+      const rows = await request('offers', {
+        select: 'id,title,price,old_price,image_url,valid_from,valid_to,products(name)',
+        store_id: `eq.${stores[0].id}`,
+        status: 'eq.published',
+        valid_from:`lte.${today}`,
+        valid_to:`gte.${today}`,
+        order: 'published_at.desc',
+      });
+      apply(stores[0], rows, '● Živý feed');
+    } catch (error) {
+      $('status').textContent = 'Feed není dostupný';
+      $('grid').innerHTML = `<div class="error"><strong>Nabídky se nepodařilo načíst</strong>${esc(error?.message || 'Zkus stránku obnovit.')}<br><button class="retry" id="retry">Zkusit znovu</button></div>`;
+      $('retry')?.addEventListener('click', load);
+    } finally {
+      loading = false;
+    }
+  }
+
+  $('q').addEventListener('input', () => { visible = 24; render(); });
+  $('sort').addEventListener('change', () => { visible = 24; render(); });
+  $('loadMore').addEventListener('click', () => { visible += 24; render(); });
+  $('categoryBar')?.querySelectorAll('[data-category]').forEach((button) => button.addEventListener('click', () => {
+    activeCategory = button.dataset.category;
+    visible = 24;
+    $('categoryBar').querySelectorAll('[data-category]').forEach((item) => item.classList.toggle('active', item === button));
+    render();
+  }));
+  $('savedToggle')?.addEventListener('click', () => { showSaved = !showSaved; visible = 24; updateFavoriteControls(); render(); });
+  window.addEventListener('online', load);
+  load();
+  setInterval(load,5*60*1000);
 })();
