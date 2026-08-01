@@ -2,7 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const cors = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
 type Product = {
@@ -200,18 +200,54 @@ Deno.serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const cronSecret = Deno.env.get("CRON_SECRET") || "";
     if (!supabaseUrl || !serviceKey) throw new Error("Chybí Supabase secrets.");
 
     const body = await req.json().catch(() => ({}));
     const productId = typeof body?.product_id === "string" ? body.product_id.trim() : "";
+    const storeSlug = typeof body?.store_slug === "string" ? normalize(body.store_slug).replace(/\s+/g, "-") : "";
     const limit = Math.max(1, Math.min(Number(body?.limit ?? 30), 100));
     const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+
+    const authorization = req.headers.get("authorization") || "";
+    const token = authorization.replace(/^Bearer\s+/i, "").trim();
+    const isService = token === serviceKey;
+    const isCron = Boolean(cronSecret && req.headers.get("x-cron-secret") === cronSecret);
+    let isStaff = false;
+    if (!isService && !isCron && token) {
+      const { data } = await db.auth.getUser(token);
+      isStaff = ["admin", "editor"].includes(String(data.user?.app_metadata?.role || "").toLowerCase());
+    }
+    if (!isService && !isCron && !isStaff) {
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+    }
+
+    let storeProductIds: string[] | null = null;
+    if (storeSlug && !productId) {
+      const { data: store, error: storeError } = await db.from("stores").select("id").eq("slug", storeSlug).maybeSingle();
+      if (storeError) throw storeError;
+      if (!store) throw new Error(`Obchod ${storeSlug} nebyl nalezen.`);
+      const today = new Date().toISOString().slice(0, 10);
+      const { data: storeOffers, error: offerError } = await db.from("offers")
+        .select("product_id")
+        .eq("store_id", store.id)
+        .eq("status", "published")
+        .gte("valid_to", today)
+        .not("product_id", "is", null)
+        .limit(5000);
+      if (offerError) throw offerError;
+      storeProductIds = [...new Set((storeOffers || []).map((row: any) => String(row.product_id)).filter(Boolean))];
+      if (!storeProductIds.length) {
+        return new Response(JSON.stringify({ ok: true, checked: 0, created: 0, without_match: 0, store_slug: storeSlug, results: [] }), { headers: { ...cors, "Content-Type": "application/json" } });
+      }
+    }
 
     let query = db.from("products_missing_verified_images")
       .select("id,name,brand,ean,quantity_text,active_offer_count,last_offer_at")
       .gt("active_offer_count", 0);
     if (productId) query = query.eq("id", productId);
-    else query = query.order("active_offer_count", { ascending: false }).order("last_offer_at", { ascending: false, nullsFirst: false });
+    else if (storeProductIds) query = query.in("id", storeProductIds);
+    query = query.order("active_offer_count", { ascending: false }).order("last_offer_at", { ascending: false, nullsFirst: false });
     const { data: products, error } = await query.limit(productId ? 1 : limit);
     if (error) throw error;
     if (productId && !(products || []).length) throw new Error("Vybraný produkt nebyl nalezen nebo už má ověřenou fotografii.");
@@ -261,7 +297,7 @@ Deno.serve(async (req) => {
       results.push({ product_id: master.id, name: repairMojibake(master.name), status: "candidates", count: productCreated, candidates: found });
     }
 
-    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, sources: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)], results }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, store_slug: storeSlug || null, sources: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)], results }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (error) {
     return new Response(JSON.stringify({ ok: false, error: String(error?.message ?? error) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
   }

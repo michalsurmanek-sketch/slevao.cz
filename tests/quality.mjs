@@ -24,6 +24,11 @@ const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((
 assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
 for (const source of inlineScripts) new Script(source, { filename: 'index.html:inline-script' });
 new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
+for (const path of ['admin-fotografie.html']) {
+  const scripts = [...read(path).matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
+  assert(scripts.length > 0, `${path} neobsahuje aplikační JavaScript.`);
+  for (const source of scripts) new Script(source, { filename: `${path}:inline-script` });
+}
 
 const redirects = {
   'login.html': 'admin.html',
@@ -49,6 +54,15 @@ const functionSources = functionPaths.map(read).join('\n');
 assert(!/user_metadata\?\.role/.test(functionSources), 'Oprávnění nesmí vycházet z user_metadata.');
 for (const path of ['supabase/functions/discover-leaflets/index.ts', 'supabase/functions/discover-coop/index.ts', 'supabase/functions/discover-hruska/index.ts']) {
   assert.match(read(path), /if \(!CRON_SECRET\)/, `${path} musí selhat při chybějícím CRON_SECRET.`);
+}
+
+const imageDiscovery = read('supabase/functions/discover-product-images/index.ts');
+assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhledávání fotografií musí vyžadovat oprávnění.');
+assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií musí používat schvalovací frontu.');
+for (const path of ['supabase/functions/enrich-offer-images/index.ts', 'supabase/functions/backfill-tesco-images/index.ts']) {
+  const source = read(path);
+  assert.match(source, /product_image_candidates/, `${path} musí ukládat nejisté obrázky do schvalovací fronty.`);
+  assert(!/from\('offers'\)\.update\(\{ image_url: match\./.test(source), `${path} nesmí heuristickou fotografii rovnou zveřejnit.`);
 }
 
 const publicSources = [

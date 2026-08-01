@@ -260,15 +260,24 @@ async function backfillTescoImages(limit = 80) {
         results.push({ offer_id: offer.id, title: offer.title, status: 'not_found' });
         continue;
       }
-      const { error: offerError } = await db.from('offers').update({ image_url: match.url }).eq('id', offer.id);
-      if (offerError) throw offerError;
-      if (offer.product_id) {
-        const { error: productError } = await db.from('products').update({ image_url: match.url }).eq('id', offer.product_id);
-        if (productError) throw productError;
-      }
+      if (!offer.product_id) throw new Error('Nabídka není propojena s hlavním produktem.');
+      const { error: candidateError } = await db.from('product_image_candidates').upsert({
+        product_id: offer.product_id,
+        image_url: match.url,
+        source_url: match.source === 'tesco-official' ? 'https://nakup.itesco.cz/' : match.url,
+        source_domain: match.source === 'tesco-official' ? 'nakup.itesco.cz' : (() => { try { return new URL(match.url).hostname; } catch { return null; } })(),
+        source_type: match.source === 'tesco-official' ? 'retailer' : 'official_catalog',
+        quality_score: Math.round(70 + Math.min(match.score, 1) * 20),
+        match_score: Number(Math.min(match.score, 1).toFixed(4)),
+        has_text_overlay: false,
+        has_price_overlay: false,
+        status: 'pending',
+        metadata: { provider: match.source, offer_id: offer.id, offer_title: offer.title, matched_name: match.matched_name || null },
+      }, { onConflict: 'product_id,image_url', ignoreDuplicates: true });
+      if (candidateError) throw candidateError;
       enriched++;
       bySource[match.source] = (bySource[match.source] || 0) + 1;
-      results.push({ offer_id: offer.id, title: offer.title, status: 'enriched', source: match.source, score: Number(match.score.toFixed(3)), matched_name: match.matched_name });
+      results.push({ offer_id: offer.id, title: offer.title, status: 'queued_for_review', source: match.source, score: Number(match.score.toFixed(3)), matched_name: match.matched_name });
       await new Promise((resolve) => setTimeout(resolve, 100));
     } catch (error) {
       failed++;

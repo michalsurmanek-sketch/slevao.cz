@@ -153,14 +153,13 @@ async function prepareForcedRetry(requestedSourceId = '') {
 }
 
 async function runAutomaticImageMaintenance() {
-  const tasks = [
-    callFunction('process-leaflet', { action: 'backfill-billa-images' }),
-    callFunction('process-leaflet', { action: 'backfill-albert-images' }),
-    callFunction('backfill-lidl-images', { stores: ['lidl', 'penny'] }),
-    callFunction('backfill-tesco-images', { limit: 100 }),
-  ];
+  const stores = ['kaufland', 'tesco', 'albert', 'billa', 'penny', 'makro', 'lidl', 'globus'];
+  const tasks = stores.map((storeSlug) => callFunction('discover-product-images', {
+    store_slug: storeSlug,
+    limit: 50,
+  }));
   const settled = await Promise.allSettled(tasks);
-  const names = ['billa-images', 'albert-images', 'lidl-penny-images', 'tesco-images'];
+  const names = stores.map((storeSlug) => `${storeSlug}-candidates`);
   return settled.map((result, index) => result.status === 'fulfilled'
     ? result.value
     : { function: names[index], ok: false, error: String(result.reason) });

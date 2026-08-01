@@ -128,15 +128,28 @@ async function enrich(storeId?: string, limit = 100) {
         results.push({ offer_id: offer.id, title: offer.title, status: 'not_found' });
         continue;
       }
-      const { error: offerError } = await db.from('offers').update({ image_url: match.url }).eq('id', offer.id);
-      if (offerError) throw offerError;
-      if (offer.product_id) {
-        const { error: productError } = await db.from('products').update({ image_url: match.url }).eq('id', offer.product_id);
-        if (productError) throw productError;
-      }
+      if (!offer.product_id) throw new Error('Nabídka není propojena s hlavním produktem.');
+      const sourceType = match.source === 'serpapi' ? 'unknown' : 'official_catalog';
+      const qualityScore = match.source === 'serpapi'
+        ? Math.round(55 + Math.min(match.score, 1) * 20)
+        : Math.round(70 + Math.min(match.score, 1) * 20);
+      const { error: candidateError } = await db.from('product_image_candidates').upsert({
+        product_id: offer.product_id,
+        image_url: match.url,
+        source_url: match.url,
+        source_domain: (() => { try { return new URL(match.url).hostname; } catch { return null; } })(),
+        source_type: sourceType,
+        quality_score: qualityScore,
+        match_score: Number(Math.min(match.score, 1).toFixed(4)),
+        has_text_overlay: false,
+        has_price_overlay: false,
+        status: 'pending',
+        metadata: { provider: match.source, offer_id: offer.id, offer_title: offer.title },
+      }, { onConflict: 'product_id,image_url', ignoreDuplicates: true });
+      if (candidateError) throw candidateError;
       enriched++;
       bySource[match.source] = (bySource[match.source] || 0) + 1;
-      results.push({ offer_id: offer.id, title: offer.title, status: 'enriched', source: match.source, score: match.score });
+      results.push({ offer_id: offer.id, title: offer.title, status: 'queued_for_review', source: match.source, score: match.score });
     } catch (e) {
       failed++;
       results.push({ offer_id: offer.id, title: offer.title, status: 'failed', error: e instanceof Error ? e.message : String(e) });
