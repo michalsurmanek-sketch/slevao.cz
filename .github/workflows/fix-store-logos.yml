@@ -1,0 +1,91 @@
+name: Opravit loga obchodů
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-store-logos.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix-logos:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upravit loga obchodů
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path('index.html')
+          text = path.read_text(encoding='utf-8')
+
+          css = r'''
+          /* Jednotné zobrazení log obchodů */
+          .storeLogoBox{width:104px;height:66px;overflow:visible}
+          .storeCard img.storeLogo{width:100%;height:100%;max-width:104px;max-height:66px;object-fit:contain;transform:scale(1.08);transform-origin:center}
+          .storeCard img.storeLogo[data-slug="penny"]{transform:scale(1.48)}
+          .storeCard img.storeLogo[data-slug="okay"],
+          .storeCard img.storeLogo[data-slug="enapo"],
+          .storeCard img.storeLogo[data-slug="konzum"],
+          .storeCard img.storeLogo[data-slug="brnenka"]{transform:scale(1.32)}
+          .storeLine{min-height:32px}
+          .storeLine .storeLogoWrap{width:36px;height:30px;display:grid;place-items:center;flex:0 0 36px;overflow:visible}
+          .storeLine img.storeLogo{width:100%;height:100%;max-width:36px;max-height:30px;object-fit:contain;border-radius:0;transform:scale(1.12)}
+          .storeLine img.storeLogo[data-slug="penny"]{transform:scale(1.5)}
+          .storeLogoFallback{display:grid;place-items:center;width:100%;height:100%;border-radius:10px;background:#f1f5f4;color:#233;font-size:12px;font-weight:950;text-transform:uppercase}
+          '''
+          if 'Jednotné zobrazení log obchodů' not in text:
+              text = text.replace('</style>', css + '\n</style>', 1)
+
+          old_logo = "const logo=s=>s.logo_url||`https://www.google.com/s2/favicons?sz=256&domain_url=https://${s.domain||''}`;"
+          new_logo = r'''const logoCandidates=s=>{
+            const domain=s.domain||'';
+            const candidates=[];
+            // U PENNY a dalších příliš malých databázových ikon preferujeme plné logo poskytovatele.
+            if(s.slug==='penny'&&domain)candidates.push(`https://logo.clearbit.com/${domain}?size=256`);
+            if(s.logo_url)candidates.push(s.logo_url);
+            if(domain)candidates.push(`https://logo.clearbit.com/${domain}?size=256`);
+            if(domain)candidates.push(`https://www.google.com/s2/favicons?sz=256&domain_url=https://${domain}`);
+            return [...new Set(candidates.filter(Boolean))];
+          };
+          const logo=s=>logoCandidates(s)[0]||'';
+          const logoAttrs=s=>{
+            const list=logoCandidates(s);
+            return `src="${esc(list[0]||'')}" data-logo-list="${esc(JSON.stringify(list))}" data-logo-index="0" data-slug="${esc(s.slug||'')}"`;
+          };
+          function logoError(img){
+            let list=[];try{list=JSON.parse(img.dataset.logoList||'[]')}catch{}
+            const next=Number(img.dataset.logoIndex||0)+1;
+            if(next<list.length){img.dataset.logoIndex=String(next);img.src=list[next];return}
+            const box=img.parentElement;if(box){box.innerHTML=`<span class="storeLogoFallback">${esc((img.alt||'?').replace(/^Logo\s*/i,'').slice(0,4))}</span>`}
+          }
+          window.logoError=logoError;'''
+          if old_logo in text:
+              text = text.replace(old_logo, new_logo, 1)
+
+          old_store = '<div class="storeLogoBox"><img src="${esc(logo(s))}" alt="Logo ${esc(s.name)}" loading="lazy" onerror="this.style.display=\'none\'"></div>'
+          new_store = '<div class="storeLogoBox"><img class="storeLogo" ${logoAttrs(s)} alt="Logo ${esc(s.name)}" loading="lazy" onerror="logoError(this)"></div>'
+          text = text.replace(old_store, new_store)
+
+          old_line = '${store?`<img src="${esc(logo(store))}" alt="" loading="lazy" onerror="this.remove()">`:\'\'}<span>${esc(o.stores?.name||\'Obchod\')}</span>'
+          new_line = '${store?`<span class="storeLogoWrap"><img class="storeLogo" ${logoAttrs(store)} alt="Logo ${esc(store.name)}" loading="lazy" onerror="logoError(this)"></span>`:\'\'}<span>${esc(o.stores?.name||\'Obchod\')}</span>'
+          text = text.replace(old_line, new_line)
+
+          path.write_text(text, encoding='utf-8')
+
+      - name: Commitnout změnu
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          if git diff --cached --quiet; then
+            echo "Bez změn"
+          else
+            git commit -m "fix(logos): enlarge Penny and fill missing store logos"
+            git push
+          fi
