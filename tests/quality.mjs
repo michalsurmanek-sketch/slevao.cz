@@ -79,6 +79,10 @@ for (const page of storePageFiles) {
 const storeFeedCss = read('assets/store-feed.css');
 assert.match(storeFeedCss, /\.store-page--brand \.heroBox/, 'Běžné stránky obchodů musí mít značkovou horní sekci.');
 assert.match(storeFeedCss, /data-store-family="fashion"/, 'Vzhled horní sekce se musí přizpůsobit typu obchodu.');
+assert.match(read('penny.html'), /"logo":"assets\/logos\/penny\.svg\?v=4"/, 'Stránka PENNY musí používat dodané lokální logo.');
+assert.match(index, /penny:'assets\/logos\/penny\.svg\?v=4'/, 'Homepage musí používat stejné lokální logo PENNY.');
+assert.doesNotMatch(index, /s\.slug==='penny'[^\n]*clearbit/, 'PENNY se nesmí vrátit k externímu náhradnímu logu.');
+assert.match(read('supabase/migrations/20260801190000_use_official_penny_logo_everywhere.sql'), /set logo_url = 'assets\/logos\/penny\.svg\?v=4'/, 'Databáze musí stejné logo PENNY poskytovat všem částem systému.');
 assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do neexistujícího prvku názvu obchodu.');
 assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');

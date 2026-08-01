@@ -75,8 +75,6 @@ const logoCandidates=s=>{
   const domain=s.domain||'';
   const candidates=[];
   if(LOCAL_STORE_LOGOS[s.slug])candidates.push(new URL(LOCAL_STORE_LOGOS[s.slug],document.baseURI).href);
-  // U PENNY a dalších příliš malých databázových ikon preferujeme plné logo poskytovatele.
-  if(s.slug==='penny'&&domain)candidates.push(`https://logo.clearbit.com/${domain}?size=256`);
   if(s.logo_url)candidates.push(s.logo_url);
   if(domain)candidates.push(`https://logo.clearbit.com/${domain}?size=256`);
   if(domain)candidates.push(`https://www.google.com/s2/favicons?sz=256&domain_url=https://${domain}`);
