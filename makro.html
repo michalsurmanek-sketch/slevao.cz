@@ -69,4 +69,40 @@
   removeDuplicates();
 })();
 </script>
+<script>
+(() => {
+  const frame = document.getElementById('leafletFrame');
+  if (!frame) return;
+
+  const mobile = window.matchMedia('(max-width: 820px)');
+  let changing = false;
+
+  const fitPdfToMobile = () => {
+    if (changing || !mobile.matches || frame.hidden) return;
+    const current = frame.getAttribute('src') || '';
+    if (!current || current === 'about:blank') return;
+
+    const base = current.split('#')[0];
+    const fitted = `${base}#page=1&zoom=page-width&view=FitH&toolbar=0&navpanes=0&pagemode=none`;
+    frame.style.width = '100vw';
+    frame.style.maxWidth = '100vw';
+    frame.style.height = '100%';
+
+    if (current === fitted) return;
+    changing = true;
+    frame.setAttribute('src', fitted);
+    requestAnimationFrame(() => { changing = false; });
+  };
+
+  new MutationObserver(fitPdfToMobile).observe(frame, {
+    attributes: true,
+    attributeFilter: ['src', 'hidden'],
+  });
+
+  mobile.addEventListener?.('change', fitPdfToMobile);
+  window.addEventListener('orientationchange', () => setTimeout(fitPdfToMobile, 180));
+  window.addEventListener('resize', fitPdfToMobile);
+  fitPdfToMobile();
+})();
+</script>
 </body></html>
