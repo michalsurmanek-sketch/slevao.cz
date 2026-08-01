@@ -13,7 +13,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   deploy:
@@ -22,6 +22,45 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Vynutit správnou cenu MAKRO
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/process-leaflet/index.ts')
+          text = path.read_text(encoding='utf-8')
+
+          old_prompt = " U MAKRO vždy použij jako price konečnou cenu s DPH. Menší cenu bez DPH a větší cenu s DPH nikdy nevykládej jako akční a původní cenu; old_price v takovém případě musí být null."
+          new_prompt = " U MAKRO vždy použij jako price velkou hlavní zvýrazněnou cenu uvedenou u produktu. Menší doplňkovou cenu s DPH ani bez DPH neukládej jako old_price; old_price musí být null, pokud leták výslovně neukazuje přeškrtnutou původní cenu."
+          if old_prompt in text:
+              text = text.replace(old_prompt, new_prompt, 1)
+          elif new_prompt not in text:
+              raise SystemExit('Nenalezen text pravidla cen MAKRO.')
+
+          old_block = """      if (isMakro && oldPrice) {
+        price = oldPrice;
+        oldPrice = null;
+      }
+"""
+          new_block = """      if (isMakro) {
+        // Zachovej velkou hlavní cenu z letáku. Doplňková cena s DPH/bez DPH
+        // není původní cena a nesmí hlavní cenu přepsat.
+        oldPrice = null;
+      }
+"""
+          if old_block in text:
+              text = text.replace(old_block, new_block, 1)
+          elif new_block not in text:
+              raise SystemExit('Nenalezen blok normalizace cen MAKRO.')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+          grep -F "Zachovej velkou hlavní cenu z letáku" supabase/functions/process-leaflet/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -37,3 +76,15 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy --project-ref uhampjdqjxmbhaptgitn
+
+      - name: Uložit vynucenou opravu do main
+        run: |
+          if git diff --quiet -- supabase/functions/process-leaflet/index.ts; then
+            echo "Zdroj už obsahuje opravu."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/process-leaflet/index.ts
+          git commit -m "Preserve advertised Makro leaflet prices"
+          git push origin HEAD:main
