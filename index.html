@@ -70,7 +70,7 @@ const readDataCache=()=>{try{const cached=JSON.parse(localStorage.getItem(DATA_C
 const saveDataCache=(stores,offers)=>{try{localStorage.setItem(DATA_CACHE_KEY,JSON.stringify({savedAt:Date.now(),stores,offers}))}catch{}};
 const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const LOCAL_STORE_LOGOS={penny:'assets/logos/penny.svg?v=3','eso-market':'assets/logos/eso-market.svg?v=1'};
+const LOCAL_STORE_LOGOS={penny:'assets/logos/penny.svg?v=4','eso-market':'assets/logos/eso-market.svg?v=1'};
 const logoCandidates=s=>{
   const domain=s.domain||'';
   const candidates=[];
