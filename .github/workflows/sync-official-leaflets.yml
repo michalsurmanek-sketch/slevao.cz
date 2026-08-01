@@ -1,155 +1,141 @@
-name: Synchronizace oficiálních letáků
+name: Official leaflet synchronization
 
 on:
+  workflow_dispatch:
+  schedule:
+    - cron: '22 */3 * * *'
   push:
-    branches: [main]
+    branches:
+      - main
     paths:
       - 'supabase/functions/sync-official-leaflet-sources/**'
       - '.github/workflows/sync-official-leaflets.yml'
-  schedule:
-    - cron: '22 */3 * * *'
-  workflow_dispatch:
 
 concurrency:
-  group: sync-official-leaflets
+  group: official-leaflet-synchronization
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  sync:
+  deploy:
+    name: Deploy leaflet resolver
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     steps:
       - name: Checkout
-        if: github.event_name != 'schedule'
         uses: actions/checkout@v4
-        with:
-          ref: main
-          fetch-depth: 0
-
-      - name: Rozpoznat i PDF odkazy bez přípony
-        if: github.event_name != 'schedule'
-        run: |
-          python <<'PY'
-          from pathlib import Path
-
-          path = Path('supabase/functions/sync-official-leaflet-sources/index.ts')
-          text = path.read_text(encoding='utf-8')
-
-          download_function = r'''
-function extractDownloadLinks(html: string, baseUrl: string): string[] {
-  const links = new Set<string>();
-  const pattern = /<a\b([^>]*\bhref=["']([^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi;
-  let match: RegExpExecArray | null;
-  while ((match = pattern.exec(html))) {
-    const attributes = match[1] || '';
-    const body = String(match[3] || '').replace(/<[^>]+>/g, ' ');
-    const label = `${attributes} ${body}`;
-    if (!/(download|stahnout|stáhnout|letak|leták|prospekt|katalog|catalog|leaflet|pdf)/i.test(label)) continue;
-    const url = absoluteUrl(baseUrl, match[2]);
-    if (url) links.add(url);
-  }
-  return [...links].slice(0, 10);
-}
-
-'''
-          marker = 'function extractAssetLinks(html: string, baseUrl: string): string[] {'
-          if 'function extractDownloadLinks(' not in text:
-              if marker not in text:
-                  raise SystemExit('Nenalezen bod pro vložení extractDownloadLinks.')
-              text = text.replace(marker, download_function + marker, 1)
-
-          old = '''  const linkedPages = extractLeafletLinks(landing.text, landing.url);
-  for (const pageUrl of linkedPages.slice(0, 6)) {
-    try {
-      const page = await fetchText(pageUrl, landing.url, 10_000);
-'''
-          new = '''  const linkedPages = [...new Set([
-    ...extractLeafletLinks(landing.text, landing.url),
-    ...extractDownloadLinks(landing.text, landing.url),
-  ])];
-  for (const pageUrl of linkedPages.slice(0, 10)) {
-    try {
-      // Některé oficiální weby posílají PDF přes dynamickou adresu bez .pdf.
-      // Nejdřív proto ověříme skutečný Content-Type a podpis souboru.
-      const directPdf = await validatePdf(pageUrl, landing.url);
-      if (directPdf) {
-        candidateMap.set(directPdf, { url: directPdf, referer: landing.url, score: 180 });
-        continue;
-      }
-      const page = await fetchText(pageUrl, landing.url, 10_000);
-'''
-          if old in text:
-              text = text.replace(old, new, 1)
-          elif '...extractDownloadLinks(landing.text, landing.url)' not in text:
-              raise SystemExit('Nenalezen blok linkedPages pro opravu.')
-
-          path.write_text(text, encoding='utf-8')
-          PY
-
-      - name: Uložit trvalou opravu parseru
-        if: github.event_name != 'schedule'
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add supabase/functions/sync-official-leaflet-sources/index.ts
-          if ! git diff --cached --quiet; then
-            git commit -m "Support extensionless official leaflet PDFs"
-            git push origin HEAD:main
-          fi
 
       - name: Setup Supabase CLI
-        if: github.event_name != 'schedule'
         uses: supabase/setup-cli@v1
         with:
           version: latest
 
-      - name: Nasadit vyhledávač letáků
-        if: github.event_name != 'schedule'
+      - name: Verify Supabase token
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          test -n "$SUPABASE_ACCESS_TOKEN" || (echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN' && exit 1)
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo 'Missing GitHub secret SUPABASE_ACCESS_TOKEN'
+            exit 1
+          }
+
+      - name: Deploy official leaflet resolver
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
           supabase functions deploy sync-official-leaflet-sources \
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Počkat na dostupnost nové verze
-        if: github.event_name != 'schedule'
+      - name: Wait for deployment
         run: sleep 8
 
-      - name: Najít a doplnit oficiální letáky po obchodech
-        shell: bash
+  synchronize:
+    name: Sync ${{ matrix.store }}
+    needs: deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        store:
+          - enapo
+          - flop
+          - terno
+          - trefa
+          - jip
+          - norma
+          - zabka
+          - brnenka
+          - cba
+          - jednota
+          - konzum
+          - tempo
+          - ratio
+          - kubik
+          - rosa-market
+          - tamda
+          - potraviny-muj-obchod
+          - pramen-cz
+          - eso-market
+          - rossmann
+          - teta
+          - dm
+          - tedi
+          - pepco
+          - kik
+          - takko
+          - obi
+          - hornbach
+          - bauhaus
+          - mountfield
+          - dek
+          - pro-doma
+          - stavmat
+          - datart
+          - planeo
+          - okay
+          - alza
+          - smarty
+          - ikea
+          - jysk
+          - moebelix
+          - sconto
+          - asko
+          - xxxlutz
+          - decathlon
+          - sportisimo
+          - intersport
+          - super-zoo
+          - petcenter
+          - dr-max
+          - benu
+          - pilulka
+          - auto-kelly
+    steps:
+      - name: Find current official leaflet
+        env:
+          STORE_SLUG: ${{ matrix.store }}
         run: |
-          set -uo pipefail
-          endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/sync-official-leaflet-sources'
-          stores=(
-            enapo flop terno trefa jip norma zabka brnenka cba jednota konzum tempo ratio kubik
-            rosa-market tamda potraviny-muj-obchod pramen-cz eso-market rossmann teta dm tedi pepco
-            kik takko obi hornbach bauhaus mountfield dek pro-doma stavmat datart planeo okay alza
-            smarty ikea jysk moebelix sconto asko xxxlutz decathlon sportisimo intersport super-zoo
-            petcenter dr-max benu pilulka auto-kelly
-          )
+          response_file="$(mktemp)"
+          http_code="$(curl --silent --show-error --location \
+            --retry 2 \
+            --retry-delay 3 \
+            --max-time 300 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'content-type: application/json' \
+            --data "{\"store_slug\":\"${STORE_SLUG}\",\"limit\":1,\"force\":true}" \
+            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/sync-official-leaflet-sources')"
 
-          export endpoint
-          printf '%s\n' "${stores[@]}" | xargs -P 4 -I '{}' bash -c '
-            slug="$1"
-            output="$(mktemp)"
-            code="$(curl --silent --show-error --location \
-              --retry 2 --retry-delay 3 --max-time 180 \
-              --output "$output" --write-out "%{http_code}" \
-              --request POST \
-              --header "content-type: application/json" \
-              --data "{\"store_slug\":\"$slug\",\"limit\":1}" \
-              "$endpoint" || true)"
-            printf "\n===== %s | HTTP %s =====\n" "$slug" "$code"
-            cat "$output"
-            echo
-            rm -f "$output"
-            case "$code" in
-              2??) exit 0 ;;
-              *) exit 1 ;;
-            esac
-          ' _ '{}'
+          cat "$response_file"
+          echo
+
+          if [ "$http_code" -lt 200 ] || [ "$http_code" -ge 300 ]; then
+            echo "Synchronization failed with HTTP $http_code"
+            exit 1
+          fi
