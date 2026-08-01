@@ -42,6 +42,19 @@ assert.match(index, /id="retryLoad"/, 'Chyba načítání musí nabídnout ručn
 assert.match(index, /DATA_CACHE_KEY/, 'Homepage musí umět zobrazit poslední funkční data při výpadku.');
 assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK z CDN.');
 assert.doesNotMatch(index, /filter\(s=>activeSlugs\.has/, 'Homepage nesmí skrývat aktivní obchody bez aktuální nabídky.');
+assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta obchodu musí vést na jeho vlastní feedovou stránku.');
+for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
+  const feed = read(`${slug}.html`);
+  assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
+  assert.match(feed, /assets\/store-feed\.js/, `${slug}.html nepoužívá společný živý feed.`);
+  assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
+}
+const storeFeed = read('assets/store-feed.js');
+new Script(storeFeed, { filename: 'assets/store-feed.js' });
+assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
+assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
+assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
+assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a všech 73 obchodních feedů.');
 
 const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
