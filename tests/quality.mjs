@@ -19,6 +19,9 @@ assert.match(index, /application\/ld\+json/, 'Homepage nemá strukturovaná data
 assert.match(index, /<meta property="og:title"/, 'Homepage nemá Open Graph metadata.');
 assert.match(index, /fetchActiveOffers/, 'Katalog musí podporovat stránkované načítání z databáze.');
 assert.match(index, /deduplicateOffers/, 'Katalog musí mít ochranu proti duplicitám.');
+assert.match(index, /withTimeout/, 'Databázové načítání musí mít časový limit.');
+assert.match(index, /retryRequest/, 'Databázové načítání se musí po přechodné chybě zopakovat.');
+assert.match(index, /id="retryLoad"/, 'Chyba načítání musí nabídnout ruční opakování.');
 
 const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
