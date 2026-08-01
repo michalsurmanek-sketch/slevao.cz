@@ -69,6 +69,8 @@ for (const path of ['supabase/functions/enrich-offer-images/index.ts', 'supabase
 }
 assert.match(read('supabase/functions/discover-coop/index.ts'), /soukrom\|osobn/, 'COOP nesmí vybrat dokument o ochraně osobních údajů jako leták.');
 assert.match(read('supabase/functions/process-leaflet/index.ts'), /updateBucket\(STORAGE_BUCKET/, 'Úložiště letáků musí zvýšit limit i u již existujícího bucketu.');
+assert.match(read('supabase/functions/sync-coop-source/index.ts'), /soukrom\|osobn/, 'Používaný COOP synchronizátor nesmí vybrat dokument o ochraně osobních údajů.');
+assert.match(read('supabase/functions/process-leaflet/index.ts'), /canArchiveInStorage = bytes\.length <= 45/, 'Velké letáky musí obejít omezené úložiště a pokračovat přímo do zpracování.');
 
 const publicSources = [
   'login.html', 'moderation.html', 'account.html', 'collections.html',

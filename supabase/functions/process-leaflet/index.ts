@@ -1132,20 +1132,25 @@ async function processImport(importId: string) {
       if (bytes.length > 120 * 1024 * 1024) throw new Error('Leták je větší než 120 MB.');
 
       const detected = detectDocumentType(sourceResponse.headers.get('content-type') || '', bytes);
-      await ensureBucket();
-      const storagePath = `${job.store_id || 'unknown'}/${importId}/source.${detected.extension}`;
-      const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
-        contentType: detected.mime,
-        upsert: true,
-      });
-      if (uploadError) throw uploadError;
+      const canArchiveInStorage = bytes.length <= 45 * 1024 * 1024;
+      let storagePath: string | null = null;
+      if (canArchiveInStorage) {
+        await ensureBucket();
+        storagePath = `${job.store_id || 'unknown'}/${importId}/source.${detected.extension}`;
+        const { error: uploadError } = await db.storage.from(STORAGE_BUCKET).upload(storagePath, bytes, {
+          contentType: detected.mime,
+          upsert: true,
+        });
+        if (uploadError) throw uploadError;
+      }
 
       await db.from('leaflet_imports').update({
         status: 'processing',
         metadata: {
           ...(job.metadata || {}),
-          storage_bucket: STORAGE_BUCKET,
+          storage_bucket: storagePath ? STORAGE_BUCKET : null,
           storage_path: storagePath,
+          storage_skipped_reason: storagePath ? null : 'Soubor překročil bezpečný limit úložiště 45 MB; zpracován přímo.',
           bytes: bytes.length,
           detected_mime: detected.mime,
           ai_model: OPENAI_MODEL,

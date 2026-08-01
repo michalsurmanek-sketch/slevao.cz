@@ -73,7 +73,11 @@ function pdfFromDetail(html: string, baseUrl: string): string {
     if (url) candidates.push(url);
   }
   for (const m of html.matchAll(/https?:\/\/[^\s"'<>]+\.pdf(?:\?[^\s"'<>]*)?/gi)) candidates.push(m[0]);
-  const filtered = [...new Set(candidates)].filter(url => !/clanek|article|pravidla|seznam-prodejen/i.test(url));
+  const blockedDocument = /clanek|article|pravidla|seznam-prodejen|soukrom|osobn[ií][-_ ]?(?:udaj|data)|gdpr|ochran[ay][-_ ]?(?:udaj|soukrom)|podmink|prohlasen/i;
+  const filtered = [...new Set(candidates)].filter((url) => {
+    try { return !blockedDocument.test(decodeURIComponent(url)); }
+    catch { return !blockedDocument.test(url); }
+  });
   if (!filtered.length) throw new Error('Aktuální stránka COOP neobsahuje PDF letáku.');
   return filtered[0];
 }
