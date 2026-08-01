@@ -4,12 +4,19 @@ on:
   schedule:
     - cron: '17 */3 * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/sync-official-leaflet-sources/**'
+      - '.github/workflows/automatic-leaflets.yml'
 
 permissions:
   contents: read
 
 jobs:
   discover:
+    name: Zkontrolovat stávající zdroje
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -30,3 +37,86 @@ jobs:
             --header "x-cron-secret: $CRON_SECRET" \
             --data '{}' \
             "$SUPABASE_URL/functions/v1/discover-leaflets"
+
+  sync-official:
+    name: Doplnit ${{ matrix.store }}
+    needs: discover
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        store:
+          - enapo
+          - flop
+          - terno
+          - trefa
+          - jip
+          - norma
+          - zabka
+          - brnenka
+          - cba
+          - jednota
+          - konzum
+          - tempo
+          - ratio
+          - kubik
+          - rosa-market
+          - tamda
+          - potraviny-muj-obchod
+          - pramen-cz
+          - eso-market
+          - rossmann
+          - teta
+          - dm
+          - tedi
+          - pepco
+          - kik
+          - takko
+          - obi
+          - hornbach
+          - bauhaus
+          - mountfield
+          - dek
+          - pro-doma
+          - stavmat
+          - datart
+          - planeo
+          - okay
+          - alza
+          - smarty
+          - ikea
+          - jysk
+          - moebelix
+          - sconto
+          - asko
+          - xxxlutz
+          - decathlon
+          - sportisimo
+          - intersport
+          - super-zoo
+          - petcenter
+          - dr-max
+          - benu
+          - pilulka
+          - auto-kelly
+    steps:
+      - name: Najít aktuální oficiální leták
+        env:
+          STORE_SLUG: ${{ matrix.store }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --retry 2 --retry-delay 5 --max-time 300 \
+            --request POST \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --header "x-cron-secret: $CRON_SECRET" \
+            --data "{\"store_slug\":\"$STORE_SLUG\",\"limit\":1,\"force\":true}" \
+            "$SUPABASE_URL/functions/v1/sync-official-leaflet-sources"
