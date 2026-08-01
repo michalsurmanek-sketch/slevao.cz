@@ -4,6 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const TESCO_LISTING_URL = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 const PENNY_LISTING_URL = 'https://www.penny.cz/letaky';
+const ACTION_LISTING_URL = 'https://www.action.com/cs-cz/letak/';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -44,6 +45,27 @@ function visibleText(html: string): string {
     .replace(/&nbsp;|&#160;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/\s+/g, ' ');
+}
+
+function actionPromotionRange(now = new Date()): { from: string; to: string } {
+  const day = now.getUTCDay();
+  const daysSinceWednesday = (day + 4) % 7;
+  const from = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - daysSinceWednesday));
+  const to = new Date(from.getTime() + 6 * 86_400_000);
+  return { from: from.toISOString().slice(0, 10), to: to.toISOString().slice(0, 10) };
+}
+
+function actionOfficialLeaflet(): Leaflet {
+  const range = actionPromotionRange();
+  return {
+    key: 'action-current',
+    title: 'Týdenní akce',
+    subtitle: 'Action',
+    valid_from: range.from,
+    valid_to: range.to,
+    url: ACTION_LISTING_URL,
+    direct: false,
+  };
 }
 
 function officialLeaflets(html: string): Leaflet[] {
@@ -239,6 +261,9 @@ Deno.serve(async (request) => {
   try {
     const storeSlug = new URL(request.url).searchParams.get('store') || 'tesco';
     if (!/^[a-z0-9-]{2,64}$/.test(storeSlug)) throw new Error('Neplatný obchod.');
+    if (storeSlug === 'action') {
+      return Response.json({ ok: true, store: storeSlug, source: ACTION_LISTING_URL, leaflets: [actionOfficialLeaflet()] }, { headers: CORS_HEADERS });
+    }
     if (storeSlug === 'penny') {
       try {
         const leaflet = await pennyOfficialLeaflet();

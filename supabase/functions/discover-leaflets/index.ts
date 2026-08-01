@@ -391,6 +391,16 @@ async function discoverSource(source: any) {
       }).eq('id', staleJob.id);
       if (cleanupError) throw cleanupError;
     }
+    // Action nevydává PDF. Jeho oficiální „leták“ je živý webový katalog
+    // chráněný proti serverovému stahování a vložení do cizího webu.
+    if (storeSlug === 'action') {
+      await db.from('leaflet_sources').update({
+        last_checked_at: checkedAt,
+        last_success_at: checkedAt,
+        last_error: null,
+      }).eq('id', source.id);
+      return { source: source.name, adapter: 'store:action-web', found: 1, queued: 0 };
+    }
     let response: Response | null = null;
     if (storeSlug === 'lidl') {
       response = await fetchWithRetry(
