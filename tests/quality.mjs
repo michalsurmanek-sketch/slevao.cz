@@ -67,6 +67,8 @@ for (const path of ['supabase/functions/enrich-offer-images/index.ts', 'supabase
   assert.match(source, /product_image_candidates/, `${path} musí ukládat nejisté obrázky do schvalovací fronty.`);
   assert(!/from\('offers'\)\.update\(\{ image_url: match\./.test(source), `${path} nesmí heuristickou fotografii rovnou zveřejnit.`);
 }
+assert.match(read('supabase/functions/discover-coop/index.ts'), /soukrom\|osobn/, 'COOP nesmí vybrat dokument o ochraně osobních údajů jako leták.');
+assert.match(read('supabase/functions/process-leaflet/index.ts'), /updateBucket\(STORAGE_BUCKET/, 'Úložiště letáků musí zvýšit limit i u již existujícího bucketu.');
 
 const publicSources = [
   'login.html', 'moderation.html', 'account.html', 'collections.html',

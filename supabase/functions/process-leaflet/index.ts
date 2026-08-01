@@ -60,6 +60,12 @@ async function ensureBucket() {
       fileSizeLimit: 120 * 1024 * 1024,
     });
     if (error) throw error;
+  } else {
+    const { error } = await db.storage.updateBucket(STORAGE_BUCKET, {
+      public: false,
+      fileSizeLimit: 120 * 1024 * 1024,
+    });
+    if (error) throw error;
   }
 }
 

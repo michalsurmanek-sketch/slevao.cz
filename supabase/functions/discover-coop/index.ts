@@ -59,7 +59,11 @@ function pdfFromDetail(html: string, baseUrl: string): string | null {
       if (url) candidates.push(url);
     }
   }
-  return [...new Set(candidates)].find((url) => !/casopis|radce|ciperka/i.test(url)) || candidates[0] || null;
+  const blockedDocument = /casopis|radce|ciperka|soukrom|osobn[ií][-_ ]?(?:udaj|data)|gdpr|ochran[ay][-_ ]?(?:udaj|soukrom)|podmink|prohlasen/i;
+  return [...new Set(candidates)].find((url) => {
+    try { return !blockedDocument.test(decodeURIComponent(url)); }
+    catch { return !blockedDocument.test(url); }
+  }) || null;
 }
 
 function regionFromTitle(title: string): { scope: string; regionCode: string | null; location: string | null } {
