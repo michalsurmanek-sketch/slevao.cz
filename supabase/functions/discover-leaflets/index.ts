@@ -9,6 +9,10 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
 
+// Tyto obchody mají vlastní synchronizátory spuštěné z run-leaflet-import.
+// Generický průzkum by u nich vytvářel duplicitní nebo nesouvisející importy.
+const SPECIALIZED_SOURCE_SLUGS = new Set(['coop', 'hruska']);
+
 const BROWSER_HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
   accept: 'text/html,application/xhtml+xml,application/pdf,application/json,image/webp,image/png,image/jpeg,*/*;q=0.8',
@@ -503,7 +507,9 @@ Deno.serve(async (request) => {
   const { data: sources, error } = await db.from('leaflet_sources').select('*,stores(slug)').eq('is_active', true).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  const dueSources = (sources || []).filter((source: any) => isDue(source));
+  const dueSources = (sources || []).filter((source: any) =>
+    !SPECIALIZED_SOURCE_SLUGS.has(String(source.stores?.slug || '')) && isDue(source)
+  );
   const results = [];
   for (const source of dueSources) results.push(await discoverSource(source));
   return Response.json({ ok: true, active: sources?.length || 0, checked: results.length, results });
