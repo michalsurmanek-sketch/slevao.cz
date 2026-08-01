@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 
 const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
@@ -41,15 +41,15 @@ for (const [path, target] of Object.entries(redirects)) {
   assert(html.includes(`url=${target}`), `${path} nemíří na ${target}.`);
 }
 
-const functionPaths = [
-  'supabase/functions/discover-leaflets/index.ts',
-  'supabase/functions/process-leaflet/index.ts',
-  'supabase/functions/publish-imports/index.ts',
-  'supabase/functions/run-leaflet-import/index.ts',
-];
+const functionPaths = readdirSync(new URL('../supabase/functions', import.meta.url), { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
+  .map((entry) => `supabase/functions/${entry.name}/index.ts`)
+  .filter((path) => existsSync(new URL(`../${path}`, import.meta.url)));
 const functionSources = functionPaths.map(read).join('\n');
 assert(!/user_metadata\?\.role/.test(functionSources), 'Oprávnění nesmí vycházet z user_metadata.');
-assert.match(read(functionPaths[0]), /if \(!CRON_SECRET\)/, 'Discovery musí selhat při chybějícím CRON_SECRET.');
+for (const path of ['supabase/functions/discover-leaflets/index.ts', 'supabase/functions/discover-coop/index.ts', 'supabase/functions/discover-hruska/index.ts']) {
+  assert.match(read(path), /if \(!CRON_SECRET\)/, `${path} musí selhat při chybějícím CRON_SECRET.`);
+}
 
 const publicSources = [
   'login.html', 'moderation.html', 'account.html', 'collections.html',
