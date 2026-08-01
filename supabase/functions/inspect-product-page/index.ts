@@ -130,6 +130,7 @@ Deno.serve(async (req) => {
     const { data: product, error: productError } = await db.from("products").select("id,name,brand,quantity_text,ean").eq("id", productId).single();
     if (productError || !product) throw new Error("Produkt nebyl nalezen.");
 
+    const expected = `${product.brand ?? ""} ${product.name} ${product.quantity_text ?? ""}`;
     const fetchTarget = canonicalTescoUrl(target) ?? target;
     const response = await fetch(fetchTarget, {
       redirect: "follow",
@@ -143,32 +144,32 @@ Deno.serve(async (req) => {
     });
     if (!response.ok) throw new Error(`Produktová stránka vrátila HTTP ${response.status}.`);
     const contentType = response.headers.get("content-type") || "";
-    if (!contentType.includes("text/html")) throw new Error("Odkaz nevede na HTML produktovou stránku.");
-    const html = await response.text();
-    if (html.length > 3_000_000) throw new Error("Produktová stránka je příliš velká.");
-
-    const expected = `${product.brand ?? ""} ${product.name} ${product.quantity_text ?? ""}`;
-    const candidates: { image: string; title: string; source: string }[] = [];
-    for (const item of jsonLdProducts(html)) {
-      const image = imageFromJsonLd(item, response.url);
-      const title = String(item?.name ?? "");
-      if (image) candidates.push({ image, title, source: "json_ld" });
-    }
-    const ogImage = absoluteUrl(metaContent(html, "og:image"), response.url);
-    const ogTitle = metaContent(html, "og:title") || metaContent(html, "twitter:title") || "";
-    if (ogImage) candidates.push({ image: ogImage, title: ogTitle, source: "open_graph" });
-
-    const unique = [...new Map(candidates.map((x) => [x.image, x])).values()];
-    if (!unique.length) throw new Error("Na stránce nebyla nalezena produktová fotografie.");
-
     let best: any = null;
-    for (const candidate of unique) {
-      const score = similarity(expected, candidate.title || html.slice(0, 3000));
-      if (!best || score > best.score) best = { ...candidate, score };
+    if (contentType.toLowerCase().startsWith("image/")) {
+      best = { image: response.url, title: expected, source: "staff_direct_image", score: 1 };
+    } else {
+      if (!contentType.includes("text/html")) throw new Error("Odkaz nevede na HTML produktovou stránku ani obrázek.");
+      const html = await response.text();
+      if (html.length > 3_000_000) throw new Error("Produktová stránka je příliš velká.");
+      const candidates: { image: string; title: string; source: string }[] = [];
+      for (const item of jsonLdProducts(html)) {
+        const image = imageFromJsonLd(item, response.url);
+        const title = String(item?.name ?? "");
+        if (image) candidates.push({ image, title, source: "json_ld" });
+      }
+      const ogImage = absoluteUrl(metaContent(html, "og:image"), response.url);
+      const ogTitle = metaContent(html, "og:title") || metaContent(html, "twitter:title") || "";
+      if (ogImage) candidates.push({ image: ogImage, title: ogTitle, source: "open_graph" });
+      const unique = [...new Map(candidates.map((x) => [x.image, x])).values()];
+      if (!unique.length) throw new Error("Na stránce nebyla nalezena produktová fotografie.");
+      for (const candidate of unique) {
+        const score = similarity(expected, candidate.title || html.slice(0, 3000));
+        if (!best || score > best.score) best = { ...candidate, score };
+      }
+      const strongIdentity = best ? hasStrongBrandQuantityMatch(expected, best.title) : false;
+      if (!best || (best.score < 0.42 && !strongIdentity)) throw new Error("Název produktové stránky se dostatečně neshoduje s produktem.");
+      if (strongIdentity) best.score = Math.max(best.score, 0.72);
     }
-    const strongIdentity = best ? hasStrongBrandQuantityMatch(expected, best.title) : false;
-    if (!best || (best.score < 0.42 && !strongIdentity)) throw new Error("Název produktové stránky se dostatečně neshoduje s produktem.");
-    if (strongIdentity) best.score = Math.max(best.score, 0.72);
 
     let width: number | null = null;
     let height: number | null = null;
