@@ -47,7 +47,7 @@ for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
   const feed = read(`${slug}.html`);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
   const expectedFeedAsset = slug === 'tesco'
-    ? /assets\/store-feed-tesco-v8\.js\?v=20260801-11/
+    ? /assets\/store-feed-tesco-v8\.js\?v=20260801-12/
     : /assets\/store-feed\.js\?v=20260801-7/;
   assert.match(feed, expectedFeedAsset, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
   assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
@@ -68,7 +68,8 @@ assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí na�
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
 assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
 assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
-assert.match(storeFeed, /renderHeroProducts/, 'Tesco hero musí používat fotografie ze živého feedu.');
+assert.doesNotMatch(tescoFeed, /class="heroProduct/, 'Hlavní Tesco sekce nesmí obsahovat produktové fotografie.');
+assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Feed nesmí znovu vkládat produktové fotografie do hlavní sekce.');
 assert.match(storeFeed, /store-leaflet-feed/, 'Tesco stránka musí načítat letáky z bezpečného veřejného feedu.');
 assert.match(storeFeed, /source=official-v2/, 'Tesco musí po opravě párování obejít dříve cachovanou chybnou odpověď feedu.');
 assert.match(storeFeed, /authorization: `Bearer \$\{KEY\}`/, 'Vložený prohlížeč letáku musí Edge Function volat s autorizační hlavičkou.');

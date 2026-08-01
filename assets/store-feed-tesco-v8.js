@@ -94,19 +94,6 @@
     }
   }
 
-  function renderHeroProducts(rows) {
-    const target = $('heroProducts');
-    if (!target) return;
-    const imageOffers = rows.filter((offer) => offer.image_url).slice(0, 3);
-    target.querySelectorAll('.heroProduct').forEach((slot, index) => {
-      const offer = imageOffers[index];
-      slot.innerHTML = offer
-        ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.title)}" loading="eager" onerror="this.closest('.heroProduct').hidden=true">`
-        : '';
-      slot.hidden = !offer;
-    });
-  }
-
   function leafletCard(leaflet) {
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
@@ -294,7 +281,6 @@
       const logo = config.logo || store.logo_url;
       if (logo) { $('storeLogo').src = logo; $('storeLogo').hidden = false; } else $('storeLogo').hidden = true;
     }
-    renderHeroProducts(offers);
     updateFavoriteControls();
     render();
   }
