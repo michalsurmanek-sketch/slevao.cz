@@ -49,7 +49,7 @@ for (const source of inlineScripts) new Script(source, { filename: 'index.html:i
 new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
 assert.doesNotMatch(read('assets/search-suggest.js'), /MutationObserver|setInterval/, 'Loga nesmí vytvářet nekonečnou smyčku změn DOM.');
 assert.match(index, /search-suggest\.js\?v=20260801-freeze-fix/, 'Opravený skript musí obejít starou cache prohlížeče.');
-for (const path of ['admin-fotografie.html']) {
+for (const path of ['admin-fotografie.html', 'admin-pridat-fotografii.html']) {
   const scripts = [...read(path).matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
   assert(scripts.length > 0, `${path} neobsahuje aplikační JavaScript.`);
   for (const source of scripts) new Script(source, { filename: `${path}:inline-script` });
@@ -86,6 +86,7 @@ assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhled
 assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií musí používat schvalovací frontu.');
 assert.match(imageDiscovery, /order\("image_checked_at"/, 'Vyhledávání fotografií musí postupovat přes dosud neprověřené produkty.');
 assert.match(read('admin-fotografie.html'), /select\('\*',\{count:'exact'\}\)/, 'Administrace fotografií musí zobrazovat přesný počet chybějících fotografií.');
+assert.match(read('admin-pridat-fotografii.html'), /function resolveSelectedProduct\(\)/, 'Ruční doplnění fotografie musí obnovit přesný produkt z vyhledávacího pole.');
 assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se nesmí počítat jako poruchy automatizace.');
 assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje musí zohlednit jeho poslední import.');
 assert.match(read('admin-automatizace.html'), /latest\?\.status==='failed'/, 'Poslední neúspěšný import musí označit zdroj jako problém.');
