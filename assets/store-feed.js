@@ -5,6 +5,37 @@
   const FAVORITES_KEY = 'slevao-favorite-offers-v1';
   const OFFICIAL_TESCO_LEAFLETS = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 
+  // Jediný zdroj vizuální identity obchodů. Logo se bere z databáze; pokud
+  // zatím chybí, použije se ikona z oficiální domény. Textový logotyp je až
+  // poslední, vždy čitelná záloha při blokování externího obrázku.
+  const BRAND_PROFILES = {
+    action:['action.com','#0050aa','#ffd500','home'],albert:['albert.cz','#52a52f','#ffdd00','grocery'],alza:['alza.cz','#73b928','#1167a8','electronics'],
+    asko:['asko-nabytek.cz','#e30613','#ffd200','home'],'auto-kelly':['autokelly.cz','#cf132d','#ffd100','automotive'],bauhaus:['bauhaus.cz','#e30613','#ffffff','home'],
+    benu:['benu.cz','#61a60e','#003b70','pharmacy'],billa:['billa.cz','#f7d417','#d71920','grocery'],brnenka:['brnenka.cz','#e31e24','#f4c430','grocery'],
+    ca:['c-and-a.com','#c8102e','#ffffff','fashion'],cba:['cba.cz','#e31837','#005baa','grocery'],coop:['coop.cz','#e31e24','#ffd400','grocery'],
+    cropp:['cropp.com','#111111','#f04f23','fashion'],datart:['datart.cz','#e30613','#ffd400','electronics'],decathlon:['decathlon.cz','#007dbc','#ffffff','sport'],
+    dek:['dek.cz','#f58220','#1e3a5f','home'],dm:['dm.cz','#003b7a','#e30613','drugstore'],'dr-max':['drmax.cz','#00843d','#ffffff','pharmacy'],
+    enapo:['enapo.cz','#e30613','#ffd400','grocery'],'eso-market':['esomarket.cz','#e30613','#ffd400','grocery'],flop:['flop-potraviny.cz','#e30613','#ffd400','grocery'],
+    globus:['globus.cz','#d71920','#ffcf00','grocery'],hm:['hm.com','#e50010','#ffffff','fashion'],hornbach:['hornbach.cz','#f58220','#222222','home'],
+    house:['housebrand.com','#111111','#f5f5f5','fashion'],hruska:['mojehruska.cz','#e30613','#74b82a','grocery'],ikea:['ikea.com','#0058a3','#ffda1a','home'],
+    intersport:['intersport.cz','#e30613','#005baa','sport'],jednota:['jednota.cz','#e31e24','#ffd400','grocery'],jip:['jip-potraviny.cz','#d71920','#f9c400','grocery'],
+    jysk:['jysk.cz','#0058a3','#ffffff','home'],kaufland:['kaufland.cz','#e30613','#003b70','grocery'],kik:['kik.cz','#e30613','#ffd200','fashion'],
+    konzum:['konzumuo.cz','#e31e24','#ffd400','grocery'],kosik:['kosik.cz','#f05a28','#6d2077','online'],kubik:['kubik.cz','#e30613','#ffd400','grocery'],
+    lidl:['lidl.cz','#0050aa','#ffdd00','grocery'],makro:['makro.cz','#0066b3','#ffdd00','grocery'],moebelix:['moebelix.cz','#e30613','#ffdf00','home'],
+    mountfield:['mountfield.cz','#00843d','#ffd400','home'],'new-yorker':['newyorker.de','#111111','#ffffff','fashion'],norma:['norma-online.de','#005ca9','#ffd500','grocery'],
+    obi:['obi.cz','#f58220','#1d1d1b','home'],okay:['okay.cz','#e30613','#ffd400','electronics'],penny:['penny.cz','#d71920','#ffd400','grocery'],
+    pepco:['pepco.cz','#003b7a','#e30613','fashion'],petcenter:['petcenter.cz','#e30613','#ffd400','pets'],pilulka:['pilulka.cz','#e6007e','#7b2d8e','pharmacy'],
+    planeo:['planeo.cz','#e30613','#ffd400','electronics'],'potraviny-muj-obchod':['mujobchod.cz','#e31e24','#f7c600','grocery'],'pramen-cz':['pramen.cz','#005ca9','#e31e24','grocery'],
+    'pro-doma':['pro-doma.cz','#e30613','#1d3660','home'],ratio:['ratio.cz','#005ca9','#ffd400','grocery'],reserved:['reserved.com','#111111','#f1f1f1','fashion'],
+    rohlik:['rohlik.cz','#6f2c91','#f4b223','online'],'rosa-market':['rosamarket.cz','#d71920','#8dc63f','grocery'],rossmann:['rossmann.cz','#e30613','#ffffff','drugstore'],
+    sconto:['sconto.cz','#e30613','#ffd400','home'],sinsay:['sinsay.com','#111111','#f5b9c8','fashion'],smarty:['smarty.cz','#111111','#8bc53f','electronics'],
+    sportisimo:['sportisimo.cz','#e30613','#005baa','sport'],stavmat:['stavmat.cz','#005ca9','#f58220','home'],'super-zoo':['superzoo.cz','#74b82a','#f58220','pets'],
+    takko:['takko.com','#e30613','#111111','fashion'],tamda:['tamdafoods.eu','#d71920','#ffd400','grocery'],tedi:['tedi.com','#e30613','#005baa','home'],
+    tempo:['tempo.cz','#e31e24','#ffd400','grocery'],terno:['terno.cz','#00843d','#f5c400','grocery'],tesco:['itesco.cz','#00539f','#e31837','grocery'],
+    teta:['tetadrogerie.cz','#e6007e','#ffffff','drugstore'],trefa:['trefa.cz','#e31e24','#ffd400','grocery'],xxxlutz:['xxxlutz.cz','#e30613','#ffd400','home'],
+    zabka:['zabka.cz','#74b82a','#ffd400','grocery'],
+  };
+
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -30,6 +61,63 @@
   let favorites = readFavorites();
   let leafletObjectUrl = '';
   let leafletLoadController = null;
+
+  function brandProfile() {
+    const [domain = '', primary = '#0b6f68', accent = '#12b8a6', family = 'grocery'] = BRAND_PROFILES[config.slug] || [];
+    return { domain, primary, accent, family };
+  }
+
+  function applyBrandShell(storeData = null) {
+    const profile = brandProfile();
+    const primary = config.color || storeData?.primary_color || profile.primary;
+    const name = storeData?.name || config.name || 'Obchod';
+    document.documentElement.style.setProperty('--store', primary);
+    document.documentElement.style.setProperty('--store-accent', profile.accent);
+    const hex = String(primary).match(/^#([\da-f]{6})$/i)?.[1];
+    const luminance = hex ? (0.299 * parseInt(hex.slice(0, 2), 16) + 0.587 * parseInt(hex.slice(2, 4), 16) + 0.114 * parseInt(hex.slice(4, 6), 16)) : 0;
+    document.documentElement.style.setProperty('--store-on', luminance > 165 ? '#13201f' : '#ffffff');
+    document.body.dataset.store = config.slug || 'obchod';
+    document.body.dataset.storeFamily = profile.family;
+    if (config.slug !== 'tesco') document.body.classList.add('store-page--brand');
+    const hero = document.querySelector('.heroBox');
+    if (hero && config.slug !== 'tesco') {
+      hero.dataset.brandName = name;
+      hero.dataset.brandDomain = profile.domain;
+      if (!hero.querySelector('.brandKicker')) {
+        const kicker = document.createElement('span');
+        kicker.className = 'brandKicker';
+        kicker.textContent = 'OFICIÁLNÍ AKČNÍ NABÍDKY';
+        hero.querySelector('h1')?.before(kicker);
+      }
+    }
+    $('titleName') && ($('titleName').textContent = name);
+    const image = $('storeLogo');
+    if (!image) return;
+    let wordmark = $('storeWordmark');
+    if (!wordmark && config.slug !== 'tesco') {
+      wordmark = document.createElement('strong');
+      wordmark.id = 'storeWordmark';
+      wordmark.className = 'storeWordmark';
+      wordmark.textContent = name;
+      image.after(wordmark);
+    }
+    if (config.slug === 'tesco') return;
+    const candidates = [...new Set([
+      config.logo,
+      storeData?.logo_url,
+      profile.domain ? `https://www.google.com/s2/favicons?sz=256&domain_url=https://${profile.domain}` : '',
+    ].filter(Boolean))];
+    let index = 0;
+    image.hidden = true;
+    if (wordmark) wordmark.hidden = false;
+    const next = () => {
+      if (index >= candidates.length) return;
+      image.src = candidates[index++];
+    };
+    image.onload = () => { image.hidden = false; if (wordmark) wordmark.hidden = true; };
+    image.onerror = () => { image.hidden = true; if (wordmark) wordmark.hidden = false; next(); };
+    next();
+  }
 
   function fitLeafletViewer() {
     const frame = $('leafletFrame');
@@ -273,15 +361,10 @@
   function apply(storeData, rows, status) {
     store = storeData;
     offers = unique(rows);
-    document.documentElement.style.setProperty('--store', config.color || store.primary_color || '#0b6f68');
-    $('titleName').textContent = store.name;
+    applyBrandShell(store);
     $('status').textContent = status;
     $('offerCount').textContent = `${offers.length} nabídek`;
     $('updated').textContent = `Aktualizováno ${new Intl.DateTimeFormat('cs-CZ', { hour: '2-digit', minute: '2-digit' }).format(new Date())}`;
-    if ($('storeLogo')) {
-      const logo = config.logo || store.logo_url;
-      if (logo) { $('storeLogo').src = logo; $('storeLogo').hidden = false; } else $('storeLogo').hidden = true;
-    }
     updateFavoriteControls();
     render();
   }
@@ -314,6 +397,7 @@
     }
   }
 
+  applyBrandShell();
   $('q').addEventListener('input', () => { visible = 24; render(); });
   $('sort').addEventListener('change', () => { visible = 24; render(); });
   $('loadMore').addEventListener('click', () => { visible += 24; render(); });

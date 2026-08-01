@@ -51,8 +51,8 @@ for (const page of storePageFiles) {
   const slug = page.replace(/\.html$/, '');
   const feed = read(page);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-13/, `${page} nepoužívá aktuální společný živý feed.`);
-  assert.match(feed, /assets\/store-feed\.css\?v=20260801-13/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-14/, `${page} nepoužívá aktuální společný živý feed.`);
+  assert.match(feed, /assets\/store-feed\.css\?v=20260801-14/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
   assert.match(feed, /id="leafletGrid"/, `${page} nemá automatický přehled letáků.`);
   assert.match(feed, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
   assert.match(feed, /rel="canonical"/, `${page} nemá canonical URL.`);
@@ -68,6 +68,17 @@ new Script(storeFeed, { filename: 'assets/store-feed.js' });
 const tescoStoreFeed = read('assets/store-feed-tesco-v8.js');
 new Script(tescoStoreFeed, { filename: 'assets/store-feed-tesco-v8.js' });
 assert.equal(tescoStoreFeed, storeFeed, 'Tesco cache-busting feed se nesmí lišit od opravené společné logiky.');
+assert.match(storeFeed, /const BRAND_PROFILES = \{/, 'Společný feed musí obsahovat identitu všech obchodů.');
+assert.match(storeFeed, /function applyBrandShell\(/, 'Firemní hero se musí sestavit i před načtením databáze.');
+const brandLogoMigration = read('supabase/migrations/20260801133000_complete_store_brand_logos.sql');
+const brandedStoreSlugs = [...brandLogoMigration.matchAll(/\('([^']+)','[^']+'\)/g)].map((match) => match[1]);
+assert.equal(brandedStoreSlugs.length, 73, 'Migrace musí doplnit oficiální doménu všech 73 obchodů.');
+for (const page of storePageFiles) {
+  assert(brandedStoreSlugs.includes(page.replace(/\.html$/, '')), `${page} nemá zdroj firemního loga.`);
+}
+const storeFeedCss = read('assets/store-feed.css');
+assert.match(storeFeedCss, /\.store-page--brand \.heroBox/, 'Běžné stránky obchodů musí mít značkovou horní sekci.');
+assert.match(storeFeedCss, /data-store-family="fashion"/, 'Vzhled horní sekce se musí přizpůsobit typu obchodu.');
 assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do neexistujícího prvku názvu obchodu.');
 assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
