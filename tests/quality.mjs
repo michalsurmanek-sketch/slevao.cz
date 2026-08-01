@@ -24,6 +24,7 @@ assert.match(index, /retryRequest/, 'Databázové načítání se musí po přec
 assert.match(index, /id="retryLoad"/, 'Chyba načítání musí nabídnout ruční opakování.');
 assert.match(index, /DATA_CACHE_KEY/, 'Homepage musí umět zobrazit poslední funkční data při výpadku.');
 assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK z CDN.');
+assert.doesNotMatch(index, /filter\(s=>activeSlugs\.has/, 'Homepage nesmí skrývat aktivní obchody bez aktuální nabídky.');
 
 const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
 assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
