@@ -12,7 +12,7 @@ on:
 
 concurrency:
   group: sync-official-leaflets
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: write
@@ -20,7 +20,7 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - name: Checkout
         if: github.event_name != 'schedule'
@@ -120,16 +120,36 @@ function extractDownloadLinks(html: string, baseUrl: string): string[] {
         if: github.event_name != 'schedule'
         run: sleep 8
 
-      - name: Najít a doplnit oficiální letáky
+      - name: Najít a doplnit oficiální letáky po obchodech
+        shell: bash
         run: |
-          response_file="$(mktemp)"
-          http_code="$(curl --silent --show-error --location \
-            --retry 3 --retry-delay 5 --max-time 1200 \
-            --output "$response_file" --write-out '%{http_code}' \
-            --request POST \
-            --header 'content-type: application/json' \
-            --data '{"limit":80}' \
-            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/sync-official-leaflet-sources')"
-          cat "$response_file"
-          echo
-          test "$http_code" -ge 200 -a "$http_code" -lt 300
+          set -uo pipefail
+          endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/sync-official-leaflet-sources'
+          stores=(
+            enapo flop terno trefa jip norma zabka brnenka cba jednota konzum tempo ratio kubik
+            rosa-market tamda potraviny-muj-obchod pramen-cz eso-market rossmann teta dm tedi pepco
+            kik takko obi hornbach bauhaus mountfield dek pro-doma stavmat datart planeo okay alza
+            smarty ikea jysk moebelix sconto asko xxxlutz decathlon sportisimo intersport super-zoo
+            petcenter dr-max benu pilulka auto-kelly
+          )
+
+          export endpoint
+          printf '%s\n' "${stores[@]}" | xargs -P 4 -I '{}' bash -c '
+            slug="$1"
+            output="$(mktemp)"
+            code="$(curl --silent --show-error --location \
+              --retry 2 --retry-delay 3 --max-time 180 \
+              --output "$output" --write-out "%{http_code}" \
+              --request POST \
+              --header "content-type: application/json" \
+              --data "{\"store_slug\":\"$slug\",\"limit\":1}" \
+              "$endpoint" || true)"
+            printf "\n===== %s | HTTP %s =====\n" "$slug" "$code"
+            cat "$output"
+            echo
+            rm -f "$output"
+            case "$code" in
+              2??) exit 0 ;;
+              *) exit 1 ;;
+            esac
+          ' _ '{}'
