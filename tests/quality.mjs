@@ -29,6 +29,8 @@ const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((
 assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
 for (const source of inlineScripts) new Script(source, { filename: 'index.html:inline-script' });
 new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
+assert.doesNotMatch(read('assets/search-suggest.js'), /MutationObserver|setInterval/, 'Loga nesmí vytvářet nekonečnou smyčku změn DOM.');
+assert.match(index, /search-suggest\.js\?v=20260801-freeze-fix/, 'Opravený skript musí obejít starou cache prohlížeče.');
 for (const path of ['admin-fotografie.html']) {
   const scripts = [...read(path).matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
   assert(scripts.length > 0, `${path} neobsahuje aplikační JavaScript.`);
