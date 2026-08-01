@@ -43,14 +43,19 @@ assert.match(index, /DATA_CACHE_KEY/, 'Homepage musí umět zobrazit poslední f
 assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK z CDN.');
 assert.doesNotMatch(index, /filter\(s=>activeSlugs\.has/, 'Homepage nesmí skrývat aktivní obchody bez aktuální nabídky.');
 assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta obchodu musí vést na jeho vlastní feedovou stránku.');
-for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
-  const feed = read(`${slug}.html`);
-  assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
-  const expectedFeedAsset = slug === 'tesco'
-    ? /assets\/store-feed-tesco-v8\.js\?v=20260801-12/
-    : /assets\/store-feed\.js\?v=20260801-7/;
-  assert.match(feed, expectedFeedAsset, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
-  assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
+const storePageFiles = readdirSync(new URL('../', import.meta.url))
+  .filter((path) => path.endsWith('.html') && read(path).includes('window.SLEVAO_STORE'))
+  .sort();
+assert.equal(storePageFiles.length, 73, 'Každý z 73 obchodů musí mít vlastní stránku.');
+for (const page of storePageFiles) {
+  const slug = page.replace(/\.html$/, '');
+  const feed = read(page);
+  assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci obchodu.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-13/, `${page} nepoužívá aktuální společný živý feed.`);
+  assert.match(feed, /assets\/store-feed\.css\?v=20260801-13/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
+  assert.match(feed, /id="leafletGrid"/, `${page} nemá automatický přehled letáků.`);
+  assert.match(feed, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
+  assert.match(feed, /rel="canonical"/, `${page} nemá canonical URL.`);
 }
 const tescoFeed = read('tesco.html');
 assert.match(tescoFeed, /assets\/logos\/tesco\.svg/, 'Tesco stránka musí používat lokální pravé logo.');
@@ -67,11 +72,12 @@ assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do ne
 assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
 assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
+assert.match(storeFeed, /loadLeaflets\(false\),10\*60\*1000/, 'Otevřená stránka musí automaticky kontrolovat nový leták každých 10 minut.');
 assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
 assert.doesNotMatch(tescoFeed, /class="heroProduct/, 'Hlavní Tesco sekce nesmí obsahovat produktové fotografie.');
 assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Feed nesmí znovu vkládat produktové fotografie do hlavní sekce.');
-assert.match(storeFeed, /store-leaflet-feed/, 'Tesco stránka musí načítat letáky z bezpečného veřejného feedu.');
-assert.match(storeFeed, /source=official-v2/, 'Tesco musí po opravě párování obejít dříve cachovanou chybnou odpověď feedu.');
+assert.match(storeFeed, /store-leaflet-feed/, 'Stránky obchodů musí načítat letáky z bezpečného veřejného feedu.');
+assert.match(storeFeed, /source=official-v3/, 'Stránky musí používat novou necachovanou víceobchodovou verzi feedu.');
 assert.match(storeFeed, /authorization: `Bearer \$\{KEY\}`/, 'Vložený prohlížeč letáku musí Edge Function volat s autorizační hlavičkou.');
 assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Stažený leták se musí vložit do prohlížeče jako lokální dokument.');
 assert.match(storeFeed, /response\.clone\(\)\.json\(\)/, 'JSON se signed URL se musí rozpoznat i bez dostupné Content-Type hlavičky.');
@@ -83,12 +89,13 @@ const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts')
 assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed letáků musí vycházet z oficiálního iTesco zdroje.');
 assert.match(publicLeafletFeed, /documentsFromOfficialHtml/, 'Feed musí párovat letáky podle přesných dokumentů z oficiální stránky Tesco.');
 assert(publicLeafletFeed.includes('sm(?:[._-]|$)'), 'Feed musí bezpečně rozpoznat supermarketový dokument podle označení SM.');
+assert.match(publicLeafletFeed, /async function storeLeaflets/, 'Feed musí obsloužit automatické letáky všech obchodů.');
 assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed nesmí zpřístupňovat interní diagnostiku importů.');
 assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed letáků musí fungovat bez přihlášení návštěvníka.');
 const publicLeafletDocument = read('supabase/functions/store-leaflet-document/index.ts');
 assert.match(publicLeafletDocument, /digitalcontent\.api\.tesco\.com/, 'Prohlížeč smí přímo načíst pouze oficiální dokument Tesco.');
 assert.match(publicLeafletDocument, /source_url/, 'Prohlížeč musí přijmout přesnou URL dokumentu z bezpečného feedu.');
-assert.match(publicLeafletDocument, /store\?\.slug !== 'tesco'/, 'Veřejný dokumentový proxy smí obsloužit pouze Tesco letáky.');
+assert.match(publicLeafletDocument, /store\?\.is_active === false/, 'Dokumentový proxy smí obsloužit pouze aktivní obchody.');
 assert.match(publicLeafletDocument, /allowedStatuses/, 'Dokumentový proxy nesmí zobrazovat nezpracované nebo chybové importy.');
 assert.match(publicLeafletDocument, /detected_valid_to/, 'Dokumentový proxy musí odmítnout prošlý leták.');
 assert.match(publicLeafletDocument, /createSignedUrl/, 'Uložený leták se má otevírat přes krátkodobý podepsaný odkaz.');

@@ -42,13 +42,13 @@ Deno.serve(async (request) => {
   if (!officialSourceUrl) {
     if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(importId)) return responseJson({ error: 'Neplatný identifikátor letáku.' }, 400);
     const { data, error } = await db.from('leaflet_imports')
-      .select('id,source_document_url,status,detected_valid_to,metadata,stores(slug)')
+      .select('id,source_document_url,status,detected_valid_to,metadata,stores(slug,is_active)')
       .eq('id', importId)
       .maybeSingle();
     job = data;
     const store = Array.isArray(job?.stores) ? job?.stores[0] : job?.stores;
     const allowedStatuses = new Set(['published', 'review', 'publishing']);
-    if (error || !job || store?.slug !== 'tesco' || !allowedStatuses.has(String(job.status))) {
+    if (error || !job || store?.is_active === false || !allowedStatuses.has(String(job.status))) {
       return responseJson({ error: 'Leták nebyl nalezen.' }, 404);
     }
     if (job.detected_valid_to && job.detected_valid_to < new Date().toISOString().slice(0, 10)) {

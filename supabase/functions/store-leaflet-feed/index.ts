@@ -22,6 +22,7 @@ type Leaflet = {
   url: string;
   direct: boolean;
   preview_url?: string;
+  logo_url?: string | null;
 };
 
 function isoDate(value: string, endDate = false): string | null {
@@ -135,10 +136,53 @@ async function attachDirectDocuments(leaflets: Leaflet[], officialHtml: string):
   });
 }
 
+async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
+  const { data: store, error: storeError } = await db.from('stores')
+    .select('id,slug,name,is_active,logo_url')
+    .eq('slug', storeSlug)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (storeError || !store) throw new Error('Obchod nebyl nalezen.');
+
+  const today = new Date().toISOString().slice(0, 10);
+  const { data, error } = await db.from('leaflet_imports')
+    .select('id,source_document_url,detected_valid_from,detected_valid_to,created_at')
+    .eq('store_id', store.id)
+    .in('status', ['published', 'review', 'publishing'])
+    .or(`detected_valid_to.is.null,detected_valid_to.gte.${today}`)
+    .order('created_at', { ascending: false })
+    .limit(20);
+  if (error) throw error;
+
+  const seen = new Set<string>();
+  return (data || []).filter((row: any) => {
+    const source = String(row.source_document_url || '');
+    if (!source.startsWith('https://') || seen.has(source)) return false;
+    seen.add(source);
+    return true;
+  }).slice(0, 3).map((row: any, index: number) => ({
+    key: `${storeSlug}-${index + 1}`,
+    title: index === 0 ? 'Aktuální leták' : 'Další platný leták',
+    subtitle: store.name,
+    valid_from: row.detected_valid_from,
+    valid_to: row.detected_valid_to,
+    url: row.source_document_url,
+    direct: true,
+    preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?import_id=${encodeURIComponent(row.id)}`,
+    logo_url: store.logo_url,
+  }));
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (request.method !== 'GET') return Response.json({ error: 'Method not allowed' }, { status: 405, headers: CORS_HEADERS });
   try {
+    const storeSlug = new URL(request.url).searchParams.get('store') || 'tesco';
+    if (!/^[a-z0-9-]{2,64}$/.test(storeSlug)) throw new Error('Neplatný obchod.');
+    if (storeSlug !== 'tesco') {
+      const leaflets = await storeLeaflets(storeSlug);
+      return Response.json({ ok: true, store: storeSlug, leaflets }, { headers: CORS_HEADERS });
+    }
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 8000);
     let response: Response;
