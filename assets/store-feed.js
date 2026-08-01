@@ -28,6 +28,8 @@
   let activeCategory = 'all';
   let showSaved = false;
   let favorites = readFavorites();
+  let leafletObjectUrl = '';
+  let leafletLoadController = null;
 
   function readFavorites() {
     try {
@@ -123,17 +125,46 @@
     ${close}`;
   }
 
-  function openLeafletViewer(previewUrl, title, shouldScroll = true) {
+  async function openLeafletViewer(previewUrl, title, shouldScroll = true) {
     const viewer = $('leafletViewer');
     const frame = $('leafletFrame');
     if (!viewer || !frame || !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`)) return;
+    leafletLoadController?.abort();
+    leafletLoadController = new AbortController();
+    if (leafletObjectUrl) URL.revokeObjectURL(leafletObjectUrl);
+    leafletObjectUrl = '';
     $('leafletViewerTitle').textContent = title || 'Tesco leták';
-    frame.src = previewUrl;
+    $('leafletViewerStatus').hidden = false;
+    $('leafletViewerStatus').textContent = 'Načítám leták…';
+    $('leafletViewerStatus').className = 'leafletViewerStatus loading';
+    frame.removeAttribute('src');
+    frame.hidden = true;
     viewer.hidden = false;
     $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => {
       button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
     });
     if (shouldScroll) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    try {
+      const response = await fetch(previewUrl, {
+        headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
+        signal: leafletLoadController.signal,
+      });
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 180)}` : ''}`);
+      }
+      const documentBlob = await response.blob();
+      if (!documentBlob.size) throw new Error('Stažený leták je prázdný.');
+      leafletObjectUrl = URL.createObjectURL(documentBlob);
+      frame.src = leafletObjectUrl;
+      frame.hidden = false;
+      $('leafletViewerStatus').hidden = true;
+    } catch (error) {
+      if (error?.name === 'AbortError') return;
+      $('leafletViewerStatus').hidden = false;
+      $('leafletViewerStatus').className = 'leafletViewerStatus error';
+      $('leafletViewerStatus').innerHTML = `<strong>Leták se nepodařilo zobrazit.</strong><span>${esc(error?.message || 'Zkus to prosím znovu.')}</span>`;
+    }
   }
 
   async function loadLeaflets() {
@@ -274,6 +305,9 @@
   }));
   $('savedToggle')?.addEventListener('click', () => { showSaved = !showSaved; visible = 24; updateFavoriteControls(); render(); });
   $('closeLeafletViewer')?.addEventListener('click', () => {
+    leafletLoadController?.abort();
+    if (leafletObjectUrl) URL.revokeObjectURL(leafletObjectUrl);
+    leafletObjectUrl = '';
     $('leafletViewer').hidden = true;
     $('leafletFrame').removeAttribute('src');
     $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.classList.remove('active'));

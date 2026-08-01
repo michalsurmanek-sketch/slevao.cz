@@ -46,7 +46,7 @@ assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta o
 for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
   const feed = read(`${slug}.html`);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-5/, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-6/, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
   assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
 }
 const tescoFeed = read('tesco.html');
@@ -64,6 +64,8 @@ assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se mus�
 assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
 assert.match(storeFeed, /renderHeroProducts/, 'Tesco hero musí používat fotografie ze živého feedu.');
 assert.match(storeFeed, /store-leaflet-feed/, 'Tesco stránka musí načítat letáky z bezpečného veřejného feedu.');
+assert.match(storeFeed, /authorization: `Bearer \$\{KEY\}`/, 'Vložený prohlížeč letáku musí Edge Function volat s autorizační hlavičkou.');
+assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Stažený leták se musí vložit do prohlížeče jako lokální dokument.');
 const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
 assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed letáků musí vycházet z oficiálního iTesco zdroje.');
 assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed nesmí zpřístupňovat interní diagnostiku importů.');
