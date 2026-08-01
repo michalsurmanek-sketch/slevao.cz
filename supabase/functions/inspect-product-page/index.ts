@@ -23,6 +23,22 @@ function similarity(a: unknown, b: unknown): number {
   return common / Math.max(aa.size, bb.size);
 }
 
+function quantityKeys(value: unknown): Set<string> {
+  const found = String(value ?? "").toLowerCase().match(/\d+(?:[.,]\d+)?\s*(?:kg|g|ml|l|ks)\b/g) ?? [];
+  return new Set(found.map((x) => x.replace(/\s+/g, "").replace(",", ".")));
+}
+
+function hasStrongBrandQuantityMatch(expected: unknown, actual: unknown): boolean {
+  const expectedTokens = tokens(expected);
+  const actualTokens = tokens(actual);
+  let common = 0;
+  for (const token of expectedTokens) if (actualTokens.has(token)) common++;
+  const expectedQuantities = quantityKeys(expected);
+  const actualQuantities = quantityKeys(actual);
+  const sameQuantity = [...expectedQuantities].some((x) => actualQuantities.has(x));
+  return common >= 2 && sameQuantity;
+}
+
 function isPrivateHost(hostname: string): boolean {
   const h = hostname.toLowerCase();
   if (h === "localhost" || h.endsWith(".local")) return true;
@@ -39,6 +55,12 @@ function absoluteUrl(value: string | null | undefined, base: string): string | n
   } catch {
     return null;
   }
+}
+
+function canonicalTescoUrl(url: URL): URL | null {
+  if (url.hostname.toLowerCase() !== "nakup.itesco.cz") return null;
+  const productId = url.pathname.match(/\/products\/(\d+)/)?.[1];
+  return productId ? new URL(`https://nakup.itesco.cz/groceries/cs-CZ/products/${productId}`) : null;
 }
 
 function metaContent(html: string, key: string): string | null {
@@ -108,13 +130,16 @@ Deno.serve(async (req) => {
     const { data: product, error: productError } = await db.from("products").select("id,name,brand,quantity_text,ean").eq("id", productId).single();
     if (productError || !product) throw new Error("Produkt nebyl nalezen.");
 
-    const response = await fetch(target, {
+    const fetchTarget = canonicalTescoUrl(target) ?? target;
+    const response = await fetch(fetchTarget, {
       redirect: "follow",
       headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; SlevaoProductImageBot/1.0; +https://slevao.cz)",
-        "Accept": "text/html,application/xhtml+xml",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/json",
         "Accept-Language": "cs-CZ,cs;q=0.9,en;q=0.7",
+        "Referer": canonicalTescoUrl(target) ? "https://nakup.itesco.cz/" : target.origin + "/",
       },
+      signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) throw new Error(`Produktová stránka vrátila HTTP ${response.status}.`);
     const contentType = response.headers.get("content-type") || "";
@@ -141,7 +166,9 @@ Deno.serve(async (req) => {
       const score = similarity(expected, candidate.title || html.slice(0, 3000));
       if (!best || score > best.score) best = { ...candidate, score };
     }
-    if (!best || best.score < 0.42) throw new Error("Název produktové stránky se dostatečně neshoduje s produktem.");
+    const strongIdentity = best ? hasStrongBrandQuantityMatch(expected, best.title) : false;
+    if (!best || (best.score < 0.42 && !strongIdentity)) throw new Error("Název produktové stránky se dostatečně neshoduje s produktem.");
+    if (strongIdentity) best.score = Math.max(best.score, 0.72);
 
     let width: number | null = null;
     let height: number | null = null;
