@@ -3,6 +3,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const FAVORITES_KEY = 'slevao-favorite-offers-v1';
+  const OFFICIAL_TESCO_LEAFLETS = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -15,6 +16,9 @@
   const discount = (offer) => old(offer) > price(offer) ? Math.round(saving(offer) / old(offer) * 100) : 0;
   const format = (value) => value
     ? new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric' }).format(new Date(`${value}T12:00:00`))
+    : '';
+  const formatLong = (value) => value
+    ? new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(`${value}T12:00:00`))
     : '';
 
   let offers = [];
@@ -91,6 +95,50 @@
         : '';
       slot.hidden = !offer;
     });
+  }
+
+  function leafletCard(leaflet) {
+    const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
+    const validity = leaflet.valid_from && leaflet.valid_to
+      ? `${formatLong(leaflet.valid_from)} – ${formatLong(leaflet.valid_to)}`
+      : 'Aktuální platnost ověříš po otevření';
+    return `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+      <div class="leafletCover">
+        <img src="assets/logos/tesco.svg" alt="" aria-hidden="true">
+        <span>${esc(leaflet.subtitle || 'Tesco')}</span>
+      </div>
+      <div class="leafletBody">
+        <span class="leafletType">${leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták'}</span>
+        <h3>${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}</h3>
+        <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
+        <div class="leafletValidity">Platí ${esc(validity)}</div>
+        <span class="leafletAction">${leaflet.direct ? 'Otevřít leták' : 'Prohlédnout na iTesco'}</span>
+      </div>
+    </a>`;
+  }
+
+  async function loadLeaflets() {
+    const target = $('leafletGrid');
+    if (!target) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 9000);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed`, {
+        headers: { apikey: KEY },
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const result = await response.json();
+      if (!Array.isArray(result.leaflets) || !result.leaflets.length) throw new Error('Bez aktuálních letáků');
+      target.innerHTML = result.leaflets.slice(0, 3).map(leafletCard).join('');
+    } catch {
+      target.innerHTML = `<a class="leafletCard" href="${OFFICIAL_TESCO_LEAFLETS}" target="_blank" rel="noopener noreferrer">
+        <div class="leafletCover"><img src="assets/logos/tesco.svg" alt="" aria-hidden="true"><span>Aktuální letáky</span></div>
+        <div class="leafletBody"><span class="leafletType">Oficiální zdroj</span><h3>Letáky a katalogy Tesco</h3><p>Prohlédni si právě platnou nabídku podle své prodejny.</p><span class="leafletAction">Otevřít iTesco</span></div>
+      </a>`;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   function filteredOffers() {
@@ -203,5 +251,6 @@
   $('savedToggle')?.addEventListener('click', () => { showSaved = !showSaved; visible = 24; updateFavoriteControls(); render(); });
   window.addEventListener('online', load);
   load();
+  loadLeaflets();
   setInterval(load,5*60*1000);
 })();

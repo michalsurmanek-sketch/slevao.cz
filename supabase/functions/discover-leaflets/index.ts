@@ -408,7 +408,7 @@ async function discoverSource(source: any) {
 
     documents = filterStoreDocuments([...new Set(documents)], storeSlug)
       .sort((a, b) => candidateScore(b, storeSlug) - candidateScore(a, storeSlug))
-      .slice(0, storeSlug === 'tesco' ? 2 : 8);
+      .slice(0, storeSlug === 'tesco' ? 3 : 8);
 
     if (!documents.length) throw new Error(`Adaptér ${adapter} nenašel PDF ani dostatečně velké stránky letáku.`);
 
@@ -473,7 +473,6 @@ async function discoverSource(source: any) {
       if (data?.id) {
         created++;
         await queueProcessor(data.id);
-        if (storeSlug === 'tesco') break;
       }
     }
 

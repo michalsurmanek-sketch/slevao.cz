@@ -46,13 +46,14 @@ assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta o
 for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
   const feed = read(`${slug}.html`);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-3/, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-4/, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
   assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
 }
 const tescoFeed = read('tesco.html');
 assert.match(tescoFeed, /assets\/logos\/tesco\.svg/, 'Tesco stránka musí používat lokální pravé logo.');
 assert.match(tescoFeed, /id="categoryBar"/, 'Tesco stránka musí obsahovat rychlé filtrování kategorií.');
 assert.match(tescoFeed, /id="savedToggle"/, 'Tesco stránka musí umožnit zobrazit uložené nabídky.');
+assert.match(tescoFeed, /id="leafletGrid"/, 'Tesco stránka musí obsahovat živou sekci aktuálních letáků.');
 const storeFeed = read('assets/store-feed.js');
 new Script(storeFeed, { filename: 'assets/store-feed.js' });
 assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do neexistujícího prvku názvu obchodu.');
@@ -61,6 +62,11 @@ assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrý
 assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
 assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
 assert.match(storeFeed, /renderHeroProducts/, 'Tesco hero musí používat fotografie ze živého feedu.');
+assert.match(storeFeed, /store-leaflet-feed/, 'Tesco stránka musí načítat letáky z bezpečného veřejného feedu.');
+const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
+assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed letáků musí vycházet z oficiálního iTesco zdroje.');
+assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed nesmí zpřístupňovat interní diagnostiku importů.');
+assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed letáků musí fungovat bez přihlášení návštěvníka.');
 assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a všech 73 obchodních feedů.');
 
 const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);

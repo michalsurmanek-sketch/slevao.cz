@@ -12,7 +12,7 @@
   <meta property="og:type" content="website">
   <link rel="icon" href="favicon.svg">
   <link rel="preload" href="assets/logos/tesco.svg" as="image" type="image/svg+xml">
-  <link rel="stylesheet" href="assets/store-feed.css?v=20260801-3">
+  <link rel="stylesheet" href="assets/store-feed.css?v=20260801-4">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"CollectionPage","name":"Tesco – aktuální leták a slevy","url":"https://slevao.cz/tesco.html","isPartOf":{"@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/"}}</script>
 </head>
 <body class="store-page--tesco">
@@ -53,6 +53,20 @@
     </section>
 
     <section class="c">
+      <section class="leafletSection" aria-labelledby="leafletHeading">
+        <div class="leafletHead">
+          <div>
+            <span class="eyebrow">LETÁKY PŘÍMO Z TESCO</span>
+            <h2 id="leafletHeading">Aktuální letáky a katalogy</h2>
+            <p>Vyber si typ prodejny a prolistuj si právě platnou nabídku.</p>
+          </div>
+          <a class="officialLink" href="https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy" target="_blank" rel="noopener noreferrer">Všechny letáky na iTesco ↗</a>
+        </div>
+        <div id="leafletGrid" class="leafletGrid" aria-live="polite">
+          <div class="leafletLoading">Načítám aktuální letáky Tesco…</div>
+        </div>
+      </section>
+
       <nav class="categoryBar" id="categoryBar" aria-label="Kategorie nabídek">
         <button class="category active" type="button" data-category="all">Vše</button>
         <button class="category" type="button" data-category="food">🛒 Potraviny</button>
@@ -87,6 +101,6 @@
 
   <footer><div class="c"><strong>SLEVAO.cz</strong><p>Platné slevy českých obchodů na jednom místě.</p></div></footer>
   <script>window.SLEVAO_STORE={"slug":"tesco","name":"Tesco","logo":"assets/logos/tesco.svg","color":"#00539f"}</script>
-  <script src="assets/store-feed.js?v=20260801-3"></script>
+  <script src="assets/store-feed.js?v=20260801-4"></script>
 </body>
 </html>
