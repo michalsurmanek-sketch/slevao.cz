@@ -275,7 +275,7 @@ Deno.serve(async (request) => {
     if (!authorizedByServiceRole && !authorizedByCron && authHeader.startsWith('Bearer ')) {
       const accessToken = authHeader.slice(7).trim();
       const { data: userData } = await db.auth.getUser(accessToken);
-      const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+      const role = String(userData.user?.app_metadata?.role || '').toLowerCase();
       authorizedByUser = ['admin', 'editor'].includes(role);
     }
 

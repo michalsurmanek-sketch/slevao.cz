@@ -50,7 +50,7 @@ Deno.serve(async (request) => {
   if (!token) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
 
   const { data: userData } = await db.auth.getUser(token);
-  const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+  const role = String(userData.user?.app_metadata?.role || '').toLowerCase();
   if (!['admin', 'editor'].includes(role)) {
     return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });
   }

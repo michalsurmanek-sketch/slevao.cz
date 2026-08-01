@@ -484,7 +484,21 @@ async function discoverSource(source: any) {
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
-  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (request.method !== 'POST') return Response.json({ error: 'Method not allowed' }, { status: 405 });
+
+  // Fail closed. A missing secret is a deployment error, never a reason to make
+  // the discovery endpoint public.
+  if (!CRON_SECRET) {
+    console.error('discover-leaflets: CRON_SECRET is not configured');
+    return Response.json({ error: 'Automation is not configured' }, { status: 503 });
+  }
+
+  const authorization = request.headers.get('authorization') || '';
+  const allowedByService = authorization === `Bearer ${SERVICE_ROLE_KEY}`;
+  const allowedByCron = request.headers.get('x-cron-secret') === CRON_SECRET;
+  if (!allowedByService && !allowedByCron) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   const { data: sources, error } = await db.from('leaflet_sources').select('*,stores(slug)').eq('is_active', true).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });

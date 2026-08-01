@@ -288,7 +288,7 @@ Deno.serve(async (request) => {
   let userAllowed = false;
   if (!service && !trustedCron && auth.startsWith('Bearer ')) {
     const { data } = await db.auth.getUser(auth.slice(7).trim());
-    const role = String(data.user?.app_metadata?.role || data.user?.user_metadata?.role || '').toLowerCase();
+    const role = String(data.user?.app_metadata?.role || '').toLowerCase();
     userAllowed = ['admin', 'editor'].includes(role);
   }
   if (!service && !trustedCron && !userAllowed) return jsonResponse({ error: 'Unauthorized' }, 401);

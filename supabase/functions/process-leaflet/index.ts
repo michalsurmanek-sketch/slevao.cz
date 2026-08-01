@@ -1249,7 +1249,7 @@ Deno.serve(async (request) => {
   let allowedByUser = false;
   if (!allowedByService && !allowedByCron && authorization.startsWith('Bearer ')) {
     const { data: userData } = await db.auth.getUser(authorization.slice(7).trim());
-    const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+    const role = String(userData.user?.app_metadata?.role || '').toLowerCase();
     allowedByUser = ['admin', 'editor'].includes(role);
   }
   if (!allowedByService && !allowedByCron && !allowedByUser) return Response.json({ error: 'Unauthorized' }, { status: 401, headers: CORS_HEADERS });

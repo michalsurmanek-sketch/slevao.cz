@@ -108,7 +108,7 @@ async function authorize(request: Request): Promise<boolean> {
   if (!authHeader.startsWith('Bearer ')) return false;
   const token = authHeader.slice(7).trim();
   const { data } = await db.auth.getUser(token);
-  const role = String(data.user?.app_metadata?.role || data.user?.user_metadata?.role || '').toLowerCase();
+  const role = String(data.user?.app_metadata?.role || '').toLowerCase();
   return ['admin', 'editor'].includes(role);
 }
 

@@ -186,7 +186,7 @@ Deno.serve(async (request) => {
   if (!isTrustedCron && !isServiceRole) {
     const { data: userData, error: userError } = await adminClient.auth.getUser(accessToken);
     const user = userData.user;
-    const role = String(user?.app_metadata?.role || user?.user_metadata?.role || '').toLowerCase();
+    const role = String(user?.app_metadata?.role || '').toLowerCase();
     if (userError || !user) {
       return Response.json({ error: 'Přihlášení je neplatné nebo vypršelo.' }, { status: 401, headers: corsHeaders });
     }

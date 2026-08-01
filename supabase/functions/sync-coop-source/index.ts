@@ -21,7 +21,7 @@ async function isAllowed(request: Request): Promise<boolean> {
   if (CRON_SECRET && request.headers.get('x-cron-secret') === CRON_SECRET) return true;
   if (!token) return false;
   const { data } = await db.auth.getUser(token);
-  const role = String(data.user?.app_metadata?.role || data.user?.user_metadata?.role || '').toLowerCase();
+  const role = String(data.user?.app_metadata?.role || '').toLowerCase();
   return ['admin', 'editor'].includes(role);
 }
 

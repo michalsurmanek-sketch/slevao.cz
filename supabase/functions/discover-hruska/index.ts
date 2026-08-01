@@ -159,7 +159,14 @@ async function run() {
 
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok');
-  if (CRON_SECRET && request.headers.get('x-cron-secret') !== CRON_SECRET) {
+  if (request.method !== 'POST') {
+    return new Response(JSON.stringify({ error: 'Method not allowed' }), { status: 405, headers: { 'content-type': 'application/json' } });
+  }
+  if (!CRON_SECRET) {
+    console.error('discover-hruska: CRON_SECRET is not configured');
+    return new Response(JSON.stringify({ error: 'Automatizace není nakonfigurovaná.' }), { status: 503, headers: { 'content-type': 'application/json' } });
+  }
+  if (request.headers.get('x-cron-secret') !== CRON_SECRET) {
     return new Response(JSON.stringify({ error: 'Neplatné oprávnění.' }), {
       status: 401,
       headers: { 'content-type': 'application/json' },

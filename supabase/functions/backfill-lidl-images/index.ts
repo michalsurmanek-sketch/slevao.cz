@@ -51,7 +51,7 @@ async function authorize(request: Request): Promise<boolean> {
   if (allowedByService || allowedByCron) return true;
   if (!token) return false;
   const { data: userData } = await db.auth.getUser(token);
-  const role = String(userData.user?.app_metadata?.role || userData.user?.user_metadata?.role || '').toLowerCase();
+  const role = String(userData.user?.app_metadata?.role || '').toLowerCase();
   return ['admin', 'editor'].includes(role);
 }
 
