@@ -288,7 +288,9 @@
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (!Array.isArray(result.leaflets) || !result.leaflets.length) throw new Error('Bez aktuálních letáků');
-      target.innerHTML = result.leaflets.slice(0, 3).map(leafletCard).join('');
+      const currentLeaflets = result.leaflets.slice(0, 3);
+      target.dataset.count = String(currentLeaflets.length);
+      target.innerHTML = currentLeaflets.map(leafletCard).join('');
       target.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.addEventListener('click', () => {
         openLeafletViewer(button.dataset.leafletPreview, button.dataset.leafletTitle);
       }));
@@ -297,6 +299,7 @@
         openLeafletViewer(firstPreview.dataset.leafletPreview, firstPreview.dataset.leafletTitle, false);
       }
     } catch {
+      target.dataset.count = '1';
       target.innerHTML = config.slug === 'tesco'
         ? `<a class="leafletCard" href="${OFFICIAL_TESCO_LEAFLETS}" target="_blank" rel="noopener noreferrer"><div class="leafletCover"><img src="assets/logos/tesco.svg" alt="" aria-hidden="true"><span>Aktuální letáky</span></div><div class="leafletBody"><span class="leafletType">Oficiální zdroj</span><h3>Letáky a katalogy Tesco</h3><p>Prohlédni si právě platnou nabídku podle své prodejny.</p><span class="leafletAction">Otevřít iTesco</span></div></a>`
         : `<div class="leafletError"><strong>Aktuální leták zatím není dostupný.</strong><br>Jakmile automatický import získá nový platný dokument, zobrazí se zde.</div>`;

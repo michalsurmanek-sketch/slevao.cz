@@ -51,8 +51,8 @@ for (const page of storePageFiles) {
   const slug = page.replace(/\.html$/, '');
   const feed = read(page);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-14/, `${page} nepoužívá aktuální společný živý feed.`);
-  assert.match(feed, /assets\/store-feed\.css\?v=20260801-14/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-15/, `${page} nepoužívá aktuální společný živý feed.`);
+  assert.match(feed, /assets\/store-feed\.css\?v=20260801-15/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
   assert.match(feed, /id="leafletGrid"/, `${page} nemá automatický přehled letáků.`);
   assert.match(feed, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
   assert.match(feed, /rel="canonical"/, `${page} nemá canonical URL.`);
@@ -84,6 +84,8 @@ assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí na�
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
 assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
 assert.match(storeFeed, /loadLeaflets\(false\),10\*60\*1000/, 'Otevřená stránka musí automaticky kontrolovat nový leták každých 10 minut.');
+assert.match(storeFeed, /target\.dataset\.count = String\(currentLeaflets\.length\)/, 'Počet sloupců letáků se musí přizpůsobit skutečnému počtu dokumentů.');
+assert.match(storeFeedCss, /leafletGrid\[data-count="1"\]/, 'Jediný leták nesmí zůstat v prázdné třísloupcové mřížce.');
 assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
 assert.doesNotMatch(tescoFeed, /class="heroProduct/, 'Hlavní Tesco sekce nesmí obsahovat produktové fotografie.');
 assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Feed nesmí znovu vkládat produktové fotografie do hlavní sekce.');
