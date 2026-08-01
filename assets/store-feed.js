@@ -99,10 +99,16 @@
 
   function leafletCard(leaflet) {
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
+    const previewUrl = String(leaflet.preview_url || '');
+    const canPreview = previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
     const validity = leaflet.valid_from && leaflet.valid_to
       ? `${formatLong(leaflet.valid_from)} – ${formatLong(leaflet.valid_to)}`
       : 'Aktuální platnost ověříš po otevření';
-    return `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">
+    const open = canPreview
+      ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
+      : `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">`;
+    const close = canPreview ? '</button>' : '</a>';
+    return `${open}
       <div class="leafletCover">
         <img src="assets/logos/tesco.svg" alt="" aria-hidden="true">
         <span>${esc(leaflet.subtitle || 'Tesco')}</span>
@@ -112,9 +118,22 @@
         <h3>${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}</h3>
         <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
         <div class="leafletValidity">Platí ${esc(validity)}</div>
-        <span class="leafletAction">${leaflet.direct ? 'Otevřít leták' : 'Prohlédnout na iTesco'}</span>
+        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : 'Prohlédnout na iTesco'}</span>
       </div>
-    </a>`;
+    ${close}`;
+  }
+
+  function openLeafletViewer(previewUrl, title, shouldScroll = true) {
+    const viewer = $('leafletViewer');
+    const frame = $('leafletFrame');
+    if (!viewer || !frame || !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`)) return;
+    $('leafletViewerTitle').textContent = title || 'Tesco leták';
+    frame.src = previewUrl;
+    viewer.hidden = false;
+    $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => {
+      button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
+    });
+    if (shouldScroll) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
   async function loadLeaflets() {
@@ -131,6 +150,11 @@
       const result = await response.json();
       if (!Array.isArray(result.leaflets) || !result.leaflets.length) throw new Error('Bez aktuálních letáků');
       target.innerHTML = result.leaflets.slice(0, 3).map(leafletCard).join('');
+      target.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.addEventListener('click', () => {
+        openLeafletViewer(button.dataset.leafletPreview, button.dataset.leafletTitle);
+      }));
+      const firstPreview = target.querySelector('[data-leaflet-preview]');
+      if (firstPreview) openLeafletViewer(firstPreview.dataset.leafletPreview, firstPreview.dataset.leafletTitle, false);
     } catch {
       target.innerHTML = `<a class="leafletCard" href="${OFFICIAL_TESCO_LEAFLETS}" target="_blank" rel="noopener noreferrer">
         <div class="leafletCover"><img src="assets/logos/tesco.svg" alt="" aria-hidden="true"><span>Aktuální letáky</span></div>
@@ -249,6 +273,11 @@
     render();
   }));
   $('savedToggle')?.addEventListener('click', () => { showSaved = !showSaved; visible = 24; updateFavoriteControls(); render(); });
+  $('closeLeafletViewer')?.addEventListener('click', () => {
+    $('leafletViewer').hidden = true;
+    $('leafletFrame').removeAttribute('src');
+    $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.classList.remove('active'));
+  });
   window.addEventListener('online', load);
   load();
   loadLeaflets();

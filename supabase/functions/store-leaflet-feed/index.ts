@@ -21,6 +21,7 @@ type Leaflet = {
   valid_to: string | null;
   url: string;
   direct: boolean;
+  preview_url?: string;
 };
 
 function isoDate(value: string, endDate = false): string | null {
@@ -78,20 +79,31 @@ async function attachDirectDocuments(leaflets: Leaflet[]): Promise<Leaflet[]> {
   if (!stores?.[0]) return leaflets;
   const today = new Date().toISOString().slice(0, 10);
   const { data } = await db.from('leaflet_imports')
-    .select('source_document_url,detected_valid_from,detected_valid_to,created_at')
+    .select('id,source_document_url,detected_valid_from,detected_valid_to,created_at')
     .eq('store_id', stores[0].id)
     .in('status', ['published', 'review', 'publishing'])
     .or(`detected_valid_to.is.null,detected_valid_to.gte.${today}`)
     .order('created_at', { ascending: false })
     .limit(30);
-  const documents = new Map<string, string>();
+  const uniqueByUrl = new Map<string, any>();
+  for (const row of data || []) if (!uniqueByUrl.has(row.source_document_url)) uniqueByUrl.set(row.source_document_url, row);
+  const uniqueDocuments = [...uniqueByUrl.values()];
+  const documents = new Map<string, any>();
   for (const row of data || []) {
     const kind = documentKind(String(row.source_document_url || ''));
-    if (kind && !documents.has(kind)) documents.set(kind, row.source_document_url);
+    if (kind && !documents.has(kind)) documents.set(kind, row);
   }
-  return leaflets.map((leaflet) => documents.has(leaflet.key)
-    ? { ...leaflet, url: documents.get(leaflet.key)!, direct: true }
-    : leaflet);
+  const alreadyUsed = new Set([...documents.values()].map((row) => row.id));
+  const unassigned = uniqueDocuments.filter((row) => !alreadyUsed.has(row.id));
+  return leaflets.map((leaflet) => {
+    const document = documents.get(leaflet.key) || unassigned.shift();
+    return document ? {
+      ...leaflet,
+      url: document.source_document_url,
+      direct: true,
+      preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?import_id=${encodeURIComponent(document.id)}`,
+    } : leaflet;
+  });
 }
 
 Deno.serve(async (request) => {
