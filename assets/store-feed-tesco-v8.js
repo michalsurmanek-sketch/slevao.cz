@@ -31,6 +31,14 @@
   let leafletObjectUrl = '';
   let leafletLoadController = null;
 
+  function fitLeafletViewer() {
+    const frame = $('leafletFrame');
+    if (!frame || frame.hidden) return;
+    const top = Math.max(frame.getBoundingClientRect().top, innerWidth <= 520 ? 76 : 96);
+    const minimum = innerWidth <= 520 ? 360 : 420;
+    frame.style.height = `${Math.max(minimum, Math.min(900, innerHeight - top - 12))}px`;
+  }
+
   function readFavorites() {
     try {
       const value = JSON.parse(localStorage.getItem(FAVORITES_KEY) || '[]');
@@ -165,16 +173,20 @@
       if (payload && typeof payload === 'object') {
         const signedUrl = String(payload.url || '');
         if (!signedUrl.startsWith(`${SUPABASE_URL}/storage/v1/object/sign/`)) throw new Error(payload.error || 'Neplatný odkaz na leták.');
-        frame.src = signedUrl;
+        frame.src = `${signedUrl}#page=1&zoom=page-fit`;
         frame.hidden = false;
+        requestAnimationFrame(fitLeafletViewer);
+        setTimeout(fitLeafletViewer, 450);
         $('leafletViewerStatus').hidden = true;
         return;
       }
       const documentBlob = await response.blob();
       if (!documentBlob.size) throw new Error('Stažený leták je prázdný.');
       leafletObjectUrl = URL.createObjectURL(documentBlob);
-      frame.src = leafletObjectUrl;
+      frame.src = `${leafletObjectUrl}#page=1&zoom=page-fit`;
       frame.hidden = false;
+      requestAnimationFrame(fitLeafletViewer);
+      setTimeout(fitLeafletViewer, 450);
       $('leafletViewerStatus').hidden = true;
     } catch (error) {
       if (error?.name === 'AbortError') return;
@@ -330,6 +342,8 @@
     $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.classList.remove('active'));
   });
   window.addEventListener('online', load);
+  window.addEventListener('resize', fitLeafletViewer);
+  window.addEventListener('orientationchange', () => setTimeout(fitLeafletViewer, 150));
   load();
   loadLeaflets();
   setInterval(load,5*60*1000);
