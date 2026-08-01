@@ -281,7 +281,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v3`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v4`, {
         headers: { apikey: KEY },
         signal: controller.signal,
       });

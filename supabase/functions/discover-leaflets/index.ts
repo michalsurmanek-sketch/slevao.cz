@@ -43,11 +43,14 @@ const STORE_RULES: Record<string, { allowHosts: string[]; boosts: string[] }> = 
   billa: { allowHosts: ['billa.cz', 'shopfully.cloud'], boosts: ['letak', 'prospekt', 'page'] },
   lidl: { allowHosts: ['lidl.cz', 'lidl.com', 'leaflets.schwarz'], boosts: ['letak', 'prospekt', 'page'] },
   globus: { allowHosts: ['globus.cz'], boosts: ['letak', 'prospekt', 'page'] },
-  penny: { allowHosts: ['penny.cz', 'penny.eu'], boosts: ['letak', 'prospekt', 'page'] },
+  penny: { allowHosts: ['penny.cz', 'penny.eu', 'files.rewe.co.at'], boosts: ['letak', 'prospekt', 'page'] },
   makro: { allowHosts: ['makro.cz', 'metro-group.com'], boosts: ['katalog', 'letak', 'catalog'] },
 };
 
 const STORE_SOURCE_FALLBACKS: Record<string, string[]> = {
+  penny: [
+    'https://www.penny.cz/letaky',
+  ],
   lidl: [
     'https://www.lidl.cz/c/akcni-letak/s10008644',
     'https://www.lidl.cz/c/akcni-letak/s10008880',
@@ -65,6 +68,70 @@ const STORE_SOURCE_FALLBACKS: Record<string, string[]> = {
     'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy/tesco-hypermarket-uherske-hradiste',
   ],
 };
+
+type PennyPublication = {
+  documentUrl: string;
+  viewerUrl: string;
+  pageCount: number;
+  title: string;
+};
+
+function pennyViewerUrls(html: string, baseUrl: string): string[] {
+  const viewers = new Set<string>();
+  const pattern = /(?:href|content)=["']([^"']*files\.rewe\.co\.at\/PennyIntLeaflet\/CZ\/[^"'?#<]+)["']/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const absolute = absoluteUrl(baseUrl, match[1].replace(/\\u002F/gi, '/'));
+    if (!absolute) continue;
+    try {
+      const url = new URL(absolute);
+      if (url.protocol !== 'https:' || url.hostname !== 'files.rewe.co.at') continue;
+      url.search = '';
+      url.hash = '';
+      viewers.add(url.toString().replace(/\/+$/, '') + '/');
+    } catch { /* ignore */ }
+  }
+  return [...viewers];
+}
+
+async function discoverPennyPublication(html: string, listingUrl: string): Promise<PennyPublication> {
+  const viewers = pennyViewerUrls(html, listingUrl);
+  if (!viewers.length) throw new Error('Oficiální stránka PENNY neobsahuje odkaz na aktuální leták.');
+
+  for (const viewerUrl of viewers) {
+    try {
+      const viewerResponse = await fetchWithRetry(viewerUrl, 'text/html,application/xhtml+xml,*/*;q=0.8');
+      const viewerHtml = await viewerResponse.text();
+      const dynamicFolder = viewerHtml.match(/FBInit\.DYNAMIC_FOLDER\s*=\s*["']([^"']+)["']/i)?.[1] || 'files/assets/';
+      const workspaceUrl = new URL(`${dynamicFolder.replace(/\/+$/, '')}/workspace.js`, viewerResponse.url).toString();
+      const workspaceResponse = await fetchWithRetry(workspaceUrl, 'application/json,application/javascript,text/plain,*/*;q=0.7');
+      const workspaceText = (await workspaceResponse.text()).replace(/^\uFEFF/, '').trim();
+      const workspace = JSON.parse(workspaceText);
+      const downloadName = String(workspace?.downloads?.url || '').trim();
+      if (workspace?.downloads?.enabled === false || !/\.pdf$/i.test(downloadName)) continue;
+
+      const documentUrl = new URL(
+        `${dynamicFolder.replace(/\/+$/, '')}/common/downloads/${encodeURIComponent(downloadName)}`,
+        viewerResponse.url,
+      ).toString();
+      const documentResponse = await fetchWithRetry(documentUrl, 'application/pdf,*/*;q=0.5');
+      const contentType = documentResponse.headers.get('content-type') || '';
+      if (!contentType.includes('application/pdf') && !/\.pdf(?:\?|$)/i.test(documentResponse.url)) continue;
+      await documentResponse.body?.cancel();
+
+      const pageCount = Object.keys(workspace?.downloads?.pageFiles || {}).length;
+      return {
+        documentUrl: normalizedUrl(documentResponse.url),
+        viewerUrl,
+        pageCount,
+        title: String(workspace?.title || '').trim(),
+      };
+    } catch (error) {
+      console.warn('PENNY publication skipped', viewerUrl, error instanceof Error ? error.message : String(error));
+    }
+  }
+  throw new Error('Aktuální publikace PENNY neobsahuje úplný PDF leták.');
+}
 
 function absoluteUrl(base: string, href: string): string | null {
   try { return new URL(href, base).toString(); } catch { return null; }
@@ -384,7 +451,17 @@ async function discoverSource(source: any) {
       documents = extractDocumentCandidates(JSON.stringify(await response.json()), response.url, storeSlug);
     } else {
       const html = await response.text();
-      if (storeSlug === 'globus') {
+      if (storeSlug === 'penny') {
+        const publication = await discoverPennyPublication(html, response.url);
+        documents = [publication.documentUrl];
+        adapter = 'store:penny-flippingbook';
+        adapterMetadata = {
+          viewer_url: publication.viewerUrl,
+          publication_title: publication.title || null,
+          publication_page_count: publication.pageCount || null,
+          complete_document: true,
+        };
+      } else if (storeSlug === 'globus') {
         const listingUrl = 'https://www.globus.cz/olomouc/letaky/aktualni';
         const listingResponse = response.url === listingUrl
           ? response
@@ -422,6 +499,8 @@ async function discoverSource(source: any) {
             ? `${source.id}|${documentUrl}|${etag}|${lastModified}|kaufland-images-v1`
             : storeSlug === 'billa'
               ? `${source.id}|${documentUrl}|${etag}|${lastModified}|billa-images-v2`
+              : storeSlug === 'penny'
+                ? `${source.id}|${documentUrl}|penny-flippingbook-v1`
               : `${source.id}|${documentUrl}|${etag}|${lastModified}`);
       const { data: existing, error: existingError } = await db.from('leaflet_imports')
         .select('id,status,updated_at')

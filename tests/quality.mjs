@@ -51,7 +51,7 @@ for (const page of storePageFiles) {
   const slug = page.replace(/\.html$/, '');
   const feed = read(page);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-15/, `${page} nepoužívá aktuální společný živý feed.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-16/, `${page} nepoužívá aktuální společný živý feed.`);
   assert.match(feed, /assets\/store-feed\.css\?v=20260801-15/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
   assert.match(feed, /id="leafletGrid"/, `${page} nemá automatický přehled letáků.`);
   assert.match(feed, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
@@ -94,7 +94,7 @@ assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky
 assert.doesNotMatch(tescoFeed, /class="heroProduct/, 'Hlavní Tesco sekce nesmí obsahovat produktové fotografie.');
 assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Feed nesmí znovu vkládat produktové fotografie do hlavní sekce.');
 assert.match(storeFeed, /store-leaflet-feed/, 'Stránky obchodů musí načítat letáky z bezpečného veřejného feedu.');
-assert.match(storeFeed, /source=official-v3/, 'Stránky musí používat novou necachovanou víceobchodovou verzi feedu.');
+assert.match(storeFeed, /source=official-v4/, 'Stránky musí používat novou necachovanou víceobchodovou verzi feedu.');
 assert.match(storeFeed, /authorization: `Bearer \$\{KEY\}`/, 'Vložený prohlížeč letáku musí Edge Function volat s autorizační hlavičkou.');
 assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Stažený leták se musí vložit do prohlížeče jako lokální dokument.');
 assert.match(storeFeed, /response\.clone\(\)\.json\(\)/, 'JSON se signed URL se musí rozpoznat i bez dostupné Content-Type hlavičky.');
@@ -196,6 +196,9 @@ assert.match(read('supabase/functions/process-leaflet/index.ts'), /updateBucket\
 assert.match(read('supabase/functions/sync-coop-source/index.ts'), /soukrom\|osobn/, 'Používaný COOP synchronizátor nesmí vybrat dokument o ochraně osobních údajů.');
 assert.match(read('supabase/functions/process-leaflet/index.ts'), /canArchiveInStorage = bytes\.length <= 45/, 'Velké letáky musí obejít omezené úložiště a pokračovat přímo do zpracování.');
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /SPECIALIZED_SOURCE_SLUGS\.has/, 'Generický průzkum musí přeskočit obchody s vlastním synchronizátorem.');
+assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:penny-flippingbook/, 'PENNY musí používat adaptér pro celý vícestránkový FlippingBook.');
+assert.match(read('supabase/functions/discover-leaflets/index.ts'), /common\/downloads/, 'PENNY adaptér musí stáhnout úplný PDF dokument, ne jednotlivé náhledové stránky.');
+assert.match(publicLeafletFeed, /storeSlug === 'penny'/, 'Veřejný feed musí sloučit staré jednotlivé stránky PENNY do jediného boxu.');
 
 const publicSources = [
   'login.html', 'moderation.html', 'account.html', 'collections.html',

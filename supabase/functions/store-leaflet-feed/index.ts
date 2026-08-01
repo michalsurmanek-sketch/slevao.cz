@@ -155,12 +155,21 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
   if (error) throw error;
 
   const seen = new Set<string>();
-  return (data || []).filter((row: any) => {
+  let documents = (data || []).filter((row: any) => {
     const source = String(row.source_document_url || '');
     if (!source.startsWith('https://') || seen.has(source)) return false;
     seen.add(source);
     return true;
-  }).slice(0, 3).map((row: any, index: number) => ({
+  });
+  // PENNY publikuje jeden vícestránkový FlippingBook. Starší obecný adaptér
+  // mylně uložil jednotlivé náhledové stránky jako samostatné letáky.
+  if (storeSlug === 'penny') {
+    const completePdf = documents.find((row: any) => /\.pdf(?:\?|$)/i.test(String(row.source_document_url || '')));
+    documents = completePdf ? [completePdf] : documents.slice(0, 1);
+  } else {
+    documents = documents.slice(0, 3);
+  }
+  return documents.map((row: any, index: number) => ({
     key: `${storeSlug}-${index + 1}`,
     title: index === 0 ? 'Aktuální leták' : 'Další platný leták',
     subtitle: store.name,
