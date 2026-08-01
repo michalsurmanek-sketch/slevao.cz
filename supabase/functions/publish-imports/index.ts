@@ -48,7 +48,7 @@ async function findExistingProduct(item: any): Promise<string | null> {
 }
 
 async function findExistingOffer(job: any, item: any, validFrom: string, validTo: string): Promise<any | null> {
-  let query = db.from('offers').select('id,product_id,title,price')
+  let query = db.from('offers').select('id,product_id,title,price,old_price,image_url')
     .eq('store_id', job.store_id)
     .eq('valid_from', validFrom)
     .eq('valid_to', validTo)
@@ -153,26 +153,33 @@ async function publishImport(job: any) {
       if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
 
       const existingOffer = tesco ? null : await findExistingOffer(job, item, validFrom, validTo);
-      if (existingOffer && String(job.metadata?.adapter || '') === 'store:makro') {
+      if (existingOffer) {
+        const samePrice = Number(existingOffer.price) === Number(item.price);
+        const imageUrl = item.image_url || existingOffer.image_url || null;
         const { error: updateOfferError } = await db.from('offers').update({
           price: item.price,
-          old_price: item.old_price,
-          image_url: item.image_url,
+          old_price: item.old_price ?? existingOffer.old_price ?? null,
+          image_url: imageUrl,
           is_verified: Number(item.confidence || 0) >= 0.9,
           published_at: new Date().toISOString(),
         }).eq('id', existingOffer.id);
         if (updateOfferError) throw updateOfferError;
-        await db.from('leaflet_import_items').update({ status: 'published', product_id: existingOffer.product_id }).eq('id', item.id);
-        published++;
-        continue;
-      }
 
-      if (existingOffer && Number(existingOffer.price) === Number(item.price)) {
+        if (imageUrl && existingOffer.product_id) {
+          const { error: imageProductError } = await db.from('products').update({ image_url: imageUrl }).eq('id', existingOffer.product_id);
+          if (imageProductError) throw imageProductError;
+        }
+
         await db.from('leaflet_import_items').update({
-          status: 'ignored',
-          raw_data: { ...(item.raw_data || {}), ignored_reason: 'duplicate_offer' },
+          status: samePrice ? 'ignored' : 'published',
+          product_id: existingOffer.product_id,
+          raw_data: {
+            ...(item.raw_data || {}),
+            existing_offer_id: existingOffer.id,
+            ...(samePrice ? { ignored_reason: 'duplicate_offer' } : { publish_action: 'updated_existing_offer' }),
+          },
         }).eq('id', item.id);
-        skippedDuplicates++;
+        if (samePrice) skippedDuplicates++; else published++;
         continue;
       }
 
