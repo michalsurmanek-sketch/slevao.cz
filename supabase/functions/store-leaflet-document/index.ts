@@ -5,7 +5,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'GET, HEAD, OPTIONS',
-  'access-control-allow-headers': 'range, content-type, apikey',
+  'access-control-allow-headers': 'authorization, range, content-type, apikey',
   'access-control-expose-headers': 'accept-ranges, content-length, content-range, content-type',
 };
 

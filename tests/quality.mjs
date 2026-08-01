@@ -75,6 +75,7 @@ assert.match(publicLeafletDocument, /store\?\.slug !== 'tesco'/, 'Veřejný doku
 assert.match(publicLeafletDocument, /allowedStatuses/, 'Dokumentový proxy nesmí zobrazovat nezpracované nebo chybové importy.');
 assert.match(publicLeafletDocument, /detected_valid_to/, 'Dokumentový proxy musí odmítnout prošlý leták.');
 assert.match(publicLeafletDocument, /createSignedUrl/, 'Uložený leták se má otevírat přes krátkodobý podepsaný odkaz.');
+assert.match(publicLeafletDocument, /access-control-allow-headers': 'authorization,/, 'Dokumentový proxy musí v CORS povolit autorizační hlavičku prohlížeče.');
 assert.match(read('supabase/functions/store-leaflet-document/config.toml'), /verify_jwt = false/, 'Prohlížeč letáku musí fungovat bez přihlášení návštěvníka.');
 assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a všech 73 obchodních feedů.');
 
