@@ -1,0 +1,74 @@
+name: Fix store logo sources v3
+
+on:
+  push:
+    paths:
+      - '.github/workflows/fix-store-logo-sources-v3.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch logo sources
+        shell: python
+        run: |
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+
+          old = "const logo=s=>s.logo_url||`https://www.google.com/s2/favicons?sz=256&domain_url=https://${s.domain||''}`;"
+          new = """const LOGO_SOURCES={
+  penny:['https://commons.wikimedia.org/wiki/Special:Redirect/file/Pennylogo.svg'],
+  'pramen-cz':['https://commons.wikimedia.org/wiki/Special:Redirect/file/Pramen.cz,_logo.jpg'],
+  okay:['https://logo.clearbit.com/okay.cz?size=512'],
+  petcenter:['https://logo.clearbit.com/petcenter.cz?size=512'],
+  ratio:['https://logo.clearbit.com/ratio.cz?size=512']
+};
+const logoSources=s=>{
+  const out=[...(LOGO_SOURCES[s?.slug]||[])];
+  if(s?.logo_url)out.push(s.logo_url);
+  if(s?.domain)out.push(`https://logo.clearbit.com/${s.domain}?size=512`);
+  if(s?.domain&&!['okay','ratio','pramen-cz'].includes(s?.slug))out.push(`https://www.google.com/s2/favicons?sz=256&domain_url=https://${s.domain}`);
+  return [...new Set(out.filter(Boolean))];
+};
+const logo=s=>logoSources(s)[0]||'';
+function nextLogo(img){
+  const store=state.stores.find(x=>x.slug===img.dataset.slug);
+  const sources=logoSources(store);
+  const next=Number(img.dataset.logoIndex||0)+1;
+  if(next<sources.length){img.dataset.logoIndex=String(next);img.src=sources[next];return}
+  img.remove();
+}
+"""
+          if old not in s:
+              raise SystemExit('logo helper pattern not found')
+          s = s.replace(old, new)
+
+          old_store = '<img src="${esc(logo(s))}" alt="Logo ${esc(s.name)}" loading="lazy" onerror="this.style.display=\'none\'">'
+          new_store = '<img src="${esc(logo(s))}" data-slug="${esc(s.slug)}" data-logo-index="0" alt="Logo ${esc(s.name)}" loading="lazy" onerror="nextLogo(this)">'
+          if old_store not in s:
+              raise SystemExit('store logo markup pattern not found')
+          s = s.replace(old_store, new_store)
+
+          old_offer = '<img src="${esc(logo(store))}" alt="" loading="lazy" onerror="this.remove()">'
+          new_offer = '<img src="${esc(logo(store))}" data-slug="${esc(store.slug)}" data-logo-index="0" alt="" loading="lazy" onerror="nextLogo(this)">'
+          if old_offer not in s:
+              raise SystemExit('offer logo markup pattern not found')
+          s = s.replace(old_offer, new_offer)
+
+          s = s.replace('.storeCard img{max-width:88px;max-height:58px;object-fit:contain}', '.storeCard img{max-width:96px;max-height:66px;object-fit:contain;image-rendering:auto}')
+          s = s.replace('.storeLine img{width:24px;height:24px;object-fit:contain;border-radius:6px}', '.storeLine img{width:30px;height:30px;object-fit:contain;border-radius:6px;image-rendering:auto}')
+
+          p.write_text(s, encoding='utf-8')
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html
+          git rm .github/workflows/fix-store-logo-sources-v3.yml
+          git commit -m "fix(logos): use verified Penny and fallback logo sources"
+          git push
