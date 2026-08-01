@@ -59,6 +59,8 @@ for (const path of ['supabase/functions/discover-leaflets/index.ts', 'supabase/f
 const imageDiscovery = read('supabase/functions/discover-product-images/index.ts');
 assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhledávání fotografií musí vyžadovat oprávnění.');
 assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií musí používat schvalovací frontu.');
+assert.match(imageDiscovery, /order\("image_checked_at"/, 'Vyhledávání fotografií musí postupovat přes dosud neprověřené produkty.');
+assert.match(read('admin-fotografie.html'), /select\('\*',\{count:'exact'\}\)/, 'Administrace fotografií musí zobrazovat přesný počet chybějících fotografií.');
 for (const path of ['supabase/functions/enrich-offer-images/index.ts', 'supabase/functions/backfill-tesco-images/index.ts']) {
   const source = read(path);
   assert.match(source, /product_image_candidates/, `${path} musí ukládat nejisté obrázky do schvalovací fronty.`);

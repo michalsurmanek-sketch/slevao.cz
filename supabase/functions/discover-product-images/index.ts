@@ -243,11 +243,14 @@ Deno.serve(async (req) => {
     }
 
     let query = db.from("products_missing_verified_images")
-      .select("id,name,brand,ean,quantity_text,active_offer_count,last_offer_at")
+      .select("id,name,brand,ean,quantity_text,image_checked_at,active_offer_count,last_offer_at")
       .gt("active_offer_count", 0);
     if (productId) query = query.eq("id", productId);
     else if (storeProductIds) query = query.in("id", storeProductIds);
-    query = query.order("active_offer_count", { ascending: false }).order("last_offer_at", { ascending: false, nullsFirst: false });
+    query = query
+      .order("image_checked_at", { ascending: true, nullsFirst: true })
+      .order("active_offer_count", { ascending: false })
+      .order("last_offer_at", { ascending: false, nullsFirst: false });
     const { data: products, error } = await query.limit(productId ? 1 : limit);
     if (error) throw error;
     if (productId && !(products || []).length) throw new Error("Vybraný produkt nebyl nalezen nebo už má ověřenou fotografii.");
@@ -270,6 +273,7 @@ Deno.serve(async (req) => {
 
       if (!found.length) {
         withoutMatch++;
+        await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", master.id);
         results.push({ product_id: master.id, name: repairMojibake(master.name), status: "not_found", searched: productQuery(master), sources_checked: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)] });
         continue;
       }
@@ -294,6 +298,7 @@ Deno.serve(async (req) => {
         }, { onConflict: "product_id,image_url", ignoreDuplicates: true });
         if (!insertError) { created++; productCreated++; }
       }
+      await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", master.id);
       results.push({ product_id: master.id, name: repairMojibake(master.name), status: "candidates", count: productCreated, candidates: found });
     }
 
