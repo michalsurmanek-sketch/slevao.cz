@@ -69,14 +69,41 @@ function officialLeaflets(html: string): Leaflet[] {
 function documentKind(url: string): string | null {
   const value = decodeURIComponent(url).toLocaleLowerCase('cs');
   if (/katalog|catalog/.test(value)) return 'catalog';
-  if (/supermarket/.test(value)) return 'supermarket';
-  if (/hypermarket/.test(value)) return 'hypermarket';
+  if (/supermarket|(?:^|[_-])sm(?:[._-]|$)/.test(value)) return 'supermarket';
+  if (/hypermarket|hm-chm/.test(value)) return 'hypermarket';
   return null;
 }
 
-async function attachDirectDocuments(leaflets: Leaflet[]): Promise<Leaflet[]> {
+function documentsFromOfficialHtml(html: string): Map<string, string> {
+  const documents = new Map<string, string>();
+  const urls = html.match(/https:\/\/digitalcontent\.api\.tesco\.com\/v2\/media\/dotcom-cz\/[^"'\\\s<>]+\.pdf/gi) || [];
+  for (const rawUrl of urls) {
+    const url = rawUrl.replace(/&amp;/gi, '&');
+    const kind = documentKind(url);
+    if (kind && !documents.has(kind)) documents.set(kind, url);
+  }
+  return documents;
+}
+
+function directLeaflet(leaflet: Leaflet, url: string): Leaflet {
+  return {
+    ...leaflet,
+    url,
+    direct: true,
+    preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?source_url=${encodeURIComponent(url)}`,
+  };
+}
+
+async function attachDirectDocuments(leaflets: Leaflet[], officialHtml: string): Promise<Leaflet[]> {
+  const officialDocuments = documentsFromOfficialHtml(officialHtml);
+  if (leaflets.every((leaflet) => officialDocuments.has(leaflet.key))) {
+    return leaflets.map((leaflet) => directLeaflet(leaflet, officialDocuments.get(leaflet.key)!));
+  }
   const { data: stores } = await db.from('stores').select('id').eq('slug', 'tesco').limit(1);
-  if (!stores?.[0]) return leaflets;
+  if (!stores?.[0]) return leaflets.map((leaflet) => {
+    const officialUrl = officialDocuments.get(leaflet.key);
+    return officialUrl ? directLeaflet(leaflet, officialUrl) : leaflet;
+  });
   const today = new Date().toISOString().slice(0, 10);
   const { data } = await db.from('leaflet_imports')
     .select('id,source_document_url,detected_valid_from,detected_valid_to,created_at')
@@ -96,6 +123,8 @@ async function attachDirectDocuments(leaflets: Leaflet[]): Promise<Leaflet[]> {
   const alreadyUsed = new Set([...documents.values()].map((row) => row.id));
   const unassigned = uniqueDocuments.filter((row) => !alreadyUsed.has(row.id));
   return leaflets.map((leaflet) => {
+    const officialUrl = officialDocuments.get(leaflet.key);
+    if (officialUrl) return directLeaflet(leaflet, officialUrl);
     const document = documents.get(leaflet.key) || unassigned.shift();
     return document ? {
       ...leaflet,
@@ -127,7 +156,8 @@ Deno.serve(async (request) => {
       clearTimeout(timeout);
     }
     if (!response.ok) throw new Error(`iTesco HTTP ${response.status}`);
-    const leaflets = await attachDirectDocuments(officialLeaflets(await response.text()));
+    const officialHtml = await response.text();
+    const leaflets = await attachDirectDocuments(officialLeaflets(officialHtml), officialHtml);
     if (!leaflets.length) throw new Error('Aktuální letáky se v oficiální stránce nepodařilo rozpoznat.');
     return Response.json({ ok: true, source: TESCO_LISTING_URL, leaflets }, { headers: CORS_HEADERS });
   } catch (error) {

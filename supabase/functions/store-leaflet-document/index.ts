@@ -17,28 +17,48 @@ function responseJson(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: CORS_HEADERS });
 }
 
+function officialTescoDocument(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== 'https:' || url.hostname !== 'digitalcontent.api.tesco.com') return null;
+    if (!url.pathname.startsWith('/v2/media/dotcom-cz/')) return null;
+    if (!/\.(?:pdf|webp|png|jpe?g)$/i.test(url.pathname)) return null;
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (!['GET', 'HEAD'].includes(request.method)) return responseJson({ error: 'Method not allowed' }, 405);
 
-  const importId = new URL(request.url).searchParams.get('import_id') || '';
-  if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(importId)) return responseJson({ error: 'Neplatný identifikátor letáku.' }, 400);
+  const requestUrl = new URL(request.url);
+  const importId = requestUrl.searchParams.get('import_id') || '';
+  const officialSourceUrl = officialTescoDocument(requestUrl.searchParams.get('source_url') || '');
+  let job: any = null;
+  let sourceDocumentUrl = officialSourceUrl || '';
 
-  const { data: job, error } = await db.from('leaflet_imports')
-    .select('id,source_document_url,status,detected_valid_to,metadata,stores(slug)')
-    .eq('id', importId)
-    .maybeSingle();
-  const store = Array.isArray(job?.stores) ? job?.stores[0] : job?.stores;
-  const allowedStatuses = new Set(['published', 'review', 'publishing']);
-  if (error || !job || store?.slug !== 'tesco' || !allowedStatuses.has(String(job.status))) {
-    return responseJson({ error: 'Leták nebyl nalezen.' }, 404);
-  }
-  if (job.detected_valid_to && job.detected_valid_to < new Date().toISOString().slice(0, 10)) {
-    return responseJson({ error: 'Platnost letáku skončila.' }, 410);
+  if (!officialSourceUrl) {
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(importId)) return responseJson({ error: 'Neplatný identifikátor letáku.' }, 400);
+    const { data, error } = await db.from('leaflet_imports')
+      .select('id,source_document_url,status,detected_valid_to,metadata,stores(slug)')
+      .eq('id', importId)
+      .maybeSingle();
+    job = data;
+    const store = Array.isArray(job?.stores) ? job?.stores[0] : job?.stores;
+    const allowedStatuses = new Set(['published', 'review', 'publishing']);
+    if (error || !job || store?.slug !== 'tesco' || !allowedStatuses.has(String(job.status))) {
+      return responseJson({ error: 'Leták nebyl nalezen.' }, 404);
+    }
+    if (job.detected_valid_to && job.detected_valid_to < new Date().toISOString().slice(0, 10)) {
+      return responseJson({ error: 'Platnost letáku skončila.' }, 410);
+    }
+    sourceDocumentUrl = job.source_document_url;
   }
 
-  const bucket = typeof job.metadata?.storage_bucket === 'string' ? job.metadata.storage_bucket : '';
-  const path = typeof job.metadata?.storage_path === 'string' ? job.metadata.storage_path : '';
+  const bucket = typeof job?.metadata?.storage_bucket === 'string' ? job.metadata.storage_bucket : '';
+  const path = typeof job?.metadata?.storage_path === 'string' ? job.metadata.storage_path : '';
   if (bucket && path) {
     const { data, error: signedError } = await db.storage.from(bucket).createSignedUrl(path, 15 * 60);
     if (!signedError && data?.signedUrl) {
@@ -49,7 +69,7 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const upstream = await fetch(job.source_document_url, {
+    const upstream = await fetch(sourceDocumentUrl, {
       method: request.method,
       headers: {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
