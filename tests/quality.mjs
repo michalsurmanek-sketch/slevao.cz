@@ -47,7 +47,7 @@ for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
   const feed = read(`${slug}.html`);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
   const expectedFeedAsset = slug === 'tesco'
-    ? /assets\/store-feed-tesco-v8\.js\?v=20260801-9/
+    ? /assets\/store-feed-tesco-v8\.js\?v=20260801-10/
     : /assets\/store-feed\.js\?v=20260801-7/;
   assert.match(feed, expectedFeedAsset, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
   assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
@@ -75,6 +75,8 @@ assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Stažený letá
 assert.match(storeFeed, /response\.clone\(\)\.json\(\)/, 'JSON se signed URL se musí rozpoznat i bez dostupné Content-Type hlavičky.');
 assert.match(storeFeed, /zoom=page-fit/, 'Leták se musí po otevření přizpůsobit dostupné ploše obrazovky.');
 assert.match(storeFeed, /getBoundingClientRect\(\)\.top/, 'Výška prohlížeče letáku se musí odvodit od skutečné pozice v okně.');
+assert.match(storeFeed, /leaflet-viewer-open/, 'Mobilní prohlížeč letáku musí zamknout obsah stránky pod sebou.');
+assert.match(storeFeed, /firstPreview && !matchMedia/, 'Mobil nesmí automaticky otevírat první leták bez kliknutí uživatele.');
 const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
 assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed letáků musí vycházet z oficiálního iTesco zdroje.');
 assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed nesmí zpřístupňovat interní diagnostiku importů.');

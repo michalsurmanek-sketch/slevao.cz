@@ -148,10 +148,12 @@
     frame.removeAttribute('src');
     frame.hidden = true;
     viewer.hidden = false;
+    const mobileViewer = matchMedia('(max-width: 820px)').matches;
+    document.body.classList.toggle('leaflet-viewer-open', mobileViewer);
     $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => {
       button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
     });
-    if (shouldScroll) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (shouldScroll && !mobileViewer) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
     try {
       const response = await fetch(previewUrl, {
         headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
@@ -214,7 +216,9 @@
         openLeafletViewer(button.dataset.leafletPreview, button.dataset.leafletTitle);
       }));
       const firstPreview = target.querySelector('[data-leaflet-preview]');
-      if (firstPreview) openLeafletViewer(firstPreview.dataset.leafletPreview, firstPreview.dataset.leafletTitle, false);
+      if (firstPreview && !matchMedia('(max-width: 820px)').matches) {
+        openLeafletViewer(firstPreview.dataset.leafletPreview, firstPreview.dataset.leafletTitle, false);
+      }
     } catch {
       target.innerHTML = `<a class="leafletCard" href="${OFFICIAL_TESCO_LEAFLETS}" target="_blank" rel="noopener noreferrer">
         <div class="leafletCover"><img src="assets/logos/tesco.svg" alt="" aria-hidden="true"><span>Aktuální letáky</span></div>
@@ -337,6 +341,7 @@
     leafletLoadController?.abort();
     if (leafletObjectUrl) URL.revokeObjectURL(leafletObjectUrl);
     leafletObjectUrl = '';
+    document.body.classList.remove('leaflet-viewer-open');
     $('leafletViewer').hidden = true;
     $('leafletFrame').removeAttribute('src');
     $('leafletGrid')?.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.classList.remove('active'));
