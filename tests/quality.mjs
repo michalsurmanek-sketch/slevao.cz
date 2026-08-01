@@ -101,6 +101,9 @@ assert.match(manualUpload, /app_metadata\?\.role/, 'Nahrání fotografie musí o
 assert.match(manualUpload, /function detectedType/, 'Nahrání musí ověřit skutečný formát souboru podle jeho obsahu.');
 assert.match(manualUpload, /product_image_candidates/, 'Nahraná fotografie musí skončit ve schvalovací frontě.');
 assert.match(manualUpload, /source_type: "manual"/, 'Nahraná fotografie musí být označena jako ruční zdroj.');
+const missingImageView = read('supabase/migrations/20260801143000_hide_products_with_image_candidates.sql');
+assert.match(missingImageView, /not exists[\s\S]*product_image_candidates/, 'Produkty s kandidátní fotografií nesmí zůstávat v seznamu bez fotografie.');
+assert.match(missingImageView, /status in \('pending', 'approved'\)/, 'Seznam bez fotografie musí skrýt čekající i schválené kandidáty.');
 assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se nesmí počítat jako poruchy automatizace.');
 assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje musí zohlednit jeho poslední import.');
 assert.match(read('admin-automatizace.html'), /latest\?\.status==='failed'/, 'Poslední neúspěšný import musí označit zdroj jako problém.');
