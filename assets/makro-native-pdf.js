@@ -1,6 +1,5 @@
 (() => {
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PUBLITAS_API = 'https://api.publitas.com/v1/groups/makro-cz/publications/ultra-fresh-nabidka.json';
   const PUBLITAS_ASSETS = 'https://view.publitas.com';
   const DOCUMENT_ENDPOINT = `${SUPABASE_URL}/functions/v1/store-leaflet-document`;
@@ -24,6 +23,10 @@
     }
   }
 
+  function setText(element, value) {
+    if (element && element.textContent !== value) element.textContent = value;
+  }
+
   function applyOriginalPdf() {
     if (!previewUrl || applying) return;
     applying = true;
@@ -32,17 +35,14 @@
       if (!cards.length) return;
 
       const primary = cards[0];
-      cards.slice(1).forEach((card) => card.remove());
-      primary.dataset.leafletPreview = previewUrl;
-      primary.dataset.leafletTitle = 'Makro';
-      grid.dataset.count = '1';
+      if (cards.length > 1) cards.slice(1).forEach((card) => card.remove());
+      if (primary.dataset.leafletPreview !== previewUrl) primary.dataset.leafletPreview = previewUrl;
+      if (primary.dataset.leafletTitle !== 'Makro') primary.dataset.leafletTitle = 'Makro';
+      if (grid.dataset.count !== '1') grid.dataset.count = '1';
 
-      const title = primary.querySelector('h3');
-      const description = primary.querySelector('.leafletBody p');
-      const type = primary.querySelector('.leafletType');
-      if (title) title.textContent = 'Makro';
-      if (description) description.textContent = 'Aktuální vícestránkový PDF leták';
-      if (type) type.textContent = 'Akční leták';
+      setText(primary.querySelector('h3'), 'Makro');
+      setText(primary.querySelector('.leafletBody p'), 'Aktuální vícestránkový PDF leták');
+      setText(primary.querySelector('.leafletType'), 'Akční leták');
 
       const frame = document.getElementById('leafletFrame');
       const currentFrame = String(frame?.getAttribute('src') || '');
