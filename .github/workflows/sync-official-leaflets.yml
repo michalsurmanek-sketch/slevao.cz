@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   sync:
@@ -25,6 +25,80 @@ jobs:
       - name: Checkout
         if: github.event_name != 'schedule'
         uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Rozpoznat i PDF odkazy bez přípony
+        if: github.event_name != 'schedule'
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('supabase/functions/sync-official-leaflet-sources/index.ts')
+          text = path.read_text(encoding='utf-8')
+
+          download_function = r'''
+function extractDownloadLinks(html: string, baseUrl: string): string[] {
+  const links = new Set<string>();
+  const pattern = /<a\b([^>]*\bhref=["']([^"']+)["'][^>]*)>([\s\S]*?)<\/a>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(html))) {
+    const attributes = match[1] || '';
+    const body = String(match[3] || '').replace(/<[^>]+>/g, ' ');
+    const label = `${attributes} ${body}`;
+    if (!/(download|stahnout|stáhnout|letak|leták|prospekt|katalog|catalog|leaflet|pdf)/i.test(label)) continue;
+    const url = absoluteUrl(baseUrl, match[2]);
+    if (url) links.add(url);
+  }
+  return [...links].slice(0, 10);
+}
+
+'''
+          marker = 'function extractAssetLinks(html: string, baseUrl: string): string[] {'
+          if 'function extractDownloadLinks(' not in text:
+              if marker not in text:
+                  raise SystemExit('Nenalezen bod pro vložení extractDownloadLinks.')
+              text = text.replace(marker, download_function + marker, 1)
+
+          old = '''  const linkedPages = extractLeafletLinks(landing.text, landing.url);
+  for (const pageUrl of linkedPages.slice(0, 6)) {
+    try {
+      const page = await fetchText(pageUrl, landing.url, 10_000);
+'''
+          new = '''  const linkedPages = [...new Set([
+    ...extractLeafletLinks(landing.text, landing.url),
+    ...extractDownloadLinks(landing.text, landing.url),
+  ])];
+  for (const pageUrl of linkedPages.slice(0, 10)) {
+    try {
+      // Některé oficiální weby posílají PDF přes dynamickou adresu bez .pdf.
+      // Nejdřív proto ověříme skutečný Content-Type a podpis souboru.
+      const directPdf = await validatePdf(pageUrl, landing.url);
+      if (directPdf) {
+        candidateMap.set(directPdf, { url: directPdf, referer: landing.url, score: 180 });
+        continue;
+      }
+      const page = await fetchText(pageUrl, landing.url, 10_000);
+'''
+          if old in text:
+              text = text.replace(old, new, 1)
+          elif '...extractDownloadLinks(landing.text, landing.url)' not in text:
+              raise SystemExit('Nenalezen blok linkedPages pro opravu.')
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Uložit trvalou opravu parseru
+        if: github.event_name != 'schedule'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add supabase/functions/sync-official-leaflet-sources/index.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "Support extensionless official leaflet PDFs"
+            git push origin HEAD:main
+          fi
 
       - name: Setup Supabase CLI
         if: github.event_name != 'schedule'
