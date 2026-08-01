@@ -15,17 +15,13 @@
 
   const style = document.createElement('style');
   style.textContent = `
-    .leafletViewer.pdfjs-rendering{display:flex;flex-direction:column;height:clamp(620px,78vh,900px)}
-    .pdfLeafletPages{flex:1 1 auto;width:100%;min-height:0;overflow-y:auto;overflow-x:hidden;padding:18px;background:#e4e9eb;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;scrollbar-gutter:stable}
-    .pdfLeafletPage{display:flex;align-items:flex-start;justify-content:center;margin:0 auto 18px;background:transparent}
-    .pdfLeafletPage canvas{display:block;max-width:100%;height:auto;background:#fff;box-shadow:0 3px 16px rgba(0,0,0,.18)}
-    .pdfLeafletMessage{display:grid;place-items:center;min-height:260px;padding:24px;color:#53615f;text-align:center}
-    .leafletViewer.pdfjs-rendering iframe,.leafletViewer.pdfjs-rendering .leafletViewerStatus{display:none!important}
     @media(max-width:820px){
-      .leafletViewer.pdfjs-rendering{height:100dvh;min-height:0}
-      .pdfLeafletPages{padding:0;background:#dfe5e7;scrollbar-gutter:auto}
-      .pdfLeafletPage{width:100%!important;min-height:0!important;margin:0 0 8px}
-      .pdfLeafletPage canvas{width:100%!important;max-width:100%;height:auto!important;box-shadow:0 1px 5px rgba(0,0,0,.14)}
+      .leafletViewer.pdfjs-rendering{display:flex;flex-direction:column;height:100dvh;min-height:0}
+      .pdfLeafletPages{flex:1 1 auto;width:100%;min-height:0;overflow-y:auto;overflow-x:hidden;padding:0;background:#dfe5e7;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+      .pdfLeafletPage{display:flex;align-items:flex-start;justify-content:center;width:100%;min-height:0;margin:0 0 8px;background:#fff}
+      .pdfLeafletPage canvas{display:block;width:100%;max-width:100%;height:auto;box-shadow:0 1px 5px rgba(0,0,0,.14)}
+      .pdfLeafletMessage{display:grid;place-items:center;min-height:260px;padding:24px;color:#53615f;text-align:center}
+      .leafletViewer.pdfjs-rendering iframe,.leafletViewer.pdfjs-rendering .leafletViewerStatus{display:none!important}
     }
   `;
   document.head.appendChild(style);
@@ -48,7 +44,7 @@
       script.src = PDFJS_URL;
       script.async = true;
       script.onload = () => resolve(window.pdfjsLib);
-      script.onerror = () => reject(new Error('Nepodařilo se načíst prohlížeč PDF.'));
+      script.onerror = () => reject(new Error('Nepodařilo se načíst mobilní prohlížeč PDF.'));
       document.head.appendChild(script);
     });
   }
@@ -64,6 +60,18 @@
     pages.scrollTop = 0;
   }
 
+  function restoreNativeViewer() {
+    renderToken += 1;
+    source = '';
+    resetPages();
+    pages.hidden = true;
+    viewer.classList.remove('pdfjs-rendering');
+    frame.style.removeProperty('display');
+    frame.style.removeProperty('width');
+    frame.style.removeProperty('max-width');
+    frame.style.removeProperty('height');
+  }
+
   function showMessage(text) {
     resetPages();
     pages.innerHTML = `<div class="pdfLeafletMessage">${text}</div>`;
@@ -72,46 +80,40 @@
   }
 
   async function renderPdf(nextSource) {
-    if (viewer.hidden || !nextSource) return;
+    if (!media.matches || viewer.hidden || !nextSource) return;
     const token = ++renderToken;
     source = cleanSource(nextSource);
-    showMessage('Načítám leták podle velikosti obrazovky…');
+    showMessage('Načítám leták podle velikosti displeje…');
 
     try {
       const pdfjsLib = await loadPdfJs();
-      if (!pdfjsLib || token !== renderToken) return;
+      if (!pdfjsLib || token !== renderToken || !media.matches) return;
       pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER_URL;
 
       const response = await fetch(source, { cache: 'no-store' });
       if (!response.ok) throw new Error(`PDF se nepodařilo načíst (${response.status}).`);
       const data = await response.arrayBuffer();
-      if (token !== renderToken) return;
+      if (token !== renderToken || !media.matches) return;
 
       const pdf = await pdfjsLib.getDocument({ data }).promise;
-      if (token !== renderToken) return;
+      if (token !== renderToken || !media.matches) return;
 
       resetPages();
       pages.hidden = false;
       viewer.classList.add('pdfjs-rendering');
-
-      const availableWidth = Math.max(280, pages.clientWidth - (media.matches ? 0 : 36));
-      const availableHeight = Math.max(420, pages.clientHeight - 36);
+      const availableWidth = Math.max(280, pages.clientWidth || document.documentElement.clientWidth);
       const wrappers = [];
 
       for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
         const page = await pdf.getPage(pageNumber);
-        if (token !== renderToken) return;
+        if (token !== renderToken || !media.matches) return;
         const base = page.getViewport({ scale: 1 });
-        const widthScale = availableWidth / base.width;
-        const heightScale = availableHeight / base.height;
-        const cssScale = media.matches ? widthScale : Math.min(widthScale, heightScale);
-        const cssWidth = Math.floor(base.width * cssScale);
+        const cssScale = availableWidth / base.width;
         const cssHeight = Math.floor(base.height * cssScale);
 
         const wrapper = document.createElement('div');
         wrapper.className = 'pdfLeafletPage';
         wrapper.dataset.page = String(pageNumber);
-        wrapper.style.width = `${cssWidth}px`;
         wrapper.style.minHeight = `${cssHeight}px`;
         wrapper._pdfPage = page;
         wrapper._cssScale = cssScale;
@@ -120,15 +122,15 @@
       }
 
       const drawPage = async (wrapper) => {
-        if (!wrapper || wrapper.dataset.rendered || wrapper.dataset.rendering || token !== renderToken) return;
+        if (!wrapper || wrapper.dataset.rendered || wrapper.dataset.rendering || token !== renderToken || !media.matches) return;
         wrapper.dataset.rendering = 'true';
-        const outputScale = Math.min(window.devicePixelRatio || 1, media.matches ? 1.6 : 1.35);
+        const outputScale = Math.min(window.devicePixelRatio || 1, 1.6);
         const viewport = wrapper._pdfPage.getViewport({ scale: wrapper._cssScale * outputScale });
         const canvas = document.createElement('canvas');
         canvas.width = Math.ceil(viewport.width);
         canvas.height = Math.ceil(viewport.height);
-        canvas.style.width = `${Math.floor(viewport.width / outputScale)}px`;
-        canvas.style.height = `${Math.floor(viewport.height / outputScale)}px`;
+        canvas.style.width = '100%';
+        canvas.style.height = 'auto';
         wrapper.replaceChildren(canvas);
         await wrapper._pdfPage.render({
           canvasContext: canvas.getContext('2d', { alpha: false }),
@@ -148,15 +150,12 @@
       await drawPage(wrappers[0]);
     } catch (error) {
       if (token !== renderToken) return;
-      showMessage(error instanceof Error ? error.message : 'Leták se nepodařilo zobrazit.');
-      viewer.classList.remove('pdfjs-rendering');
-      pages.hidden = true;
-      frame.style.display = 'block';
+      restoreNativeViewer();
     }
   }
 
   function inspectFrame() {
-    if (viewer.hidden || frame.hidden) return;
+    if (!media.matches || viewer.hidden || frame.hidden) return;
     const nextSource = cleanSource(frame.getAttribute('src'));
     if (!nextSource || nextSource === 'about:blank' || nextSource === source) return;
     renderPdf(nextSource);
@@ -167,19 +166,19 @@
     attributeFilter: ['src', 'hidden'],
   });
 
-  closeButton?.addEventListener('click', () => {
-    renderToken += 1;
-    source = '';
-    resetPages();
-    pages.hidden = true;
-    viewer.classList.remove('pdfjs-rendering');
-    frame.style.removeProperty('display');
-  });
+  closeButton?.addEventListener('click', restoreNativeViewer);
 
   const rerender = () => {
     clearTimeout(resizeTimer);
     resizeTimer = window.setTimeout(() => {
-      if (!source || viewer.hidden) return;
+      if (!media.matches) {
+        restoreNativeViewer();
+        return;
+      }
+      if (!source || viewer.hidden) {
+        inspectFrame();
+        return;
+      }
       const currentSource = source;
       source = '';
       renderPdf(currentSource);
