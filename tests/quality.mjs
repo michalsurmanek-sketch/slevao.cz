@@ -94,6 +94,13 @@ assert.match(read('supabase/functions/inspect-product-page/index.ts'), /canonica
 assert.match(read('supabase/functions/inspect-product-page/index.ts'), /hasStrongBrandQuantityMatch/, 'Ruční kontrola fotografie musí umět bezpečnou shodu značky a množství.');
 assert.match(read('supabase/functions/inspect-product-page/index.ts'), /staff_direct_image/, 'Správce musí umět uložit přímý oficiální obrázek do schvalovací fronty.');
 assert.doesNotMatch(read('admin-pridat-fotografii.html'), /Fotografie už je uložená ve frontě/, 'Formulář nesmí tvrdit, že přímý obrázek uložil, dokud ho neposlal backendu.');
+assert.match(read('admin-pridat-fotografii.html'), /type="file" accept="image\/jpeg,image\/png,image\/webp,image\/avif"/, 'Ruční doplnění musí umožnit bezpečný výběr fotografie z počítače.');
+assert.match(read('admin-pridat-fotografii.html'), /8\*1024\*1024/, 'Prohlížeč musí odmítnout fotografii větší než 8 MB.');
+const manualUpload = read('supabase/functions/upload-product-image/index.ts');
+assert.match(manualUpload, /app_metadata\?\.role/, 'Nahrání fotografie musí ověřovat oprávnění správce.');
+assert.match(manualUpload, /function detectedType/, 'Nahrání musí ověřit skutečný formát souboru podle jeho obsahu.');
+assert.match(manualUpload, /product_image_candidates/, 'Nahraná fotografie musí skončit ve schvalovací frontě.');
+assert.match(manualUpload, /source_type: "manual"/, 'Nahraná fotografie musí být označena jako ruční zdroj.');
 assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se nesmí počítat jako poruchy automatizace.');
 assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje musí zohlednit jeho poslední import.');
 assert.match(read('admin-automatizace.html'), /latest\?\.status==='failed'/, 'Poslední neúspěšný import musí označit zdroj jako problém.');
