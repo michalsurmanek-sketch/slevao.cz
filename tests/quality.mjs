@@ -9,6 +9,23 @@ const requiredFiles = [
   'assets/search-suggest.js',
 ];
 
+const expectedWorkflows = [
+  'automatic-leaflets.yml',
+  'deploy-edge-functions.yml',
+  'deploy-publish-imports.yml',
+  'discover-product-images.yml',
+  'match-product-catalog.yml',
+  'quality.yml',
+];
+const workflows = readdirSync(new URL('../.github/workflows', import.meta.url))
+  .filter((path) => path.endsWith('.yml'))
+  .sort();
+assert.deepEqual(workflows, expectedWorkflows, 'Repozitář obsahuje zastaralé nebo chybějící GitHub workflow.');
+for (const path of workflows) {
+  const source = read(`.github/workflows/${path}`);
+  assert(!/permissions:\s*[\s\S]{0,80}contents:\s*write/.test(source), `${path} nesmí automaticky přepisovat zdrojový kód.`);
+}
+
 for (const path of requiredFiles) {
   assert(existsSync(new URL(`../${path}`, import.meta.url)), `Chybí povinný soubor: ${path}`);
 }
