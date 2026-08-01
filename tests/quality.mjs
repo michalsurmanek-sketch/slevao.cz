@@ -87,6 +87,8 @@ assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotogra
 assert.match(imageDiscovery, /order\("image_checked_at"/, 'Vyhledávání fotografií musí postupovat přes dosud neprověřené produkty.');
 assert.match(read('admin-fotografie.html'), /select\('\*',\{count:'exact'\}\)/, 'Administrace fotografií musí zobrazovat přesný počet chybějících fotografií.');
 assert.match(read('admin-pridat-fotografii.html'), /function resolveSelectedProduct\(\)/, 'Ruční doplnění fotografie musí obnovit přesný produkt z vyhledávacího pole.');
+assert.match(read('admin-pridat-fotografii.html'), /await productsReady/, 'Výběr produktu musí počkat na načtení produktů z databáze.');
+assert.match(read('admin-pridat-fotografii.html'), /slevao-photo-product-id/, 'Vybraný produkt musí přežít obnovení stránky.');
 assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se nesmí počítat jako poruchy automatizace.');
 assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje musí zohlednit jeho poslední import.');
 assert.match(read('admin-automatizace.html'), /latest\?\.status==='failed'/, 'Poslední neúspěšný import musí označit zdroj jako problém.');
