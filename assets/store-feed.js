@@ -153,6 +153,16 @@
         const detail = await response.text();
         throw new Error(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 180)}` : ''}`);
       }
+      const responseType = response.headers.get('content-type') || '';
+      if (responseType.includes('application/json')) {
+        const payload = await response.json();
+        const signedUrl = String(payload.url || '');
+        if (!signedUrl.startsWith(`${SUPABASE_URL}/storage/v1/object/sign/`)) throw new Error(payload.error || 'Neplatný odkaz na leták.');
+        frame.src = signedUrl;
+        frame.hidden = false;
+        $('leafletViewerStatus').hidden = true;
+        return;
+      }
       const documentBlob = await response.blob();
       if (!documentBlob.size) throw new Error('Stažený leták je prázdný.');
       leafletObjectUrl = URL.createObjectURL(documentBlob);

@@ -41,7 +41,11 @@ Deno.serve(async (request) => {
   const path = typeof job.metadata?.storage_path === 'string' ? job.metadata.storage_path : '';
   if (bucket && path) {
     const { data, error: signedError } = await db.storage.from(bucket).createSignedUrl(path, 15 * 60);
-    if (!signedError && data?.signedUrl) return Response.redirect(data.signedUrl, 302);
+    if (!signedError && data?.signedUrl) {
+      return Response.json({ url: data.signedUrl, expires_in: 15 * 60 }, {
+        headers: { ...CORS_HEADERS, 'cache-control': 'private, no-store' },
+      });
+    }
   }
 
   try {
