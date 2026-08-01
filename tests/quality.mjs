@@ -46,7 +46,7 @@ assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta o
 for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
   const feed = read(`${slug}.html`);
   assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${slug}.html nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js/, `${slug}.html nepoužívá společný živý feed.`);
+  assert.match(feed, /assets\/store-feed\.js\?v=20260801-2/, `${slug}.html nepoužívá aktuální verzi společného živého feedu.`);
   assert.match(feed, /rel="canonical"/, `${slug}.html nemá canonical URL.`);
 }
 const storeFeed = read('assets/store-feed.js');
