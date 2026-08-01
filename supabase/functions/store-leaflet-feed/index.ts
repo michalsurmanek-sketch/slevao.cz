@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const TESCO_LISTING_URL = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
+const PENNY_LISTING_URL = 'https://www.penny.cz/letaky';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -95,6 +96,50 @@ function directLeaflet(leaflet: Leaflet, url: string): Leaflet {
   };
 }
 
+async function pennyOfficialLeaflet(): Promise<Leaflet> {
+  const headers = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+    accept: 'text/html,application/xhtml+xml,application/json,*/*;q=0.8',
+    'accept-language': 'cs-CZ,cs;q=0.9',
+  };
+  const listingResponse = await fetch(PENNY_LISTING_URL, { headers, redirect: 'follow' });
+  if (!listingResponse.ok) throw new Error(`PENNY HTTP ${listingResponse.status}`);
+  const listingHtml = await listingResponse.text();
+  const viewerMatch = listingHtml.match(/href=["'](https:\/\/files\.rewe\.co\.at\/PennyIntLeaflet\/CZ\/[^"'?#<]+)["']/i);
+  if (!viewerMatch) throw new Error('PENNY nevrátilo aktuální publikaci.');
+  const viewerUrl = viewerMatch[1].replace(/\/+$/, '') + '/';
+
+  const viewerResponse = await fetch(viewerUrl, { headers, redirect: 'follow' });
+  if (!viewerResponse.ok) throw new Error(`PENNY prohlížeč HTTP ${viewerResponse.status}`);
+  const viewerHtml = await viewerResponse.text();
+  const dynamicFolder = viewerHtml.match(/FBInit\.DYNAMIC_FOLDER\s*=\s*["']([^"']+)["']/i)?.[1] || 'files/assets/';
+  const workspaceUrl = new URL(`${dynamicFolder.replace(/\/+$/, '')}/workspace.js`, viewerResponse.url).toString();
+  const workspaceResponse = await fetch(workspaceUrl, { headers, redirect: 'follow' });
+  if (!workspaceResponse.ok) throw new Error(`PENNY konfigurace HTTP ${workspaceResponse.status}`);
+  const workspace = JSON.parse((await workspaceResponse.text()).replace(/^\uFEFF/, '').trim());
+  const downloadName = String(workspace?.downloads?.url || '').trim();
+  const pageCount = Object.keys(workspace?.downloads?.pageFiles || {}).length;
+  if (workspace?.downloads?.enabled === false || !/\.pdf$/i.test(downloadName) || pageCount < 2) {
+    throw new Error('PENNY nevrátilo úplný vícestránkový PDF leták.');
+  }
+  const documentUrl = new URL(
+    `${dynamicFolder.replace(/\/+$/, '')}/common/downloads/${encodeURIComponent(downloadName)}`,
+    viewerResponse.url,
+  ).toString();
+  const validity = visibleText(listingHtml).match(/(\d{1,2}\.\s*\d{1,2}\.)\s*[-–]\s*(\d{1,2}\.\s*\d{1,2}\.)/);
+
+  return {
+    key: 'penny-current',
+    title: `${pageCount} stran`,
+    subtitle: 'Penny',
+    valid_from: validity ? isoDate(validity[1]) : null,
+    valid_to: validity ? isoDate(validity[2], true) : null,
+    url: viewerUrl,
+    direct: true,
+    preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?source_url=${encodeURIComponent(documentUrl)}`,
+  };
+}
+
 async function attachDirectDocuments(leaflets: Leaflet[], officialHtml: string): Promise<Leaflet[]> {
   const officialDocuments = documentsFromOfficialHtml(officialHtml);
   if (leaflets.every((leaflet) => officialDocuments.has(leaflet.key))) {
@@ -164,7 +209,13 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
   // PENNY publikuje jeden vícestránkový FlippingBook. Starší obecný adaptér
   // mylně uložil jednotlivé náhledové stránky jako samostatné letáky.
   if (storeSlug === 'penny') {
-    const completePdf = documents.find((row: any) => /\.pdf(?:\?|$)/i.test(String(row.source_document_url || '')));
+    const completePdf = documents.find((row: any) => {
+      try {
+        const url = new URL(String(row.source_document_url || ''));
+        return url.hostname === 'files.rewe.co.at'
+          && /^\/PennyIntLeaflet\/CZ\/[^/]+\/files\/assets\/common\/downloads\/[^/]+\.pdf$/i.test(url.pathname);
+      } catch { return false; }
+    });
     documents = completePdf ? [completePdf] : documents.slice(0, 1);
   } else {
     documents = documents.slice(0, 3);
@@ -188,6 +239,14 @@ Deno.serve(async (request) => {
   try {
     const storeSlug = new URL(request.url).searchParams.get('store') || 'tesco';
     if (!/^[a-z0-9-]{2,64}$/.test(storeSlug)) throw new Error('Neplatný obchod.');
+    if (storeSlug === 'penny') {
+      try {
+        const leaflet = await pennyOfficialLeaflet();
+        return Response.json({ ok: true, store: storeSlug, source: PENNY_LISTING_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+      } catch (officialError) {
+        console.warn('Official PENNY feed failed', officialError instanceof Error ? officialError.message : String(officialError));
+      }
+    }
     if (storeSlug !== 'tesco') {
       const leaflets = await storeLeaflets(storeSlug);
       return Response.json({ ok: true, store: storeSlug, leaflets }, { headers: CORS_HEADERS });

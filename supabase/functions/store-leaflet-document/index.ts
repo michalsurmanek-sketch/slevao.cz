@@ -17,13 +17,16 @@ function responseJson(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: CORS_HEADERS });
 }
 
-function officialTescoDocument(value: string): string | null {
+function officialPublicDocument(value: string): string | null {
   try {
     const url = new URL(value);
-    if (url.protocol !== 'https:' || url.hostname !== 'digitalcontent.api.tesco.com') return null;
-    if (!url.pathname.startsWith('/v2/media/dotcom-cz/')) return null;
-    if (!/\.(?:pdf|webp|png|jpe?g)$/i.test(url.pathname)) return null;
-    return url.toString();
+    if (url.protocol !== 'https:') return null;
+    const tescoDocument = url.hostname === 'digitalcontent.api.tesco.com'
+      && url.pathname.startsWith('/v2/media/dotcom-cz/')
+      && /\.(?:pdf|webp|png|jpe?g)$/i.test(url.pathname);
+    const pennyDocument = url.hostname === 'files.rewe.co.at'
+      && /^\/PennyIntLeaflet\/CZ\/[^/]+\/files\/assets\/common\/downloads\/[^/]+\.pdf$/i.test(url.pathname);
+    return tescoDocument || pennyDocument ? url.toString() : null;
   } catch {
     return null;
   }
@@ -35,7 +38,7 @@ Deno.serve(async (request) => {
 
   const requestUrl = new URL(request.url);
   const importId = requestUrl.searchParams.get('import_id') || '';
-  const officialSourceUrl = officialTescoDocument(requestUrl.searchParams.get('source_url') || '');
+  const officialSourceUrl = officialPublicDocument(requestUrl.searchParams.get('source_url') || '');
   let job: any = null;
   let sourceDocumentUrl = officialSourceUrl || '';
 
@@ -75,8 +78,8 @@ Deno.serve(async (request) => {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
         accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8',
         'accept-language': 'cs-CZ,cs;q=0.9',
-        referer: 'https://www.itesco.cz/',
-        origin: 'https://www.itesco.cz',
+        referer: sourceDocumentUrl.includes('files.rewe.co.at') ? 'https://www.penny.cz/' : 'https://www.itesco.cz/',
+        origin: sourceDocumentUrl.includes('files.rewe.co.at') ? 'https://www.penny.cz' : 'https://www.itesco.cz',
         ...(request.headers.get('range') ? { range: request.headers.get('range')! } : {}),
       },
       redirect: 'follow',
