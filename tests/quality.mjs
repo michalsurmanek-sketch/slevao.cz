@@ -51,6 +51,7 @@ for (const slug of ['tesco', 'kaufland', 'lidl', 'coop', 'hruska', 'dr-max']) {
 }
 const storeFeed = read('assets/store-feed.js');
 new Script(storeFeed, { filename: 'assets/store-feed.js' });
+assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do neexistujícího prvku názvu obchodu.');
 assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
 assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
 assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
