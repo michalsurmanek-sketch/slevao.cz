@@ -1,1 +1,1 @@
-Živý test existujících feedů obchodů pro homepage v4.
+Živý test feedů obchodů včetně následování podepsaných dokumentů.
