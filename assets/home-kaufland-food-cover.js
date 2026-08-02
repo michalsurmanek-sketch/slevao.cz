@@ -3,6 +3,14 @@
   script.src = `assets/home-all-stores.js?v=20260802-1-${Date.now()}`;
   script.async = false;
   document.head.append(script);
+
+  if (!document.querySelector('script[data-manual-leaflet-images]')) {
+    const manual = document.createElement('script');
+    manual.src = `assets/home-manual-leaflet-images.js?v=20260802-1-${Date.now()}`;
+    manual.async = false;
+    manual.dataset.manualLeafletImages = 'true';
+    document.head.append(manual);
+  }
 })();
 
 (() => {
@@ -127,6 +135,7 @@
   }
 
   function applyLabels(card, image) {
+    if (card.dataset.manualLeafletCover === '1') return;
     image.alt = 'Titulní strana aktuálního potravinového letáku Kaufland';
     card.dataset.kauflandFoodLeaflet = '1';
     card.querySelector('.leafletCurrentBadge')?.replaceChildren(document.createTextNode('Potravinový leták'));
@@ -138,7 +147,7 @@
     if (working) return;
     const card = kauflandCard();
     const image = card?.querySelector('.leafletFrontPage');
-    if (!card || !image) return;
+    if (!card || !image || card.dataset.manualLeafletCover === '1') return;
     working = true;
     try {
       const response = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=kaufland&source=homepage-food-cover-v2`, {
@@ -148,13 +157,14 @@
       if (!response.ok) throw new Error(`Kaufland feed HTTP ${response.status}.`);
       const payload = await response.json();
       const leaflet = chooseFoodLeaflet(payload?.leaflets);
-      if (!leaflet) return;
+      if (!leaflet || card.dataset.manualLeafletCover === '1') return;
       if (leaflet.preview_url === completedSource && objectUrl) {
         image.src = objectUrl;
         applyLabels(card, image);
         return;
       }
       const cover = await coverBlob(await resolveDocument(leaflet.preview_url));
+      if (card.dataset.manualLeafletCover === '1') return;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(cover);
       image.src = objectUrl;
