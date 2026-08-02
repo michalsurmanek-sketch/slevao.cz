@@ -16,6 +16,7 @@ for (const [name, source] of [
   ['admin-homepage-visibility.js', adminJs],
   ['home-leaflet-control.js', control],
   ['home-leaflet-visibility.js', visibilityShim],
+  ['home-all-stores.js', loader],
   ['admin-homepage-image-nav.js', nav],
 ]) new Script(source, { filename: name });
 
@@ -37,7 +38,7 @@ for (const pattern of [
 ]) assert.match(control, pattern, `Společné řízení viditelnosti postrádá ${pattern}.`);
 
 assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá společné řízení bez cache.');
-assert.match(loader, /home-leaflet-visibility\.js[\s\S]*Date\.now\(\)/, 'Homepage nenačítá loader viditelnosti bez cache.');
+assert.match(loader, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Hlavní loader nenačítá společné řízení bez cache.');
 assert.match(nav, /admin-viditelnost-letaku\.html/, 'Administrace nemá odkaz na viditelnost letáků.');
 
 console.log('Homepage leaflet visibility control OK');
