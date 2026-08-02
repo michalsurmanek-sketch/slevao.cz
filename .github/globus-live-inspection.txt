@@ -1,0 +1,1 @@
+Spuštění jednorázové kontroly struktury živého Globus katalogu.
