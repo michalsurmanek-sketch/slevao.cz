@@ -12,7 +12,9 @@
   let resolvedPdfUrl = '';
   let resolvingPromise = null;
   let leafletObjectUrl = '';
+  let activeFrameSrc = '';
   let applying = false;
+  let opening = false;
   let closedByUser = false;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -107,6 +109,8 @@
     if (!viewer || !frame || !status) return null;
 
     closedByUser = false;
+    activeFrameSrc = '';
+    frame.dataset.globusPdf = '';
     document.getElementById('leafletViewerTitle').textContent = title || 'Globus – aktuální leták';
     frame.hidden = true;
     frame.removeAttribute('src');
@@ -146,9 +150,13 @@
   }
 
   async function openPdfLeaflet(previewUrl, title, shouldScroll = true) {
-    if (!previewUrl) return;
+    if (!previewUrl || opening) return;
+    opening = true;
     const view = startLoading(title);
-    if (!view) return;
+    if (!view) {
+      opening = false;
+      return;
+    }
 
     document.querySelectorAll('#leafletGrid [data-leaflet-preview]').forEach((button) => {
       button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
@@ -164,8 +172,9 @@
       if (closedByUser) return;
 
       applying = true;
+      activeFrameSrc = `${displayUrl}#page=1&zoom=page-fit`;
       view.frame.removeAttribute('srcdoc');
-      view.frame.src = `${displayUrl}#page=1&zoom=page-fit`;
+      view.frame.src = activeFrameSrc;
       view.frame.hidden = false;
       view.frame.dataset.globusPdf = 'ready';
       view.status.hidden = true;
@@ -179,6 +188,8 @@
       view.status.hidden = false;
       view.status.className = 'leafletViewerStatus error';
       view.status.innerHTML = `<strong>Leták se nepodařilo zobrazit.</strong><span>${esc(error?.message || 'Zkus stránku obnovit.')}</span><a href="${esc(OFFICIAL_URL)}" target="_blank" rel="noopener noreferrer">Otevřít leták na Globus.cz ↗</a>`;
+    } finally {
+      opening = false;
     }
   }
 
@@ -215,11 +226,16 @@
     gridObserver.observe(grid, { childList: true, subtree: true });
 
     const frameObserver = new MutationObserver(() => {
-      if (applying || closedByUser || viewer.hidden) return;
+      if (applying || opening || closedByUser || viewer.hidden) return;
       const button = grid.querySelector('[data-leaflet-preview]');
       if (!button) return;
       prepareButton(button);
-      if (frame.dataset.globusPdf !== 'ready') {
+      const currentSrc = frame.getAttribute('src') || '';
+      const wrongDocument = frame.hasAttribute('srcdoc')
+        || frame.dataset.globusPdf !== 'ready'
+        || !activeFrameSrc
+        || currentSrc !== activeFrameSrc;
+      if (wrongDocument) {
         frame.hidden = true;
         openPdfLeaflet(button.dataset.leafletPreview, button.dataset.leafletTitle, false);
       }
@@ -229,6 +245,7 @@
 
     document.getElementById('closeLeafletViewer')?.addEventListener('click', () => {
       closedByUser = true;
+      activeFrameSrc = '';
       frame.dataset.globusPdf = '';
       frame.removeAttribute('srcdoc');
       if (leafletObjectUrl) {
