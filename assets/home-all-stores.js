@@ -3,20 +3,12 @@
   if (window.__slevaoAllStoresLoaded) return;
   window.__slevaoAllStoresLoaded = true;
 
-  if (!document.querySelector('script[data-manual-leaflet-images]')) {
-    const manual = document.createElement('script');
-    manual.src = `assets/home-manual-leaflet-images.js?v=20260802-1-${Date.now()}`;
-    manual.async = false;
-    manual.dataset.manualLeafletImages = 'true';
-    document.head.append(manual);
-  }
-
-  if (!document.querySelector('script[data-home-leaflet-visibility]')) {
-    const visibility = document.createElement('script');
-    visibility.src = `assets/home-leaflet-visibility.js?v=20260802-1-${Date.now()}`;
-    visibility.async = false;
-    visibility.dataset.homeLeafletVisibility = 'true';
-    document.head.append(visibility);
+  if (!document.querySelector('script[data-slevao-leaflet-control]')) {
+    const control = document.createElement('script');
+    control.src = `assets/home-leaflet-control.js?v=20260802-1-${Date.now()}`;
+    control.defer = true;
+    control.dataset.slevaoLeafletControl = 'true';
+    document.head.append(control);
   }
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
