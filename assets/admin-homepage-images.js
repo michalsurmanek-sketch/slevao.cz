@@ -3,16 +3,19 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const ANON_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const LEGACY_FUNCTION = `${SUPABASE_URL}/functions/v1/homepage-leaflet-image`;
   const PRODUCT_UPLOAD_FUNCTION = `${SUPABASE_URL}/functions/v1/upload-product-image`;
+  const LEGACY_FUNCTION = `${SUPABASE_URL}/functions/v1/homepage-leaflet-image`;
+  const STORAGE_BUCKET = 'product-images';
   const LEGACY_BUCKET = 'homepage-leaflet-images';
-  const FALLBACK_BUCKET = 'product-images';
   const COVER_META_KEY = 'slevao-cover';
   const EMPTY_META_BASE = 'https://slevao.cz/';
   const MAX_BYTES = 8 * 1024 * 1024;
   const ALLOWED_TYPES = new Set(['image/jpeg', 'image/png', 'image/webp', 'image/avif']);
   const EXTENSIONS = new Map([
-    ['image/jpeg', 'jpg'], ['image/png', 'png'], ['image/webp', 'webp'], ['image/avif', 'avif'],
+    ['image/jpeg', 'jpg'],
+    ['image/png', 'png'],
+    ['image/webp', 'webp'],
+    ['image/avif', 'avif'],
   ]);
 
   const $ = (id) => document.getElementById(id);
@@ -20,7 +23,7 @@
   let stores = [];
   let selected = null;
   let chosenFile = null;
-  let objectUrl = '';
+  let previewObjectUrl = '';
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -56,6 +59,10 @@
     return parseMeta(value).params.get(COVER_META_KEY) || '';
   }
 
+  function coverMarker(store) {
+    return markerIn(store?.website_url) || markerIn(store?.logo_url) || '';
+  }
+
   function markerField(store) {
     if (markerIn(store?.website_url)) return 'website_url';
     if (markerIn(store?.logo_url)) return 'logo_url';
@@ -64,15 +71,10 @@
     return 'website_url';
   }
 
-  function coverMarker(store) {
-    return markerIn(store?.website_url) || markerIn(store?.logo_url) || '';
-  }
-
   function withMarker(value, marker) {
     const parsed = parseMeta(value);
     parsed.params.set(COVER_META_KEY, marker);
-    const base = parsed.base || EMPTY_META_BASE;
-    return `${base}#${parsed.params.toString()}`;
+    return `${parsed.base || EMPTY_META_BASE}#${parsed.params.toString()}`;
   }
 
   async function persistMarker(store, marker) {
@@ -101,7 +103,7 @@
     return current;
   }
 
-  async function fetchWithTimeout(url, options, milliseconds = 18000) {
+  async function fetchWithTimeout(url, options, milliseconds = 30000) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), milliseconds);
     try {
@@ -113,7 +115,11 @@
 
   async function responseJson(response) {
     const text = await response.text();
-    try { return text ? JSON.parse(text) : {}; } catch { return { error: text || `HTTP ${response.status}` }; }
+    try {
+      return text ? JSON.parse(text) : {};
+    } catch {
+      return { error: text || `HTTP ${response.status}` };
+    }
   }
 
   function validateFile(file) {
@@ -125,8 +131,8 @@
   }
 
   function resetFile() {
-    if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = '';
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = '';
     chosenFile = null;
     if ($('file')) $('file').value = '';
     $('localPreview')?.classList.add('hidden');
@@ -139,8 +145,8 @@
     if (error) return show(error, 'err');
     chosenFile = file;
     clearMessage();
-    objectUrl = URL.createObjectURL(file);
-    $('localPreviewImg').src = objectUrl;
+    previewObjectUrl = URL.createObjectURL(file);
+    $('localPreviewImg').src = previewObjectUrl;
     $('fileName').textContent = file.name;
     $('fileMeta').textContent = `${(file.size / 1024 / 1024).toFixed(2)} MB · ${file.type.replace('image/', '').toUpperCase()}`;
     $('localPreview').classList.remove('hidden');
@@ -148,8 +154,9 @@
   }
 
   function logo(store) {
-    if (!store.logo_url) return '%';
-    return `<img src="${esc(store.logo_url)}" alt="" onerror="this.replaceWith(document.createTextNode('%'))">`;
+    const logoUrl = parseMeta(store.logo_url).base;
+    if (!logoUrl) return '%';
+    return `<img src="${esc(logoUrl)}" alt="" onerror="this.replaceWith(document.createTextNode('%'))">`;
   }
 
   function renderStores() {
@@ -174,11 +181,18 @@
   async function probeImage(url) {
     if (!url || url === 'none') return '';
     return new Promise((resolve) => {
+      const probeUrl = `${url}${url.includes('?') ? '&' : '?'}admin_probe=${Date.now()}`;
       const image = new Image();
       const timer = window.setTimeout(() => resolve(''), 9000);
-      image.onload = () => { window.clearTimeout(timer); resolve(url); };
-      image.onerror = () => { window.clearTimeout(timer); resolve(''); };
-      image.src = `${url}${url.includes('?') ? '&' : '?'}admin_probe=${Date.now()}`;
+      image.onload = () => {
+        window.clearTimeout(timer);
+        resolve(probeUrl);
+      };
+      image.onerror = () => {
+        window.clearTimeout(timer);
+        resolve('');
+      };
+      image.src = probeUrl;
     });
   }
 
@@ -221,33 +235,22 @@
     refreshCover();
   }
 
-  async function uploadDirect(file, store) {
+  function uniquePath(file, store) {
     const extension = EXTENSIONS.get(file.type) || 'jpg';
-    const path = `homepage/${store.slug}/cover.${extension}`;
-    const { error } = await db.storage.from(FALLBACK_BUCKET).upload(path, file, {
-      upsert: true,
-      contentType: file.type,
-      cacheControl: '300',
-    });
-    if (error) throw error;
-    return db.storage.from(FALLBACK_BUCKET).getPublicUrl(path).data.publicUrl;
+    const unique = crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    return `homepage/${store.slug}/${Date.now()}-${unique}.${extension}`;
   }
 
-  async function uploadDedicated(file, store, current) {
-    const form = new FormData();
-    form.append('action', 'upload');
-    form.append('store_slug', store.slug);
-    form.append('file', file, file.name);
-    const response = await fetchWithTimeout(LEGACY_FUNCTION, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${current.access_token}`, apikey: ANON_KEY },
-      body: form,
+  async function uploadDirect(file, store) {
+    const path = uniquePath(file, store);
+    const { error } = await db.storage.from(STORAGE_BUCKET).upload(path, file, {
+      upsert: false,
+      contentType: file.type,
+      cacheControl: '31536000',
     });
-    const result = await responseJson(response);
-    if (!response.ok || !result.ok || !result.image_url) {
-      throw new Error(result.error || `Nahrávací služba vrátila HTTP ${response.status}.`);
-    }
-    return result.image_url;
+    if (error) throw error;
+    const publicUrl = db.storage.from(STORAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+    return `${publicUrl}?v=${Date.now()}`;
   }
 
   async function uploadThroughExistingService(file, current) {
@@ -262,7 +265,7 @@
       method: 'POST',
       headers: { Authorization: `Bearer ${current.access_token}`, apikey: ANON_KEY },
       body: form,
-    }, 30000);
+    });
     const result = await responseJson(response);
     if (!response.ok || !result.ok || !result.candidate?.image_url) {
       throw new Error(result.error || `Záložní nahrávání vrátilo HTTP ${response.status}.`);
@@ -271,47 +274,68 @@
       db.from('product_image_candidates').delete().eq('id', result.candidate.id)
         .then(({ error }) => error && console.warn('Úklid pomocného kandidáta:', error.message));
     }
-    return result.candidate.image_url;
+    return `${result.candidate.image_url}${result.candidate.image_url.includes('?') ? '&' : '?'}v=${Date.now()}`;
+  }
+
+  async function uploadLegacy(file, store, current) {
+    const form = new FormData();
+    form.append('action', 'upload');
+    form.append('store_slug', store.slug);
+    form.append('file', file, file.name);
+    const response = await fetchWithTimeout(LEGACY_FUNCTION, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${current.access_token}`, apikey: ANON_KEY },
+      body: form,
+    });
+    const result = await responseJson(response);
+    if (!response.ok || !result.ok || !result.image_url) {
+      throw new Error(result.error || `Původní služba vrátila HTTP ${response.status}.`);
+    }
+    return `${result.image_url}${result.image_url.includes('?') ? '&' : '?'}v=${Date.now()}`;
   }
 
   async function uploadImage(file, store, current) {
     const errors = [];
     try {
-      show('Nahrávám fotografii přímo do úložiště…');
+      show('Nahrávám fotografii na novou unikátní adresu…');
       return await uploadDirect(file, store);
     } catch (error) {
       errors.push(`úložiště: ${error?.message || error}`);
     }
     try {
-      show('Přímé nahrání nebylo povoleno, zkouším hlavní nahrávací službu…');
-      return await uploadDedicated(file, store, current);
-    } catch (error) {
-      errors.push(`hlavní služba: ${error?.message || error}`);
-    }
-    try {
-      show('Používám záložní nahrávací službu…');
+      show('Přímé nahrání nebylo povoleno, používám záložní nahrávací službu…');
       return await uploadThroughExistingService(file, current);
     } catch (error) {
       errors.push(`záložní služba: ${error?.message || error}`);
     }
+    try {
+      show('Zkouším původní nahrávací službu…');
+      return await uploadLegacy(file, store, current);
+    } catch (error) {
+      errors.push(`původní služba: ${error?.message || error}`);
+    }
     throw new Error(`Fotografii se nepodařilo nahrát. ${errors.join(' | ')}`);
   }
 
+  function storagePath(url, bucket) {
+    const escapedBucket = bucket.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const match = String(url || '').match(new RegExp(`/storage/v1/object/public/${escapedBucket}/(.+?)(?:[?#]|$)`));
+    return match ? decodeURIComponent(match[1]) : '';
+  }
+
   async function removePhysicalImage(url, store, current) {
-    const tasks = [];
+    const path = storagePath(url, STORAGE_BUCKET);
+    if (path) {
+      await db.storage.from(STORAGE_BUCKET).remove([path]).catch(() => null);
+      return;
+    }
     if (String(url).includes(`/storage/v1/object/public/${LEGACY_BUCKET}/`)) {
-      tasks.push(fetchWithTimeout(LEGACY_FUNCTION, {
+      await fetchWithTimeout(LEGACY_FUNCTION, {
         method: 'POST',
         headers: { Authorization: `Bearer ${current.access_token}`, apikey: ANON_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'delete', store_slug: store.slug }),
-      }, 9000).catch(() => null));
+      }, 9000).catch(() => null);
     }
-    const match = String(url).match(/\/storage\/v1\/object\/public\/product-images\/(.+?)(?:\?|$)/);
-    if (match) {
-      const path = decodeURIComponent(match[1]);
-      tasks.push(db.storage.from(FALLBACK_BUCKET).remove([path]).catch(() => null));
-    }
-    await Promise.allSettled(tasks);
   }
 
   async function loadStores() {
@@ -359,20 +383,25 @@
       const file = chosenFile || $('file').files?.[0];
       const validation = validateFile(file);
       if (validation) return show(validation, 'err');
+      const previousUrl = coverMarker(selected);
       $('upload').disabled = true;
       try {
         const current = await currentSession();
         const imageUrl = await uploadImage(file, selected, current);
-        show('Fotografie je nahraná. Přiřazuji ji k obchodu…');
+        show('Fotografie je nahraná. Přepínám kartu na nový obrázek…');
         await persistMarker(selected, imageUrl);
-        show('Fotografie byla nahrána a na hlavní stránce má přednost před automatickým náhledem.');
+        if (previousUrl && previousUrl !== 'none' && previousUrl !== imageUrl) {
+          removePhysicalImage(previousUrl, selected, current).catch(() => null);
+        }
+        show('Nová fotografie byla nahrána a starý obrázek byl nahrazen.');
         resetFile();
         await refreshCover();
+        window.dispatchEvent(new CustomEvent('slevao:homepage-image-changed', { detail: { slug: selected.slug } }));
       } catch (error) {
         const message = error?.name === 'AbortError'
           ? 'Nahrávání překročilo časový limit. Zkus to znovu.'
           : error?.message || 'Fotografii se nepodařilo nahrát.';
-        show(message === 'Failed to fetch' ? 'Nahrávací služba není dostupná. Obnov stránku a zkus to znovu.' : message, 'err');
+        show(message, 'err');
         $('upload').disabled = !chosenFile;
       }
     });
@@ -388,6 +417,7 @@
         await removePhysicalImage(currentUrl, selected, current);
         show('Vlastní obrázek byl odstraněn. Karta znovu používá automatickou titulní stranu.');
         await refreshCover();
+        window.dispatchEvent(new CustomEvent('slevao:homepage-image-changed', { detail: { slug: selected.slug } }));
       } catch (error) {
         show(error?.message || 'Obrázek se nepodařilo odstranit.', 'err');
         $('remove').disabled = false;
@@ -396,7 +426,8 @@
 
     $('loginBtn').addEventListener('click', async () => {
       const { error } = await db.auth.signInWithPassword({
-        email: $('email').value.trim(), password: $('password').value,
+        email: $('email').value.trim(),
+        password: $('password').value,
       });
       if (error) {
         $('loginMsg').className = 'msg err';
@@ -408,8 +439,15 @@
         $('loginMsg').textContent = authError.message;
       });
     });
-    $('logout').addEventListener('click', async () => { await db.auth.signOut(); location.reload(); });
-    window.addEventListener('pagehide', () => { if (objectUrl) URL.revokeObjectURL(objectUrl); }, { once: true });
+
+    $('logout').addEventListener('click', async () => {
+      await db.auth.signOut();
+      location.reload();
+    });
+
+    window.addEventListener('pagehide', () => {
+      if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    }, { once: true });
   }
 
   function init() {
