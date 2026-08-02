@@ -1,0 +1,102 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+body.admin-unified-icons {
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+body.admin-unified-icons .admin-ui-control,
+body.admin-unified-icons a.btn,
+body.admin-unified-icons button.btn,
+body.admin-unified-icons label.btn,
+body.admin-unified-icons .actions button,
+body.admin-unified-icons .rowButton,
+body.admin-unified-icons .editBtn,
+body.admin-unified-icons .deleteBtn {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 600 !important;
+  letter-spacing: 0;
+}
+
+.admin-ui-icon {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.75;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.admin-ui-icon.icon-sm {
+  width: 15px;
+  height: 15px;
+  flex-basis: 15px;
+}
+
+.admin-ui-icon.icon-lg {
+  width: 22px;
+  height: 22px;
+  flex-basis: 22px;
+}
+
+body.admin-unified-icons .statusIcon,
+body.admin-unified-icons .selectedIcon,
+body.admin-unified-icons .searchIcon {
+  font-size: 0 !important;
+}
+
+body.admin-unified-icons .statusIcon .admin-ui-icon,
+body.admin-unified-icons .selectedIcon .admin-ui-icon {
+  width: 23px;
+  height: 23px;
+  flex-basis: 23px;
+}
+
+body.admin-unified-icons .searchIcon .admin-ui-icon {
+  width: 20px;
+  height: 20px;
+  flex-basis: 20px;
+}
+
+body.admin-unified-icons .admin-ui-control > span:not(.srOnly),
+body.admin-unified-icons .admin-ui-control > strong {
+  min-width: 0;
+}
+
+body.admin-unified-icons .admin-ui-control:hover .admin-ui-icon {
+  transform: translateY(-0.5px);
+}
+
+body.admin-unified-icons .admin-ui-control .admin-ui-icon {
+  transition: transform .16s ease;
+}
+
+body.admin-unified-icons .btn.primary .admin-ui-icon,
+body.admin-unified-icons .btn.bad .admin-ui-icon,
+body.admin-unified-icons .btn.danger .admin-ui-icon {
+  stroke-width: 1.9;
+}
+
+body.admin-unified-icons .toolbar,
+body.admin-unified-icons .actions,
+body.admin-unified-icons .buttonRow,
+body.admin-unified-icons .rowActions {
+  align-items: center;
+}
+
+@media (max-width: 700px) {
+  body.admin-unified-icons .admin-ui-control {
+    gap: 7px;
+  }
+
+  .admin-ui-icon {
+    width: 16px;
+    height: 16px;
+    flex-basis: 16px;
+  }
+}
