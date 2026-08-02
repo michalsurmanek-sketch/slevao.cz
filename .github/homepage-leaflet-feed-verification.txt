@@ -1,1 +1,1 @@
-Opakované spuštění živého testu po přímém nasazení funkce.
+Živý test existujících feedů obchodů pro homepage v4.
