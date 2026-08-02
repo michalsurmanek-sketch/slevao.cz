@@ -20,3 +20,79 @@ jobs:
           node-version: '22'
       - name: Ověřit bezpečnost, JavaScript a SEO soubory
         run: node tests/quality.mjs
+
+  inspect_globus_live:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'inspect-globus-live-20260802'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Zjistit strukturu živého katalogu Globus
+        env:
+          PUBLIC_KEY: sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU
+        run: |
+          node <<'NODE'
+          const base = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+          const key = process.env.PUBLIC_KEY;
+          const feedResponse = await fetch(`${base}/functions/v1/store-leaflet-feed?store=globus&source=github-structure-inspection`, {
+            headers: { apikey: key },
+          });
+          if (!feedResponse.ok) throw new Error(`Feed HTTP ${feedResponse.status}`);
+          const feed = await feedResponse.json();
+          const leaflet = (feed.leaflets || []).find((item) => item?.preview_url);
+          if (!leaflet) throw new Error('Globus feed nevrátil preview_url.');
+          console.log('LEAFLET_META', JSON.stringify({
+            key: leaflet.key,
+            title: leaflet.title,
+            subtitle: leaflet.subtitle,
+            valid_from: leaflet.valid_from,
+            valid_to: leaflet.valid_to,
+            url: leaflet.url,
+            preview_url: leaflet.preview_url,
+          }, null, 2));
+
+          const previewResponse = await fetch(leaflet.preview_url, {
+            headers: { apikey: key, authorization: `Bearer ${key}` },
+          });
+          if (!previewResponse.ok) throw new Error(`Preview HTTP ${previewResponse.status}`);
+          const html = await previewResponse.text();
+          console.log('PREVIEW_TYPE', previewResponse.headers.get('content-type'));
+          console.log('PREVIEW_LENGTH', html.length);
+          const match = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+          if (!match) throw new Error('HTML nemá __NUXT_DATA__.');
+          const payload = JSON.parse(match[1]);
+          const cache = new Map();
+          const resolve = (index) => {
+            if (typeof index !== 'number') return index;
+            if (index < 0) return index === -1 ? undefined : index === -2 ? Number.NaN : index === -3 ? Infinity : index === -4 ? -Infinity : index === -5 ? -0 : null;
+            if (cache.has(index)) return cache.get(index);
+            const value = payload[index];
+            if (value === null || typeof value !== 'object') return value;
+            if (Array.isArray(value)) {
+              if (typeof value[0] === 'string' && ['Reactive','ShallowReactive','Ref','ShallowRef'].includes(value[0])) return resolve(value[1]);
+              if (value[0] === 'Date') return resolve(value[1]);
+              const result = [];
+              cache.set(index, result);
+              for (const item of value) result.push(resolve(item));
+              return result;
+            }
+            const result = {};
+            cache.set(index, result);
+            for (const [name, item] of Object.entries(value)) result[name] = resolve(item);
+            return result;
+          };
+          const root = resolve(0);
+          const data = root?.data || {};
+          const entry = Object.entries(data).find(([name]) => name.startsWith('actionOfferProductListing-'));
+          if (!entry) throw new Error('Nenašel se actionOfferProductListing.');
+          const listing = entry[1];
+          const products = Array.isArray(listing?.products) ? listing.products : [];
+          console.log('LISTING_KEY', entry[0]);
+          console.log('PRODUCT_COUNT', products.length, 'TOTAL', listing?.totalCount);
+          for (const [index, product] of products.slice(0, 3).entries()) {
+            console.log(`PRODUCT_${index + 1}_KEYS`, Object.keys(product || {}));
+            console.log(`PRODUCT_${index + 1}`, JSON.stringify(product, null, 2).slice(0, 12000));
+          }
+          NODE
