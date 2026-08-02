@@ -5,26 +5,31 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
-const adminDelete = read('assets/admin-store-delete.js');
+const loader = read('assets/admin-store-delete.js');
+const adminDelete = read('assets/admin-store-delete-hotfix.js');
 const modernUi = read('assets/admin-modern-ui.js');
 const edgeFunction = read('supabase/functions/delete-store/index.ts');
 const edgeConfig = read('supabase/functions/delete-store/config.toml');
 const deployWorkflow = read('.github/workflows/deploy-edge-functions.yml');
 
-new Script(adminDelete, { filename: 'assets/admin-store-delete.js' });
+new Script(loader, { filename: 'assets/admin-store-delete.js' });
+new Script(adminDelete, { filename: 'assets/admin-store-delete-hotfix.js' });
 
 assert.match(modernUi, /assets\/admin-store-delete\.js\?v=20260802-1/, 'Administrace nenačítá ovládání pro smazání obchodu.');
+assert.match(loader, /admin-store-delete-hotfix\.js/, 'Zavaděč nenačítá opravu mazání obchodů.');
 for (const pattern of [
   /data-store-permanent-delete/,
-  /action: 'preview'/,
-  /action: 'delete'/,
-  /confirmation: selectedStore\.slug/,
+  /db\.from\('stores'\)\.select/,
+  /db\.from\('offers'\)\.select/,
+  /db\.from\('leaflet_sources'\)\.select/,
+  /db\.from\('leaflet_imports'\)\.select/,
+  /action:'delete'/,
+  /confirmation:selectedStore\.slug/,
   /Trvale smazat obchod/,
-  /const role = await currentRole\(\);[\s\S]*role !== 'admin'/,
+  /app_metadata\?\.role !== 'admin'/,
   /new AbortController\(\)/,
-  /controller\.abort\(\)/,
-  /REQUEST_TIMEOUT_MS = 12000/,
   /Načtení obchodu selhalo/,
+  /Databáze neodpověděla do 9 sekund/,
 ]) {
   assert.match(adminDelete, pattern, `Ovládání mazání obchodu postrádá ochranu ${pattern}.`);
 }
