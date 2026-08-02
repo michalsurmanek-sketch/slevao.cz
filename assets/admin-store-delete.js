@@ -13,4 +13,12 @@
     }
   };
   document.head.append(script);
+
+  if (!document.querySelector('script[data-homepage-image-nav]')) {
+    const navScript = document.createElement('script');
+    navScript.src = `assets/admin-homepage-image-nav.js?v=20260802-1-${Date.now()}`;
+    navScript.async = false;
+    navScript.dataset.homepageImageNav = 'true';
+    document.head.append(navScript);
+  }
 })();
