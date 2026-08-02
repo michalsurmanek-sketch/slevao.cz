@@ -28,4 +28,35 @@ assert.match(page, /assets\/store-bottom-nav\.js\?v=20260802-2/, 'Globus nepouž
 assert.doesNotMatch(page, /store-globus-catalog\.js/, 'Globus stále načítá starý klientský převodník.');
 assert.match(page, /<h2 id="storeLeafletHeading">Aktuální letáky<\/h2>/, 'Globus nemá stejnou sekci letáku jako ostatní obchody.');
 
-console.log('Globus server-side PDF viewer: OK');
+const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+const KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+const controller = new AbortController();
+const timeout = setTimeout(() => controller.abort(), 45_000);
+try {
+  const feedResponse = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=globus&source=official-v6`, {
+    headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
+    signal: controller.signal,
+  });
+  assert.equal(feedResponse.ok, true, `Živý Globus feed vrátil HTTP ${feedResponse.status}.`);
+  const feed = await feedResponse.json();
+  assert.ok(Array.isArray(feed.leaflets) && feed.leaflets.length > 0, 'Živý Globus feed nemá aktuální leták.');
+  const previewUrl = String(feed.leaflets[0]?.preview_url || '');
+  assert.ok(previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`), 'Živý Globus feed nevrací interní preview URL.');
+
+  const documentResponse = await fetch(previewUrl, {
+    headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
+    signal: controller.signal,
+  });
+  assert.equal(documentResponse.ok, true, `Živý Globus dokument vrátil HTTP ${documentResponse.status}: ${(await documentResponse.clone().text()).slice(0, 240)}`);
+  assert.match(String(documentResponse.headers.get('content-type') || ''), /application\/pdf/i, 'Živý Globus dokument nemá typ application/pdf.');
+  assert.ok(documentResponse.body, 'Živý Globus dokument nemá tělo.');
+  const reader = documentResponse.body.getReader();
+  const first = await reader.read();
+  await reader.cancel();
+  assert.ok(first.value && first.value.length >= 4, 'Živý Globus PDF je prázdný.');
+  assert.deepEqual([...first.value.slice(0, 4)], [0x25, 0x50, 0x44, 0x46], 'Živý Globus dokument nezačíná signaturou %PDF.');
+} finally {
+  clearTimeout(timeout);
+}
+
+console.log('Globus server-side PDF viewer and live endpoint: OK');
