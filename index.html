@@ -1,120 +1,184 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="cs">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#34d6c7">
-<meta name="description" content="Slevao.cz – aktuální akce a slevy českých obchodů na jednom místě.">
-<meta name="robots" content="index,follow,max-image-preview:large">
-<meta name="referrer" content="strict-origin-when-cross-origin">
-<link rel="canonical" href="https://slevao.cz/">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<meta property="og:type" content="website">
-<meta property="og:locale" content="cs_CZ">
-<meta property="og:site_name" content="Slevao.cz">
-<meta property="og:title" content="Slevao.cz – chytré slevy bez zbytečného hledání">
-<meta property="og:description" content="Aktuální akce a slevy českých obchodů na jednom místě.">
-<meta property="og:url" content="https://slevao.cz/">
-<meta name="twitter:card" content="summary">
-<title>Slevao.cz – chytré slevy bez zbytečného hledání</title>
-<style>
-:root{--b:#34d6c7;--bd:#159e94;--bs:#dff9f6;--sale:#ff5a5f;--ink:#172222;--muted:#667373;--line:#dde8e7;--bg:#f5f8f8;--ok:#22a66f;--shadow:0 18px 50px rgba(23,34,34,.1)}
-*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--bg);color:var(--ink)}button,input,select{font:inherit}button{cursor:pointer}.c{width:min(1180px,calc(100% - 32px));margin:auto}
-.top{position:sticky;top:0;z-index:50;background:#fffffff0;backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}.topin{min-height:76px;display:flex;align-items:center;gap:18px}.logo{display:flex;align-items:center;gap:10px;font-size:24px;font-weight:950;letter-spacing:-1px;white-space:nowrap}.logo i{font-style:normal;width:42px;height:42px;border-radius:15px;background:linear-gradient(135deg,var(--b),#8cf0e6);display:grid;place-items:center}.logo b{color:var(--bd)}.search{position:relative;flex:1}.search input{width:100%;height:48px;border:1px solid var(--line);border-radius:17px;background:#fff;padding:0 110px 0 46px;outline:0}.search span{position:absolute;left:16px;top:14px}.search button{position:absolute;right:7px;top:7px;height:34px;border:0;border-radius:12px;padding:0 14px;background:var(--b);font-weight:900}.saved{height:46px;border:1px solid var(--line);background:#fff;border-radius:15px;padding:0 15px;font-weight:800;white-space:nowrap}.saved.on{background:#fff0f1;border-color:#ffb7ba;color:#c93038}
-.hero{padding:24px 0 12px}.heroBox{border-radius:30px;background:linear-gradient(135deg,#e6fbf8,#fff 55%,#fff0ed);border:1px solid #d6efec;padding:32px 40px;box-shadow:var(--shadow)}h1{font-size:clamp(34px,5vw,54px);line-height:1;letter-spacing:-2.5px;margin:8px 0 12px}.hero p{font-size:17px;color:var(--muted)}.status{margin-top:22px;display:flex;gap:10px;flex-wrap:wrap}.pill{display:inline-flex;gap:8px;padding:9px 12px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:13px;font-weight:800}
-.section{padding:28px 0}.head{margin-bottom:18px}h2{font-size:30px;letter-spacing:-1px;margin:0}.sub{color:var(--muted);margin-top:6px}.stores{display:grid;grid-template-columns:repeat(5,1fr);gap:12px}.storeCard{min-height:132px;background:#fff;border:1px solid var(--line);border-radius:20px;padding:18px;text-align:center;font-weight:900;color:var(--ink);text-decoration:none;display:flex;flex-direction:column;align-items:center;justify-content:center;transition:.2s}.storeCard:hover{transform:translateY(-3px);box-shadow:var(--shadow);border-color:#9fe9e2}.storeCard.on{background:var(--bs);border-color:var(--bd)}.storeLogoBox{width:88px;height:58px;display:grid;place-items:center;margin-bottom:10px}.storeCard img{max-width:88px;max-height:58px;object-fit:contain}.storeAll{font-size:28px;margin-bottom:10px}
-.dealsLayout{display:block}.filterPanel{position:fixed;top:88px;left:16px;width:250px;max-height:calc(100vh - 104px);overflow-y:auto;overscroll-behavior:contain;background:#fff;border:1px solid var(--line);border-radius:24px;padding:18px;box-shadow:0 12px 34px rgba(23,34,34,.12);z-index:40;scrollbar-width:thin}.filterTitle{display:flex;align-items:center;justify-content:space-between;margin-bottom:15px}.filterTitle strong{font-size:20px}.filterClose{display:none;border:0;background:transparent;font-size:22px}.filterGroup{margin-bottom:17px}.filterGroup label{display:block;font-size:13px;font-weight:900;margin-bottom:7px}.filterGroup input,.filterGroup select{width:100%;height:44px;border:1px solid var(--line);border-radius:13px;padding:0 12px;background:#fff;outline:0}.filterGroup input:focus,.filterGroup select:focus{border-color:var(--bd);box-shadow:0 0 0 3px #34d6c726}.check{display:flex!important;align-items:center;gap:9px;font-size:14px!important;font-weight:700!important}.check input{width:18px;height:18px}.resetBtn{width:100%;height:44px;border:1px solid var(--line);border-radius:13px;background:var(--bs);font-weight:900;color:#0d746c}.resultCount{font-size:13px;color:var(--muted);margin-top:12px}.mobileFilterBtn{display:none;position:fixed;right:16px;bottom:18px;z-index:80;border:0;border-radius:999px;background:var(--bd);color:#fff;padding:13px 18px;font-weight:900;box-shadow:0 12px 30px #0b77704d}
-.dealsToolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}.toolbarText{font-size:14px;color:var(--muted);font-weight:800}.sortSelect{height:42px;border:1px solid var(--line);border-radius:13px;padding:0 36px 0 12px;background:#fff;font-weight:800;color:var(--ink)}.activeFilters{display:flex;gap:8px;flex-wrap:wrap;margin:0 0 16px}.filterChip{border:1px solid #a9e8e2;background:var(--bs);color:#0d746c;border-radius:999px;padding:7px 10px;font-size:12px;font-weight:900}.filterChip span{margin-left:5px;font-size:15px}.filterChip.clearAll{background:#fff;border-color:var(--line);color:var(--muted)}
-.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch}.deal{background:#fff;border:1px solid var(--line);border-radius:22px;overflow:hidden;display:flex;flex-direction:column;min-height:390px;transition:transform .2s ease,box-shadow .2s ease}.deal:hover{transform:translateY(-3px);box-shadow:var(--shadow)}.media{height:210px;background:linear-gradient(180deg,#fff,#f5f9f8);display:flex;align-items:center;justify-content:center;padding:20px;overflow:hidden;font-size:48px;position:relative}.media img{display:block;width:auto;height:auto;max-width:78%;max-height:78%;object-fit:contain;transition:transform .2s ease}.deal:hover .media img{transform:scale(1.04)}.discountBadge{position:absolute;left:12px;top:12px;background:var(--sale);color:#fff;font-size:13px;font-weight:950;padding:7px 9px;border-radius:10px;box-shadow:0 6px 15px #ff5a5f42}.saveOffer{position:absolute;right:12px;top:12px;width:38px;height:38px;border:1px solid var(--line);border-radius:12px;background:#fffffff2;font-size:21px;display:grid;place-items:center;transition:.2s}.saveOffer:hover{transform:scale(1.06)}.saveOffer.on{background:#fff0f1;border-color:#ffb7ba;color:#d92f39}.body{padding:15px;display:flex;flex-direction:column;flex:1}.storeLine{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:12px;font-weight:900;text-transform:uppercase}.storeLine img{width:24px;height:24px;object-fit:contain;border-radius:6px}.body h3{margin:8px 0 14px;line-height:1.25;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;min-height:2.5em}.priceRow{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin-top:auto}.price{font-size:24px;font-weight:950}.old{text-decoration:line-through;color:#999}.saving{display:inline-flex;align-self:flex-start;margin-top:8px;padding:5px 8px;border-radius:9px;background:#e8f8f1;color:#13734f;font-size:12px;font-weight:900}.validity{margin-top:12px;padding-top:11px;border-top:1px solid #edf2f1;color:var(--muted);font-size:12px}.empty,.loading,.error{grid-column:1/-1;background:#fff;border:1px dashed var(--line);border-radius:22px;padding:34px;text-align:center;color:var(--muted)}.empty strong,.error strong{display:block;color:var(--ink);font-size:19px;margin-bottom:7px}.retryBtn{margin-top:16px;border:0;border-radius:13px;background:var(--bd);color:#fff;padding:11px 18px;font-weight:900}.loadMoreWrap{display:flex;justify-content:center;margin-top:24px}.loadMore{min-width:210px;height:48px;border:0;border-radius:15px;background:var(--bd);color:#fff;font-weight:950;box-shadow:0 10px 24px #159e9433}.loadMore:hover{transform:translateY(-2px)}footer{margin-top:36px;background:#17312f;color:#fff;padding:38px 0}.storeFilterInfo{margin-top:14px;color:var(--muted)}
-@media(min-width:761px){main,footer{padding-left:266px}.top .c{width:min(1180px,calc(100% - 32px));}.hero .c,.section .c,footer .c{width:min(1180px,calc(100% - 32px))}}
-@media(min-width:1440px){.filterPanel{left:max(16px,calc((100vw - 1450px)/2))}}
-@media(max-width:1000px) and (min-width:761px){main,footer{padding-left:236px}.filterPanel{width:220px}.stores{grid-template-columns:repeat(3,1fr)}.grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:760px){main,footer{padding-left:0}.dealsLayout{display:block}.filterPanel{position:fixed;left:12px;right:12px;width:auto;bottom:12px;top:auto;z-index:90;max-height:calc(100vh - 100px);overflow:auto;transform:translateY(calc(100% + 30px));transition:.25s}.filterPanel.open{transform:translateY(0)}.filterClose,.mobileFilterBtn{display:block}.grid{grid-template-columns:repeat(2,1fr)}}
-@media(max-width:620px){.c{width:calc(100% - 22px)}.logo span,.search button{display:none}.saved{padding:0 11px;font-size:0}.saved::first-letter{font-size:20px}.heroBox{padding:22px 20px}.stores{grid-template-columns:1fr 1fr}.storeCard{min-height:116px;padding:12px}.grid{gap:11px}.media{height:150px;padding:12px}.media img{max-width:84%;max-height:84%}.body{padding:12px}.body h3{font-size:15px}.price{font-size:21px}.deal{min-height:350px}.storeLine img{width:20px;height:20px}.validity{font-size:11px}.dealsToolbar{align-items:stretch;flex-direction:column}.sortSelect{width:100%}.filterChip{font-size:11px}}
-
-/* Jednotné zobrazení log obchodů */
-.storeLogoBox{width:104px;height:66px;overflow:visible}
-.storeCard img.storeLogo{width:100%;height:100%;max-width:104px;max-height:66px;object-fit:contain;transform:scale(1.08);transform-origin:center}
-.storeCard img.storeLogo[data-slug="penny"]{transform:scale(1.48)}
-.storeCard img.storeLogo[data-slug="okay"],
-.storeCard img.storeLogo[data-slug="enapo"],
-.storeCard img.storeLogo[data-slug="konzum"],
-.storeCard img.storeLogo[data-slug="brnenka"]{transform:scale(1.32)}
-.storeLine{min-height:32px}
-.storeLine .storeLogoWrap{width:36px;height:30px;display:grid;place-items:center;flex:0 0 36px;overflow:visible}
-.storeLine img.storeLogo{width:100%;height:100%;max-width:36px;max-height:30px;object-fit:contain;border-radius:0;transform:scale(1.12)}
-.storeLine img.storeLogo[data-slug="penny"]{transform:scale(1.5)}
-.storeLogoFallback{display:grid;place-items:center;width:100%;height:100%;border-radius:10px;background:#f1f5f4;color:#233;font-size:12px;font-weight:950;text-transform:uppercase}
-
-</style>
-<link rel="stylesheet" href="assets/search-suggest.css">
-<script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Aktuální akce a slevy českých obchodů na jednom místě.","inLanguage":"cs-CZ"}</script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#159e94">
+  <meta name="description" content="Slevao.cz – aktuální slevy, akční nabídky a letáky českých obchodů na jednom místě.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://slevao.cz/">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:site_name" content="Slevao.cz">
+  <meta property="og:title" content="Slevao.cz – najdi, kde nakoupíš nejlevněji">
+  <meta property="og:description" content="Porovnej aktuální slevy a akční nabídky českých obchodů.">
+  <meta property="og:url" content="https://slevao.cz/">
+  <meta name="twitter:card" content="summary">
+  <title>Slevao.cz – najdi, kde nakoupíš nejlevněji</title>
+  <link rel="stylesheet" href="assets/home-v2.css?v=20260802-2">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Aktuální slevy, akční nabídky a letáky českých obchodů.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
 </head>
 <body>
-<header class="top"><div class="c topin"><div class="logo"><i>%</i><span>SLEVAO<b>.cz</b></span></div><div class="search"><span>🔎</span><input id="q" type="search" placeholder="Hledej produkt, obchod nebo kategorii…"><button id="searchBtn">Hledat</button></div><button class="saved" id="savedBtn">♡ Uložené <span id="savedCount">0</span></button></div></header>
-<main>
-<section class="hero"><div class="c"><div class="heroBox"><h1>Co chceš dnes<br>koupit levněji?</h1><p>Aktuální nabídky českých obchodů na jednom místě.</p><div class="status"><div class="pill" id="status">Aktualizuji nabídky…</div><div class="pill" id="offerCount">0 nabídek</div><div class="pill" id="storeCount">0 obchodů</div></div></div></div></section>
-<section class="section"><div class="c"><div class="head"><h2>Zapojené obchody</h2><div class="sub">Klikni na obchod a zobrazí se jen jeho akční nabídky.</div></div><div class="stores" id="stores"><div class="loading">Načítám obchody…</div></div><div class="storeFilterInfo" id="storeFilterInfo"></div></div></section>
-<section class="section" id="deals"><div class="c"><div class="head"><h2 id="dealsTitle">Nejvýhodnější právě teď</h2><div class="sub">Ověřené nabídky, které právě platí.</div></div><div class="dealsToolbar"><div class="toolbarText" id="toolbarText">Načítám nabídky…</div><select class="sortSelect" id="sortSelect" aria-label="Řazení nabídek"><option value="newest">Nejnovější</option><option value="discount">Největší sleva</option><option value="saving">Největší úspora</option><option value="priceAsc">Cena od nejnižší</option><option value="priceDesc">Cena od nejvyšší</option><option value="name">Podle názvu</option></select></div><div class="activeFilters" id="activeFilters"></div><div class="dealsLayout"><aside class="filterPanel" id="filterPanel"><div class="filterTitle"><strong>Filtrovat nabídky</strong><button class="filterClose" id="filterClose" aria-label="Zavřít filtr">×</button></div><div class="filterGroup"><label for="sideSearch">Produkt nebo značka</label><input id="sideSearch" type="search" placeholder="Např. mléko"></div><div class="filterGroup"><label for="storeSelect">Obchod</label><select id="storeSelect"><option value="all">Všechny obchody</option></select></div><div class="filterGroup"><label for="maxPrice">Maximální cena: <span id="maxPriceValue">bez omezení</span></label><input id="maxPrice" type="range" min="10" max="5000" step="10" value="5000"></div><div class="filterGroup"><label class="check"><input id="onlyImages" type="checkbox"> Jen nabídky s obrázkem</label></div><button class="resetBtn" id="resetFilters">Zrušit všechny filtry</button><div class="resultCount" id="resultCount"></div></aside><div class="grid" id="grid"><div class="loading">Načítám dnešní nabídky…</div></div></div><div class="loadMoreWrap" id="loadMoreWrap" hidden><button class="loadMore" id="loadMore">Načíst další nabídky</button></div></div></section>
-</main>
-<button class="mobileFilterBtn" id="mobileFilterBtn">☰ Filtry</button>
-<footer><div class="c"><div class="logo"><i>%</i><span>SLEVAO<b>.cz</b></span></div><p>Chytrý průvodce slevami.</p></div></footer>
-<script>
-const SUPABASE_URL='https://uhampjdqjxmbhaptgitn.supabase.co';
-const SUPABASE_PUBLISHABLE_KEY='sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-const CATALOG=[['albert','Albert','albert.cz'],['billa','BILLA','billa.cz'],['coop','COOP','coop.cz'],['globus','Globus','globus.cz'],['hruska','Hruška','mojehruska.cz'],['kaufland','Kaufland','kaufland.cz'],['lidl','Lidl','lidl.cz'],['makro','MAKRO','makro.cz'],['penny','PENNY','penny.cz'],['tesco','Tesco','itesco.cz'],['enapo','Enapo','enapo.cz'],['terno','Terno','terno.cz'],['trefa','Trefa','trefa.cz'],['flop','FLOP','flop-potraviny.cz'],['jip','JIP','jip-potraviny.cz'],['tamda','Tamda Foods','tamdafoods.eu'],['norma','NORMA','norma-online.de'],['ratio','Ratio','ratio.cz'],['brnenka','Brněnka','brnenka.cz'],['cba','CBA','cba.cz'],['pramen-cz','Pramen CZ','pramen.cz'],['potraviny-muj-obchod','Můj obchod','mujobchod.cz'],['eso-market','ESO MARKET','esomarket.cz'],['rosa-market','ROSA market','rosamarket.cz'],['kubik','KUBÍK','kubik.cz'],['konzum','KONZUM','konzumuo.cz'],['tempo','TEMPO','tempo.cz'],['jednota','Jednota','jednota.cz'],['dm','dm drogerie','dm.cz'],['rossmann','ROSSMANN','rossmann.cz'],['teta','Teta drogerie','tetadrogerie.cz'],['action','Action','action.com'],['pepco','PEPCO','pepco.cz'],['kik','KiK','kik.cz'],['takko','Takko','takko.com'],['jysk','JYSK','jysk.cz'],['ikea','IKEA','ikea.com'],['obi','OBI','obi.cz'],['hornbach','HORNBACH','hornbach.cz'],['bauhaus','BAUHAUS','bauhaus.cz'],['mountfield','Mountfield','mountfield.cz'],['planeo','PLANEO','planeo.cz'],['datart','DATART','datart.cz'],['alza','Alza','alza.cz'],['okay','OKAY','okay.cz'],['dr-max','Dr. Max','drmax.cz'],['benu','BENU','benu.cz'],['pilulka','Pilulka','pilulka.cz'],['rohlik','Rohlík','rohlik.cz'],['kosik','Košík','kosik.cz']].map(([slug,name,domain],i)=>({id:'catalog-'+i,slug,name,domain,logo_url:''}));
-const readSaved=()=>{try{return new Set(JSON.parse(localStorage.getItem('slevao-saved')||'[]').map(String))}catch{return new Set()}};
-const state={stores:[],offers:[],store:'all',query:'',maxPrice:5000,onlyImages:false,sort:'newest',savedOnly:false,saved:readSaved(),visible:24};
-const DATA_CACHE_KEY='slevao-public-data-v1';
-const readDataCache=()=>{try{const cached=JSON.parse(localStorage.getItem(DATA_CACHE_KEY)||'null');return cached&&Date.now()-cached.savedAt<12*60*60*1000?cached:null}catch{return null}};
-const saveDataCache=(stores,offers)=>{try{localStorage.setItem(DATA_CACHE_KEY,JSON.stringify({savedAt:Date.now(),stores,offers}))}catch{}};
-const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const fold=v=>String(v||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-const LOCAL_STORE_LOGOS={penny:'assets/logos/penny.svg?v=4','eso-market':'assets/logos/eso-market.svg?v=1'};
-const logoCandidates=s=>{
-  const domain=s.domain||'';
-  const candidates=[];
-  if(LOCAL_STORE_LOGOS[s.slug])candidates.push(new URL(LOCAL_STORE_LOGOS[s.slug],document.baseURI).href);
-  if(s.logo_url)candidates.push(s.logo_url);
-  if(domain)candidates.push(`https://logo.clearbit.com/${domain}?size=256`);
-  if(domain)candidates.push(`https://www.google.com/s2/favicons?sz=256&domain_url=https://${domain}`);
-  return [...new Set(candidates.filter(Boolean))];
-};
-const logo=s=>logoCandidates(s)[0]||'';
-const logoAttrs=s=>{
-  const list=logoCandidates(s);
-  return `src="${esc(list[0]||'')}" data-logo-list="${esc(JSON.stringify(list))}" data-logo-index="0" data-slug="${esc(s.slug||'')}"`;
-};
-function logoError(img){
-  let list=[];try{list=JSON.parse(img.dataset.logoList||'[]')}catch{}
-  const next=Number(img.dataset.logoIndex||0)+1;
-  if(next<list.length){img.dataset.logoIndex=String(next);img.src=list[next];return}
-  const box=img.parentElement;if(box){box.innerHTML=`<span class="storeLogoFallback">${esc((img.alt||'?').replace(/^Logo\s*/i,'').slice(0,4))}</span>`}
-}
-window.logoError=logoError;
-const formatDate=v=>v?new Intl.DateTimeFormat('cs-CZ',{day:'numeric',month:'numeric'}).format(new Date(v+'T12:00:00')):'';
-const priceOf=o=>Number(o.price||0),oldOf=o=>Number(o.old_price||0),savingOf=o=>Math.max(0,oldOf(o)-priceOf(o)),discountOf=o=>oldOf(o)>priceOf(o)?Math.round(savingOf(o)/oldOf(o)*100):0;
-const wait=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-async function restRequest(table,params={},range){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),7000);try{const query=new URLSearchParams(params);const response=await fetch(`${SUPABASE_URL}/rest/v1/${table}?${query}`,{headers:{apikey:SUPABASE_PUBLISHABLE_KEY,...(range?{Range:range}: {})},signal:controller.signal,cache:'no-store'});if(!response.ok)throw new Error(`Databáze odpověděla chybou ${response.status}.`);return await response.json()}catch(error){if(error?.name==='AbortError')throw new Error('Databáze neodpověděla včas.');throw error}finally{clearTimeout(timer)}}
-async function retryRequest(factory,attempts=2){let lastError;for(let attempt=0;attempt<attempts;attempt++){try{return await factory()}catch(error){lastError=error;if(attempt+1<attempts)await wait(500)}}throw lastError}
-async function fetchActiveOffers(today){const all=[],pageSize=1000;for(let from=0;;from+=pageSize){const batch=await retryRequest(()=>restRequest('offers',{select:'id,title,price,old_price,image_url,valid_from,valid_to,stores(name,slug),products(name)',status:'eq.published',valid_from:`lte.${today}`,valid_to:`gte.${today}`,order:'published_at.desc'},`${from}-${from+pageSize-1}`));all.push(...batch);if(batch.length<pageSize)break}return all}
-function deduplicateOffers(rows){const unique=new Map;for(const offer of rows){const key=[offer.stores?.slug,fold(offer.title),offer.valid_from,offer.valid_to].join('|');const current=unique.get(key);if(!current||(!current.image_url&&offer.image_url))unique.set(key,offer)}return [...unique.values()]}
-function persistSaved(){localStorage.setItem('slevao-saved',JSON.stringify([...state.saved]));document.getElementById('savedCount').textContent=state.saved.size;document.getElementById('savedBtn').classList.toggle('on',state.savedOnly)}
-function resetVisible(){state.visible=24}
-function closeMobileFilter(){if(window.innerWidth<=760)document.getElementById('filterPanel').classList.remove('open')}
-function mergeStores(rows=[]){const catalog=new Map(CATALOG.map(s=>[s.slug,s]));return rows.map(store=>{const known=catalog.get(store.slug)||{};return{...known,...store,domain:known.domain||''}}).sort((a,b)=>a.name.localeCompare(b.name,'cs'));}
-function syncStoreSelect(){const select=document.getElementById('storeSelect');select.innerHTML='<option value="all">Všechny obchody</option>'+state.stores.map(s=>`<option value="${esc(s.slug)}">${esc(s.name)}</option>`).join('');select.value=state.store;}
-function clearAllFilters(){state.store='all';state.query='';state.maxPrice=5000;state.onlyImages=false;state.savedOnly=false;resetVisible();document.getElementById('q').value='';document.getElementById('sideSearch').value='';document.getElementById('storeSelect').value='all';document.getElementById('maxPrice').value='5000';document.getElementById('maxPriceValue').textContent='bez omezení';document.getElementById('onlyImages').checked=false;renderStores();renderOffers()}
-function renderActiveFilters(){const chips=[];const selected=state.stores.find(s=>s.slug===state.store);if(selected)chips.push(`<button class="filterChip" data-clear="store">Obchod: ${esc(selected.name)} <span>×</span></button>`);if(state.query)chips.push(`<button class="filterChip" data-clear="query">Hledání: ${esc(state.query)} <span>×</span></button>`);if(state.maxPrice<5000)chips.push(`<button class="filterChip" data-clear="price">Do ${state.maxPrice.toLocaleString('cs-CZ')} Kč <span>×</span></button>`);if(state.onlyImages)chips.push('<button class="filterChip" data-clear="images">Jen s obrázkem <span>×</span></button>');if(state.savedOnly)chips.push('<button class="filterChip" data-clear="saved">Jen uložené <span>×</span></button>');if(chips.length>1)chips.push('<button class="filterChip clearAll" data-clear="all">Zrušit vše</button>');const box=document.getElementById('activeFilters');box.innerHTML=chips.join('');box.hidden=!chips.length;box.querySelectorAll('[data-clear]').forEach(btn=>btn.onclick=()=>{const key=btn.dataset.clear;if(key==='all'){clearAllFilters();return}if(key==='store'){state.store='all';document.getElementById('storeSelect').value='all';renderStores()}if(key==='query'){state.query='';document.getElementById('q').value='';document.getElementById('sideSearch').value=''}if(key==='price'){state.maxPrice=5000;document.getElementById('maxPrice').value='5000';document.getElementById('maxPriceValue').textContent='bez omezení'}if(key==='images'){state.onlyImages=false;document.getElementById('onlyImages').checked=false}if(key==='saved')state.savedOnly=false;resetVisible();renderOffers()})}
-function renderStores(){document.getElementById('stores').innerHTML=`<button class="storeCard ${state.store==='all'?'on':''}" data-store="all"><div class="storeAll">🏪</div>Všechny obchody</button>`+state.stores.map(s=>`<a class="storeCard" href="${encodeURIComponent(s.slug)}.html"><div class="storeLogoBox"><img class="storeLogo" ${logoAttrs(s)} alt="Logo ${esc(s.name)}" loading="lazy" onerror="logoError(this)"></div>${esc(s.name)}</a>`).join('');document.querySelector('[data-store="all"]').onclick=()=>{state.store='all';syncStoreSelect();resetVisible();renderOffers();document.getElementById('deals').scrollIntoView({behavior:'smooth'});};document.getElementById('storeCount').textContent=`${state.stores.length} obchodů`;}
-function sortOffers(rows){return rows.sort((a,b)=>{if(state.sort==='discount')return discountOf(b)-discountOf(a);if(state.sort==='saving')return savingOf(b)-savingOf(a);if(state.sort==='priceAsc')return priceOf(a)-priceOf(b);if(state.sort==='priceDesc')return priceOf(b)-priceOf(a);if(state.sort==='name')return String(a.title||'').localeCompare(String(b.title||''),'cs');return 0})}
-function renderOffers(){let rows=[...state.offers];if(state.store!=='all')rows=rows.filter(o=>o.stores?.slug===state.store);const q=fold(state.query);if(q)rows=rows.filter(o=>fold([o.title,o.stores?.name,o.products?.name].join(' ')).includes(q));rows=rows.filter(o=>priceOf(o)<=state.maxPrice);if(state.onlyImages)rows=rows.filter(o=>Boolean(o.image_url));if(state.savedOnly)rows=rows.filter(o=>state.saved.has(String(o.id)));sortOffers(rows);const total=rows.length,visibleRows=rows.slice(0,state.visible),selected=state.stores.find(s=>s.slug===state.store);document.getElementById('dealsTitle').textContent=state.savedOnly?'Uložené nabídky':selected?`Akční ceny – ${selected.name}`:'Nejvýhodnější právě teď';document.getElementById('storeFilterInfo').textContent=selected?`Aktivní filtr: ${selected.name}`:'Zobrazeny jsou nabídky ze všech obchodů.';document.getElementById('resultCount').textContent=`Nalezeno ${total} z ${state.offers.length} nabídek`;document.getElementById('toolbarText').textContent=total?`Zobrazeno ${Math.min(state.visible,total)} z ${total} nabídek`:'Žádná nalezená nabídka';persistSaved();renderActiveFilters();const more=document.getElementById('loadMoreWrap');more.hidden=total<=state.visible;if(!rows.length){document.getElementById('grid').innerHTML=state.savedOnly?'<div class="empty"><strong>Zatím nemáš nic uložené</strong>Klikni na srdíčko u nabídky a najdeš ji potom tady.</div>':'<div class="empty"><strong>Nic jsme nenašli</strong>Zkus změnit obchod, cenu nebo hledaný výraz.</div>';return}document.getElementById('grid').innerHTML=visibleRows.map(o=>{const store=state.stores.find(s=>s.slug===o.stores?.slug);const old=oldOf(o),price=priceOf(o),saving=savingOf(o),discount=discountOf(o),saved=state.saved.has(String(o.id));return `<article class="deal"><div class="media">${o.image_url?`<img src="${esc(o.image_url)}" alt="${esc(o.title)}" loading="lazy" onerror="this.remove()">`:'🏷️'}${discount?`<span class="discountBadge">−${discount} %</span>`:''}<button class="saveOffer ${saved?'on':''}" data-save="${esc(o.id)}" aria-label="${saved?'Odebrat z uložených':'Uložit nabídku'}">${saved?'♥':'♡'}</button></div><div class="body"><div class="storeLine">${store?`<span class="storeLogoWrap"><img class="storeLogo" ${logoAttrs(store)} alt="Logo ${esc(store.name)}" loading="lazy" onerror="logoError(this)"></span>`:''}<span>${esc(o.stores?.name||'Obchod')}</span></div><h3>${esc(o.title)}</h3><div class="priceRow"><span class="price">${price.toLocaleString('cs-CZ')} Kč</span>${old?`<span class="old">${old.toLocaleString('cs-CZ')} Kč</span>`:''}</div>${saving?`<span class="saving">Ušetříš ${saving.toLocaleString('cs-CZ')} Kč</span>`:''}<div class="validity">Platí ${formatDate(o.valid_from)}–${formatDate(o.valid_to)}</div></div></article>`}).join('');document.querySelectorAll('[data-save]').forEach(btn=>btn.onclick=e=>{e.stopPropagation();const id=String(btn.dataset.save);state.saved.has(id)?state.saved.delete(id):state.saved.add(id);persistSaved();renderOffers()})}
-function applySearch(value){state.query=value.trim();document.getElementById('q').value=value;document.getElementById('sideSearch').value=value;resetVisible();renderOffers()}
-let loading=false;
-function applyData(stores,offers,status){state.offers=deduplicateOffers(offers);state.stores=mergeStores(stores);document.getElementById('offerCount').textContent=`${state.offers.length} nabídek`;document.getElementById('status').textContent=status;syncStoreSelect();renderStores();renderOffers()}
-async function load(){if(loading)return;loading=true;const cached=readDataCache();if(cached&&!state.offers.length)applyData(cached.stores,cached.offers,'Obnovuji aktuální nabídky…');else document.getElementById('status').textContent='Aktualizuji nabídky…';try{const today=new Date().toISOString().slice(0,10);const [stores,offers]=await Promise.all([retryRequest(()=>restRequest('stores',{select:'id,name,slug,logo_url,primary_color',is_active:'eq.true'})),fetchActiveOffers(today)]);saveDataCache(stores,offers);applyData(stores,offers,'✓ Aktualizováno dnes')}catch(e){console.error(e);if(cached){applyData(cached.stores,cached.offers,'Zobrazuji poslední dostupné nabídky');return}state.stores=[];state.offers=[];syncStoreSelect();renderStores();document.getElementById('status').textContent='Nabídky se nepodařilo načíst';document.getElementById('toolbarText').textContent='Načítání se nezdařilo';document.getElementById('grid').innerHTML=`<div class="error"><strong>Data se nepodařilo načíst.</strong>${esc(e?.message||'Zkontroluj připojení a zkus to znovu.')}<br><button class="retryBtn" id="retryLoad">Zkusit znovu</button></div>`;document.getElementById('retryLoad').onclick=load}finally{loading=false}}
-document.getElementById('searchBtn').onclick=()=>applySearch(document.getElementById('q').value);document.getElementById('q').addEventListener('keydown',e=>{if(e.key==='Enter')applySearch(e.target.value)});document.getElementById('sideSearch').addEventListener('input',e=>applySearch(e.target.value));document.getElementById('storeSelect').onchange=e=>{state.store=e.target.value;resetVisible();renderStores();renderOffers();closeMobileFilter()};document.getElementById('sortSelect').onchange=e=>{state.sort=e.target.value;resetVisible();renderOffers()};document.getElementById('savedBtn').onclick=()=>{state.savedOnly=!state.savedOnly;resetVisible();renderOffers();document.getElementById('deals').scrollIntoView({behavior:'smooth'})};document.getElementById('maxPrice').oninput=e=>{state.maxPrice=Number(e.target.value);document.getElementById('maxPriceValue').textContent=state.maxPrice>=5000?'bez omezení':`${state.maxPrice.toLocaleString('cs-CZ')} Kč`;resetVisible();renderOffers()};document.getElementById('onlyImages').onchange=e=>{state.onlyImages=e.target.checked;resetVisible();renderOffers();closeMobileFilter()};document.getElementById('resetFilters').onclick=()=>{clearAllFilters();closeMobileFilter()};document.getElementById('loadMore').onclick=()=>{state.visible+=24;renderOffers()};document.getElementById('mobileFilterBtn').onclick=()=>document.getElementById('filterPanel').classList.add('open');document.getElementById('filterClose').onclick=()=>document.getElementById('filterPanel').classList.remove('open');window.addEventListener('online',()=>{if(!state.offers.length)load()});window.addEventListener('pageshow',event=>{if(event.persisted&&!state.offers.length)load()});persistSaved();load();
-</script>
-<script src="assets/search-suggest.js?v=20260801-freeze-fix"></script>
+  <header class="topbar">
+    <div class="container topbarInner">
+      <a class="brand" href="#top" aria-label="Slevao.cz domů"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a>
+      <div class="mainSearch" role="search">
+        <span class="searchIcon" aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="Hledej produkt, značku, obchod nebo kategorii…" autocomplete="off" aria-label="Hledat nabídky">
+        <button id="searchButton" type="button">Hledat</button>
+        <div id="searchSuggestions" class="searchSuggestions" hidden></div>
+      </div>
+      <button id="savedButton" class="savedButton" type="button" aria-pressed="false"><span>♡</span><span class="savedLabel">Uložené</span><b id="savedCount">0</b></button>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div class="container">
+        <div class="heroCard">
+          <div class="heroCopy">
+            <span class="eyebrow">Chytrý průvodce slevami</span>
+            <h1>Najdi, kde dnes<br>nakoupíš nejlevněji.</h1>
+            <p>Aktuální akce českých obchodů, rychlé porovnání cen a nabídky, které brzy končí.</p>
+            <div class="heroStats">
+              <span id="statusPill" class="statusPill">Načítám aktuální nabídky…</span>
+              <span><b id="offerCount">0</b> nabídek</span>
+              <span><b id="storeCount">0</b> obchodů</span>
+            </div>
+          </div>
+          <div class="heroLocation">
+            <strong>Nabídky pro tvoji oblast</strong>
+            <p>Celostátní nabídky uvidíš vždy. Regionální přidáme podle výběru.</p>
+            <label for="regionSelect">Kraj</label>
+            <select id="regionSelect"><option value="all">Celá Česká republika</option></select>
+            <label for="citySelect">Město</label>
+            <select id="citySelect" disabled><option value="all">Všechna města</option></select>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="categoriesSection" class="section compactSection">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div><span class="eyebrow">Rychlý výběr</span><h2>Nakupuj podle kategorie</h2></div>
+          <button id="clearCategory" class="textButton" type="button" hidden>Zrušit kategorii</button>
+        </div>
+        <div id="categoryChips" class="categoryChips"><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="storesSection" class="section compactSection">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div><span class="eyebrow">Obchody</span><h2>Vyber obchod</h2><p>Kliknutí vyfiltruje nabídky. Odkaz na kartě otevře celou stránku obchodu.</p></div>
+          <button id="showAllStores" class="textButton" type="button">Zobrazit všechny</button>
+        </div>
+        <div id="storeGrid" class="storeGrid"><div class="skeleton storeSkeleton"></div><div class="skeleton storeSkeleton"></div><div class="skeleton storeSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="leafletsSection" class="section">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div><span class="eyebrow">Aktuálně v obchodech</span><h2>Letáky a nabídky obchodů</h2><p>Rychlý vstup do obchodů s platnými akčními nabídkami.</p></div>
+          <a class="textButton" href="#storesSection">Všechny obchody</a>
+        </div>
+        <div id="leafletGrid" class="leafletGrid"><div class="skeleton leafletSkeleton"></div><div class="skeleton leafletSkeleton"></div><div class="skeleton leafletSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="dealsSection" class="section dealsSection">
+      <div class="container">
+        <div class="sectionHead dealsHeading">
+          <div><span class="eyebrow">Aktuální ceny</span><h2 id="dealsTitle">Nejvýhodnější právě teď</h2><p id="dealsSubtitle">Ověřené nabídky, které právě platí.</p></div>
+          <button id="filterToggle" class="filterToggle" type="button">Filtry <span id="activeFilterCount">0</span></button>
+        </div>
+
+        <div id="quickTabs" class="quickTabs" role="tablist" aria-label="Rychlé výběry">
+          <button class="quickTab active" type="button" data-mode="recommended" role="tab">Doporučené</button>
+          <button class="quickTab" type="button" data-mode="discount" role="tab">Největší slevy</button>
+          <button class="quickTab" type="button" data-mode="ending" role="tab">Končí dnes</button>
+          <button class="quickTab" type="button" data-mode="new" role="tab">Nově přidané</button>
+          <button class="quickTab" type="button" data-mode="under50" role="tab">Do 50 Kč</button>
+          <button class="quickTab" type="button" data-mode="under100" role="tab">Do 100 Kč</button>
+        </div>
+
+        <div id="activeFilters" class="activeFilters" hidden></div>
+
+        <div class="dealsLayout">
+          <aside id="filterPanel" class="filterPanel" aria-label="Filtry nabídek">
+            <div class="filterPanelHead"><strong>Filtrovat nabídky</strong><button id="filterClose" type="button" aria-label="Zavřít filtry">×</button></div>
+            <label>Produkt nebo značka<input id="sideSearch" type="search" placeholder="Např. káva, mléko…"></label>
+            <label>Obchod<select id="storeSelect"><option value="all">Všechny obchody</option></select></label>
+            <label>Kategorie<select id="categorySelect"><option value="all">Všechny kategorie</option></select></label>
+            <div class="priceFields"><label>Cena od<input id="minPrice" type="number" min="0" step="1" placeholder="0 Kč"></label><label>Cena do<input id="maxPrice" type="number" min="0" step="1" placeholder="Bez omezení"></label></div>
+            <div class="pricePresets"><button type="button" data-max-price="50">Do 50 Kč</button><button type="button" data-max-price="100">Do 100 Kč</button><button type="button" data-max-price="500">Do 500 Kč</button></div>
+            <label class="checkLabel"><input id="onlyImages" type="checkbox"> Jen nabídky s fotografií</label>
+            <button id="resetFilters" class="resetFilters" type="button">Zrušit všechny filtry</button>
+          </aside>
+
+          <div class="dealsContent">
+            <div class="toolbar">
+              <span id="resultText">Načítám nabídky…</span>
+              <select id="sortSelect" aria-label="Řazení nabídek">
+                <option value="recommended">Doporučené</option>
+                <option value="discount">Největší sleva</option>
+                <option value="saving">Největší úspora</option>
+                <option value="ending">Končí nejdříve</option>
+                <option value="newest">Nejnovější</option>
+                <option value="priceAsc">Cena od nejnižší</option>
+                <option value="priceDesc">Cena od nejvyšší</option>
+                <option value="name">Podle názvu</option>
+              </select>
+            </div>
+            <div id="dealGrid" class="dealGrid"><div class="loadingState"><span class="spinner"></span><strong>Načítám aktuální nabídky</strong><small>Kontroluji platnost cen a obchodů.</small></div></div>
+            <div id="loadMoreWrap" class="loadMoreWrap" hidden><button id="loadMore" type="button">Načíst další nabídky</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footerGrid">
+      <div><a class="brand footerBrand" href="#top"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a><p>Chytrý přehled aktuálních akcí a slev českých obchodů.</p></div>
+      <div><strong>Slevao.cz</strong><a href="#dealsSection">Aktuální nabídky</a><a href="#leafletsSection">Letáky</a><a href="#storesSection">Obchody</a><a href="#categoriesSection">Kategorie</a></div>
+      <div><strong>Pomoc</strong><a href="kontakt.html">Kontakt</a><button id="footerReport" type="button">Nahlásit chybnou nabídku</button><a href="ochrana-soukromi.html">Ochrana soukromí</a><a href="podminky.html">Podmínky používání</a></div>
+      <div><strong>Informace</strong><p>Ceny a dostupnost se mohou v jednotlivých prodejnách lišit. Před nákupem ověř podmínky akce v oficiálním letáku obchodu.</p></div>
+    </div>
+    <div class="container footerBottom">© 2026 Slevao.cz · Data aktualizována průběžně</div>
+  </footer>
+
+  <nav class="mobileNav" aria-label="Mobilní navigace">
+    <a href="#top"><span>⌂</span>Domů</a>
+    <a href="#storesSection"><span>▦</span>Obchody</a>
+    <a href="#leafletsSection"><span>▤</span>Letáky</a>
+    <a href="#categoriesSection"><span>◫</span>Kategorie</a>
+    <button id="mobileSaved" type="button"><span>♡</span>Uložené</button>
+  </nav>
+
+  <div id="compareModal" class="modal" hidden>
+    <div class="modalBox" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
+      <div class="modalHead"><div><span class="eyebrow">Porovnání cen</span><h2 id="compareTitle">Porovnat produkt</h2></div><button type="button" data-close-modal="compareModal">×</button></div>
+      <div id="compareContent"></div>
+    </div>
+  </div>
+
+  <div id="reportModal" class="modal" hidden>
+    <div class="modalBox smallModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <div class="modalHead"><div><span class="eyebrow">Pomoz nám opravit data</span><h2 id="reportTitle">Nahlásit problém</h2></div><button type="button" data-close-modal="reportModal">×</button></div>
+      <p id="reportProduct" class="reportProduct"></p>
+      <label>Co je špatně?<select id="reportType"><option value="Cena neplatí">Cena neplatí</option><option value="Špatná fotografie">Špatná fotografie</option><option value="Nesprávná gramáž">Nesprávná gramáž</option><option value="Akce skončila">Akce skončila</option><option value="Produkt není dostupný">Produkt není dostupný</option><option value="Jiný problém">Jiný problém</option></select></label>
+      <label>Poznámka<textarea id="reportNote" rows="4" placeholder="Doplň podrobnosti…"></textarea></label>
+      <p class="modalHint">Po kliknutí se otevře tvůj e-mail s předvyplněným hlášením.</p>
+      <button id="sendReport" class="primaryButton" type="button">Připravit e-mail</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="assets/home-v2.js?v=20260802-2" defer></script>
 </body>
 </html>
