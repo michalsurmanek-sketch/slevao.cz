@@ -57,6 +57,19 @@ jobs:
                   raise SystemExit('Homepage JavaScript anchor was not found')
               html = html.replace(script_anchor, script_anchor + '\n  ' + script_link, 1)
           index_path.write_text(html, encoding='utf-8')
+
+          quality_path = Path('tests/quality.mjs')
+          quality = quality_path.read_text(encoding='utf-8')
+          old_test = "/allowedStatuses/,/detected_valid_to/,/createSignedUrl/])"
+          new_test = "/allowedStatuses/,/detected_valid_to/,/\\.storage\\.from\\(bucket\\)\\.download\\(path\\)/,/storedDocument\\.stream\\(\\)/])"
+          if old_test not in quality:
+              raise SystemExit('Outdated signed URL quality assertion was not found')
+          quality = quality.replace(old_test, new_test, 1)
+          redirect_assertion = "assert.doesNotMatch(publicLeafletDocument, /Response\\.redirect/, 'Dokumentový proxy používá CORS blokované přesměrování.');"
+          signed_assertion = "assert.doesNotMatch(publicLeafletDocument, /createSignedUrl/, 'Dokumentový proxy nesmí zveřejňovat podepsanou adresu Supabase Storage.');"
+          if signed_assertion not in quality:
+              quality = quality.replace(redirect_assertion, redirect_assertion + '\n' + signed_assertion, 1)
+          quality_path.write_text(quality, encoding='utf-8')
           PY
 
       - name: Remove one-time installer
