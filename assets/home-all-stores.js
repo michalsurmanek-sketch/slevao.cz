@@ -5,6 +5,14 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const STORE_PRIORITY = [
+    'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
+    'action', 'coop', 'hruska', 'norma', 'terno', 'rohlik', 'kosik',
+    'dm', 'rossmann', 'teta', 'alza', 'datart', 'planeo',
+    'ikea', 'jysk', 'obi', 'hornbach', 'bauhaus', 'mountfield',
+    'dr-max', 'benu', 'pilulka', 'pepco', 'kik',
+  ];
+  const STORE_RANK = new Map(STORE_PRIORITY.map((slug, index) => [slug, index]));
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -15,18 +23,26 @@
   let scheduled = 0;
   let syncing = false;
 
+  function rankStore(store) {
+    return STORE_RANK.has(store.slug) ? STORE_RANK.get(store.slug) : STORE_PRIORITY.length + 100;
+  }
+
+  function sortStores(rows) {
+    return [...rows].sort((a, b) => rankStore(a) - rankStore(b)
+      || String(a.name || '').localeCompare(String(b.name || ''), 'cs'));
+  }
+
   async function loadStores() {
     const query = new URLSearchParams({
       select: 'id,name,slug,logo_url,primary_color,is_active',
       is_active: 'eq.true',
-      order: 'name.asc',
     });
     const response = await fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
       headers: { apikey: SUPABASE_KEY },
       cache: 'no-store',
     });
     if (!response.ok) throw new Error(`Seznam obchodů vrátil HTTP ${response.status}.`);
-    stores = (await response.json()).filter((store) => store?.slug && store?.name);
+    stores = sortStores((await response.json()).filter((store) => store?.slug && store?.name));
   }
 
   function logoHtml(store) {
