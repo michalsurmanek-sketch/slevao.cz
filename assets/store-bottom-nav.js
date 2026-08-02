@@ -25,6 +25,7 @@
   const previous = stores[(index - 1 + stores.length) % stores.length];
   const next = stores[(index + 1) % stores.length];
   const href = ([slug]) => `${encodeURIComponent(slug)}.html`;
+  const isPhone = () => window.matchMedia('(max-width: 820px)').matches;
 
   const nav = document.createElement('nav');
   nav.className = 'storeBottomNav';
@@ -34,7 +35,7 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>
       <span><small>Předchozí</small><strong>${previous[1]}</strong></span>
     </a>
-    <button class="storeBottomNav__leaflet" type="button" aria-label="Přejít na aktuální leták">
+    <button class="storeBottomNav__leaflet" type="button" aria-label="Otevřít aktuální leták přes celou obrazovku">
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h9l3 3v15H6z"/><path d="M15 3v4h4M9 11h6M9 15h6"/></svg>
       <span>Leták</span>
     </button>
@@ -51,13 +52,76 @@
     || document.getElementById('leafletHeading')?.closest('section')
     || document.getElementById('storeLeafletHeading')?.closest('section');
 
-  leafletButton.addEventListener('click', () => {
+  const firstPreviewButton = () => document.querySelector('#leafletGrid [data-leaflet-preview]');
+
+  function activateFullscreenViewer() {
+    document.body.classList.add('leaflet-viewer-fullscreen');
+    const viewer = document.getElementById('leafletViewer');
+    if (!isPhone() || !viewer || !viewer.requestFullscreen || document.fullscreenElement) return;
+    try {
+      const result = viewer.requestFullscreen({ navigationUI: 'hide' });
+      result?.catch?.(() => {});
+    } catch {
+      // iPhone Safari používá místo Fullscreen API celoobrazovkové CSS.
+    }
+  }
+
+  function openLoadedLeaflet() {
+    const preview = firstPreviewButton();
+    if (!preview) return false;
+    preview.click();
+    activateFullscreenViewer();
+    leafletButton.classList.remove('is-loading');
+    leafletButton.classList.add('is-active');
+    window.setTimeout(() => leafletButton.classList.remove('is-active'), 1400);
+    return true;
+  }
+
+  function scrollToLeaflets() {
     const target = document.getElementById('leafletHeading')
       || document.getElementById('storeLeafletHeading')
       || leafletSection;
     target?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    leafletButton.classList.add('is-active');
-    window.setTimeout(() => leafletButton.classList.remove('is-active'), 1400);
+  }
+
+  leafletButton.addEventListener('click', () => {
+    if (!isPhone()) {
+      scrollToLeaflets();
+      leafletButton.classList.add('is-active');
+      window.setTimeout(() => leafletButton.classList.remove('is-active'), 1400);
+      return;
+    }
+
+    if (openLoadedLeaflet()) return;
+
+    leafletButton.classList.add('is-loading');
+    leafletButton.querySelector('span').textContent = 'Načítám';
+    const started = Date.now();
+    const timer = window.setInterval(() => {
+      if (openLoadedLeaflet()) {
+        window.clearInterval(timer);
+        leafletButton.querySelector('span').textContent = 'Leták';
+        return;
+      }
+      if (Date.now() - started < 4500) return;
+      window.clearInterval(timer);
+      leafletButton.classList.remove('is-loading');
+      leafletButton.querySelector('span').textContent = 'Leták';
+      scrollToLeaflets();
+    }, 150);
+  });
+
+  document.getElementById('closeLeafletViewer')?.addEventListener('click', () => {
+    document.body.classList.remove('leaflet-viewer-fullscreen');
+    if (document.fullscreenElement && document.exitFullscreen) {
+      document.exitFullscreen().catch?.(() => {});
+    }
+  }, { capture: true });
+
+  document.addEventListener('fullscreenchange', () => {
+    if (!document.fullscreenElement && !document.body.classList.contains('leaflet-viewer-open')) {
+      document.body.classList.remove('leaflet-viewer-fullscreen');
+    }
   });
 
   if (leafletSection && 'IntersectionObserver' in window) {
