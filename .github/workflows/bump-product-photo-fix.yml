@@ -1,0 +1,50 @@
+name: Install product photo save fix
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/bump-product-photo-fix.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Bump product control script version
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('admin-tesco-kontrola.html')
+          text = path.read_text(encoding='utf-8')
+          text = text.replace(
+              'assets/admin-product-control-query.js?v=20260802-1',
+              'assets/admin-product-control-query.js?v=20260802-2'
+          )
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Verify fix
+        run: |
+          node --check assets/admin-product-control-query.js
+          grep -q 'admin-product-control-query.js?v=20260802-2' admin-tesco-kontrola.html
+          grep -q "status: 'approved'" assets/admin-product-control-query.js
+          grep -q 'image_verified === true' assets/admin-product-control-query.js
+
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin-tesco-kontrola.html
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Load fixed product photo uploader"
+          git push origin main
