@@ -78,15 +78,23 @@
   }
 
   async function persistMarker(store, marker) {
-    const field = markerField(store);
-    const nextValue = withMarker(store[field], marker);
+    const { data: fresh, error: readError } = await db.from('stores')
+      .select('id,name,slug,logo_url,website_url,is_active')
+      .eq('id', store.id)
+      .single();
+    if (readError || !fresh) {
+      throw new Error(`Obrázek se nahrál, ale aktuální obchod se nepodařilo načíst: ${readError?.message || 'obchod nebyl nalezen'}`);
+    }
+
+    const field = markerField(fresh);
+    const nextValue = withMarker(fresh[field], marker);
     const { data, error } = await db.from('stores')
       .update({ [field]: nextValue })
       .eq('id', store.id)
       .select('id,name,slug,logo_url,website_url,is_active')
       .single();
     if (error) throw new Error(`Obrázek se nahrál, ale nepodařilo se ho přiřadit k obchodu: ${error.message}`);
-    Object.assign(store, data || { [field]: nextValue });
+    Object.assign(store, data || fresh, { [field]: nextValue });
     selected = store;
     const index = stores.findIndex((item) => item.id === store.id);
     if (index >= 0) stores[index] = store;
@@ -181,18 +189,11 @@
   async function probeImage(url) {
     if (!url || url === 'none') return '';
     return new Promise((resolve) => {
-      const probeUrl = `${url}${url.includes('?') ? '&' : '?'}admin_probe=${Date.now()}`;
       const image = new Image();
       const timer = window.setTimeout(() => resolve(''), 9000);
-      image.onload = () => {
-        window.clearTimeout(timer);
-        resolve(probeUrl);
-      };
-      image.onerror = () => {
-        window.clearTimeout(timer);
-        resolve('');
-      };
-      image.src = probeUrl;
+      image.onload = () => { window.clearTimeout(timer); resolve(url); };
+      image.onerror = () => { window.clearTimeout(timer); resolve(''); };
+      image.src = `${url}${url.includes('?') ? '&' : '?'}admin_probe=${Date.now()}`;
     });
   }
 
@@ -396,6 +397,9 @@
         show('Nová fotografie byla nahrána a starý obrázek byl nahrazen.');
         resetFile();
         await refreshCover();
+        try {
+          localStorage.setItem('slevao-homepage-image-changed', `${selected.slug}:${Date.now()}`);
+        } catch { /* localStorage může být vypnuté */ }
         window.dispatchEvent(new CustomEvent('slevao:homepage-image-changed', { detail: { slug: selected.slug } }));
       } catch (error) {
         const message = error?.name === 'AbortError'
@@ -417,6 +421,9 @@
         await removePhysicalImage(currentUrl, selected, current);
         show('Vlastní obrázek byl odstraněn. Karta znovu používá automatickou titulní stranu.');
         await refreshCover();
+        try {
+          localStorage.setItem('slevao-homepage-image-changed', `${selected.slug}:${Date.now()}`);
+        } catch { /* localStorage může být vypnuté */ }
         window.dispatchEvent(new CustomEvent('slevao:homepage-image-changed', { detail: { slug: selected.slug } }));
       } catch (error) {
         show(error?.message || 'Obrázek se nepodařilo odstranit.', 'err');
