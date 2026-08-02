@@ -52,3 +52,34 @@ jobs:
         run: |
           supabase functions deploy \
             --project-ref uhampjdqjxmbhaptgitn
+
+      - name: Ověřit feed titulních stran homepage
+        env:
+          PUBLIC_KEY: sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU
+        run: |
+          endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/homepage-leaflet-feed?limit=12'
+          body=''
+          for attempt in $(seq 1 12); do
+            if body=$(curl --fail --silent --show-error \
+              --header "apikey: $PUBLIC_KEY" \
+              "$endpoint"); then
+              break
+            fi
+            echo "Feed ještě není dostupný, pokus $attempt/12"
+            sleep 5
+          done
+          test -n "$body" || { echo 'Homepage feed nevrátil odpověď.'; exit 1; }
+          printf '%s' "$body" > /tmp/homepage-leaflet-feed.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/homepage-leaflet-feed.json', 'utf8'));
+          if (!payload.ok) throw new Error(payload.error || 'Homepage feed vrátil ok=false.');
+          if (!Array.isArray(payload.leaflets)) throw new Error('Homepage feed nevrátil pole leaflets.');
+          if (payload.leaflets.length < 2) throw new Error(`Homepage feed vrátil pouze ${payload.leaflets.length} leták.`);
+          for (const leaflet of payload.leaflets) {
+            if (!leaflet.store_slug || !leaflet.store_name || !leaflet.preview_url) {
+              throw new Error('Některý leták nemá obchod nebo preview_url.');
+            }
+          }
+          console.log(`Homepage feed ověřen: ${payload.leaflets.length} aktuálních letáků.`);
+          NODE
