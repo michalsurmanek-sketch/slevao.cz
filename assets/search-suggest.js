@@ -1,2 +1,82 @@
-(()=>{if(typeof state==='undefined'||typeof applyData!=='function')return;const originalApplyData=applyData;applyData=(stores,offers,status)=>{const activeSlugs=new Set((stores||[]).map(store=>store?.slug).filter(Boolean));const visibleOffers=(offers||[]).filter(offer=>activeSlugs.has(offer?.stores?.slug));return originalApplyData(stores,visibleOffers,status)};if(Array.isArray(state.stores)&&state.stores.length&&Array.isArray(state.offers)){const activeSlugs=new Set(state.stores.map(store=>store?.slug).filter(Boolean));const visibleOffers=state.offers.filter(offer=>activeSlugs.has(offer?.stores?.slug));if(visibleOffers.length!==state.offers.length){state.offers=visibleOffers;document.getElementById('offerCount').textContent=`${state.offers.length} nabídek`;renderOffers()}}})();
-(()=>{const q=document.getElementById('q'),wrap=q?.closest('.search');if(!q||!wrap)return;const panel=document.createElement('div');panel.id='searchSuggest';panel.className='searchSuggest';panel.setAttribute('role','listbox');wrap.appendChild(panel);let active=-1,current=[];const recentKey='slevao-recent-searches';const getRecent=()=>{try{return JSON.parse(localStorage.getItem(recentKey)||'[]').filter(Boolean).slice(0,6)}catch{return[]}};const saveRecent=value=>{const v=String(value||'').trim();if(!v)return;const rows=[v,...getRecent().filter(x=>fold(x)!==fold(v))].slice(0,6);localStorage.setItem(recentKey,JSON.stringify(rows))};const highlight=(text,term)=>{const safe=esc(text);const t=String(term||'').trim();if(!t)return safe;const needle=fold(t);let out='';for(const token of String(text||'').split(/(\s+)/)){out+=fold(token).includes(needle)&&needle?`<mark>${esc(token)}</mark>`:esc(token)}return out};const score=(o,term)=>{const t=fold(term),title=fold(o.title),product=fold(o.products?.name),store=fold(o.stores?.name);if(!t)return discountOf(o)*2+savingOf(o);let s=0;if(title===t)s+=1000;if(title.startsWith(t))s+=600;if(title.includes(t))s+=350;if(product.startsWith(t))s+=240;if(product.includes(t))s+=150;if(store.includes(t))s+=80;s+=Math.min(discountOf(o),70);return s};function choose(o){saveRecent(o.title);applySearch(o.title);close();document.getElementById('deals')?.scrollIntoView({behavior:'smooth'})}function rowsFor(term){return [...state.offers].filter(o=>!term||fold([o.title,o.products?.name,o.stores?.name].join(' ')).includes(fold(term))).sort((a,b)=>score(b,term)-score(a,term)).slice(0,8)}function render(){const term=q.value.trim();current=rowsFor(term);active=-1;const recent=getRecent();const saved=state.offers.filter(o=>state.saved.has(String(o.id))).slice(0,5);if(!current.length&&!recent.length&&!saved.length){panel.innerHTML='<div class="suggestEmpty">Zatím nejsou dostupné žádné návrhy.</div>';open();return}let html='';if(term)html+=`<div class="suggestHead">Nejlepší shody pro „${esc(term)}“</div>`;else if(saved.length)html+='<div class="suggestHead">❤️ Oblíbené produkty</div>';const shown=term?current:(saved.length?saved:current);html+=shown.map((o,i)=>{const d=discountOf(o),price=priceOf(o);return `<button class="suggestItem" role="option" data-suggest-index="${i}"><span class="suggestThumb">${o.image_url?`<img src="${esc(o.image_url)}" alt="" onerror="this.remove()">`:'🏷️'}</span><span class="suggestMain"><span class="suggestTitle">${highlight(o.title,term)}</span><span class="suggestMeta"><span>🏪 ${esc(o.stores?.name||'Obchod')}</span>${o.products?.name&&o.products.name!==o.title?`<span>${esc(o.products.name)}</span>`:''}</span></span><span class="suggestPrice">${price.toLocaleString('cs-CZ')} Kč${d?`<span class="suggestDiscount">−${d} %</span>`:''}</span></button>`}).join('');if(!term&&recent.length)html+=`<div class="suggestHead">⭐ Poslední hledání</div><div class="suggestChips">${recent.map(x=>`<button class="suggestChip" data-recent="${esc(x)}">${esc(x)}</button>`).join('')}</div>`;panel.innerHTML=html;panel.querySelectorAll('[data-suggest-index]').forEach(btn=>btn.addEventListener('click',()=>choose(current[Number(btn.dataset.suggestIndex)])));panel.querySelectorAll('[data-recent]').forEach(btn=>btn.addEventListener('click',()=>{q.value=btn.dataset.recent;render()}));open()}function open(){panel.classList.add('open')}function close(){panel.classList.remove('open');active=-1}function setActive(next){const items=[...panel.querySelectorAll('[data-suggest-index]')];if(!items.length)return;active=(next+items.length)%items.length;items.forEach((el,i)=>el.classList.toggle('active',i===active));items[active].scrollIntoView({block:'nearest'})}q.addEventListener('focus',render);q.addEventListener('click',render);q.addEventListener('input',render);q.addEventListener('keydown',e=>{if(e.key==='ArrowDown'){e.preventDefault();setActive(active+1)}else if(e.key==='ArrowUp'){e.preventDefault();setActive(active-1)}else if(e.key==='Enter'&&active>=0){e.preventDefault();choose(current[active])}else if(e.key==='Escape'){e.preventDefault();close()}});document.addEventListener('click',e=>{if(!wrap.contains(e.target))close()});setTimeout(()=>{if(document.activeElement===q)render()},800)})();
+(() => {
+  'use strict';
+
+  const RAW = 'https://raw.githubusercontent.com/michalsurmanek-sketch/slevao.cz/a7d892d684438c64276490ad25c7a245e46ed9d3/.home-v2-parts/';
+  const FILES = {
+    html: { prefix: 'index', count: 2, hash: '669924cc66b447e78339142d50dfbcf86e0ea99199d7a7040d2527f1e23f8c65' },
+    css: { prefix: 'css', count: 3, hash: 'a1861642b47ca7efb377ad803786198f942de31a41abe06941285df873cb973a' },
+    js: { prefix: 'js', count: 5, hash: '35a686d38a636b61e6f1b4fa3222acee9dff557d9125538e063715d9abd447f7' },
+  };
+
+  const cover = document.createElement('div');
+  cover.setAttribute('role', 'status');
+  cover.innerHTML = '<div><b>SLEVAO<span>.cz</span></b><i></i><small>Načítám nový přehled slev…</small></div>';
+  Object.assign(cover.style, {
+    position: 'fixed', inset: '0', zIndex: '2147483647', display: 'grid', placeItems: 'center',
+    background: '#f5faf9', color: '#172222', fontFamily: 'Inter,system-ui,sans-serif', transition: 'opacity .2s ease'
+  });
+  const box = cover.firstElementChild;
+  Object.assign(box.style, { display: 'grid', justifyItems: 'center', gap: '14px' });
+  Object.assign(box.querySelector('b').style, { fontSize: '28px', letterSpacing: '-1px' });
+  box.querySelector('span').style.color = '#159e94';
+  Object.assign(box.querySelector('i').style, {
+    width: '34px', height: '34px', border: '3px solid #cdeeea', borderTopColor: '#159e94',
+    borderRadius: '50%', animation: 'slevaoLoaderSpin .75s linear infinite'
+  });
+  box.querySelector('small').style.color = '#667373';
+  const loaderStyle = document.createElement('style');
+  loaderStyle.textContent = '@keyframes slevaoLoaderSpin{to{transform:rotate(360deg)}}';
+  document.head.appendChild(loaderStyle);
+  document.body.appendChild(cover);
+
+  const hex = buffer => [...new Uint8Array(buffer)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+
+  async function fetchText({ prefix, count, hash }) {
+    const parts = await Promise.all(Array.from({ length: count }, async (_, index) => {
+      const name = `${prefix}.${String(index + 1).padStart(2, '0')}.b64`;
+      const response = await fetch(RAW + name, { cache: 'force-cache', mode: 'cors' });
+      if (!response.ok) throw new Error(`Soubor ${name} se nepodařilo načíst.`);
+      return response.text();
+    }));
+    const encoded = parts.join('').replace(/\s+/g, '');
+    const compressed = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
+    if (typeof DecompressionStream !== 'function') throw new Error('Prohlížeč nepodporuje bezpečné rozbalení nové stránky.');
+    const stream = new Blob([compressed]).stream().pipeThrough(new DecompressionStream('gzip'));
+    const bytes = await new Response(stream).arrayBuffer();
+    const digest = hex(await crypto.subtle.digest('SHA-256', bytes));
+    if (digest !== hash) throw new Error(`Kontrola souboru ${prefix} nesouhlasí.`);
+    return new TextDecoder().decode(bytes);
+  }
+
+  async function activate() {
+    const [html, css, js] = await Promise.all([
+      fetchText(FILES.html), fetchText(FILES.css), fetchText(FILES.js),
+    ]);
+    if (!html.includes('id="categoriesSection"') || !html.includes('id="leafletsSection"') || !js.includes('function renderOffers')) {
+      throw new Error('Nová stránka neprošla kontrolou obsahu.');
+    }
+
+    const parsed = new DOMParser().parseFromString(html, 'text/html');
+    parsed.querySelectorAll('link[href*="home-v2.css"],script[src*="home-v2.js"]').forEach(node => node.remove());
+
+    document.head.replaceChildren(...[...parsed.head.childNodes].map(node => document.importNode(node, true)));
+    const style = document.createElement('style');
+    style.id = 'homeV2InlineStyle';
+    style.textContent = css;
+    document.head.appendChild(style);
+
+    document.body.replaceChildren(...[...parsed.body.childNodes].map(node => document.importNode(node, true)));
+    [...parsed.body.attributes].forEach(attribute => document.body.setAttribute(attribute.name, attribute.value));
+
+    const script = document.createElement('script');
+    script.id = 'homeV2InlineScript';
+    script.textContent = `${js}\n//# sourceURL=assets/home-v2.js`;
+    document.body.appendChild(script);
+  }
+
+  activate().catch(error => {
+    console.error('Nová homepage se nepodařila aktivovat:', error);
+    cover.style.opacity = '0';
+    setTimeout(() => cover.remove(), 220);
+  });
+})();
