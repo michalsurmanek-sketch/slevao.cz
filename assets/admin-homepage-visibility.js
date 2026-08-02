@@ -6,6 +6,14 @@
   const SETTINGS_URL = `${SUPABASE_URL}/storage/v1/object/public/homepage-leaflet-settings/visibility.json`;
   const META_KEY = 'slevao-leaflet-visibility';
   const EMPTY_META_BASE = 'https://slevao.cz/';
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const MAX_CARDS = 12;
+  const STORE_BATCH_SIZE = 8;
+  const PRIORITY_SLUGS = [
+    'tesco', 'penny', 'makro', 'kaufland', 'lidl', 'albert', 'billa', 'globus',
+    'coop', 'hruska', 'norma', 'terno', 'action', 'dm', 'rossmann', 'teta',
+  ];
+  const PRIORITY = new Map(PRIORITY_SLUGS.map((slug, index) => [slug, index]));
   const $ = (id) => document.getElementById(id);
   const db = window.supabase?.createClient(SUPABASE_URL, ANON_KEY);
 
@@ -70,6 +78,14 @@
     return `${parsed.base || EMPTY_META_BASE}#${parsed.params.toString()}`;
   }
 
+  function sortByHomepagePriority(rows) {
+    return [...rows].sort((a, b) => {
+      const aRank = PRIORITY.has(a.slug) ? PRIORITY.get(a.slug) : 999;
+      const bRank = PRIORITY.has(b.slug) ? PRIORITY.get(b.slug) : 999;
+      return aRank - bRank || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
+    });
+  }
+
   async function currentSession() {
     if (!db) throw new Error('Supabase se nepodařilo načíst. Obnov stránku přes Ctrl+F5.');
     const { data, error } = await db.auth.getSession();
@@ -79,6 +95,16 @@
       throw new Error('Účet nemá oprávnění měnit viditelnost letáků.');
     }
     return session;
+  }
+
+  async function fetchWithTimeout(url, options = {}, milliseconds = 9000) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), milliseconds);
+    try {
+      return await fetch(url, { ...options, signal: controller.signal });
+    } finally {
+      window.clearTimeout(timer);
+    }
   }
 
   async function readLegacySettings() {
@@ -96,8 +122,77 @@
     }
   }
 
+  function currentLeaflet(rows) {
+    return (Array.isArray(rows) ? rows : [])
+      .filter((leaflet) => leaflet?.preview_url)
+      .filter((leaflet) => !leaflet.valid_from || leaflet.valid_from <= TODAY)
+      .filter((leaflet) => !leaflet.valid_to || leaflet.valid_to >= TODAY)
+      .sort((a, b) => {
+        const aPriority = a.key === 'hypermarket' ? 0 : a.key === 'supermarket' ? 1 : 2;
+        const bPriority = b.key === 'hypermarket' ? 0 : b.key === 'supermarket' ? 1 : 2;
+        return aPriority - bPriority
+          || String(a.valid_to || '9999-12-31').localeCompare(String(b.valid_to || '9999-12-31'));
+      })[0] || null;
+  }
+
+  async function activeOfferStoreIds() {
+    const ids = new Set();
+    for (let from = 0; from < 5000; from += 1000) {
+      const { data, error } = await db.from('offers')
+        .select('store_id')
+        .eq('status', 'published')
+        .lte('valid_from', TODAY)
+        .gte('valid_to', TODAY)
+        .range(from, from + 999);
+      if (error) throw error;
+      (data || []).forEach((row) => row.store_id && ids.add(String(row.store_id)));
+      if (!data || data.length < 1000) break;
+    }
+    return ids;
+  }
+
+  async function hasCurrentHomepageLeaflet(store) {
+    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=admin-homepage-visibility-v2`;
+    const response = await fetchWithTimeout(endpoint, {
+      headers: { apikey: ANON_KEY },
+      cache: 'no-store',
+    });
+    if (!response.ok) throw new Error(`${store.slug}: HTTP ${response.status}`);
+    const payload = await response.json();
+    return Boolean(currentLeaflet(payload?.leaflets));
+  }
+
+  async function resolveHomepageStores(allStores) {
+    let activeIds = null;
+    try {
+      activeIds = await activeOfferStoreIds();
+    } catch (error) {
+      console.warn('Obchody se nepodařilo omezit podle aktivních nabídek:', error);
+    }
+
+    const candidates = sortByHomepagePriority(allStores.filter((store) =>
+      store?.slug && store?.name && store.is_active && (!activeIds || activeIds.has(String(store.id)))));
+    const output = [];
+
+    for (let offset = 0; offset < candidates.length && output.length < MAX_CARDS; offset += STORE_BATCH_SIZE) {
+      const batch = candidates.slice(offset, offset + STORE_BATCH_SIZE);
+      const results = await Promise.allSettled(batch.map(async (store) => ({
+        store,
+        available: await hasCurrentHomepageLeaflet(store),
+      })));
+      results.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value.available && output.length < MAX_CARDS) {
+          output.push(result.value.store);
+        }
+      });
+    }
+
+    return output;
+  }
+
   function rebuildHidden() {
-    hidden = new Set(legacyHidden);
+    const allowed = new Set(stores.map((store) => store.slug));
+    hidden = new Set([...legacyHidden].filter((slug) => allowed.has(slug)));
     for (const store of stores) {
       const marker = storeMarker(store);
       if (marker === 'hidden') hidden.add(store.slug);
@@ -106,8 +201,9 @@
   }
 
   function logo(store) {
-    return store.logo_url
-      ? `<img src="${esc(store.logo_url)}" alt="Logo ${esc(store.name)}" onerror="this.replaceWith(document.createTextNode('%'))">`
+    const logoUrl = parseMeta(store.logo_url).base;
+    return logoUrl
+      ? `<img src="${esc(logoUrl)}" alt="Logo ${esc(store.name)}" onerror="this.replaceWith(document.createTextNode('%'))">`
       : '%';
   }
 
@@ -136,8 +232,8 @@
           <h2>${esc(store.name)}</h2>
           <div class="visibilityMeta">
             <span class="visibilityPill">${esc(store.slug)}</span>
-            <span class="visibilityPill ${store.is_active ? 'ok' : 'warn'}">${store.is_active ? 'Obchod je na webu' : 'Obchod je obecně skrytý'}</span>
-            <span class="visibilityPill ${isHidden ? 'bad' : 'ok'}">${isHidden ? 'V letácích skrytý' : 'V letácích zobrazený'}</span>
+            <span class="visibilityPill ok">Má aktuální kartu letáku</span>
+            <span class="visibilityPill ${isHidden ? 'bad' : 'ok'}">${isHidden ? 'Na hlavní stránce skrytý' : 'Na hlavní stránce zobrazený'}</span>
           </div>
         </div>
         <div class="visibilityActions">
@@ -146,7 +242,7 @@
           </button>
         </div>
       </article>`;
-    }).join('') : '<div class="visibilityEmpty">Žádný obchod neodpovídá filtru.</div>';
+    }).join('') : '<div class="visibilityEmpty">Žádná aktuální karta neodpovídá filtru.</div>';
 
     $('list').querySelectorAll('[data-toggle]').forEach((button) => {
       button.addEventListener('click', () => toggle(button.dataset.toggle));
@@ -157,7 +253,7 @@
   async function load() {
     clearMessage();
     $('reload').disabled = true;
-    $('list').innerHTML = '<div class="visibilityEmpty">Načítám obchody…</div>';
+    $('list').innerHTML = '<div class="visibilityEmpty">Načítám stejné karty jako na hlavní stránce…</div>';
     try {
       await currentSession();
       const [{ data, error }, oldSettings] = await Promise.all([
@@ -165,12 +261,15 @@
         readLegacySettings(),
       ]);
       if (error) throw error;
-      stores = (data || []).filter((store) => store.slug && store.name);
+      stores = await resolveHomepageStores(data || []);
       legacyHidden = oldSettings;
       rebuildHidden();
       render();
+      if (!stores.length) show('Hlavní stránka nyní nemá žádnou dostupnou aktuální kartu letáku.', 'err');
     } catch (error) {
-      show(error?.message || 'Data se nepodařilo načíst.', 'err');
+      show(error?.name === 'AbortError'
+        ? 'Načítání aktuálních letáků překročilo časový limit. Klikni na Obnovit.'
+        : error?.message || 'Data se nepodařilo načíst.', 'err');
       $('list').innerHTML = '<div class="visibilityEmpty">Načtení selhalo.</div>';
     } finally {
       $('reload').disabled = false;
@@ -182,27 +281,35 @@
     if (!store || busy) return;
     const makeVisible = hidden.has(slug);
     const marker = makeVisible ? 'visible' : 'hidden';
-    const field = markerField(store);
-    const nextValue = withMarker(store[field], marker);
     busy = slug;
     clearMessage();
     render();
 
     try {
       await currentSession();
+      const { data: fresh, error: readError } = await db.from('stores')
+        .select('id,name,slug,logo_url,website_url,is_active')
+        .eq('id', store.id)
+        .single();
+      if (readError || !fresh) throw readError || new Error('Obchod nebyl nalezen.');
+
+      const field = markerField(fresh);
+      const nextValue = withMarker(fresh[field], marker);
       const { data, error } = await db.from('stores')
         .update({ [field]: nextValue })
         .eq('id', store.id)
         .select('id,name,slug,logo_url,website_url,is_active')
         .single();
       if (error) throw error;
+
       Object.assign(store, data || { [field]: nextValue });
       rebuildHidden();
       try {
-        localStorage.setItem('slevao-leaflet-visibility-changed', String(Date.now()));
+        localStorage.setItem('slevao-leaflet-visibility-changed', `${slug}:${Date.now()}`);
       } catch { /* localStorage může být vypnuté */ }
+      window.dispatchEvent(new CustomEvent('slevao:leaflet-visibility-changed', { detail: { slug } }));
       show(makeVisible
-        ? `${store.name} se v hlavní sekci znovu zobrazí.`
+        ? `${store.name} se na hlavní stránce znovu zobrazí.`
         : `${store.name} byl z hlavní sekce letáků skryt.`);
     } catch (error) {
       show(error?.message || 'Nastavení se nepodařilo uložit.', 'err');
