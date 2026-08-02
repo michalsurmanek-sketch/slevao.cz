@@ -1,1 +1,1 @@
-Spuštění opravy přes existující workflow kontroly kvality.
+Spuštění opravy po načtení nejnovějšího main.
