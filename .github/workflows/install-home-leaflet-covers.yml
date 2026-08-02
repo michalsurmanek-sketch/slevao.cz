@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   install:
-    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'homepage-real-leaflet-covers-20260802'
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'homepage-real-leaflet-covers-20260802-v2'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -73,7 +73,7 @@ jobs:
           PY
 
       - name: Remove one-time installer
-        run: rm -f .github/workflows/install-home-leaflet-covers.yml .github/leaflet-cover-install-trigger.txt
+        run: rm -f .github/workflows/install-home-leaflet-covers.yml .github/leaflet-cover-install-trigger-v2.txt
 
       - name: Verify implementation
         run: |
