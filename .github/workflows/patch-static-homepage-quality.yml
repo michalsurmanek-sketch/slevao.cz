@@ -70,21 +70,23 @@ jobs:
           end_marker = "assert.match(index, /search-suggest\\.js\\?v=20260801-freeze-fix/, 'Opravený skript musí obejít starou cache prohlížeče.');"
           end = text.index(end_marker, start) + len(end_marker)
           replacement = """new Script(homeJs, { filename: 'assets/home-v2.js' });
-          new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
-          assert.match(index, /assets\\/home-v2\\.css\\?v=20260802-2/, 'Homepage musí načítat statické styly v2.');
-          assert.match(index, /assets\\/home-v2\\.js\\?v=20260802-2/, 'Homepage musí načítat statický JavaScript v2.');
-          assert.match(index, /id=\"categoriesSection\"/, 'Homepage musí obsahovat kategorie.');
-          assert.match(index, /id=\"leafletsSection\"/, 'Homepage musí obsahovat letáky a nabídky obchodů.');
-          assert.match(index, /Končí dnes/, 'Homepage musí obsahovat rychlý filtr končících akcí.');
-          assert.match(homeJs, /function openCompare\\(/, 'Homepage musí umět porovnat produkt mezi obchody.');
-          assert.match(homeJs, /function geographyMatches\\(/, 'Homepage musí podporovat lokalitu.');
-          assert.match(homeCss, /\\.mobileNav/, 'Homepage musí mít mobilní spodní navigaci.');
-          assert.doesNotMatch(index + homeJs + read('assets/search-suggest.js'), /DecompressionStream|\\.home-v2-parts/, 'Homepage nesmí používat dynamický komprimovaný zavaděč.');
-          assert.doesNotMatch(read('assets/search-suggest.js'), /MutationObserver|setInterval/, 'Loga nesmí vytvářet nekonečnou smyčku změn DOM.');"""
+new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
+assert.match(index, /assets\\/home-v2\\.css\\?v=20260802-2/, 'Homepage musí načítat statické styly v2.');
+assert.match(index, /assets\\/home-v2\\.js\\?v=20260802-2/, 'Homepage musí načítat statický JavaScript v2.');
+assert.match(index, /id=\"categoriesSection\"/, 'Homepage musí obsahovat kategorie.');
+assert.match(index, /id=\"leafletsSection\"/, 'Homepage musí obsahovat letáky a nabídky obchodů.');
+assert.match(index, /Končí dnes/, 'Homepage musí obsahovat rychlý filtr končících akcí.');
+assert.match(homeJs, /function openCompare\\(/, 'Homepage musí umět porovnat produkt mezi obchody.');
+assert.match(homeJs, /function geographyMatches\\(/, 'Homepage musí podporovat lokalitu.');
+assert.match(homeCss, /\\.mobileNav/, 'Homepage musí mít mobilní spodní navigaci.');
+assert.doesNotMatch(index + homeJs + read('assets/search-suggest.js'), /DecompressionStream|\\.home-v2-parts/, 'Homepage nesmí používat dynamický komprimovaný zavaděč.');
+assert.doesNotMatch(read('assets/search-suggest.js'), /MutationObserver|setInterval/, 'Loga nesmí vytvářet nekonečnou smyčku změn DOM.');"""
           text = text[:start] + replacement + text[end:]
-
           path.write_text(text, encoding='utf-8')
           PY
+
+      - name: Remove temporary workflow before validation
+        run: rm .github/workflows/patch-static-homepage-quality.yml
 
       - name: Verify static homepage and tests
         run: |
@@ -92,11 +94,11 @@ jobs:
           node --check assets/search-suggest.js
           node tests/quality.mjs
 
-      - name: Commit quality migration
+      - name: Commit quality migration and cleanup
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add tests/quality.mjs
+          git add tests/quality.mjs .github/workflows/patch-static-homepage-quality.yml
           if git diff --cached --quiet; then
             exit 0
           fi
