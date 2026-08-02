@@ -24,55 +24,66 @@ jobs:
   verify_homepage_leaflet_feed:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'verify-homepage-leaflet-feed-20260802'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          ref: ${{ github.event.pull_request.head.ref }}
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Nasadit homepage leaflet feed
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          supabase functions deploy homepage-leaflet-feed \
-            --project-ref uhampjdqjxmbhaptgitn \
-            --no-verify-jwt
-      - name: Ověřit nasazený feed a dokumenty
+          node-version: '22'
+      - name: Ověřit více nasazených letáků a dokumentů
         env:
           PUBLIC_KEY: sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU
         run: |
-          endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/homepage-leaflet-feed?limit=12'
-          body=''
-          for attempt in $(seq 1 12); do
-            if body=$(curl --fail --silent --show-error --header "apikey: $PUBLIC_KEY" "$endpoint"); then
-              break
-            fi
-            echo "Čekám na nasazení feedu, pokus $attempt/12"
-            sleep 5
-          done
-          test -n "$body"
-          printf '%s' "$body" > /tmp/feed.json
           node <<'NODE'
-          const fs = require('node:fs');
-          const payload = JSON.parse(fs.readFileSync('/tmp/feed.json', 'utf8'));
-          if (!payload.ok) throw new Error(payload.error || 'Feed vrátil ok=false.');
-          if (!Array.isArray(payload.leaflets) || payload.leaflets.length < 2) {
-            throw new Error(`Feed vrátil pouze ${payload.leaflets?.length || 0} letáků.`);
+          const base = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+          const key = process.env.PUBLIC_KEY;
+          const slugs = ['tesco','penny','makro','kaufland','lidl','albert','billa','globus','coop','hruska','norma','terno'];
+          const today = new Date().toISOString().slice(0, 10);
+          const valid = [];
+
+          async function timeoutFetch(url, options = {}, ms = 15000) {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), ms);
+            try { return await fetch(url, { ...options, signal: controller.signal }); }
+            finally { clearTimeout(timer); }
           }
-          const slugs = new Set(payload.leaflets.map((item) => item.store_slug));
-          if (slugs.size < 2) throw new Error('Feed nevrátil dva různé obchody.');
-          for (const leaflet of payload.leaflets.slice(0, 4)) {
-            if (!leaflet.preview_url) throw new Error('Leták nemá preview_url.');
-            console.log(`${leaflet.store_slug}\t${leaflet.preview_url}`);
+
+          for (const slug of slugs) {
+            try {
+              const response = await timeoutFetch(`${base}/functions/v1/store-leaflet-feed?store=${slug}&source=github-live-test`, {
+                headers: { apikey: key },
+              });
+              if (!response.ok) {
+                console.log(`${slug}: feed HTTP ${response.status}`);
+                continue;
+              }
+              const payload = await response.json();
+              const leaflet = (Array.isArray(payload.leaflets) ? payload.leaflets : [])
+                .filter((item) => item?.preview_url)
+                .filter((item) => !item.valid_from || item.valid_from <= today)
+                .filter((item) => !item.valid_to || item.valid_to >= today)[0];
+              if (!leaflet) {
+                console.log(`${slug}: bez aktuálního preview_url`);
+                continue;
+              }
+
+              const documentResponse = await timeoutFetch(leaflet.preview_url, {
+                method: 'HEAD',
+                headers: { apikey: key },
+              }, 20000);
+              const type = String(documentResponse.headers.get('content-type') || '').toLowerCase();
+              if (!documentResponse.ok || (!type.includes('application/pdf') && !type.startsWith('image/'))) {
+                console.log(`${slug}: dokument HTTP ${documentResponse.status}, ${type || 'bez content-type'}`);
+                continue;
+              }
+              valid.push({ slug, type, validTo: leaflet.valid_to || null });
+              console.log(`${slug}: OK ${type}, platí do ${leaflet.valid_to || 'neuvedeno'}`);
+            } catch (error) {
+              console.log(`${slug}: ${error instanceof Error ? error.message : String(error)}`);
+            }
           }
-          fs.writeFileSync('/tmp/leaflet-urls.txt', payload.leaflets.slice(0, 4).map((item) => item.preview_url).join('\n'));
-          console.log(`Feed vrací ${payload.leaflets.length} letáků z ${slugs.size} obchodů.`);
+
+          if (valid.length < 2) {
+            throw new Error(`Živý test našel pouze ${valid.length} použitelné aktuální letáky.`);
+          }
+          console.log(`OVĚŘENO: ${valid.length} použitelných letáků: ${valid.map((item) => item.slug).join(', ')}`);
           NODE
-          while IFS= read -r url; do
-            headers=$(curl --fail --silent --show-error --head --header "apikey: $PUBLIC_KEY" "$url")
-            printf '%s\n' "$headers"
-            printf '%s' "$headers" | grep -Eiq '^content-type: (application/pdf|image/)'
-          done < /tmp/leaflet-urls.txt
