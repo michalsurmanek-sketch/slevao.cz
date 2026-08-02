@@ -4,10 +4,11 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const ANON_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const SETTINGS_URL = `${SUPABASE_URL}/storage/v1/object/public/homepage-leaflet-settings/visibility.json`;
-  const META_KEY = 'slevao-leaflet-visibility';
+  const VISIBILITY_KEY = 'slevao-leaflet-visibility';
+  const FORCE_KEY = 'slevao-leaflet-force';
   const EMPTY_META_BASE = 'https://slevao.cz/';
   const TODAY = new Date().toISOString().slice(0, 10);
-  const MAX_CARDS = 12;
+  const MAX_AUTO_CARDS = 12;
   const STORE_BATCH_SIZE = 8;
   const PRIORITY_SLUGS = [
     'tesco', 'penny', 'makro', 'kaufland', 'lidl', 'albert', 'billa', 'globus',
@@ -17,7 +18,9 @@
   const $ = (id) => document.getElementById(id);
   const db = window.supabase?.createClient(SUPABASE_URL, ANON_KEY);
 
+  let allStores = [];
   let stores = [];
+  let automaticSlugs = new Set();
   let hidden = new Set();
   let legacyHidden = new Set();
   let busy = '';
@@ -27,9 +30,12 @@
   }[character]));
   const fold = (value) => String(value || '')
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
-  const icon = (name) => name === 'eye'
-    ? '<svg class="uiIcon" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
-    : '<svg class="uiIcon" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.5 10.5 0 0 1 12 4c5 0 9 4 10 8a12.4 12.4 0 0 1-2 4"/><path d="M6.6 6.6A11.8 11.8 0 0 0 2 12c1 4 5 8 10 8a10.7 10.7 0 0 0 5.4-1.5"/></svg>';
+  const icon = (name) => {
+    if (name === 'eye') return '<svg class="uiIcon" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>';
+    if (name === 'plus') return '<svg class="uiIcon" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>';
+    if (name === 'remove') return '<svg class="uiIcon" viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M8 10v8M12 10v8M16 10v8M5 6l1 15h12l1-15"/></svg>';
+    return '<svg class="uiIcon" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.5 10.5 0 0 1 12 4c5 0 9 4 10 8a12.4 12.4 0 0 1-2 4"/><path d="M6.6 6.6A11.8 11.8 0 0 0 2 12c1 4 5 8 10 8a10.7 10.7 0 0 0 5.4-1.5"/></svg>';
+  };
 
   function show(text, type = 'ok') {
     const box = $('message');
@@ -49,33 +55,34 @@
     const raw = String(value || '').trim();
     const index = raw.indexOf('#');
     if (index < 0) return { base: raw, params: new URLSearchParams() };
-    return {
-      base: raw.slice(0, index),
-      params: new URLSearchParams(raw.slice(index + 1)),
-    };
+    return { base: raw.slice(0, index), params: new URLSearchParams(raw.slice(index + 1)) };
   }
 
-  function markerIn(value) {
-    const marker = parseMeta(value).params.get(META_KEY);
-    return marker === 'hidden' || marker === 'visible' ? marker : '';
+  function metaIn(value, key) {
+    return parseMeta(value).params.get(key) || '';
+  }
+
+  function storeMeta(store, key) {
+    return metaIn(store?.website_url, key) || metaIn(store?.logo_url, key) || '';
   }
 
   function storeMarker(store) {
-    return markerIn(store?.website_url) || markerIn(store?.logo_url) || '';
+    const marker = storeMeta(store, VISIBILITY_KEY);
+    return marker === 'hidden' || marker === 'visible' ? marker : '';
   }
 
-  function markerField(store) {
-    if (markerIn(store?.website_url)) return 'website_url';
-    if (markerIn(store?.logo_url)) return 'logo_url';
-    if (String(store?.website_url || '').trim()) return 'website_url';
-    if (String(store?.logo_url || '').trim()) return 'logo_url';
-    return 'website_url';
+  function isForced(store) {
+    return storeMeta(store, FORCE_KEY) === '1';
   }
 
-  function withMarker(value, marker) {
+  function withMetadata(value, updates) {
     const parsed = parseMeta(value);
-    parsed.params.set(META_KEY, marker);
-    return `${parsed.base || EMPTY_META_BASE}#${parsed.params.toString()}`;
+    Object.entries(updates).forEach(([key, setting]) => {
+      if (setting === '' || setting === null || setting === undefined) parsed.params.delete(key);
+      else parsed.params.set(key, String(setting));
+    });
+    const query = parsed.params.toString();
+    return query ? `${parsed.base || EMPTY_META_BASE}#${query}` : (parsed.base || EMPTY_META_BASE);
   }
 
   function sortByHomepagePriority(rows) {
@@ -92,7 +99,7 @@
     const session = data?.session;
     if (error || !session) throw new Error('Přihlášení vypršelo. Přihlas se znovu.');
     if (!['admin', 'editor'].includes(session.user.app_metadata?.role)) {
-      throw new Error('Účet nemá oprávnění měnit viditelnost letáků.');
+      throw new Error('Účet nemá oprávnění měnit hlavní sekci letáků.');
     }
     return session;
   }
@@ -152,17 +159,16 @@
   }
 
   async function hasCurrentHomepageLeaflet(store) {
-    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=admin-homepage-visibility-v2`;
+    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=admin-homepage-visibility-v3`;
     const response = await fetchWithTimeout(endpoint, {
-      headers: { apikey: ANON_KEY },
-      cache: 'no-store',
+      headers: { apikey: ANON_KEY }, cache: 'no-store',
     });
     if (!response.ok) throw new Error(`${store.slug}: HTTP ${response.status}`);
     const payload = await response.json();
     return Boolean(currentLeaflet(payload?.leaflets));
   }
 
-  async function resolveHomepageStores(allStores) {
+  async function resolveAutomaticStores(rows) {
     let activeIds = null;
     try {
       activeIds = await activeOfferStoreIds();
@@ -170,24 +176,29 @@
       console.warn('Obchody se nepodařilo omezit podle aktivních nabídek:', error);
     }
 
-    const candidates = sortByHomepagePriority(allStores.filter((store) =>
+    const candidates = sortByHomepagePriority(rows.filter((store) =>
       store?.slug && store?.name && store.is_active && (!activeIds || activeIds.has(String(store.id)))));
     const output = [];
 
-    for (let offset = 0; offset < candidates.length && output.length < MAX_CARDS; offset += STORE_BATCH_SIZE) {
+    for (let offset = 0; offset < candidates.length && output.length < MAX_AUTO_CARDS; offset += STORE_BATCH_SIZE) {
       const batch = candidates.slice(offset, offset + STORE_BATCH_SIZE);
       const results = await Promise.allSettled(batch.map(async (store) => ({
-        store,
-        available: await hasCurrentHomepageLeaflet(store),
+        store, available: await hasCurrentHomepageLeaflet(store),
       })));
       results.forEach((result) => {
-        if (result.status === 'fulfilled' && result.value.available && output.length < MAX_CARDS) {
+        if (result.status === 'fulfilled' && result.value.available && output.length < MAX_AUTO_CARDS) {
           output.push(result.value.store);
         }
       });
     }
-
     return output;
+  }
+
+  function rebuildVisibleStores(automatic) {
+    automaticSlugs = new Set(automatic.map((store) => store.slug));
+    const combined = new Map(automatic.map((store) => [store.slug, store]));
+    allStores.filter(isForced).forEach((store) => combined.set(store.slug, store));
+    stores = sortByHomepagePriority([...combined.values()]);
   }
 
   function rebuildHidden() {
@@ -200,8 +211,12 @@
     }
   }
 
+  function cleanLogoUrl(store) {
+    return parseMeta(store?.logo_url).base;
+  }
+
   function logo(store) {
-    const logoUrl = parseMeta(store.logo_url).base;
+    const logoUrl = cleanLogoUrl(store);
     return logoUrl
       ? `<img src="${esc(logoUrl)}" alt="Logo ${esc(store.name)}" onerror="this.replaceWith(document.createTextNode('%'))">`
       : '%';
@@ -211,6 +226,57 @@
     $('totalCount').textContent = stores.length.toLocaleString('cs-CZ');
     $('hiddenCount').textContent = hidden.size.toLocaleString('cs-CZ');
     $('visibleCount').textContent = Math.max(0, stores.length - hidden.size).toLocaleString('cs-CZ');
+  }
+
+  function ensureAddPanel() {
+    if ($('manualStorePanel')) return;
+    const panel = document.querySelector('.visibilityPanel');
+    const toolbar = panel?.querySelector('.visibilityToolbar');
+    if (!panel || !toolbar) return;
+
+    const style = document.createElement('style');
+    style.textContent = `
+      .manualStorePanel{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:end;margin-bottom:18px;padding:18px;border:1px solid #cfeae7;border-radius:15px;background:#f3fbfa}
+      .manualStorePanel h2{margin:0 0 5px;font-size:18px;font-weight:650}.manualStorePanel p{margin:0 0 12px;color:#64748b;font-size:13px}
+      .manualStorePanel select{width:100%;height:44px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+      .manualStorePanel .btn{min-width:190px;height:44px}.manualStoreHint{grid-column:1/-1;margin:0!important;color:#51716e!important}
+      .manualRemoveBtn{min-width:auto!important}.visibilityActions{flex-wrap:wrap}
+      @media(max-width:760px){.manualStorePanel{grid-template-columns:1fr}.manualStorePanel .btn{width:100%}}
+    `;
+    document.head.append(style);
+
+    const section = document.createElement('section');
+    section.id = 'manualStorePanel';
+    section.className = 'manualStorePanel';
+    section.innerHTML = `
+      <div>
+        <h2>Přidat další obchod</h2>
+        <p>Ručně přidaný obchod se ukáže i bez automaticky nalezeného letáku.</p>
+        <select id="manualStoreSelect" aria-label="Vyber další obchod"><option value="">Načítám obchody…</option></select>
+      </div>
+      <button id="manualStoreAdd" class="btn primary" type="button" disabled>${icon('plus')}Přidat do sekce</button>
+      <p class="manualStoreHint">Má-li obchod vlastní obrázek, použije se. Jinak se zobrazí karta s logem obchodu.</p>
+    `;
+    panel.insertBefore(section, toolbar);
+    $('manualStoreSelect').addEventListener('change', () => {
+      $('manualStoreAdd').disabled = !$('manualStoreSelect').value || Boolean(busy);
+    });
+    $('manualStoreAdd').addEventListener('click', addManualStore);
+  }
+
+  function renderAddOptions() {
+    ensureAddPanel();
+    const select = $('manualStoreSelect');
+    const button = $('manualStoreAdd');
+    if (!select || !button) return;
+    const current = new Set(stores.map((store) => store.slug));
+    const choices = allStores
+      .filter((store) => store.is_active && !current.has(store.slug))
+      .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'cs'));
+    select.innerHTML = choices.length
+      ? `<option value="">Vyber obchod…</option>${choices.map((store) => `<option value="${esc(store.id)}">${esc(store.name)} (${esc(store.slug)})</option>`).join('')}`
+      : '<option value="">Všechny aktivní obchody už jsou v sekci</option>';
+    button.disabled = !choices.length || Boolean(busy);
   }
 
   function render() {
@@ -225,6 +291,8 @@
 
     $('list').innerHTML = rows.length ? rows.map((store) => {
       const isHidden = hidden.has(store.slug);
+      const forced = isForced(store);
+      const automatic = automaticSlugs.has(store.slug);
       const waiting = busy === store.slug;
       return `<article class="visibilityStore ${isHidden ? 'isHidden' : ''}">
         <div class="visibilityLogo">${logo(store)}</div>
@@ -232,7 +300,7 @@
           <h2>${esc(store.name)}</h2>
           <div class="visibilityMeta">
             <span class="visibilityPill">${esc(store.slug)}</span>
-            <span class="visibilityPill ok">Má aktuální kartu letáku</span>
+            <span class="visibilityPill ${forced ? 'warn' : 'ok'}">${forced && !automatic ? 'Ručně přidaná karta' : forced ? 'Automatická + ručně připnutá' : 'Má aktuální kartu letáku'}</span>
             <span class="visibilityPill ${isHidden ? 'bad' : 'ok'}">${isHidden ? 'Na hlavní stránce skrytý' : 'Na hlavní stránce zobrazený'}</span>
           </div>
         </div>
@@ -240,20 +308,137 @@
           <button class="btn ${isHidden ? 'successBtn' : 'dangerBtn'}" type="button" data-toggle="${esc(store.slug)}" ${waiting ? 'disabled' : ''}>
             ${waiting ? 'Ukládám…' : isHidden ? `${icon('eye')}Zobrazit v sekci` : `${icon('eyeOff')}Skrýt ze sekce`}
           </button>
+          ${forced ? `<button class="btn light manualRemoveBtn" type="button" data-remove-force="${esc(store.slug)}" ${waiting ? 'disabled' : ''}>${icon('remove')}Odebrat ruční přidání</button>` : ''}
         </div>
       </article>`;
-    }).join('') : '<div class="visibilityEmpty">Žádná aktuální karta neodpovídá filtru.</div>';
+    }).join('') : '<div class="visibilityEmpty">Žádná karta neodpovídá filtru.</div>';
 
     $('list').querySelectorAll('[data-toggle]').forEach((button) => {
       button.addEventListener('click', () => toggle(button.dataset.toggle));
     });
+    $('list').querySelectorAll('[data-remove-force]').forEach((button) => {
+      button.addEventListener('click', () => removeManualStore(button.dataset.removeForce));
+    });
     metrics();
+    renderAddOptions();
+  }
+
+  async function readFreshStore(id) {
+    const { data, error } = await db.from('stores')
+      .select('id,name,slug,logo_url,website_url,is_active')
+      .eq('id', id)
+      .single();
+    if (error || !data) throw error || new Error('Obchod nebyl nalezen.');
+    return data;
+  }
+
+  async function saveMetadata(store, updates) {
+    const fresh = await readFreshStore(store.id);
+    const nextValue = withMetadata(fresh.website_url, updates);
+    const field = 'website_url';
+    const { data, error } = await db.from('stores')
+      .update({ [field]: nextValue })
+      .eq('id', fresh.id)
+      .select('id,name,slug,logo_url,website_url,is_active')
+      .single();
+    if (error) throw error;
+    return data || { ...fresh, [field]: nextValue };
+  }
+
+  function announceChange(slug) {
+    try {
+      localStorage.setItem('slevao-leaflet-visibility-changed', `${slug}:${Date.now()}`);
+    } catch { /* localStorage může být vypnuté */ }
+    window.dispatchEvent(new CustomEvent('slevao:leaflet-visibility-changed', { detail: { slug } }));
+  }
+
+  async function addManualStore() {
+    const id = $('manualStoreSelect')?.value;
+    const store = allStores.find((item) => item.id === id);
+    if (!store || busy) return;
+    busy = store.slug;
+    clearMessage();
+    render();
+    try {
+      await currentSession();
+      const saved = await saveMetadata(store, {
+        [FORCE_KEY]: '1',
+        [VISIBILITY_KEY]: 'visible',
+      });
+      const index = allStores.findIndex((item) => item.id === saved.id);
+      if (index >= 0) allStores[index] = saved;
+      rebuildVisibleStores(stores.filter((item) => automaticSlugs.has(item.slug)));
+      rebuildHidden();
+      announceChange(saved.slug);
+      show(`${saved.name} byl přidán do hlavní sekce letáků.`);
+    } catch (error) {
+      show(error?.message || 'Obchod se nepodařilo přidat.', 'err');
+    } finally {
+      busy = '';
+      render();
+    }
+  }
+
+  async function removeManualStore(slug) {
+    const store = allStores.find((item) => item.slug === slug);
+    if (!store || busy) return;
+    busy = slug;
+    clearMessage();
+    render();
+    try {
+      await currentSession();
+      const saved = await saveMetadata(store, { [FORCE_KEY]: '' });
+      const index = allStores.findIndex((item) => item.id === saved.id);
+      if (index >= 0) allStores[index] = saved;
+      const automatic = stores.filter((item) => automaticSlugs.has(item.slug));
+      rebuildVisibleStores(automatic);
+      rebuildHidden();
+      announceChange(saved.slug);
+      show(automaticSlugs.has(slug)
+        ? `${saved.name} už není ručně připnutý, ale zůstává jako automatická karta.`
+        : `${saved.name} byl z ručně přidaných obchodů odebrán.`);
+    } catch (error) {
+      show(error?.message || 'Ruční přidání se nepodařilo odebrat.', 'err');
+    } finally {
+      busy = '';
+      render();
+    }
+  }
+
+  async function toggle(slug) {
+    const store = allStores.find((item) => item.slug === slug);
+    if (!store || busy) return;
+    const makeVisible = hidden.has(slug);
+    busy = slug;
+    clearMessage();
+    render();
+    try {
+      await currentSession();
+      const saved = await saveMetadata(store, {
+        [VISIBILITY_KEY]: makeVisible ? 'visible' : 'hidden',
+      });
+      const index = allStores.findIndex((item) => item.id === saved.id);
+      if (index >= 0) allStores[index] = saved;
+      const visibleIndex = stores.findIndex((item) => item.id === saved.id);
+      if (visibleIndex >= 0) stores[visibleIndex] = saved;
+      rebuildHidden();
+      announceChange(saved.slug);
+      show(makeVisible
+        ? `${saved.name} se na hlavní stránce znovu zobrazí.`
+        : `${saved.name} byl z hlavní sekce letáků skryt.`);
+    } catch (error) {
+      show(error?.message || 'Nastavení se nepodařilo uložit.', 'err');
+    } finally {
+      busy = '';
+      render();
+    }
   }
 
   async function load() {
     clearMessage();
     $('reload').disabled = true;
-    $('list').innerHTML = '<div class="visibilityEmpty">Načítám stejné karty jako na hlavní stránce…</div>';
+    $('list').innerHTML = '<div class="visibilityEmpty">Načítám karty hlavní stránky…</div>';
+    ensureAddPanel();
     try {
       await currentSession();
       const [{ data, error }, oldSettings] = await Promise.all([
@@ -261,11 +446,13 @@
         readLegacySettings(),
       ]);
       if (error) throw error;
-      stores = await resolveHomepageStores(data || []);
+      allStores = (data || []).filter((store) => store?.slug && store?.name);
+      const automatic = await resolveAutomaticStores(allStores);
+      rebuildVisibleStores(automatic);
       legacyHidden = oldSettings;
       rebuildHidden();
       render();
-      if (!stores.length) show('Hlavní stránka nyní nemá žádnou dostupnou aktuální kartu letáku.', 'err');
+      if (!stores.length) show('Hlavní stránka nyní nemá žádnou kartu letáku.', 'err');
     } catch (error) {
       show(error?.name === 'AbortError'
         ? 'Načítání aktuálních letáků překročilo časový limit. Klikni na Obnovit.'
@@ -273,49 +460,6 @@
       $('list').innerHTML = '<div class="visibilityEmpty">Načtení selhalo.</div>';
     } finally {
       $('reload').disabled = false;
-    }
-  }
-
-  async function toggle(slug) {
-    const store = stores.find((item) => item.slug === slug);
-    if (!store || busy) return;
-    const makeVisible = hidden.has(slug);
-    const marker = makeVisible ? 'visible' : 'hidden';
-    busy = slug;
-    clearMessage();
-    render();
-
-    try {
-      await currentSession();
-      const { data: fresh, error: readError } = await db.from('stores')
-        .select('id,name,slug,logo_url,website_url,is_active')
-        .eq('id', store.id)
-        .single();
-      if (readError || !fresh) throw readError || new Error('Obchod nebyl nalezen.');
-
-      const field = markerField(fresh);
-      const nextValue = withMarker(fresh[field], marker);
-      const { data, error } = await db.from('stores')
-        .update({ [field]: nextValue })
-        .eq('id', store.id)
-        .select('id,name,slug,logo_url,website_url,is_active')
-        .single();
-      if (error) throw error;
-
-      Object.assign(store, data || { [field]: nextValue });
-      rebuildHidden();
-      try {
-        localStorage.setItem('slevao-leaflet-visibility-changed', `${slug}:${Date.now()}`);
-      } catch { /* localStorage může být vypnuté */ }
-      window.dispatchEvent(new CustomEvent('slevao:leaflet-visibility-changed', { detail: { slug } }));
-      show(makeVisible
-        ? `${store.name} se na hlavní stránce znovu zobrazí.`
-        : `${store.name} byl z hlavní sekce letáků skryt.`);
-    } catch (error) {
-      show(error?.message || 'Nastavení se nepodařilo uložit.', 'err');
-    } finally {
-      busy = '';
-      render();
     }
   }
 
@@ -344,8 +488,7 @@
     $('reload').addEventListener('click', load);
     $('loginBtn').addEventListener('click', async () => {
       const { error } = await db.auth.signInWithPassword({
-        email: $('email').value.trim(),
-        password: $('password').value,
+        email: $('email').value.trim(), password: $('password').value,
       });
       if (error) {
         const box = $('loginMsg');
