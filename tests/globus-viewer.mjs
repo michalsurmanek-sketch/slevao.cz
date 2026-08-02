@@ -15,6 +15,10 @@ assert.match(adapter, /window\.fetch = async/, 'Globus nepřevádí dokument př
 assert.match(adapter, /action-offers\\?\.globus|action-offers\.globus/, 'Globus nepoužívá skutečné strany oficiálního letáku.');
 assert.match(adapter, /function buildLeafletDocument\(/, 'Globus neumí sestavit čistý dokument stran letáku.');
 assert.match(adapter, /x-slevao-globus-viewer/, 'Globus neoznačuje bezpečně převedený dokument.');
+assert.match(adapter, /function looksLikePdf\(bytes\)/, 'Globus nekontroluje skutečnou signaturu PDF.');
+assert.match(adapter, /bytes\[0\] === 0x25[\s\S]*bytes\[3\] === 0x46/, 'Globus neověřuje signaturu %PDF.');
+assert.doesNotMatch(adapter, /function looksLikePdf\([^)]*contentType/, 'Globus nesmí věřit falešné hlavičce application\/pdf.');
+assert.doesNotMatch(adapter, /contentType\.includes\(['"]application\/pdf/, 'Globus nesmí považovat HTML za PDF jen podle Content-Type.');
 assert.doesNotMatch(adapter, /MutationObserver|stopImmediatePropagation|openPdfLeaflet|gapi\.globus/, 'Globus znovu obsahuje soupeřící prohlížeč nebo přímý GAPI PDF hack.');
 assert.doesNotMatch(adapter, /productCard|Můj Globus|frame\.srcdoc/, 'Globus nesmí vytvářet zvláštní produktový katalog ani ovládat iframe.');
 
