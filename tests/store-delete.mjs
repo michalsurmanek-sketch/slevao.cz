@@ -18,7 +18,7 @@ for (const pattern of [
   /action: 'delete'/,
   /confirmation: selectedStore\.slug/,
   /Trvale smazat obchod/,
-  /app_metadata\?\.role !== 'admin'/,
+  /const role = await currentRole\(\);[\s\S]*role !== 'admin'/,
 ]) {
   assert.match(adminDelete, pattern, `Ovládání mazání obchodu postrádá ochranu ${pattern}.`);
 }
