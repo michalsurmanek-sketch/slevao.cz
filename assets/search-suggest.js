@@ -1,7 +1,10 @@
 (() => {
   'use strict';
 
-  const RAW = 'https://raw.githubusercontent.com/michalsurmanek-sketch/slevao.cz/a7d892d684438c64276490ad25c7a245e46ed9d3/.home-v2-parts/';
+  const BASES = [
+    new URL('.home-v2-parts/', document.baseURI).href,
+    'https://raw.githubusercontent.com/michalsurmanek-sketch/slevao.cz/a7d892d684438c64276490ad25c7a245e46ed9d3/.home-v2-parts/',
+  ];
   const FILES = {
     html: { prefix: 'index', count: 2, hash: '669924cc66b447e78339142d50dfbcf86e0ea99199d7a7040d2527f1e23f8c65' },
     css: { prefix: 'css', count: 3, hash: 'a1861642b47ca7efb377ad803786198f942de31a41abe06941285df873cb973a' },
@@ -31,12 +34,26 @@
 
   const hex = buffer => [...new Uint8Array(buffer)].map(byte => byte.toString(16).padStart(2, '0')).join('');
 
+  async function fetchPart(name) {
+    let lastError;
+    for (const base of BASES) {
+      try {
+        const response = await fetch(base + name, { cache: 'force-cache', mode: 'cors' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const text = await response.text();
+        if (!/^[A-Za-z0-9+/=\s]+$/.test(text)) throw new Error('Neplatný obsah');
+        return text;
+      } catch (error) {
+        lastError = error;
+      }
+    }
+    throw new Error(`Soubor ${name} se nepodařilo načíst: ${lastError?.message || 'neznámá chyba'}`);
+  }
+
   async function fetchText({ prefix, count, hash }) {
-    const parts = await Promise.all(Array.from({ length: count }, async (_, index) => {
+    const parts = await Promise.all(Array.from({ length: count }, (_, index) => {
       const name = `${prefix}.${String(index + 1).padStart(2, '0')}.b64`;
-      const response = await fetch(RAW + name, { cache: 'force-cache', mode: 'cors' });
-      if (!response.ok) throw new Error(`Soubor ${name} se nepodařilo načíst.`);
-      return response.text();
+      return fetchPart(name);
     }));
     const encoded = parts.join('').replace(/\s+/g, '');
     const compressed = Uint8Array.from(atob(encoded), character => character.charCodeAt(0));
