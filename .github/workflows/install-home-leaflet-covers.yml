@@ -60,7 +60,7 @@ jobs:
           PY
 
       - name: Remove one-time installer
-        run: rm .github/workflows/install-home-leaflet-covers.yml
+        run: rm -f .github/workflows/install-home-leaflet-covers.yml .github/leaflet-cover-install-trigger.txt
 
       - name: Verify implementation
         run: |
