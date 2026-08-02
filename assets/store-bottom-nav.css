@@ -1,0 +1,23 @@
+/* Pevná spodní navigace detailu obchodu -------------------------------- */
+.hasStoreBottomNav{padding-bottom:calc(104px + env(safe-area-inset-bottom,0px))}
+.storeBottomNav{position:fixed;z-index:90;left:50%;bottom:16px;transform:translateX(-50%);width:min(760px,calc(100% - 24px));display:grid;grid-template-columns:minmax(0,1fr) 132px minmax(0,1fr);gap:7px;padding:8px;border:1px solid rgba(16,32,30,.12);border-radius:23px;background:rgba(255,255,255,.94);box-shadow:0 18px 54px rgba(10,35,32,.22);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.storeBottomNav a,.storeBottomNav button{min-width:0;min-height:62px;border:0;border-radius:16px;text-decoration:none;cursor:pointer;transition:transform .18s ease,background .18s ease,box-shadow .18s ease}
+.storeBottomNav a:hover,.storeBottomNav button:hover{transform:translateY(-2px)}
+.storeBottomNav__side{display:flex;align-items:center;gap:10px;padding:8px 13px;color:var(--ink);background:transparent}
+.storeBottomNav__side:hover{background:#f0f6f5}
+.storeBottomNav__side svg{flex:0 0 23px;width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2.1;stroke-linecap:round;stroke-linejoin:round}
+.storeBottomNav__side span{min-width:0;display:flex;flex-direction:column;line-height:1.08}
+.storeBottomNav__side small{margin-bottom:4px;color:var(--muted);font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}
+.storeBottomNav__side strong{overflow:hidden;color:var(--ink);font-size:14px;font-weight:950;text-overflow:ellipsis;white-space:nowrap}
+.storeBottomNav__next{justify-content:flex-end;text-align:right}
+.storeBottomNav__leaflet{display:flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;background:var(--store);color:var(--store-on,#fff);font-weight:950;box-shadow:0 8px 22px color-mix(in srgb,var(--store) 28%,transparent)}
+.storeBottomNav__leaflet svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.storeBottomNav__leaflet.is-visible,.storeBottomNav__leaflet.is-active{background:var(--store-accent);color:color-mix(in srgb,var(--store) 82%,#111);box-shadow:0 0 0 3px color-mix(in srgb,var(--store-accent) 24%,transparent)}
+@media(max-width:650px){
+  .hasStoreBottomNav{padding-bottom:calc(88px + env(safe-area-inset-bottom,0px))}
+  .storeBottomNav{bottom:0;width:100%;grid-template-columns:minmax(0,1fr) 98px minmax(0,1fr);gap:4px;padding:7px 7px calc(7px + env(safe-area-inset-bottom,0px));border-width:1px 0 0;border-radius:20px 20px 0 0}
+  .storeBottomNav a,.storeBottomNav button{min-height:58px;border-radius:14px}
+  .storeBottomNav__side{gap:5px;padding:6px 7px}.storeBottomNav__side svg{width:20px;height:20px;flex-basis:20px}
+  .storeBottomNav__side small{display:none}.storeBottomNav__side strong{font-size:12px}.storeBottomNav__leaflet{gap:5px;padding:0 8px;font-size:13px}.storeBottomNav__leaflet svg{width:21px;height:21px}
+}
+@media(prefers-reduced-motion:reduce){.storeBottomNav a,.storeBottomNav button{transition:none}.storeBottomNav a:hover,.storeBottomNav button:hover{transform:none}}
