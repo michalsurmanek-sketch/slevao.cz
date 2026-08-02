@@ -23,7 +23,7 @@
     if (loading && !force) return loading;
     loading = (async () => {
       try {
-        const response = await fetch(`${SETTINGS_URL}?v=${Math.floor(Date.now() / 60000)}`, { cache: 'no-store' });
+        const response = await fetch(`${SETTINGS_URL}?v=${Date.now()}`, { cache: 'no-store' });
         if (response.status === 404) return new Set();
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
         const payload = await response.json();
