@@ -1,4 +1,11 @@
 (() => {
+  if (!document.querySelector('script[data-admin-store-delete]')) {
+    const script = document.createElement('script');
+    script.src = 'assets/admin-store-delete.js?v=20260802-1';
+    script.dataset.adminStoreDelete = 'true';
+    document.head.append(script);
+  }
+
   const icons = {
     dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     tag:'<path d="M20 13 13 20l-9-9V4h7z"/><path d="M8.5 8.5h.01"/>',
