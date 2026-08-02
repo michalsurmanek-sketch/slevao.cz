@@ -1,0 +1,67 @@
+name: Install leaflet fullscreen
+
+on:
+  pull_request:
+    branches: [main]
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    if: github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'store-leaflet-fullscreen-20260802'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+          fetch-depth: 0
+
+      - name: Bump fullscreen navigation assets on all store pages
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          pages = []
+          for path in Path('.').glob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              if 'window.SLEVAO_STORE' not in text:
+                  continue
+              old = text
+              text = text.replace('assets/store-bottom-nav.css?v=20260802-1', 'assets/store-bottom-nav.css?v=20260802-2')
+              text = text.replace('assets/store-bottom-nav.js?v=20260802-1', 'assets/store-bottom-nav.js?v=20260802-2')
+              if text != old:
+                  path.write_text(text, encoding='utf-8')
+              pages.append(path)
+
+          if len(pages) != 73:
+              raise SystemExit(f'Expected 73 store pages, found {len(pages)}')
+          for path in pages:
+              text = path.read_text(encoding='utf-8')
+              if text.count('assets/store-bottom-nav.css?v=20260802-2') != 1:
+                  raise SystemExit(f'{path} does not load fullscreen navigation CSS exactly once')
+              if text.count('assets/store-bottom-nav.js?v=20260802-2') != 1:
+                  raise SystemExit(f'{path} does not load fullscreen navigation JS exactly once')
+          PY
+
+      - name: Remove one-time installer
+        run: rm .github/workflows/install-leaflet-fullscreen.yml
+
+      - name: Verify JavaScript and repository quality
+        run: |
+          node --check assets/store-bottom-nav.js
+          grep -q 'leaflet-viewer-fullscreen' assets/store-bottom-nav.css
+          grep -q 'data-leaflet-preview' assets/store-bottom-nav.js
+          node tests/quality.mjs
+
+      - name: Commit verified fullscreen navigation
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Open store leaflets fullscreen on mobile"
+          git push origin HEAD:${{ github.event.pull_request.head.ref }}
