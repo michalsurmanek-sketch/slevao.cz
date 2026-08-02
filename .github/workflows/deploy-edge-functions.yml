@@ -38,6 +38,14 @@ jobs:
             exit 1
           }
 
+      - name: Nasadit prohlížeč dokumentů letáků
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy store-leaflet-document \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
       - name: Nasadit vyhledávač oficiálních letáků
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
