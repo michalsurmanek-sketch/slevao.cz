@@ -38,6 +38,14 @@ jobs:
             exit 1
           }
 
+      - name: Nasadit správu obrázků letáků na homepage
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy homepage-leaflet-image \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
       - name: Nasadit bezpečné mazání obchodů
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
