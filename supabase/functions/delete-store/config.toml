@@ -1,1 +1,2 @@
+# Authentication is verified inside the function so the admin session can be checked explicitly.
 verify_jwt = false
