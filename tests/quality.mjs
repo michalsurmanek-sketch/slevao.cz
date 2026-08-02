@@ -112,10 +112,11 @@ assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed
 assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed vyžaduje přihlášení návštěvníka.');
 
 const publicLeafletDocument = read('supabase/functions/store-leaflet-document/index.ts');
-for (const pattern of [/digitalcontent\.api\.tesco\.com/,/PennyIntLeaflet/,/source_url/,/allowedStatuses/,/detected_valid_to/,/createSignedUrl/]) {
+for (const pattern of [/digitalcontent\.api\.tesco\.com/,/PennyIntLeaflet/,/source_url/,/allowedStatuses/,/detected_valid_to/,/\.storage\.from\(bucket\)\.download\(path\)/,/storedDocument\.stream\(\)/]) {
   assert.match(publicLeafletDocument, pattern, `Dokumentový proxy postrádá ${pattern}.`);
 }
 assert.doesNotMatch(publicLeafletDocument, /Response\.redirect/, 'Dokumentový proxy používá CORS blokované přesměrování.');
+assert.doesNotMatch(publicLeafletDocument, /createSignedUrl/, 'Dokumentový proxy nesmí zveřejňovat podepsanou adresu Supabase Storage.');
 assert.match(read('supabase/functions/store-leaflet-document/config.toml'), /verify_jwt = false/, 'Prohlížeč letáku vyžaduje přihlášení návštěvníka.');
 
 for (const path of ['admin-fotografie.html','admin-pridat-fotografii.html']) {
