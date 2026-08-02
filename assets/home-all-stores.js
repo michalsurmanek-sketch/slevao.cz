@@ -3,6 +3,14 @@
   if (window.__slevaoAllStoresLoaded) return;
   window.__slevaoAllStoresLoaded = true;
 
+  if (!document.querySelector('script[data-manual-leaflet-images]')) {
+    const manual = document.createElement('script');
+    manual.src = `assets/home-manual-leaflet-images.js?v=20260802-1-${Date.now()}`;
+    manual.async = false;
+    manual.dataset.manualLeafletImages = 'true';
+    document.head.append(manual);
+  }
+
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const STORE_PRIORITY = [
