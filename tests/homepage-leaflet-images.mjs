@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const admin = read('admin-obrazky-letaku.html');
+const adminJs = read('assets/admin-homepage-images.js');
 const manual = read('assets/home-manual-leaflet-images.js');
 const allStores = read('assets/home-all-stores.js');
 const nav = read('assets/admin-homepage-image-nav.js');
@@ -15,23 +16,44 @@ const edge = read('supabase/functions/homepage-leaflet-image/index.ts');
 const config = read('supabase/functions/homepage-leaflet-image/config.toml');
 const deploy = read('.github/workflows/deploy-edge-functions.yml');
 
+new Script(adminJs, { filename: 'assets/admin-homepage-images.js' });
 new Script(manual, { filename: 'assets/home-manual-leaflet-images.js' });
 new Script(allStores, { filename: 'assets/home-all-stores.js' });
 new Script(nav, { filename: 'assets/admin-homepage-image-nav.js' });
-const inline = admin.match(/<script>\s*([\s\S]*?)<\/script>\s*<\/body>/)?.[1];
-assert.ok(inline, 'Administrační stránka nemá hlavní JavaScript.');
-new Script(inline, { filename: 'admin-obrazky-letaku.html:inline' });
 
-assert.match(admin, /homepage-leaflet-image/, 'Administrace nevolá správce obrázků.');
-assert.match(admin, /image\/jpeg[^\n]*image\/png[^\n]*image\/webp[^\n]*image\/avif/, 'Administrace nekontroluje podporované formáty.');
-assert.match(admin, /8\*1024\*1024/, 'Administrace nemá limit 8 MB.');
-assert.match(admin, /let chosenFile=null/, 'Administrace neuchovává vybraný nebo přetažený soubor.');
-assert.match(admin, /const file=chosenFile/, 'Nahrání nepoužívá bezpečně uložený soubor.');
+assert.match(admin, /admin-homepage-images\.js\?v=/, 'Administrace nenačítá nový správce obrázků.');
+assert.match(admin, /image\/jpeg,image\/png,image\/webp,image\/avif/, 'Výběr souboru nepovoluje podporované formáty.');
+assert.match(admin, /id="upload"[\s\S]*Nahrát a použít na webu/, 'Administrace nemá tlačítko nahrání.');
+assert.match(admin, /id="remove"[\s\S]*Odstranit vlastní obrázek/, 'Administrace nemá tlačítko odstranění.');
+
+for (const pattern of [
+  /MAX_BYTES = 8 \* 1024 \* 1024/,
+  /ALLOWED_TYPES/,
+  /uploadDirect/,
+  /uploadDedicated/,
+  /uploadThroughExistingService/,
+  /upload-product-image/,
+  /persistMarker/,
+  /website_url/,
+  /logo_url/,
+  /COVER_META_KEY = 'slevao-cover'/,
+  /marker === 'none'/,
+]) assert.match(adminJs, pattern, `Správce obrázků postrádá ochranu nebo zálohu ${pattern}.`);
+
+assert.doesNotMatch(adminJs, /catch\s*\([^)]*\)\s*\{\s*show\(['"]Failed to fetch/, 'Administrace nesmí uživateli vracet obecnou chybu Failed to fetch.');
 assert.match(loader, /admin-homepage-image-nav\.js[\s\S]*Date\.now\(\)/, 'Hlavní administrace nenačítá odkaz na správu obrázků.');
 assert.match(nav, /admin-obrazky-letaku\.html/, 'Navigace neobsahuje správu obrázků letáků.');
-assert.match(manual, /homepage-leaflet-images/, 'Homepage nepoužívá veřejné úložiště vlastních obrázků.');
-assert.match(manual, /manualLeafletCover/, 'Karta není označena jako ručně přepsaná.');
-assert.match(manual, /Vlastní obrázek/, 'Karta neoznačuje ruční fotografii.');
+
+for (const pattern of [
+  /select: 'slug,website_url,logo_url'/,
+  /COVER_META_KEY = 'slevao-cover'/,
+  /mappedCovers/,
+  /explicitlyDisabled/,
+  /homepage-leaflet-images/,
+  /manualLeafletCover/,
+  /Vlastní obrázek/,
+]) assert.match(manual, pattern, `Homepage postrádá načítání vlastních obrázků ${pattern}.`);
+
 assert.match(allStores, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Seznam obchodů nevynucuje aktuální správu ručních obrázků.');
 assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat ručně vložený obrázek.');
 assert.match(kaufland, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Homepage nenačítá aktuální správu ručních obrázků.');
@@ -48,6 +70,6 @@ for (const pattern of [
 ]) assert.match(edge, pattern, `Edge Function postrádá ochranu ${pattern}.`);
 
 assert.match(config, /verify_jwt\s*=\s*false/, 'Funkce musí ověřovat přihlášení uvnitř kódu.');
-assert.match(deploy, /functions deploy homepage-leaflet-image[\s\S]*--no-verify-jwt/, 'Správce obrázků se nenasazuje samostatně.');
+assert.match(deploy, /deploy-homepage-leaflet-image[\s\S]*functions deploy homepage-leaflet-image[\s\S]*--no-verify-jwt/, 'Správce obrázků nemá samostatné nasazení.');
 
-console.log('Homepage leaflet image management OK');
+console.log('Homepage leaflet image management and fallbacks OK');
