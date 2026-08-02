@@ -1,5 +1,7 @@
 (() => {
   'use strict';
+  if (window.__slevaoAllStoresLoaded) return;
+  window.__slevaoAllStoresLoaded = true;
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
@@ -36,7 +38,7 @@
     const article = document.createElement('article');
     article.className = `storeCard ${selectedStore === store.slug ? 'active' : ''}`;
     article.dataset.dynamicStoreCard = store.slug;
-    article.innerHTML = `<button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHtml(store)}</div>${esc(store.name)}</button>`;
+    article.innerHTML = `<a class="storePageLink" href="${encodeURIComponent(store.slug)}.html" title="Otevřít stránku ${esc(store.name)}">↗</a><button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHtml(store)}</div>${esc(store.name)}</button>`;
     return article;
   }
 
