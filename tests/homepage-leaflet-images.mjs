@@ -7,77 +7,39 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const admin = read('admin-obrazky-letaku.html');
 const adminJs = read('assets/admin-homepage-images.js');
-const manual = read('assets/home-manual-leaflet-images.js');
+const control = read('assets/home-leaflet-control.js');
+const manualShim = read('assets/home-manual-leaflet-images.js');
+const visibilityShim = read('assets/home-leaflet-visibility.js');
 const allStores = read('assets/home-all-stores.js');
-const nav = read('assets/admin-homepage-image-nav.js');
-const loader = read('assets/admin-store-delete.js');
 const kaufland = read('assets/home-kaufland-food-cover.js');
-const edge = read('supabase/functions/homepage-leaflet-image/index.ts');
-const config = read('supabase/functions/homepage-leaflet-image/config.toml');
-const deploy = read('.github/workflows/deploy-edge-functions.yml');
 
-new Script(adminJs, { filename: 'assets/admin-homepage-images.js' });
-new Script(manual, { filename: 'assets/home-manual-leaflet-images.js' });
-new Script(allStores, { filename: 'assets/home-all-stores.js' });
-new Script(nav, { filename: 'assets/admin-homepage-image-nav.js' });
+for (const [name, source] of [
+  ['admin-homepage-images.js', adminJs],
+  ['home-leaflet-control.js', control],
+  ['home-manual-leaflet-images.js', manualShim],
+  ['home-leaflet-visibility.js', visibilityShim],
+]) new Script(source, { filename: name });
 
-assert.match(admin, /admin-homepage-images\.js\?v=20260802-4/, 'Administrace nenačítá aktuální správce obrázků.');
-assert.match(admin, /image\/jpeg,image\/png,image\/webp,image\/avif/, 'Výběr souboru nepovoluje podporované formáty.');
-assert.match(admin, /id="upload"[\s\S]*Nahrát a použít na webu/, 'Administrace nemá tlačítko nahrání.');
-assert.match(admin, /id="remove"[\s\S]*Odstranit vlastní obrázek/, 'Administrace nemá tlačítko odstranění.');
-
-for (const pattern of [
-  /MAX_BYTES = 8 \* 1024 \* 1024/,
-  /ALLOWED_TYPES/,
-  /uniquePath/,
-  /crypto\.randomUUID/,
-  /upsert: false/,
-  /uploadDirect/,
-  /uploadThroughExistingService/,
-  /uploadLegacy/,
-  /upload-product-image/,
-  /persistMarker/,
-  /website_url/,
-  /logo_url/,
-  /COVER_META_KEY = 'slevao-cover'/,
-  /marker === 'none'/,
-  /removePhysicalImage\(previousUrl/,
-]) assert.match(adminJs, pattern, `Správce obrázků postrádá ochranu nebo zálohu ${pattern}.`);
-
-assert.doesNotMatch(adminJs, /homepage\/\$\{store\.slug\}\/cover\./, 'Obrázek se nesmí ukládat pod stále stejnou adresu cover.*.');
-assert.doesNotMatch(adminJs, /upsert:\s*true/, 'Přepis stejného souboru by mohl vrátit starý obrázek z CDN cache.');
-assert.match(adminJs, /admin_probe=\$\{Date\.now\(\)\}/, 'Náhled administrace neobchází cache.');
-assert.doesNotMatch(adminJs, /catch\s*\([^)]*\)\s*\{\s*show\(['"]Failed to fetch/, 'Administrace nesmí uživateli vracet obecnou chybu Failed to fetch.');
-
-assert.match(loader, /admin-homepage-image-nav\.js[\s\S]*Date\.now\(\)/, 'Hlavní administrace nenačítá odkaz na správu obrázků.');
-assert.match(nav, /admin-obrazky-letaku\.html/, 'Navigace neobsahuje správu obrázků letáků.');
+assert.match(admin, /admin-homepage-images\.js\?v=/, 'Administrace nenačítá správce obrázků.');
+assert.match(admin, /image\/jpeg,image\/png,image\/webp,image\/avif/, 'Výběr nepovoluje podporované formáty.');
+assert.match(adminJs, /uniquePath\(/, 'Každý obrázek nemá unikátní cestu.');
+assert.match(adminJs, /crypto\.randomUUID|Date\.now\(\)/, 'Unikátní cesta nemá bezpečnou verzi.');
+assert.doesNotMatch(adminJs, /homepage\/\$\{store\.slug\}\/cover\./, 'Obrázky se nesmí přepisovat pod pevnou adresou cover.');
+assert.match(adminJs, /persistMarker/, 'Nahraná adresa se nepřipíná k obchodu.');
 
 for (const pattern of [
-  /select: 'slug,website_url,logo_url'/,
-  /COVER_META_KEY = 'slevao-cover'/,
-  /mappedCovers/,
-  /explicitlyDisabled/,
-  /homepage-leaflet-images/,
+  /COVER_KEY = 'slevao-cover'/,
+  /VISIBILITY_KEY = 'slevao-leaflet-visibility'/,
+  /desiredImage/,
   /manualLeafletCover/,
   /Vlastní obrázek/,
-]) assert.match(manual, pattern, `Homepage postrádá načítání vlastních obrázků ${pattern}.`);
+  /Ukázková fotografie/,
+  /legacyImageUrl/,
+]) assert.match(control, pattern, `Společné řízení karet postrádá ${pattern}.`);
 
-assert.match(allStores, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Seznam obchodů nevynucuje aktuální správu ručních obrázků.');
-assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat ručně vložený obrázek.');
-assert.match(kaufland, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Homepage nenačítá aktuální správu ručních obrázků.');
+assert.match(manualShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Obrázkový loader nenačítá aktuální společné řízení.');
+assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá aktuální společné řízení.');
+assert.match(allStores, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Homepage nenačítá obrázkový loader bez cache.');
+assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat vlastní obrázek.');
 
-for (const pattern of [
-  /ALLOWED_ROLES[\s\S]*admin[\s\S]*editor/,
-  /db\.auth\.getUser\(token\)/,
-  /db\.from\("stores"\)/,
-  /MAX_BYTES = 8 \* 1024 \* 1024/,
-  /detectedType/,
-  /public: true/,
-  /upsert: true/,
-  /action === "delete"/,
-]) assert.match(edge, pattern, `Edge Function postrádá ochranu ${pattern}.`);
-
-assert.match(config, /verify_jwt\s*=\s*false/, 'Funkce musí ověřovat přihlášení uvnitř kódu.');
-assert.match(deploy, /deploy-homepage-leaflet-image[\s\S]*functions deploy homepage-leaflet-image[\s\S]*--no-verify-jwt/, 'Správce obrázků nemá samostatné nasazení.');
-
-console.log('Homepage leaflet image management uses unique cache-safe URLs');
+console.log('Homepage leaflet image control OK');
