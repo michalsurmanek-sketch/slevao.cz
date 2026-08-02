@@ -119,6 +119,14 @@
     }) || null;
   }
 
+  function applyLabels(card, image) {
+    image.alt = 'Titulní strana aktuálního potravinového letáku Kaufland';
+    card.dataset.kauflandFoodLeaflet = '1';
+    card.querySelector('.leafletCurrentBadge')?.replaceChildren(document.createTextNode('Potravinový leták'));
+    const meta = card.querySelector('.leafletMeta span:first-child');
+    if (meta) meta.textContent = 'Potraviny a běžné akce';
+  }
+
   async function applyFoodCover() {
     if (working) return;
     const card = kauflandCard();
@@ -126,23 +134,24 @@
     if (!card || !image) return;
     working = true;
     try {
-      const response = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=kaufland&source=homepage-food-cover-v1`, {
+      const response = await fetchWithTimeout(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=kaufland&source=homepage-food-cover-v2`, {
         headers: { apikey: SUPABASE_KEY },
         cache: 'no-store',
       }, 14000);
       if (!response.ok) throw new Error(`Kaufland feed HTTP ${response.status}.`);
       const payload = await response.json();
       const leaflet = chooseFoodLeaflet(payload?.leaflets);
-      if (!leaflet || leaflet.preview_url === completedSource) return;
+      if (!leaflet) return;
+      if (leaflet.preview_url === completedSource && objectUrl) {
+        image.src = objectUrl;
+        applyLabels(card, image);
+        return;
+      }
       const cover = await coverBlob(await resolveDocument(leaflet.preview_url));
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(cover);
       image.src = objectUrl;
-      image.alt = 'Titulní strana aktuálního potravinového letáku Kaufland';
-      card.dataset.kauflandFoodLeaflet = '1';
-      card.querySelector('.leafletCurrentBadge')?.replaceChildren(document.createTextNode('Potravinový leták'));
-      const meta = card.querySelector('.leafletMeta span:first-child');
-      if (meta) meta.textContent = 'Potraviny a běžné akce';
+      applyLabels(card, image);
       completedSource = leaflet.preview_url;
     } catch (error) {
       console.warn('Potravinový leták Kaufland se nepodařilo nastavit:', error);
