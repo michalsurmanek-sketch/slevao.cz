@@ -16,6 +16,7 @@
     .visibilityTip{max-width:460px;padding:12px 14px;border:1px solid #dbe8e7;border-radius:12px;background:#fff;color:#486765;font-size:13px}
     .visibilityMetrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:15px;margin:20px 0}
     .visibilityMetric{padding:20px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:var(--shadow)}
+    .visibilityMetric:first-child{border-color:#bde7e2;background:#f4fffd}
     .visibilityMetric small{display:block;color:var(--muted);font-weight:500}
     .visibilityMetric strong{display:block;margin-top:6px;font-size:29px;font-weight:600;letter-spacing:-.035em}
     .visibilityPanel{padding:20px;border:1px solid var(--line);border-radius:16px;background:#fff;box-shadow:var(--shadow)}
@@ -98,12 +99,12 @@
     <div class="visibilityPage">
       <section class="visibilityIntro">
         <div><h1>Karty v hlavní sekci letáků</h1><p>Automatické karty můžeš skrýt a další obchod můžeš přidat ručně.</p></div>
-        <div class="visibilityTip"><b>Skrytí nic nemaže.</b> Ovlivní pouze kartu v části „Letáky a nabídky obchodů“.</div>
+        <div class="visibilityTip"><b>První číslo odpovídá hlavní stránce.</b> Celkový počet vedle něj zahrnuje také skryté karty.</div>
       </section>
 
       <section class="visibilityMetrics">
-        <div class="visibilityMetric"><small>Karty v hlavní sekci</small><strong id="totalCount">—</strong></div>
-        <div class="visibilityMetric"><small>Zobrazené na hlavní stránce</small><strong id="visibleCount">—</strong></div>
+        <div class="visibilityMetric"><small>Skutečně viditelné na hlavní stránce</small><strong id="visibleCount">—</strong></div>
+        <div class="visibilityMetric"><small>Karty celkem včetně skrytých</small><strong id="totalCount">—</strong></div>
         <div class="visibilityMetric"><small>Skryté z hlavní stránky</small><strong id="hiddenCount">—</strong></div>
       </section>
 
@@ -111,7 +112,7 @@
         <div class="visibilityToolbar">
           <input id="search" class="search" type="search" placeholder="Hledat kartu obchodu…">
           <select id="filter" class="search" aria-label="Filtrovat viditelnost">
-            <option value="all">Všechny karty</option>
+            <option value="all">Všechny karty včetně skrytých</option>
             <option value="visible">Jen zobrazené</option>
             <option value="hidden">Jen skryté</option>
           </select>
