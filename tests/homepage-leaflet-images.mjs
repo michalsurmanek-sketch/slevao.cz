@@ -21,7 +21,7 @@ new Script(manual, { filename: 'assets/home-manual-leaflet-images.js' });
 new Script(allStores, { filename: 'assets/home-all-stores.js' });
 new Script(nav, { filename: 'assets/admin-homepage-image-nav.js' });
 
-assert.match(admin, /admin-homepage-images\.js\?v=/, 'Administrace nenačítá nový správce obrázků.');
+assert.match(admin, /admin-homepage-images\.js\?v=20260802-4/, 'Administrace nenačítá aktuální správce obrázků.');
 assert.match(admin, /image\/jpeg,image\/png,image\/webp,image\/avif/, 'Výběr souboru nepovoluje podporované formáty.');
 assert.match(admin, /id="upload"[\s\S]*Nahrát a použít na webu/, 'Administrace nemá tlačítko nahrání.');
 assert.match(admin, /id="remove"[\s\S]*Odstranit vlastní obrázek/, 'Administrace nemá tlačítko odstranění.');
@@ -29,18 +29,26 @@ assert.match(admin, /id="remove"[\s\S]*Odstranit vlastní obrázek/, 'Administra
 for (const pattern of [
   /MAX_BYTES = 8 \* 1024 \* 1024/,
   /ALLOWED_TYPES/,
+  /uniquePath/,
+  /crypto\.randomUUID/,
+  /upsert: false/,
   /uploadDirect/,
-  /uploadDedicated/,
   /uploadThroughExistingService/,
+  /uploadLegacy/,
   /upload-product-image/,
   /persistMarker/,
   /website_url/,
   /logo_url/,
   /COVER_META_KEY = 'slevao-cover'/,
   /marker === 'none'/,
+  /removePhysicalImage\(previousUrl/,
 ]) assert.match(adminJs, pattern, `Správce obrázků postrádá ochranu nebo zálohu ${pattern}.`);
 
+assert.doesNotMatch(adminJs, /homepage\/\$\{store\.slug\}\/cover\./, 'Obrázek se nesmí ukládat pod stále stejnou adresu cover.*.');
+assert.doesNotMatch(adminJs, /upsert:\s*true/, 'Přepis stejného souboru by mohl vrátit starý obrázek z CDN cache.');
+assert.match(adminJs, /admin_probe=\$\{Date\.now\(\)\}/, 'Náhled administrace neobchází cache.');
 assert.doesNotMatch(adminJs, /catch\s*\([^)]*\)\s*\{\s*show\(['"]Failed to fetch/, 'Administrace nesmí uživateli vracet obecnou chybu Failed to fetch.');
+
 assert.match(loader, /admin-homepage-image-nav\.js[\s\S]*Date\.now\(\)/, 'Hlavní administrace nenačítá odkaz na správu obrázků.');
 assert.match(nav, /admin-obrazky-letaku\.html/, 'Navigace neobsahuje správu obrázků letáků.');
 
@@ -72,4 +80,4 @@ for (const pattern of [
 assert.match(config, /verify_jwt\s*=\s*false/, 'Funkce musí ověřovat přihlášení uvnitř kódu.');
 assert.match(deploy, /deploy-homepage-leaflet-image[\s\S]*functions deploy homepage-leaflet-image[\s\S]*--no-verify-jwt/, 'Správce obrázků nemá samostatné nasazení.');
 
-console.log('Homepage leaflet image management and fallbacks OK');
+console.log('Homepage leaflet image management uses unique cache-safe URLs');
