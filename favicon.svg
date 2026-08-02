@@ -1,1 +1,19 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#34d6c7"/><stop offset="1" stop-color="#8cf0e6"/></linearGradient></defs><rect width="64" height="64" rx="18" fill="url(#g)"/><text x="32" y="44" text-anchor="middle" font-family="Arial,sans-serif" font-size="40" font-weight="900" fill="#172222">%</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="title">
+  <title id="title">Slevao.cz</title>
+  <defs>
+    <linearGradient id="tag" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bffcf5"/>
+      <stop offset="0.48" stop-color="#68ddd2"/>
+      <stop offset="1" stop-color="#2eb8ae"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(20 20) rotate(-8 100 100)">
+    <path d="M36 18h98c15 0 27 5 37 15l39 39c10 10 10 26 0 36l-84 84c-10 10-26 10-36 0L18 120c-7-7-10-17-8-27l10-58c2-11 7-17 16-17z" fill="url(#tag)" stroke="#168f8b" stroke-width="5"/>
+    <path d="M149 26c13-10 34-7 42 8 4 9 1 19-7 23-8 4-17 2-22-6" fill="none" stroke="#2ab9b1" stroke-width="12" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="23" fill="#f8ffff" stroke="#168f8b" stroke-width="2"/>
+    <circle cx="147" cy="146" r="23" fill="#f8ffff" stroke="#168f8b" stroke-width="2"/>
+    <path d="M66 148L151 76" stroke="#fff" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="70" cy="70" r="8" fill="#4bcfc5"/>
+    <circle cx="147" cy="146" r="8" fill="#4bcfc5"/>
+  </g>
+</svg>
