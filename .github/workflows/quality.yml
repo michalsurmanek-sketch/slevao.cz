@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ověřit bezpečnost, JavaScript a SEO soubory
-        run: node tests/quality.mjs && node tests/globus-viewer.mjs
+        run: node tests/quality.mjs && node tests/globus-viewer.mjs && node tests/store-delete.mjs
