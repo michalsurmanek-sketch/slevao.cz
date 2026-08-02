@@ -1,5 +1,5 @@
 (() => {
-  const paths = {
+  const icons = {
     dashboard:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
     tag:'<path d="M20 13 13 20l-9-9V4h7z"/><path d="M8.5 8.5h.01"/>',
     store:'<path d="M3 9l2-5h14l2 5"/><path d="M5 13v7h14v-7"/><path d="M9 20v-6h6v6"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/>',
@@ -24,98 +24,82 @@
     user:'<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>',
   };
 
-  const icon = (name) => `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">${paths[name] || paths.dashboard}</svg>`;
+  const svg = (name) => `<svg class="ui-icon" viewBox="0 0 24 24" aria-hidden="true">${icons[name] || icons.dashboard}</svg>`;
   const clean = (value) => String(value || '').replace(/^[\s\uFE0F]*(?:🏠|🏷️?|🏪|📂|⚙️?|🖼️?|➕|🛒|🌐|✏️?|↗|🙈|👁️?|🗑️?|✅|⏸️?|▶️?|📰|💾)\s*/u, '').trim();
 
-  function decorate(element, name, forcedLabel = '') {
-    if (!element) return;
-    const label = forcedLabel || clean(element.textContent);
-    element.innerHTML = `${icon(name)}<span>${label}</span>`;
+  function decorate(element, name, label = '') {
+    if (!element || element.dataset.uiIconized === 'true') return;
+    element.innerHTML = `${svg(name)}<span>${label || clean(element.textContent)}</span>`;
     element.dataset.uiIconized = 'true';
   }
 
-  function relabelProductControl() {
+  function productControlLinks() {
     document.querySelectorAll('a[href="admin-tesco-kontrola.html"]').forEach((element) => {
-      decorate(element, 'checklist', 'Kontrola produktů');
+      if (element.dataset.productControlLabel === 'true') return;
+      element.innerHTML = `${svg('checklist')}<span>Kontrola produktů</span>`;
+      element.dataset.uiIconized = 'true';
+      element.dataset.productControlLabel = 'true';
       element.setAttribute('aria-label', 'Kontrola produktů všech obchodů');
     });
   }
 
-  function decorateStatic() {
-    const navIcons = { dashboard:'dashboard', offersPage:'tag', storesPage:'store', categoriesPage:'folder' };
-    document.querySelectorAll('.nav [data-page]').forEach((element) => {
-      if (!element.dataset.uiIconized) decorate(element, navIcons[element.dataset.page] || 'dashboard');
-    });
+  function staticUi() {
+    const pages = {dashboard:'dashboard',offersPage:'tag',storesPage:'store',categoriesPage:'folder'};
+    document.querySelectorAll('.nav [data-page]').forEach((element) => decorate(element,pages[element.dataset.page] || 'dashboard'));
     document.querySelectorAll('.nav a').forEach((element) => {
-      if ((element.getAttribute('href') || '') === 'admin-tesco-kontrola.html') return;
-      if (element.dataset.uiIconized) return;
       const href = element.getAttribute('href') || '';
-      decorate(element, href.includes('automatizace') ? 'settings' : href.includes('pridat-fotografii') ? 'imagePlus' : href.includes('fotografie') ? 'image' : 'globe');
+      if (href === 'admin-tesco-kontrola.html') return;
+      decorate(element,href.includes('automatizace') ? 'settings' : href.includes('pridat-fotografii') ? 'imagePlus' : href.includes('fotografie') ? 'image' : 'globe');
     });
     document.querySelectorAll('.top .toolbar a,.top .toolbar button').forEach((element) => {
-      if (element.dataset.uiIconized) return;
       const href = element.getAttribute('href') || '';
-      decorate(element, element.id === 'logout' ? 'logout' : href.includes('automatizace') ? 'settings' : href.includes('fotografie') ? 'image' : 'external');
+      decorate(element,element.id === 'logout' ? 'logout' : href.includes('automatizace') ? 'settings' : href.includes('fotografie') ? 'image' : 'external');
     });
     document.querySelectorAll('#dashboard .toolbar a,#dashboard .toolbar button').forEach((element) => {
-      if ((element.getAttribute('href') || '') === 'admin-tesco-kontrola.html') return;
-      if (element.dataset.uiIconized) return;
       const href = element.getAttribute('href') || '';
-      decorate(element, element.dataset.go === 'storesPage' ? 'store' : href.includes('automatizace') ? 'settings' : href.includes('pridat-fotografii') ? 'imagePlus' : href.includes('fotografie') ? 'image' : 'globe');
+      if (href === 'admin-tesco-kontrola.html') return;
+      decorate(element,element.dataset.go === 'storesPage' ? 'store' : href.includes('automatizace') ? 'settings' : href.includes('pridat-fotografii') ? 'imagePlus' : href.includes('fotografie') ? 'image' : 'globe');
     });
-    document.querySelectorAll('.mobilebar [data-page]').forEach((element) => {
-      if (!element.dataset.uiIconized) decorate(element, { dashboard:'dashboard', offersPage:'tag', storesPage:'store' }[element.dataset.page] || 'dashboard');
-    });
-    document.querySelectorAll('.mobilebar a').forEach((element) => {
-      if (!element.dataset.uiIconized) decorate(element, (element.getAttribute('href') || '').includes('automatizace') ? 'settings' : 'image');
-    });
-    relabelProductControl();
-    [['reload','refresh'],['storeRefresh','refresh'],['saveBtn','save'],['storeSave','plus'],['categorySave','plus'],['editSave','save'],['storeEditSave','save']].forEach(([id,name]) => {
-      const element = document.getElementById(id); if (element && !element.dataset.uiIconized) decorate(element,name);
-    });
-    const newOffer = document.querySelector('[data-go="offersPage"]');
-    if (newOffer && !newOffer.dataset.uiIconized) decorate(newOffer,'plus');
+    document.querySelectorAll('.mobilebar [data-page]').forEach((element) => decorate(element,pages[element.dataset.page] || 'dashboard'));
+    document.querySelectorAll('.mobilebar a').forEach((element) => decorate(element,(element.getAttribute('href') || '').includes('automatizace') ? 'settings' : 'image'));
+    [['reload','refresh'],['storeRefresh','refresh'],['saveBtn','save'],['storeSave','plus'],['categorySave','plus'],['editSave','save'],['storeEditSave','save']].forEach(([id,name]) => decorate(document.getElementById(id),name));
+    decorate(document.querySelector('[data-go="offersPage"]'),'plus');
+    productControlLinks();
   }
 
-  function decorateDynamic(root = document) {
-    root.querySelectorAll?.('[data-store-edit]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'pencil'); });
-    root.querySelectorAll?.('.storeCard .actions a').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'external'); });
-    root.querySelectorAll?.('[data-store-toggle]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,element.classList.contains('successBtn') ? 'eye' : 'eyeOff'); });
-    root.querySelectorAll?.('.storeTitleLine .pill').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,element.classList.contains('visible') ? 'check' : 'eyeOff'); });
-    root.querySelectorAll?.('[data-edit]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'pencil'); });
-    root.querySelectorAll?.('[data-copy]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'copy'); });
-    root.querySelectorAll?.('[data-delete]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'trash'); });
-    root.querySelectorAll?.('[data-status="published"]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'check'); });
-    root.querySelectorAll?.('[data-status="expired"],[data-cat]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'power'); });
-    root.querySelectorAll?.('[data-leaflet-edit]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'pencil'); });
-    root.querySelectorAll?.('[data-leaflet-toggle]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,element.textContent.includes('Zapnout') ? 'eye' : 'power'); });
-    root.querySelectorAll?.('[data-leaflet-delete]').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'trash'); });
-    root.querySelectorAll?.('.leafletSourceItemActions a').forEach((element) => { if (!element.dataset.uiIconized) decorate(element,'external'); });
+  function dynamicUi(root = document) {
+    root.querySelectorAll?.('[data-store-edit]').forEach((element) => decorate(element,'pencil'));
+    root.querySelectorAll?.('.storeCard .actions a').forEach((element) => decorate(element,'external'));
+    root.querySelectorAll?.('[data-store-toggle]').forEach((element) => decorate(element,element.classList.contains('successBtn') ? 'eye' : 'eyeOff'));
+    root.querySelectorAll?.('.storeTitleLine .pill').forEach((element) => decorate(element,element.classList.contains('visible') ? 'check' : 'eyeOff'));
+    root.querySelectorAll?.('[data-edit]').forEach((element) => decorate(element,'pencil'));
+    root.querySelectorAll?.('[data-copy]').forEach((element) => decorate(element,'copy'));
+    root.querySelectorAll?.('[data-delete]').forEach((element) => decorate(element,'trash'));
+    root.querySelectorAll?.('[data-status="published"]').forEach((element) => decorate(element,'check'));
+    root.querySelectorAll?.('[data-status="expired"],[data-cat]').forEach((element) => decorate(element,'power'));
+    root.querySelectorAll?.('[data-leaflet-edit]').forEach((element) => decorate(element,'pencil'));
+    root.querySelectorAll?.('[data-leaflet-toggle]').forEach((element) => decorate(element,element.textContent.includes('Zapnout') ? 'eye' : 'power'));
+    root.querySelectorAll?.('[data-leaflet-delete]').forEach((element) => decorate(element,'trash'));
+    root.querySelectorAll?.('.leafletSourceItemActions a').forEach((element) => decorate(element,'external'));
   }
 
-  function decorateAccount() {
+  function account() {
     const target = document.getElementById('sideWho');
     if (!target || target.querySelector('.ui-account')) return;
     const email = target.textContent.trim();
     if (!email || !email.includes('@')) return;
-    target.innerHTML = `<div class="ui-account">${icon('user')}<div><strong>${email}</strong><small>admin</small></div></div>`;
+    target.innerHTML = `<div class="ui-account">${svg('user')}<div><strong>${email}</strong><small>admin</small></div></div>`;
   }
 
-  function run(root = document) {
+  window.addEventListener('DOMContentLoaded',() => {
     document.body.classList.add('admin-modern');
-    decorateStatic();
-    decorateDynamic(root);
-    decorateAccount();
-  }
-
-  window.addEventListener('DOMContentLoaded', () => {
-    run();
+    staticUi();
+    dynamicUi();
+    account();
     new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => {
-        if (node.nodeType === 1) decorateDynamic(node);
-      }));
-      relabelProductControl();
-      decorateAccount();
+      mutations.forEach((mutation) => mutation.addedNodes.forEach((node) => { if (node.nodeType === 1) dynamicUi(node); }));
+      productControlLinks();
+      account();
     }).observe(document.body,{childList:true,subtree:true});
   });
 })();
