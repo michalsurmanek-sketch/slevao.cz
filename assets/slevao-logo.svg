@@ -1,0 +1,29 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 240" role="img" aria-labelledby="title desc">
+  <title id="title">Slevao.cz</title>
+  <desc id="desc">Logo Slevao.cz s tyrkysovou cenovkou a symbolem procent</desc>
+  <defs>
+    <linearGradient id="tag" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#bffcf5"/>
+      <stop offset="0.48" stop-color="#68ddd2"/>
+      <stop offset="1" stop-color="#2eb8ae"/>
+    </linearGradient>
+    <linearGradient id="cz" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#35cfc4"/>
+      <stop offset="1" stop-color="#70e8df"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="170%" height="180%">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#087b78" flood-opacity=".28"/>
+    </filter>
+  </defs>
+  <g transform="translate(26 19) rotate(-8 95 95)" filter="url(#shadow)">
+    <path d="M40 22h92c14 0 25 4 35 14l38 38c9 9 9 24 0 33l-81 81c-9 9-24 9-33 0L22 119c-7-7-10-16-8-26l10-55c2-10 7-16 16-16z" fill="url(#tag)" stroke="#168f8b" stroke-width="5"/>
+    <path d="M145 29c12-10 33-7 40 7 4 8 1 18-7 22-7 4-16 2-21-5" fill="none" stroke="#2ab9b1" stroke-width="11" stroke-linecap="round"/>
+    <circle cx="72" cy="72" r="22" fill="#f8ffff" stroke="#168f8b" stroke-width="2"/>
+    <circle cx="144" cy="143" r="22" fill="#f8ffff" stroke="#168f8b" stroke-width="2"/>
+    <path d="M67 143L149 75" stroke="#fff" stroke-width="17" stroke-linecap="round"/>
+    <circle cx="72" cy="72" r="8" fill="#4bcfc5"/>
+    <circle cx="144" cy="143" r="8" fill="#4bcfc5"/>
+  </g>
+  <text x="250" y="162" font-family="Arial Black, Arial, sans-serif" font-size="126" font-weight="900" letter-spacing="-7" fill="#063f48">SLEVAO</text>
+  <text x="797" y="162" font-family="Arial Black, Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="-4" fill="url(#cz)">.cz</text>
+</svg>
