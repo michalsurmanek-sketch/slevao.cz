@@ -1,0 +1,186 @@
+/* Slevao.cz redesign – krok 1: horní lišta a vyhledávání */
+@media (min-width: 801px) {
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 70;
+    padding: 16px 0 8px;
+    background: rgba(248, 251, 251, .86);
+    border-bottom: 0;
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .topbar .container {
+    width: min(1450px, calc(100% - 48px));
+  }
+
+  .topbarInner {
+    min-height: 78px;
+    padding: 11px 18px;
+    gap: 28px;
+    background: rgba(255, 255, 255, .98);
+    border: 1px solid rgba(216, 230, 229, .82);
+    border-radius: 24px;
+    box-shadow: 0 14px 42px rgba(24, 49, 47, .08), 0 2px 8px rgba(24, 49, 47, .04);
+  }
+
+  .topbar .brand {
+    gap: 12px;
+    min-width: 246px;
+    font-size: 27px;
+    font-weight: 950;
+    letter-spacing: -1.25px;
+  }
+
+  .topbar .brandMark {
+    width: 50px;
+    height: 50px;
+    flex: 0 0 50px;
+    border-radius: 50%;
+    font-size: 24px;
+    color: #083f3c;
+    background: linear-gradient(145deg, #67e3d8, #35cfc2);
+    box-shadow: 0 10px 24px rgba(31, 196, 184, .22);
+  }
+
+  .mainSearch {
+    min-width: 0;
+    height: 56px;
+  }
+
+  .mainSearch input {
+    height: 56px;
+    padding: 0 158px 0 54px;
+    border: 1px solid #dbe7e7;
+    border-radius: 18px;
+    color: #172222;
+    background: #fff;
+    box-shadow: inset 0 1px 2px rgba(22, 42, 41, .02), 0 5px 16px rgba(22, 42, 41, .035);
+    font-size: 16px;
+    transition: border-color .18s ease, box-shadow .18s ease;
+  }
+
+  .mainSearch input::placeholder {
+    color: #748080;
+    opacity: 1;
+  }
+
+  .mainSearch input:focus {
+    border-color: #36c9bd;
+    box-shadow: 0 0 0 4px rgba(52, 214, 199, .14), 0 8px 24px rgba(22, 42, 41, .05);
+  }
+
+  .searchIcon {
+    left: 19px;
+    top: 14px;
+    z-index: 2;
+    font-size: 25px;
+    line-height: 1;
+    color: #50605f;
+  }
+
+  .mainSearch > button {
+    right: 5px;
+    top: 5px;
+    width: 138px;
+    height: 46px;
+    padding: 0 22px;
+    border-radius: 14px;
+    color: #fff;
+    background: linear-gradient(135deg, #18b9ad, #069d92);
+    box-shadow: 0 8px 18px rgba(5, 157, 146, .2);
+    font-size: 16px;
+    font-weight: 900;
+    transition: transform .16s ease, box-shadow .16s ease, filter .16s ease;
+  }
+
+  .mainSearch > button:hover {
+    transform: translateY(-1px);
+    filter: brightness(1.02);
+    box-shadow: 0 11px 24px rgba(5, 157, 146, .25);
+  }
+
+  .mainSearch > button:active {
+    transform: translateY(0);
+  }
+
+  .savedButton {
+    height: 56px;
+    min-width: 164px;
+    justify-content: center;
+    gap: 9px;
+    padding: 0 18px;
+    border: 1px solid #dbe7e7;
+    border-radius: 18px;
+    background: #fff;
+    box-shadow: 0 5px 16px rgba(22, 42, 41, .035);
+    font-size: 15px;
+    font-weight: 900;
+    transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease;
+  }
+
+  .savedButton > span:first-child {
+    font-size: 23px;
+    line-height: 1;
+  }
+
+  .savedButton:hover {
+    transform: translateY(-1px);
+    border-color: #bfd9d6;
+    box-shadow: 0 9px 22px rgba(22, 42, 41, .07);
+  }
+
+  .savedButton b {
+    min-width: 24px;
+    height: 24px;
+    padding: 0 6px;
+    background: #f0f5f5;
+    color: #52605f;
+    font-size: 12px;
+  }
+
+  .searchSuggestions {
+    top: 64px;
+    border-radius: 18px;
+    box-shadow: 0 22px 60px rgba(23, 34, 34, .15);
+  }
+}
+
+@media (max-width: 1100px) and (min-width: 801px) {
+  .topbarInner {
+    gap: 16px;
+  }
+
+  .topbar .brand {
+    min-width: auto;
+    font-size: 23px;
+  }
+
+  .topbar .brandMark {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+  }
+
+  .savedButton {
+    min-width: 132px;
+  }
+}
+
+@media (max-width: 800px) {
+  .topbar {
+    padding: 8px 0;
+    background: rgba(255, 255, 255, .96);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .topbarInner {
+    min-height: 62px;
+    padding: 6px 0;
+  }
+
+  .brandMark {
+    border-radius: 50%;
+  }
+}
