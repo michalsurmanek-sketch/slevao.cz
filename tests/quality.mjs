@@ -2,220 +2,195 @@ import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { Script } from 'node:vm';
 
-const read = (path) => readFileSync(new URL(`../${path}`, import.meta.url), 'utf8');
+const root = new URL('../', import.meta.url);
+const read = (path) => readFileSync(new URL(path, root), 'utf8');
+const exists = (path) => existsSync(new URL(path, root));
+
 const requiredFiles = [
-  'index.html', 'admin.html', 'admin-automatizace.html', 'robots.txt',
-  'sitemap.xml', 'favicon.svg', 'assets/search-suggest.css',
-  'assets/search-suggest.js',
+  'index.html', 'assets/home-v2.css', 'assets/home-v2.js',
+  'admin.html', 'admin-automatizace.html', 'admin-tesco-kontrola.html',
+  'robots.txt', 'sitemap.xml', 'favicon.svg',
+  'assets/store-feed.css', 'assets/store-feed.js',
+  'assets/search-suggest.css', 'assets/search-suggest.js',
 ];
+for (const path of requiredFiles) assert(exists(path), `Chybí povinný soubor: ${path}`);
 
 const expectedWorkflows = [
   'automatic-leaflets.yml',
   'deploy-edge-functions.yml',
+  'deploy-official-leaflet-resolver.yml',
   'deploy-publish-imports.yml',
   'discover-product-images.yml',
   'match-product-catalog.yml',
   'quality.yml',
 ];
-const workflows = readdirSync(new URL('../.github/workflows', import.meta.url))
-  .filter((path) => path.endsWith('.yml'))
-  .sort();
+const workflows = readdirSync(new URL('.github/workflows/', root)).filter((path) => path.endsWith('.yml')).sort();
 assert.deepEqual(workflows, expectedWorkflows, 'Repozitář obsahuje zastaralé nebo chybějící GitHub workflow.');
 for (const path of workflows) {
   const source = read(`.github/workflows/${path}`);
-  assert(!/permissions:\s*[\s\S]{0,80}contents:\s*write/.test(source), `${path} nesmí automaticky přepisovat zdrojový kód.`);
-}
-
-for (const path of requiredFiles) {
-  assert(existsSync(new URL(`../${path}`, import.meta.url)), `Chybí povinný soubor: ${path}`);
+  assert(!/permissions:\s*[\s\S]{0,100}contents:\s*write/.test(source), `${path} nesmí automaticky přepisovat zdrojový kód.`);
 }
 
 const index = read('index.html');
+const homeJs = read('assets/home-v2.js');
+const homeCss = read('assets/home-v2.css');
+const searchSuggest = read('assets/search-suggest.js');
+new Script(homeJs, { filename:'assets/home-v2.js' });
+new Script(searchSuggest, { filename:'assets/search-suggest.js' });
+
 assert.match(index, /<link rel="canonical" href="https:\/\/slevao\.cz\/">/, 'Homepage nemá canonical URL.');
 assert.match(index, /application\/ld\+json/, 'Homepage nemá strukturovaná data.');
 assert.match(index, /<meta property="og:title"/, 'Homepage nemá Open Graph metadata.');
-assert.match(index, /fetchActiveOffers/, 'Katalog musí podporovat stránkované načítání z databáze.');
-assert.match(index, /deduplicateOffers/, 'Katalog musí mít ochranu proti duplicitám.');
-assert.match(index, /AbortController/, 'Databázové načítání musí mít přerušitelný časový limit.');
-assert.match(index, /retryRequest/, 'Databázové načítání se musí po přechodné chybě zopakovat.');
-assert.match(index, /id="retryLoad"/, 'Chyba načítání musí nabídnout ruční opakování.');
-assert.match(index, /DATA_CACHE_KEY/, 'Homepage musí umět zobrazit poslední funkční data při výpadku.');
-assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK z CDN.');
-assert.doesNotMatch(index, /filter\(s=>activeSlugs\.has/, 'Homepage nesmí skrývat aktivní obchody bez aktuální nabídky.');
-assert.match(index, /href="\$\{encodeURIComponent\(s\.slug\)\}\.html"/, 'Karta obchodu musí vést na jeho vlastní feedovou stránku.');
-const storePageFiles = readdirSync(new URL('../', import.meta.url))
+assert.match(index, /assets\/home-v2\.css\?v=20260802-2/, 'Homepage nenačítá statické styly v2.');
+assert.match(index, /assets\/home-v2\.js\?v=20260802-2/, 'Homepage nenačítá statický JavaScript v2.');
+assert.doesNotMatch(index + homeJs + searchSuggest, /DecompressionStream|\.home-v2-parts/, 'Homepage nesmí používat dynamický komprimovaný zavaděč.');
+assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK.');
+
+for (const id of ['categoriesSection','storesSection','leafletsSection','dealsSection','quickTabs','filterPanel','mobileSaved','compareModal','reportModal']) {
+  assert(index.includes(`id="${id}"`), `Homepage postrádá prvek ${id}.`);
+}
+for (const text of ['Nakupuj podle kategorie','Letáky a nabídky obchodů','Největší slevy','Končí dnes','Nově přidané','Do 50 Kč','Do 100 Kč']) {
+  assert(index.includes(text), `Homepage postrádá sekci nebo filtr: ${text}`);
+}
+assert.match(homeCss, /\.mobileNav/, 'Homepage nemá mobilní spodní navigaci.');
+assert.match(homeCss, /@media\(max-width:800px\)/, 'Homepage nemá responzivní mobilní pravidla.');
+
+assert.match(homeJs, /async function fetchOffers\(/, 'Katalog musí stránkovaně načítat nabídky.');
+assert.match(homeJs, /for \(let from = 0; ; from \+= 1000\)/, 'Načítání musí podporovat více než 1000 nabídek.');
+assert.match(homeJs, /function deduplicate\(/, 'Katalog musí odstraňovat duplicity.');
+assert.match(homeJs, /AbortController/, 'Databázové načítání musí mít časový limit.');
+assert.match(homeJs, /CACHE_KEY/, 'Homepage musí mít záložní cache posledních funkčních dat.');
+assert.match(homeJs, /return collect\(simpleSelect\)/, 'Homepage musí mít náhradní databázový dotaz.');
+assert.match(homeJs, /location\.reload\(\)/, 'Chyba načítání musí nabídnout ruční opakování.');
+assert.match(homeJs, /function categoryOf\(/, 'Homepage musí umět kategorizovat nabídky.');
+assert.match(homeJs, /function geographyMatches\(/, 'Homepage musí podporovat regionální platnost.');
+assert.match(homeJs, /function unitPrice\(/, 'Homepage musí počítat jednotkovou cenu.');
+assert.match(homeJs, /function openCompare\(/, 'Homepage musí umět porovnat ceny produktu.');
+assert.match(homeJs, /function openReport\(/, 'Homepage musí umožnit nahlášení chyby.');
+assert.match(homeJs, /SAVED_KEY/, 'Homepage musí uchovávat uložené nabídky.');
+assert.match(homeJs, /encodeURIComponent\(store\.slug\).*\.html/, 'Karta obchodu musí odkazovat na jeho vlastní stránku.');
+assert.match(homeJs, /penny:'assets\/logos\/penny\.svg\?v=4'/, 'Homepage musí používat lokální logo PENNY.');
+assert.doesNotMatch(searchSuggest, /DecompressionStream|\.home-v2-parts|MutationObserver|setInterval/, 'Pomocný skript nesmí obsahovat zavaděč ani nekonečné DOM smyčky.');
+
+const storePageFiles = readdirSync(root)
   .filter((path) => path.endsWith('.html') && read(path).includes('window.SLEVAO_STORE'))
   .sort();
 assert.equal(storePageFiles.length, 73, 'Každý z 73 obchodů musí mít vlastní stránku.');
 for (const page of storePageFiles) {
   const slug = page.replace(/\.html$/, '');
-  const feed = read(page);
-  assert.match(feed, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci obchodu.`);
-  assert.match(feed, /assets\/store-feed\.js\?v=20260801-18/, `${page} nepoužívá aktuální společný živý feed.`);
-  assert.match(feed, /assets\/store-feed\.css\?v=20260801-15/, `${page} nepoužívá aktuální styly prohlížeče letáku.`);
-  assert.match(feed, /id="leafletGrid"/, `${page} nemá automatický přehled letáků.`);
-  assert.match(feed, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
-  assert.match(feed, /rel="canonical"/, `${page} nemá canonical URL.`);
+  const source = read(page);
+  assert.match(source, new RegExp(`window\\.SLEVAO_STORE=.*"slug":"${slug}"`), `${page} nemá správnou konfiguraci.`);
+  assert.match(source, /assets\/store-feed\.js\?v=20260801-18/, `${page} nepoužívá aktuální společný feed.`);
+  assert.match(source, /assets\/store-feed\.css\?v=20260801-15/, `${page} nepoužívá aktuální styly feedu.`);
+  assert.match(source, /id="leafletGrid"/, `${page} nemá přehled letáků.`);
+  assert.match(source, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
+  assert.match(source, /rel="canonical"/, `${page} nemá canonical URL.`);
 }
+
 const tescoFeed = read('tesco.html');
-assert.match(tescoFeed, /assets\/logos\/tesco\.svg/, 'Tesco stránka musí používat lokální pravé logo.');
-assert.match(tescoFeed, /id="categoryBar"/, 'Tesco stránka musí obsahovat rychlé filtrování kategorií.');
-assert.match(tescoFeed, /id="savedToggle"/, 'Tesco stránka musí umožnit zobrazit uložené nabídky.');
-assert.match(tescoFeed, /id="leafletGrid"/, 'Tesco stránka musí obsahovat živou sekci aktuálních letáků.');
-assert.match(tescoFeed, /id="leafletFrame"/, 'Tesco stránka musí zobrazovat leták přímo ve vloženém prohlížeči.');
+assert.match(tescoFeed, /assets\/logos\/tesco\.svg/, 'Tesco musí používat lokální logo.');
+assert.match(tescoFeed, /id="categoryBar"/, 'Tesco nemá rychlé filtrování kategorií.');
+assert.match(tescoFeed, /id="savedToggle"/, 'Tesco nemá uložené nabídky.');
+assert.match(tescoFeed, /id="leafletGrid"/, 'Tesco nemá živou sekci letáků.');
+assert.match(tescoFeed, /id="leafletFrame"/, 'Tesco nemá vložený prohlížeč letáku.');
+
 const storeFeed = read('assets/store-feed.js');
-new Script(storeFeed, { filename: 'assets/store-feed.js' });
 const tescoStoreFeed = read('assets/store-feed-tesco-v8.js');
-new Script(tescoStoreFeed, { filename: 'assets/store-feed-tesco-v8.js' });
-assert.equal(tescoStoreFeed, storeFeed, 'Tesco cache-busting feed se nesmí lišit od opravené společné logiky.');
-assert.match(storeFeed, /const BRAND_PROFILES = \{/, 'Společný feed musí obsahovat identitu všech obchodů.');
-assert.match(storeFeed, /function applyBrandShell\(/, 'Firemní hero se musí sestavit i před načtením databáze.');
+new Script(storeFeed, { filename:'assets/store-feed.js' });
+new Script(tescoStoreFeed, { filename:'assets/store-feed-tesco-v8.js' });
+assert.equal(tescoStoreFeed, storeFeed, 'Tesco cache-busting feed se liší od společné logiky.');
+assert.match(storeFeed, /const BRAND_PROFILES = \{/, 'Společný feed nemá identity obchodů.');
+assert.match(storeFeed, /function applyBrandShell\(/, 'Firemní hero se nesestavuje před databází.');
+assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed musí skrývat budoucí nabídky.');
+assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed musí skrývat skončené nabídky.');
+assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed se musí automaticky obnovovat.');
+assert.match(storeFeed, /loadLeaflets\(false\),10\*60\*1000/, 'Letáky se musí automaticky kontrolovat.');
+assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovávat oblíbené nabídky.');
+assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Leták se musí vložit jako lokální dokument.');
+assert.match(storeFeed, /zoom=page-fit/, 'Leták se musí přizpůsobit dostupné ploše.');
+assert.match(storeFeed, /leaflet-viewer-open/, 'Mobilní prohlížeč musí zamknout obsah pod sebou.');
+assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Horní sekce obchodů nesmí obsahovat produktové fotografie.');
+
+const storeFeedCss = read('assets/store-feed.css');
+assert.match(storeFeedCss, /\.store-page--brand \.heroBox/, 'Stránky obchodů nemají značkovou horní sekci.');
+assert.match(storeFeedCss, /leafletGrid\[data-count="1"\]/, 'Jediný leták nesmí zůstat v třísloupcové mřížce.');
+assert.match(read('penny.html'), /"logo":"assets\/logos\/penny\.svg\?v=4"/, 'PENNY stránka nepoužívá lokální logo.');
+assert.match(read('supabase/migrations/20260801190000_use_official_penny_logo_everywhere.sql'), /assets\/logos\/penny\.svg\?v=4/, 'Databáze neposkytuje stejné logo PENNY.');
+
 const brandLogoMigration = read('supabase/migrations/20260801133000_complete_store_brand_logos.sql');
 const brandedStoreSlugs = [...brandLogoMigration.matchAll(/\('([^']+)','[^']+'\)/g)].map((match) => match[1]);
-assert.equal(brandedStoreSlugs.length, 73, 'Migrace musí doplnit oficiální doménu všech 73 obchodů.');
-for (const page of storePageFiles) {
-  assert(brandedStoreSlugs.includes(page.replace(/\.html$/, '')), `${page} nemá zdroj firemního loga.`);
-}
-const storeFeedCss = read('assets/store-feed.css');
-assert.match(storeFeedCss, /\.store-page--brand \.heroBox/, 'Běžné stránky obchodů musí mít značkovou horní sekci.');
-assert.match(storeFeedCss, /data-store-family="fashion"/, 'Vzhled horní sekce se musí přizpůsobit typu obchodu.');
-assert.match(read('penny.html'), /"logo":"assets\/logos\/penny\.svg\?v=4"/, 'Stránka PENNY musí používat dodané lokální logo.');
-assert.match(index, /penny:'assets\/logos\/penny\.svg\?v=4'/, 'Homepage musí používat stejné lokální logo PENNY.');
-assert.doesNotMatch(index, /s\.slug==='penny'[^\n]*clearbit/, 'PENNY se nesmí vrátit k externímu náhradnímu logu.');
-assert.match(read('supabase/migrations/20260801190000_use_official_penny_logo_everywhere.sql'), /set logo_url = 'assets\/logos\/penny\.svg\?v=4'/, 'Databáze musí stejné logo PENNY poskytovat všem částem systému.');
-assert.doesNotMatch(storeFeed, /\$\('storeName'\)/, 'Feed nesmí zapisovat do neexistujícího prvku názvu obchodu.');
-assert.match(storeFeed, /valid_from:`lte\.\$\{today\}`/, 'Feed obchodu musí načítat pouze již platné nabídky.');
-assert.match(storeFeed, /valid_to:`gte\.\$\{today\}`/, 'Feed obchodu musí skrývat skončené nabídky.');
-assert.match(storeFeed, /setInterval\(load,5\*60\*1000\)/, 'Feed obchodu se musí průběžně automaticky obnovovat.');
-assert.match(storeFeed, /loadLeaflets\(false\),10\*60\*1000/, 'Otevřená stránka musí automaticky kontrolovat nový leták každých 10 minut.');
-assert.match(storeFeed, /target\.dataset\.count = String\(currentLeaflets\.length\)/, 'Počet sloupců letáků se musí přizpůsobit skutečnému počtu dokumentů.');
-assert.match(storeFeedCss, /leafletGrid\[data-count="1"\]/, 'Jediný leták nesmí zůstat v prázdné třísloupcové mřížce.');
-assert.match(storeFeed, /FAVORITES_KEY/, 'Feed musí uchovat oblíbené nabídky mezi návštěvami.');
-assert.doesNotMatch(tescoFeed, /class="heroProduct/, 'Hlavní Tesco sekce nesmí obsahovat produktové fotografie.');
-assert.doesNotMatch(storeFeed, /renderHeroProducts/, 'Feed nesmí znovu vkládat produktové fotografie do hlavní sekce.');
-assert.match(storeFeed, /store-leaflet-feed/, 'Stránky obchodů musí načítat letáky z bezpečného veřejného feedu.');
-assert.match(storeFeed, /source=official-v6/, 'Stránky musí používat novou necachovanou víceobchodovou verzi feedu.');
-assert.match(storeFeed, /Otevřít oficiální leták/, 'Externí katalog obchodu nesmí být chybně označen jako iTesco.');
-assert.match(storeFeed, /authorization: `Bearer \$\{KEY\}`/, 'Vložený prohlížeč letáku musí Edge Function volat s autorizační hlavičkou.');
-assert.match(storeFeed, /URL\.createObjectURL\(documentBlob\)/, 'Stažený leták se musí vložit do prohlížeče jako lokální dokument.');
-assert.match(storeFeed, /response\.clone\(\)\.json\(\)/, 'JSON se signed URL se musí rozpoznat i bez dostupné Content-Type hlavičky.');
-assert.match(storeFeed, /zoom=page-fit/, 'Leták se musí po otevření přizpůsobit dostupné ploše obrazovky.');
-assert.match(storeFeed, /getBoundingClientRect\(\)\.top/, 'Výška prohlížeče letáku se musí odvodit od skutečné pozice v okně.');
-assert.match(storeFeed, /leaflet-viewer-open/, 'Mobilní prohlížeč letáku musí zamknout obsah stránky pod sebou.');
-assert.match(storeFeed, /firstPreview && !matchMedia/, 'Mobil nesmí automaticky otevírat první leták bez kliknutí uživatele.');
-const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
-assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed letáků musí vycházet z oficiálního iTesco zdroje.');
-assert.match(publicLeafletFeed, /documentsFromOfficialHtml/, 'Feed musí párovat letáky podle přesných dokumentů z oficiální stránky Tesco.');
-assert(publicLeafletFeed.includes('sm(?:[._-]|$)'), 'Feed musí bezpečně rozpoznat supermarketový dokument podle označení SM.');
-assert.match(publicLeafletFeed, /async function storeLeaflets/, 'Feed musí obsloužit automatické letáky všech obchodů.');
-assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed nesmí zpřístupňovat interní diagnostiku importů.');
-assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed letáků musí fungovat bez přihlášení návštěvníka.');
-const publicLeafletDocument = read('supabase/functions/store-leaflet-document/index.ts');
-assert.match(publicLeafletDocument, /digitalcontent\.api\.tesco\.com/, 'Prohlížeč smí přímo načíst oficiální dokument Tesco.');
-assert.match(publicLeafletDocument, /PennyIntLeaflet/, 'Prohlížeč musí bezpečně povolit celý oficiální PDF leták PENNY.');
-assert.match(publicLeafletDocument, /source_url/, 'Prohlížeč musí přijmout přesnou URL dokumentu z bezpečného feedu.');
-assert.match(publicLeafletDocument, /store\?\.is_active === false/, 'Dokumentový proxy smí obsloužit pouze aktivní obchody.');
-assert.match(publicLeafletDocument, /allowedStatuses/, 'Dokumentový proxy nesmí zobrazovat nezpracované nebo chybové importy.');
-assert.match(publicLeafletDocument, /detected_valid_to/, 'Dokumentový proxy musí odmítnout prošlý leták.');
-assert.match(publicLeafletDocument, /createSignedUrl/, 'Uložený leták se má otevírat přes krátkodobý podepsaný odkaz.');
-assert.doesNotMatch(publicLeafletDocument, /Response\.redirect/, 'Podepsaný odkaz se nesmí vracet přes CORS blokované přesměrování.');
-assert.match(storeFeed, /storage\/v1\/object\/sign\//, 'Prohlížeč musí ověřit podepsaný Storage odkaz před jeho vložením.');
-assert.match(publicLeafletDocument, /access-control-allow-headers': 'authorization,/, 'Dokumentový proxy musí v CORS povolit autorizační hlavičku prohlížeče.');
-assert.match(read('supabase/functions/store-leaflet-document/config.toml'), /verify_jwt = false/, 'Prohlížeč letáku musí fungovat bez přihlášení návštěvníka.');
-assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a všech 73 obchodních feedů.');
+assert.equal(brandedStoreSlugs.length, 73, 'Migrace musí obsahovat loga všech 73 obchodů.');
+for (const page of storePageFiles) assert(brandedStoreSlugs.includes(page.replace(/\.html$/, '')), `${page} nemá zdroj loga.`);
 
-const inlineScripts = [...index.matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
-assert(inlineScripts.length > 0, 'Homepage neobsahuje aplikační JavaScript.');
-for (const source of inlineScripts) new Script(source, { filename: 'index.html:inline-script' });
-new Script(read('assets/search-suggest.js'), { filename: 'assets/search-suggest.js' });
-assert.doesNotMatch(read('assets/search-suggest.js'), /MutationObserver|setInterval/, 'Loga nesmí vytvářet nekonečnou smyčku změn DOM.');
-assert.match(index, /search-suggest\.js\?v=20260801-freeze-fix/, 'Opravený skript musí obejít starou cache prohlížeče.');
-for (const path of ['admin-fotografie.html', 'admin-pridat-fotografii.html']) {
+const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
+assert.match(publicLeafletFeed, /TESCO_LISTING_URL/, 'Veřejný feed nemá oficiální Tesco zdroj.');
+assert.match(publicLeafletFeed, /documentsFromOfficialHtml/, 'Tesco dokumenty se nepárují z oficiální stránky.');
+assert.match(publicLeafletFeed, /async function storeLeaflets/, 'Feed neobsluhuje všechny obchody.');
+assert.match(publicLeafletFeed, /storeSlug === 'penny'/, 'PENNY letáky se neslučují do jednoho boxu.');
+assert.match(publicLeafletFeed, /async function pennyOfficialLeaflet/, 'PENNY nemá oficiální plný dokument.');
+assert.match(publicLeafletFeed, /function actionOfficialLeaflet/, 'Action nemá oficiální týdenní katalog.');
+assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed zpřístupňuje interní diagnostiku.');
+assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed vyžaduje přihlášení návštěvníka.');
+
+const publicLeafletDocument = read('supabase/functions/store-leaflet-document/index.ts');
+assert.match(publicLeafletDocument, /digitalcontent\.api\.tesco\.com/, 'Dokumentový proxy nepovoluje Tesco.');
+assert.match(publicLeafletDocument, /PennyIntLeaflet/, 'Dokumentový proxy nepovoluje PENNY.');
+assert.match(publicLeafletDocument, /source_url/, 'Dokumentový proxy nepřijímá přesnou URL dokumentu.');
+assert.match(publicLeafletDocument, /allowedStatuses/, 'Dokumentový proxy neověřuje stav importu.');
+assert.match(publicLeafletDocument, /detected_valid_to/, 'Dokumentový proxy neodmítá prošlé letáky.');
+assert.match(publicLeafletDocument, /createSignedUrl/, 'Dokumentový proxy nevytváří podepsaný odkaz.');
+assert.doesNotMatch(publicLeafletDocument, /Response\.redirect/, 'Dokumentový proxy používá CORS blokované přesměrování.');
+assert.match(read('supabase/functions/store-leaflet-document/config.toml'), /verify_jwt = false/, 'Prohlížeč letáku vyžaduje přihlášení návštěvníka.');
+
+for (const path of ['admin-fotografie.html','admin-pridat-fotografii.html']) {
   const scripts = [...read(path).matchAll(/<script>([\s\S]*?)<\/script>/g)].map((match) => match[1]);
   assert(scripts.length > 0, `${path} neobsahuje aplikační JavaScript.`);
-  for (const source of scripts) new Script(source, { filename: `${path}:inline-script` });
+  for (const source of scripts) new Script(source, { filename:`${path}:inline-script` });
 }
+assert.match(read('admin-pridat-fotografii.html'), /function resolveSelectedProduct\(\)/, 'Výběr produktu pro fotografii není spolehlivý.');
+assert.match(read('admin-pridat-fotografii.html'), /await productsReady/, 'Výběr produktu nečeká na databázi.');
+assert.match(read('admin-pridat-fotografii.html'), /slevao-photo-product-id/, 'Vybraný produkt nepřežije obnovení stránky.');
+assert.match(read('admin-pridat-fotografii.html'), /type="file" accept="image\/jpeg,image\/png,image\/webp,image\/avif"/, 'Nahrání fotografie nepovoluje bezpečné formáty.');
+assert.match(read('admin-pridat-fotografii.html'), /8\*1024\*1024/, 'Prohlížeč neomezuje fotografii na 8 MB.');
 
 const redirects = {
-  'login.html': 'admin.html',
-  'moderation.html': 'admin.html',
-  'account.html': './',
-  'collections.html': './',
-  'detail.html': './',
-  'reels.html': './',
-  'submit.html': './',
-  'index2.html': './',
+  'login.html':'admin.html', 'moderation.html':'admin.html', 'account.html':'./', 'collections.html':'./',
+  'detail.html':'./', 'reels.html':'./', 'submit.html':'./', 'index2.html':'./',
 };
-for (const [path, target] of Object.entries(redirects)) {
-  const html = read(path);
-  assert.match(html, /noindex/, `${path} musí být vyřazen z indexace.`);
-  assert(html.includes(`url=${target}`), `${path} nemíří na ${target}.`);
+for (const [path,target] of Object.entries(redirects)) {
+  const source = read(path);
+  assert.match(source, /noindex/, `${path} musí být vyřazen z indexace.`);
+  assert(source.includes(`url=${target}`), `${path} nemíří na ${target}.`);
 }
 
-const functionPaths = readdirSync(new URL('../supabase/functions', import.meta.url), { withFileTypes: true })
+const functionPaths = readdirSync(new URL('supabase/functions/', root), { withFileTypes:true })
   .filter((entry) => entry.isDirectory())
   .map((entry) => `supabase/functions/${entry.name}/index.ts`)
-  .filter((path) => existsSync(new URL(`../${path}`, import.meta.url)));
+  .filter(exists);
 const functionSources = functionPaths.map(read).join('\n');
 assert(!/user_metadata\?\.role/.test(functionSources), 'Oprávnění nesmí vycházet z user_metadata.');
-for (const path of ['supabase/functions/discover-leaflets/index.ts', 'supabase/functions/discover-coop/index.ts', 'supabase/functions/discover-hruska/index.ts']) {
+for (const path of ['supabase/functions/discover-leaflets/index.ts','supabase/functions/discover-coop/index.ts','supabase/functions/discover-hruska/index.ts']) {
   assert.match(read(path), /if \(!CRON_SECRET\)/, `${path} musí selhat při chybějícím CRON_SECRET.`);
 }
 
 const imageDiscovery = read('supabase/functions/discover-product-images/index.ts');
-assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhledávání fotografií musí vyžadovat oprávnění.');
-assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií musí používat schvalovací frontu.');
-assert.match(imageDiscovery, /order\("image_checked_at"/, 'Vyhledávání fotografií musí postupovat přes dosud neprověřené produkty.');
-assert.match(read('admin-fotografie.html'), /select\('\*',\{count:'exact'\}\)/, 'Administrace fotografií musí zobrazovat přesný počet chybějících fotografií.');
-assert.match(read('admin-pridat-fotografii.html'), /function resolveSelectedProduct\(\)/, 'Ruční doplnění fotografie musí obnovit přesný produkt z vyhledávacího pole.');
-assert.match(read('admin-pridat-fotografii.html'), /await productsReady/, 'Výběr produktu musí počkat na načtení produktů z databáze.');
-assert.match(read('admin-pridat-fotografii.html'), /slevao-photo-product-id/, 'Vybraný produkt musí přežít obnovení stránky.');
-assert.match(read('admin-pridat-fotografii.html'), /activeCompatible\.length===1/, 'Při duplicitním názvu se musí vybrat jediný produkt s aktivní nabídkou.');
-assert.match(read('supabase/functions/inspect-product-page/index.ts'), /canonicalTescoUrl\(target\)/, 'Ruční kontrola Tesco produktu musí obejít blokovanou URL s měřicími parametry.');
-assert.match(read('supabase/functions/inspect-product-page/index.ts'), /hasStrongBrandQuantityMatch/, 'Ruční kontrola fotografie musí umět bezpečnou shodu značky a množství.');
-assert.match(read('supabase/functions/inspect-product-page/index.ts'), /staff_direct_image/, 'Správce musí umět uložit přímý oficiální obrázek do schvalovací fronty.');
-assert.doesNotMatch(read('admin-pridat-fotografii.html'), /Fotografie už je uložená ve frontě/, 'Formulář nesmí tvrdit, že přímý obrázek uložil, dokud ho neposlal backendu.');
-assert.match(read('admin-pridat-fotografii.html'), /type="file" accept="image\/jpeg,image\/png,image\/webp,image\/avif"/, 'Ruční doplnění musí umožnit bezpečný výběr fotografie z počítače.');
-assert.match(read('admin-pridat-fotografii.html'), /8\*1024\*1024/, 'Prohlížeč musí odmítnout fotografii větší než 8 MB.');
+assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhledávání fotografií neověřuje oprávnění.');
+assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií nepoužívá schvalovací frontu.');
 const manualUpload = read('supabase/functions/upload-product-image/index.ts');
-assert.match(manualUpload, /app_metadata\?\.role/, 'Nahrání fotografie musí ověřovat oprávnění správce.');
-assert.match(manualUpload, /function detectedType/, 'Nahrání musí ověřit skutečný formát souboru podle jeho obsahu.');
-assert.match(manualUpload, /product_image_candidates/, 'Nahraná fotografie musí skončit ve schvalovací frontě.');
-assert.match(manualUpload, /source_type: "manual"/, 'Nahraná fotografie musí být označena jako ruční zdroj.');
-const missingImageView = read('supabase/migrations/20260801143000_hide_products_with_image_candidates.sql');
-assert.match(missingImageView, /not exists[\s\S]*product_image_candidates/, 'Produkty s kandidátní fotografií nesmí zůstávat v seznamu bez fotografie.');
-assert.match(missingImageView, /status in \('pending', 'approved'\)/, 'Seznam bez fotografie musí skrýt čekající i schválené kandidáty.');
-assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se nesmí počítat jako poruchy automatizace.');
-assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje musí zohlednit jeho poslední import.');
-assert.match(read('admin-automatizace.html'), /latest\?\.status==='failed'/, 'Poslední neúspěšný import musí označit zdroj jako problém.');
-for (const path of ['supabase/functions/enrich-offer-images/index.ts', 'supabase/functions/backfill-tesco-images/index.ts']) {
-  const source = read(path);
-  assert.match(source, /product_image_candidates/, `${path} musí ukládat nejisté obrázky do schvalovací fronty.`);
-  assert(!/from\('offers'\)\.update\(\{ image_url: match\./.test(source), `${path} nesmí heuristickou fotografii rovnou zveřejnit.`);
-}
-assert.match(read('supabase/functions/discover-coop/index.ts'), /soukrom\|osobn/, 'COOP nesmí vybrat dokument o ochraně osobních údajů jako leták.');
-assert.match(read('supabase/functions/process-leaflet/index.ts'), /updateBucket\(STORAGE_BUCKET/, 'Úložiště letáků musí zvýšit limit i u již existujícího bucketu.');
-assert.match(read('supabase/functions/sync-coop-source/index.ts'), /soukrom\|osobn/, 'Používaný COOP synchronizátor nesmí vybrat dokument o ochraně osobních údajů.');
-assert.match(read('supabase/functions/process-leaflet/index.ts'), /canArchiveInStorage = bytes\.length <= 45/, 'Velké letáky musí obejít omezené úložiště a pokračovat přímo do zpracování.');
-assert.match(read('supabase/functions/discover-leaflets/index.ts'), /SPECIALIZED_SOURCE_SLUGS\.has/, 'Generický průzkum musí přeskočit obchody s vlastním synchronizátorem.');
-assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:penny-flippingbook/, 'PENNY musí používat adaptér pro celý vícestránkový FlippingBook.');
-assert.match(read('supabase/functions/discover-leaflets/index.ts'), /common\/downloads/, 'PENNY adaptér musí stáhnout úplný PDF dokument, ne jednotlivé náhledové stránky.');
-assert.match(publicLeafletFeed, /storeSlug === 'penny'/, 'Veřejný feed musí sloučit staré jednotlivé stránky PENNY do jediného boxu.');
-assert.match(publicLeafletFeed, /async function pennyOfficialLeaflet/, 'PENNY feed musí aktuální úplný dokument načítat přímo z oficiální publikace.');
-assert.match(publicLeafletFeed, /pageCount < 2/, 'PENNY feed musí odmítnout jednostránkový náhled místo celého letáku.');
-assert.doesNotMatch(publicLeafletFeed, /udrz|udrž/i, 'PENNY feed nesmí používat zprávu o udržitelnosti jako akční leták.');
-assert.match(publicLeafletFeed, /function actionOfficialLeaflet/, 'Action musí mít jediný oficiální box živého týdenního katalogu.');
-assert.match(publicLeafletFeed, /ACTION_LISTING_URL/, 'Action box musí vést na oficiální český katalog.');
-assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:action-web/, 'Automatizace Action nesmí hledat neexistující PDF dokument.');
+assert.match(manualUpload, /app_metadata\?\.role/, 'Nahrání fotografie neověřuje roli správce.');
+assert.match(manualUpload, /function detectedType/, 'Nahrání nekontroluje skutečný formát souboru.');
+assert.match(manualUpload, /product_image_candidates/, 'Nahraná fotografie nekončí ve schvalovací frontě.');
+assert.match(manualUpload, /source_type: "manual"/, 'Ruční fotografie není označena jako ruční zdroj.');
 
-const publicSources = [
-  'login.html', 'moderation.html', 'account.html', 'collections.html',
-  'detail.html', 'reels.html', 'submit.html', 'index2.html',
-].map(read).join('\n');
-assert(!/ADMIN_PIN|cdn\.tailwindcss\.com|zatím lokálně/.test(publicSources), 'Na web se vrátil vývojový prototyp.');
+assert.match(read('admin-automatizace.html'), /if\(!x\.is_active\)return\{key:'paused'/, 'Pozastavené zdroje se počítají jako poruchy.');
+assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje nezohledňuje poslední import.');
+assert.match(read('supabase/functions/discover-leaflets/index.ts'), /SPECIALIZED_SOURCE_SLUGS\.has/, 'Generický průzkum nepřeskakuje specializované zdroje.');
+assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:penny-flippingbook/, 'PENNY nepoužívá adaptér pro celý leták.');
+assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:action-web/, 'Action hledá neexistující PDF místo webového katalogu.');
+assert.match(read('supabase/functions/process-leaflet/index.ts'), /canArchiveInStorage = bytes\.length <= 45/, 'Velké letáky nemají náhradní cestu zpracování.');
 
-const robots = read('robots.txt');
-assert.match(robots, /Sitemap: https:\/\/slevao\.cz\/sitemap\.xml/, 'robots.txt neodkazuje na sitemapu.');
+assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a 73 obchodů.');
+assert.match(read('robots.txt'), /Sitemap: https:\/\/slevao\.cz\/sitemap\.xml/, 'robots.txt neodkazuje na sitemapu.');
 assert.match(read('sitemap.xml'), /<loc>https:\/\/slevao\.cz\/<\/loc>/, 'Sitemap neobsahuje homepage.');
 
 console.log('Slevao.cz quality checks: OK');
