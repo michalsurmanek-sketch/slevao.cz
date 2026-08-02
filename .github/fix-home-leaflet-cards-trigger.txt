@@ -1,1 +1,1 @@
-Opakované spuštění opravy karet letáků po registraci workflow.
+Spuštění opravy přes existující workflow kontroly kvality.
