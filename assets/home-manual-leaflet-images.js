@@ -1,5 +1,14 @@
 (() => {
   'use strict';
+
+  if (!document.querySelector('script[data-home-leaflet-visibility]')) {
+    const visibility = document.createElement('script');
+    visibility.src = `assets/home-leaflet-visibility.js?v=20260802-1-${Date.now()}`;
+    visibility.async = false;
+    visibility.dataset.homeLeafletVisibility = 'true';
+    document.head.append(visibility);
+  }
+
   if (window.__slevaoManualLeafletImagesLoaded) return;
   window.__slevaoManualLeafletImagesLoaded = true;
 
