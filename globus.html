@@ -19,5 +19,31 @@
   </section>
 </section>
 <section class="c"><div class="toolbar"><div><h2>Akční nabídky</h2><div id="resultCount" class="muted">Načítám…</div></div><select id="sort" class="sort" aria-label="Řazení"><option value="newest">Nejnovější</option><option value="discount">Největší sleva</option><option value="saving">Největší úspora</option><option value="price">Nejnižší cena</option><option value="name">Podle názvu</option></select></div><div id="grid" class="grid"><div class="loading">Načítám aktuální leták…</div></div><div class="more"><button id="loadMore" class="loadMore" hidden>Načíst další nabídky</button></div><a class="back" href="./">← Všechny obchody a nabídky</a></section></main>
-<footer><div class="c"><strong>SLEVAO.cz</strong><p>Platné slevy českých obchodů na jednom místě.</p></div></footer><script>window.SLEVAO_STORE={"slug":"globus","name":"Globus"}</script><script src="assets/store-feed.js?v=20260802-20"></script>  <script src="assets/store-bottom-nav.js?v=20260802-2"></script>
+<footer><div class="c"><strong>SLEVAO.cz</strong><p>Platné slevy českých obchodů na jednom místě.</p></div></footer><script>window.SLEVAO_STORE={"slug":"globus","name":"Globus"}</script><script>
+(() => {
+  const nativeFetch = window.fetch.bind(window);
+  window.fetch = async (...args) => {
+    const response = await nativeFetch(...args);
+    const requestUrl = String(args[0]?.url || args[0] || '');
+    if (!requestUrl.includes('/functions/v1/store-leaflet-document?') || !response.ok || !response.body) return response;
+    try {
+      const reader = response.clone().body.getReader();
+      const first = await reader.read();
+      await reader.cancel();
+      const bytes = first.value || new Uint8Array();
+      const isPdf = bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
+      const isPng = bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47;
+      const isJpeg = bytes[0] === 0xff && bytes[1] === 0xd8;
+      const isWebp = bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46;
+      if (isPdf || isPng || isJpeg || isWebp) return response;
+      return new Response(JSON.stringify({ error: 'Zdroj Globusu nevrátil skutečný PDF leták.' }), {
+        status: 502,
+        headers: { 'content-type': 'application/json; charset=utf-8' },
+      });
+    } catch {
+      return response;
+    }
+  };
+})();
+</script><script src="assets/store-feed.js?v=20260802-21"></script>  <script src="assets/store-bottom-nav.js?v=20260802-2"></script>
 </body></html>
