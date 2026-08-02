@@ -1,1 +1,1 @@
-Spouštěcí značka pro jednorázové sestavení titulních stran letáků. Workflow ji po úspěšné instalaci odstraní.
+Spouštěcí značka pro opakované ověření titulních stran letáků. Workflow ji po úspěšné instalaci odstraní.
