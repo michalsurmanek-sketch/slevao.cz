@@ -20,3 +20,37 @@ jobs:
           node-version: '22'
       - name: Ověřit bezpečnost, JavaScript a SEO soubory
         run: node tests/quality.mjs
+
+  verify_homepage_leaflet_feed:
+    if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'verify-homepage-leaflet-feed-20260802'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Ověřit nasazený feed a dokumenty
+        env:
+          PUBLIC_KEY: sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU
+        run: |
+          endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/homepage-leaflet-feed?limit=12'
+          body=$(curl --fail --silent --show-error --header "apikey: $PUBLIC_KEY" "$endpoint")
+          printf '%s' "$body" > /tmp/feed.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const payload = JSON.parse(fs.readFileSync('/tmp/feed.json', 'utf8'));
+          if (!payload.ok) throw new Error(payload.error || 'Feed vrátil ok=false.');
+          if (!Array.isArray(payload.leaflets) || payload.leaflets.length < 2) {
+            throw new Error(`Feed vrátil pouze ${payload.leaflets?.length || 0} letáků.`);
+          }
+          const slugs = new Set(payload.leaflets.map((item) => item.store_slug));
+          if (slugs.size < 2) throw new Error('Feed nevrátil dva různé obchody.');
+          for (const leaflet of payload.leaflets.slice(0, 4)) {
+            if (!leaflet.preview_url) throw new Error('Leták nemá preview_url.');
+            console.log(`${leaflet.store_slug}\t${leaflet.preview_url}`);
+          }
+          fs.writeFileSync('/tmp/leaflet-urls.txt', payload.leaflets.slice(0, 4).map((item) => item.preview_url).join('\n'));
+          console.log(`Feed vrací ${payload.leaflets.length} letáků z ${slugs.size} obchodů.`);
+          NODE
+          while IFS= read -r url; do
+            headers=$(curl --fail --silent --show-error --head --header "apikey: $PUBLIC_KEY" "$url")
+            printf '%s\n' "$headers"
+            printf '%s' "$headers" | grep -Eiq '^content-type: (application/pdf|image/)'
+          done < /tmp/leaflet-urls.txt
