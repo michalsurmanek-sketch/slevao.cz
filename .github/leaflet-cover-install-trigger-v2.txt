@@ -1,0 +1,1 @@
+Spouštěcí značka pro čisté sestavení titulních stran aktuálních letáků.
