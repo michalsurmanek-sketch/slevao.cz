@@ -1,0 +1,177 @@
+/* Slevao.cz redesign – krok 3: panel kategorií */
+#categoriesSection{
+  padding:0 0 12px;
+}
+
+#categoriesSection>.container{
+  width:min(1450px,calc(100% - 48px));
+  padding:18px 24px 20px;
+  border:1px solid rgba(219,232,231,.92);
+  border-radius:24px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 12px 34px rgba(24,49,47,.055);
+}
+
+#categoriesSection .sectionHead{
+  min-height:28px;
+  align-items:center;
+  margin:0 0 12px;
+}
+
+#categoriesSection .sectionHead .eyebrow{
+  display:none;
+}
+
+#categoriesSection .sectionHead h2{
+  margin:0;
+  color:#172222;
+  font-size:18px;
+  line-height:1.2;
+  font-weight:900;
+  letter-spacing:-.35px;
+}
+
+#clearCategory{
+  min-height:32px;
+  padding:5px 10px;
+  border:1px solid #cce8e5;
+  border-radius:10px;
+  background:#f2fbfa;
+  color:#087f76;
+  font-size:12px;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+}
+
+#clearCategory:hover{
+  transform:translateY(-1px);
+  border-color:#8edbd4;
+  background:#e6f8f5;
+}
+
+#categoryChips{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap:wrap;
+}
+
+#categoryChips .categoryChip{
+  min-height:42px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  padding:0 15px;
+  border:1px solid #dfe9e8;
+  border-radius:999px;
+  background:#fff;
+  color:#3d4a49;
+  font-size:13px;
+  font-weight:800;
+  line-height:1;
+  box-shadow:0 3px 10px rgba(24,49,47,.025);
+  white-space:nowrap;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease,color .16s ease;
+}
+
+#categoryChips .categoryChip>span{
+  width:23px;
+  height:23px;
+  display:inline-grid;
+  place-items:center;
+  margin:0;
+  border-radius:8px;
+  background:#f2f7f6;
+  font-size:15px;
+  line-height:1;
+}
+
+#categoryChips .categoryChip small{
+  min-width:22px;
+  padding-left:2px;
+  color:#75817f;
+  font-size:11px;
+  font-weight:800;
+}
+
+#categoryChips .categoryChip:hover{
+  transform:translateY(-1px);
+  border-color:#9ddfd9;
+  background:#fbffff;
+  box-shadow:0 7px 17px rgba(24,49,47,.06);
+}
+
+#categoryChips .categoryChip.active{
+  border-color:#0fa79c;
+  background:linear-gradient(135deg,#24bbae,#0b9d93);
+  color:#fff;
+  box-shadow:0 8px 18px rgba(11,157,147,.2);
+}
+
+#categoryChips .categoryChip.active>span{
+  background:rgba(255,255,255,.17);
+}
+
+#categoryChips .categoryChip.active small{
+  color:rgba(255,255,255,.88);
+}
+
+#categoryChips .categoryChip:focus-visible,
+#clearCategory:focus-visible{
+  outline:0;
+  box-shadow:0 0 0 4px rgba(52,214,199,.18);
+}
+
+@media(max-width:1000px){
+  #categoriesSection>.container{
+    padding:17px 20px 19px;
+  }
+}
+
+@media(max-width:800px){
+  #categoriesSection{
+    padding:0 0 8px;
+  }
+
+  #categoriesSection>.container{
+    width:calc(100% - 20px);
+    padding:15px 14px 16px;
+    border-radius:20px;
+  }
+
+  #categoriesSection .sectionHead{
+    margin-bottom:10px;
+  }
+
+  #categoriesSection .sectionHead h2{
+    font-size:16px;
+  }
+
+  #categoryChips{
+    margin:0 -14px;
+    padding:2px 14px 5px;
+    flex-wrap:nowrap;
+    overflow-x:auto;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  #categoryChips::-webkit-scrollbar{
+    display:none;
+  }
+
+  #categoryChips .categoryChip{
+    min-height:40px;
+    flex:0 0 auto;
+    padding:0 13px;
+    font-size:12px;
+    scroll-snap-align:start;
+  }
+
+  #categoryChips .categoryChip>span{
+    width:22px;
+    height:22px;
+    font-size:14px;
+  }
+}
