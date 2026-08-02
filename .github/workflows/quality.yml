@@ -40,16 +40,40 @@ jobs:
           const today = new Date().toISOString().slice(0, 10);
           const valid = [];
 
-          async function timeoutFetch(url, options = {}, ms = 15000) {
+          async function timeoutFetch(url, options = {}, ms = 20000) {
             const controller = new AbortController();
             const timer = setTimeout(() => controller.abort(), ms);
             try { return await fetch(url, { ...options, signal: controller.signal }); }
             finally { clearTimeout(timer); }
           }
 
+          async function actualDocument(previewUrl) {
+            let response = await timeoutFetch(previewUrl, {
+              method: 'HEAD',
+              headers: { apikey: key },
+            });
+            let type = String(response.headers.get('content-type') || '').toLowerCase();
+            if (response.ok && (type.includes('application/pdf') || type.startsWith('image/'))) {
+              return { response, type };
+            }
+            if (!type.includes('application/json')) return { response, type };
+
+            const jsonResponse = await timeoutFetch(previewUrl, {
+              headers: { apikey: key, accept: 'application/json,application/pdf,*/*' },
+            });
+            if (!jsonResponse.ok) return { response: jsonResponse, type: String(jsonResponse.headers.get('content-type') || '').toLowerCase() };
+            const payload = await jsonResponse.json();
+            const signedUrl = String(payload?.url || '');
+            if (!signedUrl.startsWith('https://')) return { response: jsonResponse, type: 'application/json' };
+
+            response = await timeoutFetch(signedUrl, { method: 'HEAD' });
+            type = String(response.headers.get('content-type') || '').toLowerCase();
+            return { response, type };
+          }
+
           for (const slug of slugs) {
             try {
-              const response = await timeoutFetch(`${base}/functions/v1/store-leaflet-feed?store=${slug}&source=github-live-test`, {
+              const response = await timeoutFetch(`${base}/functions/v1/store-leaflet-feed?store=${slug}&source=github-live-test-v2`, {
                 headers: { apikey: key },
               });
               if (!response.ok) {
@@ -66,11 +90,7 @@ jobs:
                 continue;
               }
 
-              const documentResponse = await timeoutFetch(leaflet.preview_url, {
-                method: 'HEAD',
-                headers: { apikey: key },
-              }, 20000);
-              const type = String(documentResponse.headers.get('content-type') || '').toLowerCase();
+              const { response: documentResponse, type } = await actualDocument(leaflet.preview_url);
               if (!documentResponse.ok || (!type.includes('application/pdf') && !type.startsWith('image/'))) {
                 console.log(`${slug}: dokument HTTP ${documentResponse.status}, ${type || 'bez content-type'}`);
                 continue;
