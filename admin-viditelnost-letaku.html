@@ -97,33 +97,33 @@
 
     <div class="visibilityPage">
       <section class="visibilityIntro">
-        <div><h1>Obchody v hlavní sekci letáků</h1><p>Vyber, které karty budou vidět v části „Letáky a nabídky obchodů“.</p></div>
-        <div class="visibilityTip"><b>Skrytí nic nemaže.</b> Toto nastavení ovlivní pouze sekci letáků. Obchod zůstane ve vyhledávání, nabídkách i na vlastní stránce.</div>
+        <div><h1>Karty v hlavní sekci letáků</h1><p>Zobrazují se pouze obchody, které mají právě platnou kartu na hlavní stránce.</p></div>
+        <div class="visibilityTip"><b>Skrytí nic nemaže.</b> Ovlivní pouze kartu v části „Letáky a nabídky obchodů“.</div>
       </section>
 
       <section class="visibilityMetrics">
-        <div class="visibilityMetric"><small>Obchody celkem</small><strong id="totalCount">—</strong></div>
-        <div class="visibilityMetric"><small>Zobrazené v sekci</small><strong id="visibleCount">—</strong></div>
-        <div class="visibilityMetric"><small>Skryté ze sekce</small><strong id="hiddenCount">—</strong></div>
+        <div class="visibilityMetric"><small>Karty s aktuálním letákem</small><strong id="totalCount">—</strong></div>
+        <div class="visibilityMetric"><small>Zobrazené na hlavní stránce</small><strong id="visibleCount">—</strong></div>
+        <div class="visibilityMetric"><small>Skryté z hlavní stránky</small><strong id="hiddenCount">—</strong></div>
       </section>
 
       <section class="visibilityPanel">
         <div class="visibilityToolbar">
-          <input id="search" class="search" type="search" placeholder="Hledat obchod nebo slug…">
+          <input id="search" class="search" type="search" placeholder="Hledat kartu obchodu…">
           <select id="filter" class="search" aria-label="Filtrovat viditelnost">
-            <option value="all">Všechny obchody</option>
+            <option value="all">Všechny aktuální karty</option>
             <option value="visible">Jen zobrazené</option>
             <option value="hidden">Jen skryté</option>
           </select>
           <button id="reload" class="btn light" type="button"><svg class="uiIcon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Obnovit</button>
         </div>
         <div id="message" class="visibilityMessage" aria-live="polite"></div>
-        <div id="list" class="visibilityList"><div class="visibilityEmpty">Načítám obchody…</div></div>
+        <div id="list" class="visibilityList"><div class="visibilityEmpty">Načítám stejné karty jako na hlavní stránce…</div></div>
       </section>
     </div>
   </main>
 </div>
 
-<script defer src="assets/admin-homepage-visibility.js?v=20260802-1"></script>
+<script defer src="assets/admin-homepage-visibility.js?v=20260802-2"></script>
 </body>
 </html>
