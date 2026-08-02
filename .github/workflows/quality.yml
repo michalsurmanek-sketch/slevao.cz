@@ -24,14 +24,36 @@ jobs:
   verify_homepage_leaflet_feed:
     if: github.event_name == 'pull_request' && github.event.pull_request.head.ref == 'verify-homepage-leaflet-feed-20260802'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
     steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.ref }}
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Nasadit homepage leaflet feed
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          supabase functions deploy homepage-leaflet-feed \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
       - name: Ověřit nasazený feed a dokumenty
         env:
           PUBLIC_KEY: sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU
         run: |
           endpoint='https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/homepage-leaflet-feed?limit=12'
-          body=$(curl --fail --silent --show-error --header "apikey: $PUBLIC_KEY" "$endpoint")
+          body=''
+          for attempt in $(seq 1 12); do
+            if body=$(curl --fail --silent --show-error --header "apikey: $PUBLIC_KEY" "$endpoint"); then
+              break
+            fi
+            echo "Čekám na nasazení feedu, pokus $attempt/12"
+            sleep 5
+          done
+          test -n "$body"
           printf '%s' "$body" > /tmp/feed.json
           node <<'NODE'
           const fs = require('node:fs');
