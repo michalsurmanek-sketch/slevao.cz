@@ -97,13 +97,11 @@
     });
   }
 
-  function looksLikePdf(bytes, contentType) {
-    return contentType.includes('application/pdf')
-      || (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46);
+  function looksLikePdf(bytes) {
+    return bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
   }
 
-  function looksLikeImage(bytes, contentType) {
-    if (contentType.startsWith('image/')) return true;
+  function looksLikeImage(bytes) {
     return (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47)
       || (bytes[0] === 0xff && bytes[1] === 0xd8)
       || (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46);
@@ -114,7 +112,9 @@
     const buffer = await response.clone().arrayBuffer();
     const bytes = new Uint8Array(buffer.slice(0, 8));
 
-    if (looksLikePdf(bytes, contentType) || looksLikeImage(bytes, contentType)) return null;
+    // Importér může chybně označit uložené HTML jako application/pdf.
+    // Rozhoduje proto skutečná signatura souboru, ne hlavička Content-Type.
+    if (looksLikePdf(bytes) || looksLikeImage(bytes)) return null;
 
     const text = decoder.decode(buffer);
     const trimmed = text.trimStart();
