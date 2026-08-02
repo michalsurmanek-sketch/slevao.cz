@@ -1,4 +1,11 @@
 (() => {
+  const script = document.createElement('script');
+  script.src = `assets/home-all-stores.js?v=20260802-1-${Date.now()}`;
+  script.async = false;
+  document.head.append(script);
+})();
+
+(() => {
   'use strict';
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
