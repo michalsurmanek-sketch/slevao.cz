@@ -32,6 +32,20 @@ function officialPublicDocument(value: string): string | null {
   }
 }
 
+function storedContentType(path: string, reportedType: string): string {
+  if (reportedType && reportedType !== 'application/octet-stream') return reportedType;
+  if (/\.pdf$/i.test(path)) return 'application/pdf';
+  if (/\.webp$/i.test(path)) return 'image/webp';
+  if (/\.png$/i.test(path)) return 'image/png';
+  if (/\.jpe?g$/i.test(path)) return 'image/jpeg';
+  return 'application/pdf';
+}
+
+function inlineFilename(path: string): string {
+  const extension = path.match(/\.(pdf|webp|png|jpe?g)$/i)?.[0].toLowerCase() || '.pdf';
+  return `letak${extension}`;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (!['GET', 'HEAD'].includes(request.method)) return responseJson({ error: 'Method not allowed' }, 405);
@@ -63,10 +77,17 @@ Deno.serve(async (request) => {
   const bucket = typeof job?.metadata?.storage_bucket === 'string' ? job.metadata.storage_bucket : '';
   const path = typeof job?.metadata?.storage_path === 'string' ? job.metadata.storage_path : '';
   if (bucket && path) {
-    const { data, error: signedError } = await db.storage.from(bucket).createSignedUrl(path, 15 * 60);
-    if (!signedError && data?.signedUrl) {
-      return Response.json({ url: data.signedUrl, expires_in: 15 * 60 }, {
-        headers: { ...CORS_HEADERS, 'cache-control': 'private, no-store' },
+    const { data: storedDocument, error: downloadError } = await db.storage.from(bucket).download(path);
+    if (!downloadError && storedDocument) {
+      const headers = new Headers(CORS_HEADERS);
+      headers.set('content-type', storedContentType(path, storedDocument.type));
+      headers.set('content-length', String(storedDocument.size));
+      headers.set('cache-control', 'private, no-store');
+      headers.set('content-disposition', `inline; filename="${inlineFilename(path)}"`);
+      headers.set('x-content-type-options', 'nosniff');
+      return new Response(request.method === 'HEAD' ? null : storedDocument.stream(), {
+        status: 200,
+        headers,
       });
     }
   }
@@ -92,7 +113,7 @@ Deno.serve(async (request) => {
       if (value) headers.set(name, value);
     }
     headers.set('cache-control', 'public, max-age=900, s-maxage=900');
-    headers.set('content-disposition', 'inline; filename="tesco-letak"');
+    headers.set('content-disposition', 'inline; filename="letak"');
     headers.set('x-content-type-options', 'nosniff');
     return new Response(request.method === 'HEAD' ? null : upstream.body, { status: upstream.status, headers });
   } catch (fetchError) {
