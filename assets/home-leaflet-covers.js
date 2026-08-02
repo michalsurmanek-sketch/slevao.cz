@@ -4,9 +4,9 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PDFJS_VERSION = '6.1.200';
-  const PDFJS_MODULE = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.min.mjs`;
-  const PDFJS_WORKER = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/build/pdf.worker.min.mjs`;
-  const COVER_CACHE = 'slevao-current-leaflet-covers-v1';
+  const PDFJS_MODULE = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/legacy/build/pdf.min.mjs`;
+  const PDFJS_WORKER = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${PDFJS_VERSION}/legacy/build/pdf.worker.min.mjs`;
+  const COVER_CACHE = 'slevao-current-leaflet-covers-v2';
   const TODAY = new Date().toISOString().slice(0, 10);
   const MAX_CONCURRENT = 3;
 
@@ -42,10 +42,26 @@
   function setLoading(card) {
     const cover = card.querySelector('.leafletCover');
     if (!cover) return;
+    const logo = cover.querySelector('.leafletStoreLogo');
+    if (logo?.src) card.dataset.leafletLogo = logo.src;
     card.dataset.leafletCoverState = 'loading';
     cover.innerHTML = `
       <span class="leafletCoverLoader" aria-hidden="true"></span>
       <span class="leafletCoverLoadingText">Načítám titulní stranu…</span>`;
+  }
+
+  function applyUnavailableCover(card) {
+    const cover = card.querySelector('.leafletCover');
+    if (!cover) return;
+    const name = storeName(card);
+    const logo = String(card.dataset.leafletLogo || '');
+    cover.innerHTML = `
+      <div class="leafletFallbackCover">
+        ${logo ? `<img src="${esc(logo)}" alt="Logo ${esc(name)}">` : '<span aria-hidden="true">▤</span>'}
+        <strong>Aktuální leták</strong>
+        <small>Náhled se právě připravuje</small>
+      </div>`;
+    card.dataset.leafletCoverState = 'fallback';
   }
 
   function currentLeaflet(rows) {
@@ -196,8 +212,13 @@
         const leaflet = await fetchLeaflet(slug);
         let cover = await cachedCover(leaflet.preview_url);
         if (!cover) {
-          cover = await renderFirstPage(await fetchLeafletBlob(leaflet.preview_url));
-          await saveCover(leaflet.preview_url, cover);
+          try {
+            cover = await renderFirstPage(await fetchLeafletBlob(leaflet.preview_url));
+            await saveCover(leaflet.preview_url, cover);
+          } catch (renderError) {
+            console.warn(`PDF náhled ${slug} použije nativní zobrazení:`, renderError);
+            return { leaflet, cover: null };
+          }
         }
         return { leaflet, cover };
       })());
@@ -209,11 +230,19 @@
     const cover = card.querySelector('.leafletCover');
     if (!cover) return;
     const name = storeName(card);
-    const objectUrl = URL.createObjectURL(result.cover);
-    objectUrls.add(objectUrl);
-    cover.innerHTML = `
-      <img class="leafletFrontPage" src="${esc(objectUrl)}" alt="Titulní strana aktuálního letáku ${esc(name)}">
-      <span class="leafletCurrentBadge">Aktuální leták</span>`;
+    if (result.cover) {
+      const objectUrl = URL.createObjectURL(result.cover);
+      objectUrls.add(objectUrl);
+      cover.innerHTML = `
+        <img class="leafletFrontPage" src="${esc(objectUrl)}" alt="Titulní strana aktuálního letáku ${esc(name)}">
+        <span class="leafletCurrentBadge">Aktuální leták</span>`;
+    } else {
+      const separator = String(result.leaflet.preview_url).includes('#') ? '&' : '#';
+      const nativeUrl = `${result.leaflet.preview_url}${separator}page=1&toolbar=0&navpanes=0&scrollbar=0&view=FitH`;
+      cover.innerHTML = `
+        <iframe class="leafletFrontPageFrame" src="${esc(nativeUrl)}" title="Titulní strana aktuálního letáku ${esc(name)}" loading="lazy" tabindex="-1"></iframe>
+        <span class="leafletCurrentBadge">Aktuální leták</span>`;
+    }
     card.dataset.leafletCoverState = 'ready';
 
     const meta = card.querySelector('.leafletMeta');
@@ -242,8 +271,8 @@
     try {
       applyCover(card, await coverFor(slug));
     } catch (error) {
-      console.warn(`Titulní strana letáku ${slug} není dostupná:`, error);
-      card.remove();
+      console.warn(`Titulní strana letáku ${slug} zatím není dostupná:`, error);
+      applyUnavailableCover(card);
     }
   }
 
