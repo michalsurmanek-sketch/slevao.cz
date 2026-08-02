@@ -11,6 +11,14 @@
     document.head.append(manual);
   }
 
+  if (!document.querySelector('script[data-home-leaflet-visibility]')) {
+    const visibility = document.createElement('script');
+    visibility.src = `assets/home-leaflet-visibility.js?v=20260802-1-${Date.now()}`;
+    visibility.async = false;
+    visibility.dataset.homeLeafletVisibility = 'true';
+    document.head.append(visibility);
+  }
+
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const STORE_PRIORITY = [
