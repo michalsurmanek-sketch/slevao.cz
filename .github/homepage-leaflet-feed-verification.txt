@@ -1,1 +1,1 @@
-Spuštění živého testu nasazeného feedu titulních stran.
+Opakované spuštění živého testu po přímém nasazení funkce.
