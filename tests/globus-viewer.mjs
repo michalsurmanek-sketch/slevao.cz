@@ -13,7 +13,9 @@ assert.match(documentProxy, /gapi\.globus\.cz/, 'Dokumentový proxy nepovoluje o
 assert.match(documentProxy, /url\.pathname === '\/OnlineAsset\/3\/asset'/, 'Globus GAPI URL není dostatečně omezená.');
 assert.match(documentProxy, /!url\.searchParams\.has\('type'\)/, 'Globus nerozlišuje PDF od produktových obrázků.');
 assert.match(documentProxy, /storeSlug === 'globus'/, 'Staré Globus importy nejsou zpracované zvláštní bezpečnou cestou.');
-assert.match(documentProxy, /storedDocument\.slice\(0, 8\)/, 'Uložený Globus dokument se nekontroluje podle skutečných bajtů.');
+assert.match(documentProxy, /function blobMagic\(blob: Blob\)/, 'Chybí načtení skutečných prvních bajtů uloženého dokumentu.');
+assert.match(documentProxy, /blob\.slice\(0, 8\)\.arrayBuffer\(\)/, 'Uložený Globus dokument se nekontroluje podle skutečných bajtů.');
+assert.match(documentProxy, /blobMagic\(storedDocument\)/, 'Kontrola bajtů se nepoužívá na uložený Globus dokument.');
 assert.match(documentProxy, /bytes\[0\] === 0x25[\s\S]*bytes\[3\] === 0x46/, 'Globus PDF se neověřuje podle signatury %PDF.');
 assert.match(documentProxy, /resolveGlobusPdf\(sourceDocumentUrl\)/, 'Starý HTML import Globusu se nepřekládá na aktuální PDF.');
 assert.match(documentProxy, /content-disposition[^\n]*globus-letak\.pdf/, 'Globus PDF se neposílá jako dokument pro zobrazení uvnitř stránky.');
