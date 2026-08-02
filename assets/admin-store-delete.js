@@ -4,10 +4,8 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const FUNCTION_URL = `${SUPABASE_URL}/functions/v1/delete-store`;
+  const REQUEST_TIMEOUT_MS = 12000;
   const $ = (id) => document.getElementById(id);
-  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[character]));
 
   let db = null;
   let selectedStore = null;
@@ -132,19 +130,31 @@
 
   async function invoke(payload) {
     const activeSession = await session();
-    const response = await fetch(FUNCTION_URL, {
-      method: 'POST',
-      headers: {
-        apikey: SUPABASE_KEY,
-        authorization: `Bearer ${activeSession.access_token}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify(payload),
-    });
-    let result = null;
-    try { result = await response.json(); } catch { /* Edge Function má vždy vracet JSON. */ }
-    if (!response.ok || !result?.ok) throw new Error(result?.error || `Smazání selhalo (HTTP ${response.status}).`);
-    return result;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const response = await fetch(FUNCTION_URL, {
+        method: 'POST',
+        headers: {
+          apikey: SUPABASE_KEY,
+          authorization: `Bearer ${activeSession.access_token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      let result = null;
+      try { result = await response.json(); } catch { /* Edge Function má vždy vracet JSON. */ }
+      if (!response.ok || !result?.ok) throw new Error(result?.error || `Smazání selhalo (HTTP ${response.status}).`);
+      return result;
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error('Server pro mazání obchodů neodpověděl do 12 sekund. Obnov administraci přes Ctrl+F5 a zkus to znovu.');
+      }
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   async function openDelete(storeId) {
@@ -165,6 +175,8 @@
       message(selectedStore.slug ? 'Opsáním slugu odemkneš trvalé smazání.' : 'Obchod nemá slug a nelze ho bezpečně smazat.', selectedStore.slug ? '' : 'error');
       if (selectedStore.slug) $('storeDeleteConfirmInput').focus();
     } catch (error) {
+      $('storeDeleteName').textContent = 'Načtení obchodu selhalo';
+      ['storeDeleteOffers', 'storeDeleteSources', 'storeDeleteImports', 'storeDeleteFiles'].forEach((id) => { $(id).textContent = '×'; });
       message(error.message || 'Související data se nepodařilo načíst.', 'error');
     }
   }
