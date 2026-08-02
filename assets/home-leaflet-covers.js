@@ -169,9 +169,9 @@
 
     const library = await pdfjs();
     const task = library.getDocument({ data: bytes, isEvalSupported: false });
-    const document = await task.promise;
+    const pdfDocument = await task.promise;
     try {
-      const page = await document.getPage(1);
+      const page = await pdfDocument.getPage(1);
       const natural = page.getViewport({ scale: 1 });
       const targetWidth = Math.min(620, Math.max(360, window.innerWidth * 0.45));
       const scale = Math.min(2.25, targetWidth / natural.width);
@@ -186,7 +186,7 @@
       await page.render({ canvasContext: context, viewport }).promise;
       return await canvasBlob(canvas);
     } finally {
-      await document.destroy();
+      await pdfDocument.destroy();
     }
   }
 
