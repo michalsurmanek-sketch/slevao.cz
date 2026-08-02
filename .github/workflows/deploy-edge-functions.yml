@@ -38,6 +38,14 @@ jobs:
             exit 1
           }
 
+      - name: Nasadit viditelnost letáků na homepage
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy homepage-leaflet-visibility \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
       - name: Nasadit správu obrázků letáků na homepage
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
