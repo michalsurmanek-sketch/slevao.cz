@@ -22,17 +22,19 @@ for (const [name, source] of [
   ['admin-homepage-image-nav.js', nav],
 ]) new Script(source, { filename: name });
 
-assert.match(admin, /admin-homepage-visibility\.js\?v=20260802-2/, 'Administrace nenačítá aktuální správu viditelnosti.');
-assert.match(admin, /Karty s aktuálním letákem/, 'Administrace stále vydává všechny obchody za karty hlavní stránky.');
-assert.match(adminJs, /Skrýt ze sekce/, 'Administrace neumí kartu skrýt.');
-assert.match(adminJs, /Zobrazit v sekci/, 'Administrace neumí kartu znovu zobrazit.');
-assert.match(adminJs, /META_KEY = 'slevao-leaflet-visibility'/, 'Administrace nepoužívá oddělený marker viditelnosti.');
-assert.match(adminJs, /MAX_CARDS = 12/, 'Administrace nerespektuje maximální počet karet hlavní stránky.');
-assert.match(adminJs, /activeOfferStoreIds/, 'Administrace neomezuje karty na obchody s platnými nabídkami.');
-assert.match(adminJs, /store-leaflet-feed/, 'Administrace neověřuje skutečně dostupný aktuální leták.');
-assert.match(adminJs, /currentLeaflet/, 'Administrace nekontroluje platnost letáku.');
-assert.match(adminJs, /select\('id,name,slug,logo_url,website_url,is_active'\)[\s\S]*\.eq\('id', store\.id\)[\s\S]*\.single\(\)/, 'Viditelnost před uložením nenačítá čerstvou hodnotu obchodu.');
-assert.match(adminJs, /\.update\(\{ \[field\]: nextValue \}\)/, 'Viditelnost se neukládá přímo k obchodu.');
+assert.match(admin, /admin-homepage-visibility\.js\?v=/, 'Administrace nenačítá správu viditelnosti.');
+assert.match(adminJs, /VISIBILITY_KEY = 'slevao-leaflet-visibility'/, 'Administrace nepoužívá marker viditelnosti.');
+assert.match(adminJs, /FORCE_KEY = 'slevao-leaflet-force'/, 'Administrace nemá marker ručně přidané karty.');
+assert.match(adminJs, /Přidat další obchod/, 'Administrace nemá výběr dalšího obchodu.');
+assert.match(adminJs, /Přidat do sekce/, 'Administrace nemá tlačítko pro přidání obchodu.');
+assert.match(adminJs, /Odebrat ruční přidání/, 'Administrace neumí ruční kartu odebrat.');
+assert.match(adminJs, /MAX_AUTO_CARDS = 12/, 'Administrace nerespektuje maximální počet automatických karet.');
+assert.match(adminJs, /activeOfferStoreIds/, 'Administrace neomezuje automatické karty na obchody s platnými nabídkami.');
+assert.match(adminJs, /store-leaflet-feed/, 'Administrace neověřuje dostupný aktuální leták.');
+assert.match(adminJs, /\[FORCE_KEY\]: '1'/, 'Přidání obchodu neukládá ruční zařazení.');
+assert.match(adminJs, /\[VISIBILITY_KEY\]: 'visible'/, 'Přidaný obchod se nezapíná jako viditelný.');
+assert.match(adminJs, /readFreshStore|select\('id,name,slug,logo_url,website_url,is_active'\)/, 'Nastavení před uložením nenačítá čerstvou hodnotu obchodu.');
+assert.match(adminJs, /\.update\(\{ \[field\]: nextValue \}\)/, 'Nastavení se neukládá přímo k obchodu.');
 assert.doesNotMatch(adminJs, /homepage-leaflet-visibility/, 'Administrace se nesmí vrátit k nefunkční Edge Function.');
 assert.doesNotMatch(adminJs, /\.update\(\{\s*is_active/, 'Přepínač nesmí měnit obecnou viditelnost obchodu.');
 
@@ -40,15 +42,19 @@ assert.match(imageAdminJs, /data: fresh[\s\S]*markerField\(fresh\)[\s\S]*withMar
 
 for (const pattern of [
   /VISIBILITY_KEY = 'slevao-leaflet-visibility'/,
+  /FORCE_KEY = 'slevao-leaflet-force'/,
   /settings\?\.visibility === 'hidden'/,
   /settings\?\.visibility === 'visible'/,
   /card\.hidden = hidden/,
   /style\.setProperty\('display', 'none', 'important'\)/,
+  /forcedCardMarkup/,
+  /data-forced-leaflet-card/,
+  /Ručně přidaný/,
   /legacyHidden/,
-]) assert.match(control, pattern, `Společné řízení viditelnosti postrádá ${pattern}.`);
+]) assert.match(control, pattern, `Řízení hlavní sekce postrádá ${pattern}.`);
 
 assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá společné řízení bez cache.');
 assert.match(loader, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Hlavní loader nenačítá společné řízení bez cache.');
 assert.match(nav, /admin-viditelnost-letaku\.html/, 'Administrace nemá odkaz na viditelnost letáků.');
 
-console.log('Homepage leaflet visibility control OK');
+console.log('Homepage leaflet visibility and manual store control OK');
