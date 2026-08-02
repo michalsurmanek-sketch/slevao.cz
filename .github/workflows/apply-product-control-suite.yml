@@ -1,0 +1,44 @@
+name: Apply complete product control suite
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/apply-product-control-suite.yml
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Restore verified product control files
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat .github/product-control-payload/part-* > /tmp/product-control.b64
+          base64 -d /tmp/product-control.b64 > /tmp/product-control.tar.gz
+          echo "887d71e4463f3cfff8d952b01b8270535a8024dc2f9f5c915065bf279fb5f6d3  /tmp/product-control.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/product-control.tar.gz -C .
+          node --check assets/admin-product-control.js
+          grep -q "assets/admin-product-control.css?v=20260802-1" admin-tesco-kontrola.html
+          grep -q "assets/admin-product-control.js?v=20260802-1" admin-tesco-kontrola.html
+
+      - name: Remove temporary installer and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf .github/product-control-payload
+          rm -f .github/workflows/apply-product-control-suite.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Complete product control administration"
+          git push origin main
