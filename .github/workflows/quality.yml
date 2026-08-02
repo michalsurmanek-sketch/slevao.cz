@@ -7,63 +7,9 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
-  fix_home_leaflet_v5:
-    if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.event.pull_request.head.ref == 'fix-home-leaflet-v5-20260802'
-    runs-on: ubuntu-latest
-    timeout-minutes: 6
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.head.ref }}
-          fetch-depth: 0
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-      - name: Opravit a ověřit homepage letáky v5
-        run: |
-          python .github/scripts/fix_home_leaflet_v5.py
-          rm -f .github/scripts/fix_home_leaflet_v5.py .github/home-leaflet-v5-trigger.txt
-          cat > .github/workflows/quality.yml <<'YAML'
-          name: Kontrola kvality
-
-          on:
-            push:
-              branches: ['main']
-            pull_request:
-            workflow_dispatch:
-
-          permissions:
-            contents: read
-
-          jobs:
-            quality:
-              runs-on: ubuntu-latest
-              timeout-minutes: 5
-              steps:
-                - uses: actions/checkout@v4
-                - uses: actions/setup-node@v4
-                  with:
-                    node-version: '22'
-                - name: Ověřit bezpečnost, JavaScript a SEO soubory
-                  run: node tests/quality.mjs
-          YAML
-          node --check assets/home-leaflet-covers.js
-          grep -q "select: 'id,slug,name,logo_url'" assets/home-leaflet-covers.js
-          ! grep -q "logo_url,sort_order" assets/home-leaflet-covers.js
-          grep -q 'home-leaflet-covers.js?v=20260802-5' index.html
-          grep -q 'required name=search_term_string' index.html
-          node tests/quality.mjs
-      - name: Commit opravy
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898254+github-actions[bot]@users.noreply.github.com"
-          git add -A
-          git commit -m "Fix homepage leaflet store loading v5"
-          git push origin HEAD:${{ github.event.pull_request.head.ref }}
-
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 5

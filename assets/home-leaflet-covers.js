@@ -72,9 +72,9 @@
 
   async function activeStores() {
     const stores = await rest('stores', {
-      select: 'id,slug,name,logo_url,sort_order',
+      select: 'id,slug,name,logo_url',
       is_active: 'eq.true',
-      order: 'sort_order.asc.nullslast,name.asc',
+      order: 'name.asc',
     });
 
     let activeIds = null;
@@ -102,7 +102,6 @@
         const aPriority = priority.has(a.slug) ? priority.get(a.slug) : 999;
         const bPriority = priority.has(b.slug) ? priority.get(b.slug) : 999;
         return aPriority - bPriority
-          || Number(a.sort_order ?? 9999) - Number(b.sort_order ?? 9999)
           || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
       });
   }
