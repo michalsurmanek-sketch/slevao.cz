@@ -36,19 +36,27 @@
     .visibilityActions{display:flex;gap:10px;justify-content:flex-end}
     .visibilityActions .btn{min-width:190px}
     .visibilityMessage{display:none;margin:0 0 16px;padding:12px 14px;border-radius:12px;font-size:13px;font-weight:500}
-    .visibilityMessage.show{display:block}.visibilityMessage.ok{background:var(--ok-bg);color:var(--ok)}.visibilityMessage.err{background:var(--danger-bg);color:var(--danger)}
+    .visibilityMessage.show{display:block}
+    .visibilityMessage.ok{background:var(--ok-bg);color:var(--ok)}
+    .visibilityMessage.err{background:var(--danger-bg);color:var(--danger)}
     .visibilityEmpty{padding:36px;text-align:center;color:var(--muted)}
     .uiIcon{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
     .nav a.active{background:rgba(255,255,255,.095)!important;color:#fff!important;box-shadow:inset 3px 0 0 #20c8c2}
     @media(max-width:1000px){
-      .visibilityPage{padding:20px 14px 90px}.visibilityIntro{align-items:flex-start;flex-direction:column}
-      .visibilityToolbar{grid-template-columns:1fr}.visibilityStore{grid-template-columns:64px minmax(0,1fr)}
-      .visibilityLogo{width:62px;height:62px}.visibilityLogo img{max-width:52px;max-height:52px}
-      .visibilityActions{grid-column:1/-1}.visibilityActions .btn{width:100%}
+      .visibilityPage{padding:20px 14px 90px}
+      .visibilityIntro{align-items:flex-start;flex-direction:column}
+      .visibilityToolbar{grid-template-columns:1fr}
+      .visibilityStore{grid-template-columns:64px minmax(0,1fr)}
+      .visibilityLogo{width:62px;height:62px}
+      .visibilityLogo img{max-width:52px;max-height:52px}
+      .visibilityActions{grid-column:1/-1}
+      .visibilityActions .btn{width:100%}
     }
     @media(max-width:650px){
-      .visibilityMetrics{grid-template-columns:1fr 1fr}.visibilityMetric:first-child{grid-column:1/-1}
-      .visibilityIntro h1{font-size:24px}.visibilityStore{padding:14px;gap:12px}
+      .visibilityMetrics{grid-template-columns:1fr 1fr}
+      .visibilityMetric:first-child{grid-column:1/-1}
+      .visibilityIntro h1{font-size:24px}
+      .visibilityStore{padding:14px;gap:12px}
       .top .toolbar .btn{font-size:0!important;width:40px!important;padding:0!important}
     }
   </style>
@@ -90,7 +98,7 @@
     <div class="visibilityPage">
       <section class="visibilityIntro">
         <div><h1>Obchody v hlavní sekci letáků</h1><p>Vyber, které karty budou vidět v části „Letáky a nabídky obchodů“.</p></div>
-        <div class="visibilityTip"><b>Skrytí nic nemaže.</b> Obchod zůstane ve vyhledávání, nabídkách i na vlastní stránce.</div>
+        <div class="visibilityTip"><b>Skrytí nic nemaže.</b> Toto nastavení ovlivní pouze sekci letáků. Obchod zůstane ve vyhledávání, nabídkách i na vlastní stránce.</div>
       </section>
 
       <section class="visibilityMetrics">
@@ -102,7 +110,11 @@
       <section class="visibilityPanel">
         <div class="visibilityToolbar">
           <input id="search" class="search" type="search" placeholder="Hledat obchod nebo slug…">
-          <select id="filter" class="search" aria-label="Filtrovat viditelnost"><option value="all">Všechny obchody</option><option value="visible">Jen zobrazené</option><option value="hidden">Jen skryté</option></select>
+          <select id="filter" class="search" aria-label="Filtrovat viditelnost">
+            <option value="all">Všechny obchody</option>
+            <option value="visible">Jen zobrazené</option>
+            <option value="hidden">Jen skryté</option>
+          </select>
           <button id="reload" class="btn light" type="button"><svg class="uiIcon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Obnovit</button>
         </div>
         <div id="message" class="visibilityMessage" aria-live="polite"></div>
@@ -112,39 +124,6 @@
   </main>
 </div>
 
-<script>
-window.addEventListener('DOMContentLoaded',()=>{
-  const SUPABASE_URL='https://uhampjdqjxmbhaptgitn.supabase.co';
-  const ANON_KEY='sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const FUNCTION_URL=`${SUPABASE_URL}/functions/v1/homepage-leaflet-visibility`;
-  const $=id=>document.getElementById(id);
-  const db=window.supabase.createClient(SUPABASE_URL,ANON_KEY);
-  let stores=[];let hidden=new Set();let busy='';
-  const esc=value=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const fold=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
-  const icon=name=>name==='eye'
-    ?'<svg class="uiIcon" viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg>'
-    :'<svg class="uiIcon" viewBox="0 0 24 24"><path d="m3 3 18 18"/><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8"/><path d="M9.9 4.2A10.5 10.5 0 0 1 12 4c5 0 9 4 10 8a12.4 12.4 0 0 1-2 4"/><path d="M6.6 6.6A11.8 11.8 0 0 0 2 12c1 4 5 8 10 8a10.7 10.7 0 0 0 5.4-1.5"/></svg>';
-  function show(text,type='ok'){const box=$('message');box.textContent=text;box.className=`visibilityMessage show ${type}`}
-  function clearMessage(){$('message').textContent='';$('message').className='visibilityMessage'}
-  async function currentSession(){const {data,error}=await db.auth.getSession();if(error||!data.session)throw new Error('Přihlášení vypršelo. Přihlas se znovu.');if(!['admin','editor'].includes(data.session.user.app_metadata?.role))throw new Error('Nedostatečné oprávnění.');return data.session}
-  async function callVisibility(payload){const session=await currentSession();const response=await fetch(FUNCTION_URL,{method:'POST',headers:{Authorization:`Bearer ${session.access_token}`,apikey:ANON_KEY,'Content-Type':'application/json'},body:JSON.stringify(payload)});const result=await response.json().catch(()=>({}));if(!response.ok||!result.ok)throw new Error(result.error||'Nastavení se nepodařilo uložit.');return result}
-  function logo(store){return store.logo_url?`<img src="${esc(store.logo_url)}" alt="Logo ${esc(store.name)}" onerror="this.replaceWith(document.createTextNode('%'))">`:'%'}
-  function metrics(){$('totalCount').textContent=stores.length.toLocaleString('cs-CZ');$('hiddenCount').textContent=hidden.size.toLocaleString('cs-CZ');$('visibleCount').textContent=Math.max(0,stores.length-hidden.size).toLocaleString('cs-CZ')}
-  function render(){
-    const term=fold($('search').value.trim());const filter=$('filter').value;
-    const rows=stores.filter(store=>{const off=hidden.has(store.slug);if(filter==='visible'&&off)return false;if(filter==='hidden'&&!off)return false;return !term||fold(`${store.name} ${store.slug}`).includes(term)});
-    $('list').innerHTML=rows.length?rows.map(store=>{const off=hidden.has(store.slug);const waiting=busy===store.slug;return `<article class="visibilityStore ${off?'isHidden':''}"><div class="visibilityLogo">${logo(store)}</div><div><h2>${esc(store.name)}</h2><div class="visibilityMeta"><span class="visibilityPill">${esc(store.slug)}</span><span class="visibilityPill ${store.is_active?'ok':'warn'}">${store.is_active?'Obchod je na webu':'Obchod je obecně skrytý'}</span><span class="visibilityPill ${off?'bad':'ok'}">${off?'V letácích skrytý':'V letácích zobrazený'}</span></div></div><div class="visibilityActions"><button class="btn ${off?'successBtn':'dangerBtn'}" type="button" data-toggle="${esc(store.slug)}" ${waiting?'disabled':''}>${waiting?'Ukládám…':off?`${icon('eye')}Zobrazit v sekci`:`${icon('eyeOff')}Skrýt ze sekce`}</button></div></article>`}).join(''):'<div class="visibilityEmpty">Žádný obchod neodpovídá filtru.</div>';
-    $('list').querySelectorAll('[data-toggle]').forEach(button=>button.onclick=()=>toggle(button.dataset.toggle));metrics()
-  }
-  async function load(){clearMessage();$('reload').disabled=true;try{const [{data,error},settings]=await Promise.all([db.from('stores').select('id,name,slug,logo_url,is_active').order('name'),callVisibility({action:'get'})]);if(error)throw error;stores=(data||[]).filter(store=>store.slug&&store.name);hidden=new Set(Array.isArray(settings.hidden_slugs)?settings.hidden_slugs:[]);render()}catch(error){show(error.message||'Data se nepodařilo načíst.','err');$('list').innerHTML='<div class="visibilityEmpty">Načtení selhalo.</div>'}finally{$('reload').disabled=false}}
-  async function toggle(slug){const store=stores.find(item=>item.slug===slug);if(!store||busy)return;const makeVisible=hidden.has(slug);busy=slug;render();clearMessage();try{const result=await callVisibility({action:'set',store_slug:slug,visible:makeVisible});hidden=new Set(Array.isArray(result.hidden_slugs)?result.hidden_slugs:[]);show(makeVisible?`${store.name} se v hlavní sekci znovu zobrazí.`:`${store.name} byl z hlavní sekce letáků skryt.`)}catch(error){show(error.message||'Nastavení se nepodařilo uložit.','err')}finally{busy='';render()}}
-  async function auth(){const {data:{session}}=await db.auth.getSession();if(!session){$('loginBox').classList.remove('hidden');$('app').classList.add('hidden');return}if(!['admin','editor'].includes(session.user.app_metadata?.role)){await db.auth.signOut();return}$('loginBox').classList.add('hidden');$('app').classList.remove('hidden');$('who').textContent=`${session.user.email} · ${session.user.app_metadata.role}`;$('sideWho').textContent=`${session.user.email} · ${session.user.app_metadata.role}`;await load()}
-  $('search').oninput=render;$('filter').onchange=render;$('reload').onclick=load;
-  $('loginBtn').onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){const box=$('loginMsg');box.textContent=error.message;box.className='visibilityMessage show err'}else auth().catch(error=>show(error.message,'err'))};
-  $('logout').onclick=async()=>{await db.auth.signOut();location.reload()};
-  auth().catch(error=>{const box=$('loginMsg');box.textContent=error.message;box.className='visibilityMessage show err'});
-});
-</script>
+<script defer src="assets/admin-homepage-visibility.js?v=20260802-1"></script>
 </body>
 </html>
