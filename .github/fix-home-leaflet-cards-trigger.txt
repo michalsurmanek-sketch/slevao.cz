@@ -1,1 +1,1 @@
-Jednorázová spouštěcí značka. Instalační workflow ji po úspěšné opravě odstraní.
+Opakované spuštění opravy karet letáků po registraci workflow.
