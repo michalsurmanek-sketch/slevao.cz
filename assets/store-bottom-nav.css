@@ -16,6 +16,11 @@
 .storeBottomNav__leaflet.is-loading svg{animation:storeLeafletPulse .8s ease-in-out infinite alternate}
 @keyframes storeLeafletPulse{to{transform:scale(.82);opacity:.52}}
 
+/* Obrázek produktu nesmí nikdy přetéct z obrazové části do textu. */
+.deal>.media{position:relative;overflow:hidden;contain:paint}
+.deal>.media>img{position:static!important;inset:auto!important;display:block!important;width:auto!important;height:auto!important;max-width:88%!important;max-height:88%!important;margin:auto!important;object-fit:contain!important;object-position:center!important;transform:none!important}
+.deal>.body{position:relative;z-index:2;background:#fff}
+
 @media(max-width:820px){
   body.leaflet-viewer-open.leaflet-viewer-fullscreen{overflow:hidden;overscroll-behavior:none}
   body.leaflet-viewer-open.leaflet-viewer-fullscreen .top,
