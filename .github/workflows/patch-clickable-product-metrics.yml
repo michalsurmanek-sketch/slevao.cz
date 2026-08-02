@@ -1,0 +1,62 @@
+name: Patch clickable product metric filters
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-clickable-product-metrics.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Make product summary metrics clickable
+        run: |
+          python <<'PY'
+          from pathlib import Path
+
+          path = Path('admin-tesco-kontrola.html')
+          text = path.read_text(encoding='utf-8')
+
+          old_metrics = '''<div class="metric bad"><span>Duplicitní řádky</span><b id="duplicates">–</b></div><div class="metric warn"><span>Bez fotografie</span><b id="missingImages">–</b></div><div class="metric bad"><span>Chybná cena</span><b id="badPrices">–</b></div><div class="metric warn"><span>Prošlé publikované</span><b id="expiredPublished">–</b></div>'''
+          new_metrics = '''<button class="metric bad metricFilter" type="button" data-summary-filter="duplicates" aria-pressed="false"><span>Duplicitní řádky</span><b id="duplicates">–</b><small>Zobrazit produkty</small></button><button class="metric warn metricFilter" type="button" data-summary-filter="missing-image" aria-pressed="false"><span>Bez fotografie</span><b id="missingImages">–</b><small>Zobrazit produkty</small></button><button class="metric bad metricFilter" type="button" data-summary-filter="bad-price" aria-pressed="false"><span>Chybná cena</span><b id="badPrices">–</b><small>Zobrazit produkty</small></button><button class="metric warn metricFilter" type="button" data-summary-filter="expired-published" aria-pressed="false"><span>Prošlé publikované</span><b id="expiredPublished">–</b><small>Zobrazit produkty</small></button>'''
+          if old_metrics not in text:
+              raise SystemExit('Summary metric block not found')
+          text = text.replace(old_metrics, new_metrics, 1)
+
+          old_css = '''.metric.bad b{color:var(--bad)}.metric.warn b{color:var(--warn)}.metric.ok b{color:var(--ok)}'''
+          new_css = '''.metric.bad b{color:var(--bad)}.metric.warn b{color:var(--warn)}.metric.ok b{color:var(--ok)}.metricFilter{appearance:none;width:100%;text-align:left;font:inherit;color:inherit;cursor:pointer;position:relative;transition:border-color .18s,box-shadow .18s,transform .18s}.metricFilter:hover{transform:translateY(-1px);border-color:#b9c7d5;box-shadow:0 13px 32px rgba(31,46,68,.1)}.metricFilter:focus-visible{outline:3px solid rgba(14,165,164,.2);outline-offset:2px}.metricFilter.active{border-color:var(--brand);box-shadow:0 0 0 3px rgba(14,165,164,.14),var(--shadow)}.metricFilter small{display:block;margin-top:8px;color:var(--brand-strong);font-size:10px;font-weight:650}.metricFilter.active small::before{content:'✓ '}.metricFilter.active small{color:var(--brand-strong)}'''
+          if old_css not in text:
+              raise SystemExit('Metric CSS anchor not found')
+          text = text.replace(old_css, new_css, 1)
+
+          old_render = '''const statusLabel=s=>({published:'Publikováno',review:'Ke kontrole',draft:'Koncept',expired:'Ukončeno'}[s]||s||'Bez stavu');function render(){const view=filtered();'''
+          new_render = '''const statusLabel=s=>({published:'Publikováno',review:'Ke kontrole',draft:'Koncept',expired:'Ukončeno'}[s]||s||'Bez stavu');function syncMetricFilters(){const active=$('issueFilter').value;document.querySelectorAll('[data-summary-filter]').forEach(card=>{const selected=card.dataset.summaryFilter===active;card.classList.toggle('active',selected);card.setAttribute('aria-pressed',String(selected));const hint=card.querySelector('small');if(hint)hint.textContent=selected?'Zrušit filtr':'Zobrazit produkty'})}function render(){syncMetricFilters();const view=filtered();'''
+          if old_render not in text:
+              raise SystemExit('Render anchor not found')
+          text = text.replace(old_render, new_render, 1)
+
+          old_listeners = '''$('reload').onclick=load;['search','storeFilter','statusFilter','issueFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));$('table').onclick=e=>{'''
+          new_listeners = '''$('reload').onclick=load;['search','storeFilter','statusFilter','issueFilter'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',render));document.querySelectorAll('[data-summary-filter]').forEach(card=>card.addEventListener('click',()=>{const filter=card.dataset.summaryFilter;$('issueFilter').value=$('issueFilter').value===filter?'all':filter;render();$('table').scrollIntoView({behavior:'smooth',block:'start'})}));$('table').onclick=e=>{'''
+          if old_listeners not in text:
+              raise SystemExit('Listener anchor not found')
+          text = text.replace(old_listeners, new_listeners, 1)
+
+          path.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Commit change
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add admin-tesco-kontrola.html
+          git commit -m "Make product issue metrics clickable"
+          git push origin HEAD:main
