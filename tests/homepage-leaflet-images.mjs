@@ -18,6 +18,7 @@ for (const [name, source] of [
   ['home-leaflet-control.js', control],
   ['home-manual-leaflet-images.js', manualShim],
   ['home-leaflet-visibility.js', visibilityShim],
+  ['home-all-stores.js', allStores],
 ]) new Script(source, { filename: name });
 
 assert.match(admin, /admin-homepage-images\.js\?v=/, 'Administrace nenačítá správce obrázků.');
@@ -39,7 +40,7 @@ for (const pattern of [
 
 assert.match(manualShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Obrázkový loader nenačítá aktuální společné řízení.');
 assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá aktuální společné řízení.');
-assert.match(allStores, /home-manual-leaflet-images\.js[\s\S]*Date\.now\(\)/, 'Homepage nenačítá obrázkový loader bez cache.');
+assert.match(allStores, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Hlavní loader nenačítá společné řízení bez cache.');
 assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat vlastní obrázek.');
 
 console.log('Homepage leaflet image control OK');
