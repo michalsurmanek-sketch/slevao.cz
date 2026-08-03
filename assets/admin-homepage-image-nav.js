@@ -3,6 +3,16 @@
   if (window.__slevaoHomepageImageNavLoaded) return;
   window.__slevaoHomepageImageNavLoaded = true;
 
+  function loadSafeOfferSave() {
+    if (document.querySelector('script[data-admin-save-offer-v2]')) return;
+    const script = document.createElement('script');
+    script.src = `assets/admin-save-offer-v2.js?v=20260803-2-${Date.now()}`;
+    script.async = false;
+    script.dataset.adminSaveOfferV2 = 'true';
+    script.onerror = () => console.error('Bezpečné ukládání nabídek se nepodařilo načíst.');
+    document.head.append(script);
+  }
+
   function createLink(href, label, icon = '▤') {
     const link = document.createElement('a');
     link.href = href;
@@ -47,6 +57,7 @@
     }
   };
 
+  loadSafeOfferSave();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addLink, { once: true });
   else addLink();
   new MutationObserver(addLink).observe(document.documentElement, { childList: true, subtree: true });
