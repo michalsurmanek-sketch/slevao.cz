@@ -8,6 +8,7 @@ on:
       - 'admin-nahrat-letaky.html'
       - 'assets/admin-manual-leaflets.css'
       - 'assets/admin-manual-leaflets.js'
+      - 'assets/admin-pdf-pages.js'
       - 'supabase/functions/manual-leaflet-upload-v2/**'
       - 'supabase/functions/process-manual-leaflet-v2/**'
       - 'supabase/functions/run-manual-leaflet-import/**'
@@ -35,7 +36,11 @@ jobs:
         run: |
           set -euo pipefail
           node --check assets/admin-manual-leaflets.js
+          node --check assets/admin-pdf-pages.js
           grep -q "manual-leaflet-upload-v2" assets/admin-manual-leaflets.js
+          grep -q "pdfjs-dist@" assets/admin-pdf-pages.js
+          grep -q "pageCount" assets/admin-pdf-pages.js
+          grep -q "PDF bylo rozděleno na všech" assets/admin-pdf-pages.js
           grep -q "process-manual-leaflet-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "edge-multipart-storage-v3" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
@@ -46,6 +51,7 @@ jobs:
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
+          test "$(grep -c 'assets/admin-pdf-pages.js' admin-nahrat-letaky.html)" -eq 1
           test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
 
       - name: Setup Supabase CLI
@@ -115,7 +121,8 @@ jobs:
 
       - name: Ověřit produkční stránku
         run: |
-          curl --fail --silent --show-error --location \
+          page="$(curl --fail --silent --show-error --location \
             --retry 12 --retry-delay 5 \
-            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}" \
-            | grep -q 'admin-manual-leaflets.js?v=20260803-8'
+            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}")"
+          grep -q 'admin-pdf-pages.js?v=20260803-1' <<< "$page"
+          grep -q 'admin-manual-leaflets.js?v=20260803-9' <<< "$page"
