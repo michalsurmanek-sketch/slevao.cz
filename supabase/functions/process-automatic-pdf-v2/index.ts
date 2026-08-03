@@ -115,7 +115,8 @@ async function splitAndQueue(parentId: string) {
       .single();
     if (result.error || !result.data) throw result.error || new Error('Automatický import nebyl nalezen.');
     const job: any = result.data;
-    if (['published', 'ignored'].includes(String(job.status))) return;
+    const routedByDatabase = Boolean(job.metadata?.automatic_processor_required);
+    if (String(job.status) === 'published' || (String(job.status) === 'ignored' && !routedByDatabase)) return;
     if (!/^https:\/\//i.test(String(job.source_document_url || ''))) throw new Error('Zdroj nemá platnou HTTPS adresu PDF.');
 
     await db.from('leaflet_imports').update({
@@ -241,6 +242,7 @@ async function splitAndQueue(parentId: string) {
       finished_at: new Date().toISOString(),
       metadata: {
         ...(job.metadata || {}),
+        automatic_processor_required: false,
         automatic_pdf_split: true,
         split_processor: 'process-automatic-pdf-v2',
         page_batch_id: batchHash,
