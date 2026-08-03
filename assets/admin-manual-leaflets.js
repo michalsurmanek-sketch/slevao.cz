@@ -3,10 +3,12 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const MAX_INLINE_FILE_SIZE = 4 * 1024 * 1024;
+  const UPLOAD_FUNCTION = 'manual-leaflet-upload-v2';
+  const MAX_FILE_SIZE = 8 * 1024 * 1024;
   const ALLOWED_EXTENSIONS = ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'gif'];
   const ALLOWED_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'];
-  const ACTIVE_IMPORT_STATUSES = ['queued', 'downloading', 'processing', 'review', 'publishing', 'published'];
+  const ACTIVE_STATUSES = new Set(['queued', 'downloading', 'processing', 'publishing']);
+  const SUCCESS_STATUSES = new Set(['review', 'published']);
 
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -26,7 +28,6 @@
   let db;
   let session;
   let queue = [];
-  let stores = new Map();
   let uploading = false;
   let refreshTimer = 0;
 
@@ -44,8 +45,8 @@
 
   function validateFile(file) {
     if (!file?.size) throw new Error(`${file?.name || 'Soubor'} je prázdný.`);
-    if (file.size > MAX_INLINE_FILE_SIZE) {
-      throw new Error(`${file.name} má ${formatBytes(file.size)}. Spolehlivý přímý import nyní podporuje maximálně 4 MB na jeden soubor; větší PDF rozděl na jednotlivé stránky nebo zmenši.`);
+    if (file.size > MAX_FILE_SIZE) {
+      throw new Error(`${file.name} má ${formatBytes(file.size)}. Maximální velikost jednoho souboru je 8 MB.`);
     }
     if (!ALLOWED_EXTENSIONS.includes(extension(file)) && !ALLOWED_TYPES.includes(file.type)) {
       throw new Error(`${file.name} není podporovaný PDF nebo obrázek.`);
@@ -60,6 +61,7 @@
       progress: 0,
       message: 'Připraveno',
       importId: '',
+      monitorToken: '',
     };
   }
 
@@ -87,10 +89,13 @@
 
   function statusLabel(item) {
     if (item.status === 'hashing') return 'Kontroluji';
-    if (item.status === 'encoding') return 'Připravuji';
-    if (item.status === 'registering') return 'Zakládám import';
-    if (item.status === 'starting') return 'Spouštím AI';
-    if (item.status === 'done') return 'Zpracovává se';
+    if (item.status === 'uploading') return 'Nahrávám';
+    if (item.status === 'queued') return 'Ve frontě';
+    if (item.status === 'downloading') return 'Načítám';
+    if (item.status === 'processing') return 'AI zpracování';
+    if (item.status === 'publishing') return 'Publikuji';
+    if (item.status === 'review') return 'Ke kontrole';
+    if (item.status === 'published') return 'Publikováno';
     if (item.status === 'duplicate') return 'Už existuje';
     if (item.status === 'failed') return 'Chyba';
     return 'Připraveno';
@@ -104,7 +109,7 @@
     $('clearButton').disabled = uploading || !queue.length;
 
     if (!queue.length) {
-      target.innerHTML = '<div class="queueEmpty"><div><strong>Zatím nejsou vybrané žádné letáky.</strong><br><small>Přetáhni sem PDF nebo obrázky do 4 MB.</small></div></div>';
+      target.innerHTML = '<div class="queueEmpty"><div><strong>Zatím nejsou vybrané žádné letáky.</strong><br><small>Přetáhni sem PDF nebo obrázky do 8 MB.</small></div></div>';
       return;
     }
 
@@ -117,8 +122,8 @@
           <div class="progress"><span style="width:${Math.max(0, Math.min(100, item.progress || 0))}%"></span></div>
         </div>
         <div class="queueStatus">
-          <span class="statusPill ${item.status === 'failed' ? 'failed' : item.status === 'done' ? 'processing' : ''}">${statusLabel(item)}</span>
-          <button class="removeFile" type="button" data-remove-file="${esc(item.id)}" aria-label="Odebrat soubor" ${uploading || !['ready','failed','duplicate','done'].includes(item.status) ? 'disabled' : ''}>×</button>
+          <span class="statusPill ${item.status === 'failed' ? 'failed' : SUCCESS_STATUSES.has(item.status) ? 'processing' : ''}">${statusLabel(item)}</span>
+          <button class="removeFile" type="button" data-remove-file="${esc(item.id)}" aria-label="Odebrat soubor" ${uploading || ['hashing', 'uploading'].includes(item.status) ? 'disabled' : ''}>×</button>
         </div>
       </div>`).join('');
   }
@@ -128,185 +133,125 @@
     return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
   }
 
-  async function fileToDataUrl(file) {
-    return await new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onerror = () => reject(reader.error || new Error('Soubor se nepodařilo načíst.'));
-      reader.onload = () => resolve(String(reader.result || ''));
-      reader.readAsDataURL(file);
-    });
+  async function responsePayload(response) {
+    const text = await response.text();
+    if (!text) return {};
+    try { return JSON.parse(text); }
+    catch { return { error: text.slice(0, 1000) }; }
   }
 
-  async function detailedError(error, fallback = 'Operace se nepodařila.') {
-    if (!error) return fallback;
-    const response = error.context instanceof Response ? error.context : null;
-    if (response) {
-      try {
-        const payload = await response.clone().json();
-        if (payload?.error) return String(payload.error);
-        if (payload?.message) return String(payload.message);
-      } catch {
-        try {
-          const text = await response.clone().text();
-          if (text.trim()) return text.trim().slice(0, 1000);
-        } catch {}
-      }
-    }
-    return String(error.message || error || fallback);
-  }
-
-  async function ensureManualSource(storeId) {
-    const store = stores.get(storeId);
-    if (!store) throw new Error('Vybraný obchod nebyl nalezen.');
-    const sourceUrl = `manual-inline://${storeId}`;
-    const existing = await db.from('leaflet_sources').select('id').eq('source_url', sourceUrl).maybeSingle();
-    if (existing.error) throw existing.error;
-    if (existing.data?.id) return existing.data.id;
-
-    const created = await db.from('leaflet_sources').insert({
-      store_id: storeId,
-      name: `${store.name} – ruční nahrání`,
-      source_url: sourceUrl,
-      source_type: 'pdf',
-      is_active: false,
-      auto_publish: false,
-      check_interval_minutes: 525600,
-    }).select('id').single();
-    if (!created.error && created.data?.id) return created.data.id;
-
-    const raced = await db.from('leaflet_sources').select('id').eq('source_url', sourceUrl).maybeSingle();
-    if (raced.error || !raced.data?.id) throw created.error || raced.error || new Error('Ruční zdroj se nepodařilo založit.');
-    return raced.data.id;
-  }
-
-  async function registerInlineImport({ storeId, sourceId, hash, dataUrl, file, autoPublish }) {
-    const sourceHash = `manual-inline:${storeId}:${hash}`;
-    const existingResult = await db.from('leaflet_imports')
-      .select('id,status,metadata')
-      .eq('source_hash', sourceHash)
-      .maybeSingle();
-    if (existingResult.error) throw existingResult.error;
-
-    const existing = existingResult.data;
-    if (existing && ACTIVE_IMPORT_STATUSES.includes(existing.status)) {
-      return {
-        duplicate: true,
-        importId: existing.id,
-        status: existing.status,
-        message: existing.status === 'published'
-          ? 'Stejný soubor už byl zpracován a publikován.'
-          : 'Stejný soubor už je v systému.',
-      };
-    }
-
-    const metadata = {
-      ...(existing?.metadata || {}),
-      manual_upload: true,
-      inline_document: true,
-      original_filename: file.name,
-      content_type: file.type || 'application/octet-stream',
-      file_size: file.size,
-      sha256: hash,
-      auto_publish: autoPublish,
-      uploaded_by: session.user.id,
-      uploaded_by_email: session.user.email || null,
-      uploaded_at: new Date().toISOString(),
-      upload_transport: 'database-data-url',
+  async function callUploadFunction(body, json = false) {
+    const headers = {
+      authorization: `Bearer ${session.access_token}`,
+      apikey: SUPABASE_KEY,
     };
-
-    if (existing) {
-      const updated = await db.from('leaflet_imports').update({
-        source_id: sourceId,
-        store_id: storeId,
-        source_document_url: dataUrl,
-        status: 'queued',
-        error_message: null,
-        started_at: null,
-        finished_at: null,
-        metadata,
-      }).eq('id', existing.id).select('id').single();
-      if (updated.error) throw updated.error;
-      return { duplicate: false, importId: updated.data.id, status: 'queued' };
+    if (json) headers['content-type'] = 'application/json';
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/${UPLOAD_FUNCTION}`, {
+      method: 'POST',
+      headers,
+      body: json ? JSON.stringify(body) : body,
+    });
+    const payload = await responsePayload(response);
+    if (!response.ok || payload?.ok === false || payload?.error) {
+      throw new Error(payload?.error || `Server vrátil HTTP ${response.status}.`);
     }
-
-    const created = await db.from('leaflet_imports').insert({
-      source_id: sourceId,
-      store_id: storeId,
-      source_document_url: dataUrl,
-      source_hash: sourceHash,
-      status: 'queued',
-      metadata,
-    }).select('id').single();
-    if (created.error || !created.data?.id) throw created.error || new Error('Import se nepodařilo založit.');
-    return { duplicate: false, importId: created.data.id, status: 'queued' };
+    return payload;
   }
 
-  async function startProcessor(importId) {
-    const result = await db.functions.invoke('process-leaflet', { body: { import_id: importId } });
-    if (!result.error && !result.data?.error) return result.data || { accepted: true };
+  function statusProgress(status) {
+    if (status === 'queued') return 78;
+    if (status === 'downloading') return 84;
+    if (status === 'processing') return 92;
+    if (status === 'publishing') return 97;
+    return 100;
+  }
 
-    await sleep(900);
-    const check = await db.from('leaflet_imports').select('status,error_message').eq('id', importId).maybeSingle();
-    if (!check.error && check.data && ACTIVE_IMPORT_STATUSES.includes(check.data.status)) {
-      return { accepted: true, status: check.data.status, recovered_after_network_error: true };
+  function statusMessage(status, errorMessage = '') {
+    if (status === 'queued') return 'Import čeká ve frontě.';
+    if (status === 'downloading') return 'Server načítá uložený soubor.';
+    if (status === 'processing') return 'AI rozpoznává produkty, ceny a platnost.';
+    if (status === 'publishing') return 'Kvalitní výsledek se publikuje.';
+    if (status === 'review') return 'Hotovo. Výsledek je připravený ke kontrole.';
+    if (status === 'published') return 'Hotovo. Nabídky byly publikovány.';
+    if (status === 'failed') return errorMessage || 'Zpracování skončilo chybou.';
+    if (status === 'ignored') return 'Import byl přeskočen.';
+    return `Stav importu: ${status || 'neznámý'}.`;
+  }
+
+  async function monitorImport(item) {
+    const token = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
+    item.monitorToken = token;
+    const deadline = Date.now() + 10 * 60 * 1000;
+
+    while (item.monitorToken === token && queue.includes(item) && Date.now() < deadline) {
+      const result = await db.from('leaflet_imports')
+        .select('status,error_message,product_count,updated_at')
+        .eq('id', item.importId)
+        .maybeSingle();
+
+      if (!result.error && result.data) {
+        const status = String(result.data.status || '');
+        item.status = status;
+        item.progress = statusProgress(status);
+        item.message = statusMessage(status, result.data.error_message || '');
+        renderQueue();
+
+        if (SUCCESS_STATUSES.has(status)) {
+          await loadRecent();
+          return;
+        }
+        if (status === 'failed' || status === 'ignored') {
+          item.progress = status === 'failed' ? 0 : 100;
+          renderQueue();
+          await loadRecent();
+          return;
+        }
+      }
+      await sleep(3000);
     }
 
-    const message = result.data?.error || await detailedError(result.error, 'Procesor letáku se nepodařilo spustit.');
-    await db.from('leaflet_imports').update({
-      status: 'failed',
-      error_message: String(message).slice(0, 2000),
-      finished_at: new Date().toISOString(),
-    }).eq('id', importId);
-    throw new Error(message);
+    if (item.monitorToken === token && queue.includes(item) && ACTIVE_STATUSES.has(item.status)) {
+      item.message = 'Zpracování stále běží. Aktuální stav uvidíš v posledních importech.';
+      renderQueue();
+    }
   }
 
   async function uploadOne(item, storeId, autoPublish) {
     item.status = 'hashing';
     item.progress = 10;
-    item.message = 'Kontroluji duplicitu…';
+    item.message = 'Počítám kontrolní otisk a ověřuji duplicitu…';
     renderQueue();
 
     const hash = await sha256(item.file);
-    item.status = 'encoding';
-    item.progress = 34;
-    item.message = 'Připravuji soubor bez závislosti na Storage…';
+    item.status = 'uploading';
+    item.progress = 35;
+    item.message = 'Posílám soubor zabezpečenému serverovému uploadu…';
     renderQueue();
-    const dataUrl = await fileToDataUrl(item.file);
-    if (!dataUrl.startsWith('data:')) throw new Error('Soubor se nepodařilo převést pro zpracování.');
 
-    item.status = 'registering';
-    item.progress = 58;
-    item.message = 'Zakládám import v databázi…';
-    renderQueue();
-    const sourceId = await ensureManualSource(storeId);
-    const registered = await registerInlineImport({
-      storeId,
-      sourceId,
-      hash,
-      dataUrl,
-      file: item.file,
-      autoPublish,
-    });
-    item.importId = registered.importId;
+    const form = new FormData();
+    form.append('action', 'upload');
+    form.append('store_id', storeId);
+    form.append('sha256', hash);
+    form.append('auto_publish', String(Boolean(autoPublish)));
+    form.append('file', item.file, item.file.name);
 
-    if (registered.duplicate) {
+    const result = await callUploadFunction(form);
+    item.importId = result.import_id || '';
+    if (!item.importId) throw new Error('Server nevrátil identifikátor importu.');
+
+    if (result.duplicate) {
       item.status = 'duplicate';
       item.progress = 100;
-      item.message = registered.message;
+      item.message = result.message || 'Stejný leták už je v systému.';
+      renderQueue();
       return;
     }
 
-    item.status = 'starting';
-    item.progress = 82;
-    item.message = 'Spouštím existující procesor letáků…';
+    item.status = String(result.status || 'queued');
+    item.progress = 75;
+    item.message = 'Soubor je bezpečně uložený. Spouštím zpracování…';
     renderQueue();
-    await startProcessor(item.importId);
-
-    item.status = 'done';
-    item.progress = 100;
-    item.message = autoPublish
-      ? 'Zpracování běží; kvalitní výsledek se publikuje automaticky.'
-      : 'Zpracování běží; výsledek se zobrazí ke kontrole.';
+    void monitorImport(item);
   }
 
   async function uploadQueue() {
@@ -320,20 +265,20 @@
     if (!pending.length) return;
 
     uploading = true;
-    setMessage(`Zpracovávám ${pending.length} souborů. Nezavírej stránku.`, 'info');
+    setMessage(`Nahrávám ${pending.length} souborů. Nezavírej stránku.`, 'info');
     renderQueue();
-    let success = 0;
+    let accepted = 0;
     let failed = 0;
 
     for (const item of pending) {
       try {
         validateFile(item.file);
         await uploadOne(item, storeId, $('autoPublish').checked);
-        success++;
+        accepted++;
       } catch (error) {
         item.status = 'failed';
         item.progress = 0;
-        item.message = await detailedError(error, 'Zpracování souboru selhalo.');
+        item.message = error?.message || 'Nahrání selhalo.';
         failed++;
       }
       renderQueue();
@@ -342,8 +287,8 @@
     uploading = false;
     renderQueue();
     setMessage(failed
-      ? `Dokončeno: ${success} souborů spuštěno, ${failed} souborů skončilo chybou. Přesná chyba je uvedená u souboru.`
-      : `Všech ${success} souborů bylo předáno automatickému zpracování.`, failed ? 'err' : 'ok');
+      ? `Dokončeno: ${accepted} souborů přijato, ${failed} souborů skončilo chybou. Přesná chyba je uvedená u souboru.`
+      : `Všech ${accepted} souborů bylo bezpečně nahráno a předáno zpracování.`, failed ? 'err' : 'ok');
     await loadRecent();
   }
 
@@ -357,7 +302,7 @@
 
   function recentHtml(row) {
     const metadata = row.metadata || {};
-    const retry = row.status === 'failed';
+    const retry = row.status === 'failed' && metadata.storage_bucket === 'leaflets' && metadata.storage_path;
     return `<article class="recentItem">
       <div>
         <strong>${esc(metadata.original_filename || 'Nahraný leták')}</strong>
@@ -388,25 +333,17 @@
   }
 
   async function retryImport(id) {
-    const row = (window.__manualLeafletImports || []).find((item) => item.id === id);
-    if (!row) return;
     const button = document.querySelector(`[data-retry-import="${CSS.escape(id)}"]`);
     if (button) {
       button.disabled = true;
       button.textContent = 'Spouštím…';
     }
     try {
-      await db.from('leaflet_imports').update({
-        status: 'queued',
-        error_message: null,
-        started_at: null,
-        finished_at: null,
-      }).eq('id', id);
-      await startProcessor(id);
-      setMessage('Import byl znovu spuštěn.', 'ok');
+      await callUploadFunction({ action: 'retry', import_id: id }, true);
+      setMessage('Import byl znovu spuštěn z bezpečně uloženého souboru.', 'ok');
       await loadRecent();
     } catch (error) {
-      setMessage(await detailedError(error, 'Import se nepodařilo znovu spustit.'), 'err');
+      setMessage(error?.message || 'Import se nepodařilo znovu spustit.', 'err');
       if (button) {
         button.disabled = false;
         button.textContent = 'Zkusit znovu';
@@ -421,7 +358,6 @@
       .eq('is_active', true)
       .order('name');
     if (result.error) throw result.error;
-    stores = new Map((result.data || []).map((store) => [store.id, store]));
     select.innerHTML = '<option value="">Vyber obchod…</option>' + (result.data || [])
       .map((store) => `<option value="${esc(store.id)}">${esc(store.name)}</option>`).join('');
   }
@@ -452,6 +388,7 @@
     $('uploadButton').addEventListener('click', uploadQueue);
     $('clearButton').addEventListener('click', () => {
       if (uploading) return;
+      queue.forEach((item) => { item.monitorToken = ''; });
       queue = [];
       renderQueue();
       setMessage('', 'info');
@@ -463,7 +400,9 @@
     document.addEventListener('click', (event) => {
       const remove = event.target.closest?.('[data-remove-file]');
       if (remove && !uploading) {
-        queue = queue.filter((item) => item.id !== remove.dataset.removeFile);
+        const item = queue.find((entry) => entry.id === remove.dataset.removeFile);
+        if (item) item.monitorToken = '';
+        queue = queue.filter((entry) => entry.id !== remove.dataset.removeFile);
         renderQueue();
       }
       const retry = event.target.closest?.('[data-retry-import]');
@@ -494,7 +433,7 @@
     try {
       await Promise.all([loadStores(), loadRecent()]);
     } catch (error) {
-      setMessage(await detailedError(error, 'Administraci se nepodařilo načíst.'), 'err');
+      setMessage(error?.message || 'Administraci se nepodařilo načíst.', 'err');
     }
     refreshTimer = window.setInterval(loadRecent, 5000);
     window.addEventListener('beforeunload', (event) => {
@@ -504,7 +443,10 @@
     });
   }
 
-  window.addEventListener('pagehide', () => window.clearInterval(refreshTimer));
+  window.addEventListener('pagehide', () => {
+    window.clearInterval(refreshTimer);
+    queue.forEach((item) => { item.monitorToken = ''; });
+  });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
   else init();
 })();
