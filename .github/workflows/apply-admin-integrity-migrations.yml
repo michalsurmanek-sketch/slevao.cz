@@ -7,6 +7,7 @@ on:
     paths:
       - 'supabase/migrations/20260803182000_admin_integrity_hardening.sql'
       - 'supabase/migrations/20260803185000_admin_offer_transaction.sql'
+      - 'supabase/migrations/20260803190000_preserve_expired_offers.sql'
       - '.github/workflows/apply-admin-integrity-migrations.yml'
   workflow_dispatch:
 
@@ -19,7 +20,7 @@ permissions:
 
 jobs:
   apply:
-    name: Použít bezpečný koš a transakční ukládání
+    name: Použít bezpečný koš, ukládání a archivaci
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -45,6 +46,7 @@ jobs:
           files=(
             'supabase/migrations/20260803182000_admin_integrity_hardening.sql'
             'supabase/migrations/20260803185000_admin_offer_transaction.sql'
+            'supabase/migrations/20260803190000_preserve_expired_offers.sql'
           )
 
           for file in "${files[@]}"; do
