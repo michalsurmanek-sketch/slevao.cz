@@ -23,6 +23,7 @@
   <link rel="stylesheet" href="assets/home-redesign-step3.css?v=20260803-2">
   <link rel="stylesheet" href="assets/home-leaflet-covers.css?v=20260802-3">
   <link rel="stylesheet" href="assets/home-overview.css?v=20260803-3">
+  <link rel="stylesheet" href="assets/home-footer-redesign.css?v=20260803-1">
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Porovnej ceny a nakup nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
 </head>
 <body>
@@ -150,13 +151,76 @@
   </main>
 
   <footer class="footer">
-    <div class="container footerGrid">
-      <div><a class="brand footerBrand" href="#top"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a><p>Chytrý přehled aktuálních akcí a slev českých obchodů.</p></div>
-      <div><strong>Slevao.cz</strong><a href="#dealsSection">Aktuální nabídky</a><a href="#leafletsSection">Letáky</a><a href="#storesSection">Obchody</a><a href="#categoriesSection">Kategorie</a></div>
-      <div><strong>Pomoc</strong><a href="kontakt.html">Kontakt</a><button id="footerReport" type="button">Nahlásit chybnou nabídku</button><a href="ochrana-soukromi.html">Ochrana soukromí</a><a href="podminky.html">Podmínky používání</a></div>
-      <div><strong>Informace</strong><p>Ceny a dostupnost se mohou v jednotlivých prodejnách lišit. Před nákupem ověř podmínky akce v oficiálním letáku obchodu.</p></div>
+    <div class="footerShell">
+      <div class="footerMain">
+        <section class="footerIdentity" aria-label="O Slevao.cz">
+          <a class="brand footerBrand" href="#top" aria-label="Slevao.cz domů"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a>
+          <p class="footerLead">Chytrý přehled aktuálních akcí a slev českých obchodů.</p>
+          <ul class="footerFeatures">
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">↻</span><span>Denně aktualizováno</span></li>
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">▤</span><span>Přehled letáků</span></li>
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">%</span><span>Rychlé porovnání cen</span></li>
+          </ul>
+        </section>
+
+        <nav class="footerColumn" aria-label="Slevao.cz">
+          <h3>Slevao.cz</h3>
+          <div class="footerLinks">
+            <a href="#dealsSection">Aktuální nabídky</a>
+            <a href="#leafletsSection">Letáky</a>
+            <a href="#storesSection">Obchody</a>
+            <a href="#categoriesSection">Kategorie</a>
+          </div>
+        </nav>
+
+        <nav class="footerColumn" aria-label="Pomoc">
+          <h3>Pomoc</h3>
+          <div class="footerLinks">
+            <a href="kontakt.html">Kontakt</a>
+            <button id="footerReport" type="button">Nahlásit chybnou nabídku</button>
+            <a href="ochrana-soukromi.html">Ochrana soukromí</a>
+            <a href="podminky.html">Podmínky používání</a>
+          </div>
+        </nav>
+
+        <section class="footerColumn" aria-label="Užitečné informace">
+          <h3>Užitečné</h3>
+          <p class="footerUsefulText">Ceny a dostupnost se mohou v jednotlivých prodejnách lišit. Před nákupem ověř podmínky akce v oficiálním letáku obchodu.</p>
+          <div class="footerQuickIcons">
+            <a href="#top" aria-label="Nahoru">↑</a>
+            <a href="#dealsSection" aria-label="Aktuální nabídky">%</a>
+            <a href="kontakt.html" aria-label="Kontakt">✉</a>
+          </div>
+        </section>
+
+        <section class="footerWatch" aria-labelledby="footerWatchTitle">
+          <div class="footerWatchHead">
+            <span class="footerBell" aria-hidden="true">♧</span>
+            <h3 id="footerWatchTitle">Hlídání slev</h3>
+          </div>
+          <p>Nech si posílat upozornění na nejlepší akce a slevy.</p>
+          <form id="footerAlertsForm" class="footerWatchForm">
+            <label class="footerSrOnly" for="footerAlertEmail">Váš e-mail</label>
+            <input id="footerAlertEmail" type="email" inputmode="email" autocomplete="email" placeholder="Váš e-mail" required>
+            <button type="submit">Zapnout upozornění <span aria-hidden="true">→</span></button>
+            <small class="footerWatchHint">Žádný spam. Zrušení kdykoli.</small>
+            <p id="footerAlertStatus" class="footerWatchStatus" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </div>
+
+      <div class="footerBottom">
+        <div class="footerBottomInner">
+          <div class="footerCopyright">© 2026 <strong>Slevao.cz</strong> · Data aktualizována průběžně</div>
+          <div class="footerTrust">Bezpečné a důvěryhodné srovnání nabídek</div>
+          <div class="footerBadges" aria-label="Výhody služby">
+            <span class="footerBadge">Zdarma</span>
+            <span class="footerBadge">Bez registrace</span>
+            <span class="footerBadge">Bez spamu</span>
+          </div>
+        </div>
+      </div>
     </div>
-    <div class="container footerBottom">© 2026 Slevao.cz · Data aktualizována průběžně</div>
   </footer>
 
   <nav class="mobileNav" aria-label="Mobilní navigace">
@@ -190,5 +254,6 @@
   <script src="assets/home-all-stores.js?v=20260802-4" defer></script>
   <script src="assets/home-leaflet-covers.js?v=20260802-7" defer></script>
   <script src="assets/home-overview.js?v=20260803-5" defer></script>
+  <script src="assets/home-footer-redesign.js?v=20260803-1" defer></script>
 </body>
 </html>
