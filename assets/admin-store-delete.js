@@ -94,6 +94,32 @@
       }
     }
 
+    async function restoreOfferSafely(id) {
+      if (!id) return;
+      try {
+        await requireStaff();
+        const rpc = await db.rpc('admin_restore_offer', { target_offer_id: id });
+        if (rpc.error) {
+          const current = await db.from('offers').select('id,valid_to').eq('id', id).maybeSingle();
+          if (current.error) throw current.error;
+          if (!current.data) throw new Error('Nabídka už neexistuje.');
+          const fallbackStatus = current.data.valid_to && current.data.valid_to < today() ? 'expired' : 'review';
+          const fallback = await db.from('offers')
+            .update({ status: fallbackStatus, published_at: null })
+            .eq('id', id)
+            .select('id')
+            .maybeSingle();
+          if (fallback.error) throw fallback.error;
+          if (!fallback.data) throw new Error('Databáze obnovení nepotvrdila.');
+        }
+        clearPublicCache();
+        $('reload')?.click();
+        await refreshStats();
+      } catch (error) {
+        alert(error?.message || 'Nabídku se nepodařilo obnovit z koše.');
+      }
+    }
+
     async function saveEditedOffer() {
       const button = $('editSave');
       const id = $('editId')?.value;
@@ -184,6 +210,14 @@
         event.preventDefault();
         event.stopImmediatePropagation();
         moveOfferToTrash(remove.dataset.delete);
+        return;
+      }
+
+      const restore = event.target.closest('[data-critical-restore]');
+      if (restore) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        restoreOfferSafely(restore.dataset.criticalRestore);
         return;
       }
 
