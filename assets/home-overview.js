@@ -1,15 +1,382 @@
-(()=>{'use strict';if(window.__slevaoDesktopOverviewLoaded)return;window.__slevaoDesktopOverviewLoaded=true;const U='https://uhampjdqjxmbhaptgitn.supabase.co',K='sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU',T=new Date().toISOString().slice(0,10),$=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c])),money=v=>Number(v||0).toLocaleString('cs-CZ',{maximumFractionDigits:2});let timer=0,fitFrame=0;
-function shell(){if($('desktopOverview')||!$('categoriesSection'))return;const s=document.createElement('section');s.id='desktopOverview';s.className='desktopOverview';s.setAttribute('aria-label','Rychlý přehled akcí a obchodů');s.innerHTML=`<div class="container desktopOverviewGrid"><article class="overviewPanel"><div class="overviewPanelHead"><h2>Top letáky</h2><button type="button" class="overviewAllLink" data-show-section="leaflets">Zobrazit všechny</button></div><div id="overviewLeaflets" class="overviewLeaflets"><span class="overviewLoading">Načítám letáky…</span></div></article><article class="overviewPanel"><div class="overviewPanelHead"><h2>Nejžádanější obchody</h2><button type="button" class="overviewAllLink" data-show-section="stores">Zobrazit všechny</button></div><div id="overviewStores" class="overviewStores"><span class="overviewLoading">Načítám obchody…</span></div></article><article class="overviewPanel"><div class="overviewPanelHead"><h2>Akce končí brzy</h2><button type="button" class="overviewAllLink" data-show-ending>Zobrazit všechny</button></div><div id="overviewEnding" class="overviewEnding"><span class="overviewLoading">Načítám akce…</span></div></article></div>`;$('categoriesSection').insertAdjacentElement('afterend',s);bind(s)}
-function clean(n){n.removeAttribute('id');n.hidden=false;n.removeAttribute('aria-hidden');n.style.removeProperty('display');n.querySelectorAll('[id]').forEach(e=>e.removeAttribute('id'));return n}
-function syncLeaflets(){const a=$('leafletGrid'),b=$('overviewLeaflets');if(!a||!b)return;const cards=[...a.querySelectorAll('.leafletCard')].filter(c=>!c.hidden&&c.dataset.homeLeafletVisibility!=='hidden').slice(0,3).map(c=>{const x=clean(c.cloneNode(true));x.classList.add('overviewLeafletCard');return x});b.replaceChildren(...(cards.length?cards:[Object.assign(document.createElement('span'),{className:'overviewLoading',textContent:'Aktuální letáky se načítají…'})]))}
-function syncStores(){const a=$('storeGrid'),b=$('overviewStores');if(!a||!b)return;const cards=[...a.querySelectorAll('.storeCard')].filter(c=>{const s=c.querySelector('[data-store]')?.dataset.store;return s&&s!=='all'&&!c.hidden}).slice(0,8).map(c=>{const x=clean(c.cloneNode(true));x.classList.add('overviewStoreCard');x.querySelector('.storePageLink')?.remove();return x});b.replaceChildren(...(cards.length?cards:[Object.assign(document.createElement('span'),{className:'overviewLoading',textContent:'Obchody se načítají…'})]))}
-function fitPanels(){const g=document.querySelector('.desktopOverviewGrid');if(!g||window.matchMedia('(max-width:1100px)').matches)return;cancelAnimationFrame(fitFrame);g.style.removeProperty('--overview-panel-height');fitFrame=requestAnimationFrame(()=>{const first=g.querySelector('.overviewPanel');if(!first)return;const height=Math.ceil(first.scrollHeight);if(height>0)g.style.setProperty('--overview-panel-height',`${height}px`)})}
-function schedule(){clearTimeout(timer);timer=setTimeout(()=>{syncLeaflets();syncStores();fitPanels()},100)}
-function relay(slug){const q=`[data-store="${CSS.escape(slug)}"]`,btn=$('storeGrid')?.querySelector(q)||$('leafletGrid')?.querySelector(q);if(btn)btn.click();else{const s=$('storeSelect');if(s){s.value=slug;s.dispatchEvent(new Event('change',{bubbles:true}))}}setTimeout(()=>$('dealsSection')?.scrollIntoView({behavior:'smooth',block:'start'}),80)}
-function show(type){const stores=type==='stores';document.body.classList.add(stores?'showOriginalStores':'showOriginalLeaflets');requestAnimationFrame(()=>$(stores?'storesSection':'leafletsSection')?.scrollIntoView({behavior:'smooth',block:'start'}))}
-function showEnding(){const s=$('sortSelect');if(s){s.value='ending';s.dispatchEvent(new Event('change',{bubbles:true}))}$('dealsSection')?.scrollIntoView({behavior:'smooth',block:'start'})}
-function bind(s){s.addEventListener('click',e=>{const x=e.target.closest('[data-show-section]');if(x){show(x.dataset.showSection);return}if(e.target.closest('[data-show-ending]')){showEnding();return}const b=e.target.closest('button[data-store]');if(!b)return;e.preventDefault();e.stopPropagation();relay(b.dataset.store||'all')})}
-function days(v){if(!v)return 999;return Math.max(0,Math.round((new Date(`${v}T12:00:00`)-new Date(`${T}T12:00:00`))/86400000))}function label(v){const d=days(v);return d===0?'Končí dnes':d===1?'Končí zítra':d<5?`Končí za ${d} dny`:`Končí za ${d} dní`}function logo(s){return s?.logo_url?`<img src="${esc(s.logo_url)}" alt="Logo ${esc(s.name||'')}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'overviewLogoFallback',textContent:'%'}))">`:'<span class="overviewLogoFallback">%</span>'}function img(o){return o.image_url||o.products?.image_url||''}
-function render(rows){const t=$('overviewEnding');if(!t)return;const m=new Map;rows.forEach(o=>{const k=`${o.stores?.slug||''}|${String(o.title||o.products?.name||'').toLowerCase()}`,e=m.get(k);if(!e||(!img(e)&&img(o)))m.set(k,o)});const a=[...m.values()].sort((x,y)=>days(x.valid_to)-days(y.valid_to)||(Number(y.old_price||0)-Number(y.price||0))-(Number(x.old_price||0)-Number(x.price||0))).slice(0,3);if(!a.length){t.innerHTML='<span class="overviewLoading">Žádná akce nyní nekončí.</span>';fitPanels();return}t.innerHTML=a.map(o=>{const s=o.stores||{},title=o.title||o.products?.name||'Akční nabídka',im=img(o),p=Number(o.price||0),old=Number(o.old_price||0),d=old>p?Math.round((old-p)/old*100):0,href=s.slug?`${encodeURIComponent(s.slug)}.html`:'#dealsSection';return `<a class="overviewDealRow" href="${href}"><span class="overviewDealImage">${im?`<img src="${esc(im)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">`:'<span class="overviewProductFallback">🏷️</span>'}</span><span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${logo(s)}${esc(s.name||'Obchod')}</small></span><span class="overviewEndingBadge">${label(o.valid_to)}</span><span class="overviewDealPrice"><strong>${money(p)} Kč</strong>${old>p?`<del>${money(old)} Kč</del>`:''}</span>${d?`<span class="overviewDiscount">−${d}%</span>`:''}</a>`}).join('');fitPanels()}
-async function load(){const t=$('overviewEnding');try{const q=new URLSearchParams({select:'id,title,price,old_price,image_url,valid_to,published_at,stores(name,slug,logo_url),products(name,image_url,quantity_text)',status:'eq.published',valid_from:`lte.${T}`,valid_to:`gte.${T}`,order:'valid_to.asc,published_at.desc',limit:'40'}),r=await fetch(`${U}/rest/v1/offers?${q}`,{headers:{apikey:K},cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);render(await r.json())}catch(e){console.warn('Přehled končících akcí se nepodařilo načíst:',e);if(t)t.innerHTML='<span class="overviewLoading">Akce se nyní nepodařilo načíst.</span>';fitPanels()}}
-function observe(id){const n=$(id);if(n)new MutationObserver(schedule).observe(n,{childList:true,subtree:true,attributes:true,attributeFilter:['src','hidden','style','class']})}function init(){shell();schedule();observe('leafletGrid');observe('storeGrid');load();window.addEventListener('resize',schedule,{passive:true});setInterval(load,300000)}document.readyState==='loading'?document.addEventListener('DOMContentLoaded',init,{once:true}):init()})();
+(() => {
+  'use strict';
+
+  if (window.__slevaoDesktopOverviewLoaded) return;
+  window.__slevaoDesktopOverviewLoaded = true;
+
+  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const LEAFLETS_PER_PAGE = 3;
+  const STORES_PER_PAGE = 8;
+  const STORE_PRIORITY = [
+    'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
+    'action', 'coop', 'hruska', 'norma', 'terno', 'rohlik', 'kosik',
+    'dm', 'rossmann', 'teta', 'alza', 'datart', 'planeo',
+    'ikea', 'jysk', 'obi', 'hornbach', 'bauhaus', 'mountfield',
+    'dr-max', 'benu', 'pilulka', 'pepco', 'kik'
+  ];
+  const STORE_RANK = new Map(STORE_PRIORITY.map((slug, index) => [slug, index]));
+  const $ = (id) => document.getElementById(id);
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+  const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+
+  let timer = 0;
+  let fitFrame = 0;
+  let leafletPage = 0;
+  let storePage = 0;
+  let leafletPageCount = 1;
+  let storePageCount = 1;
+  let overviewStores = [];
+
+  function pagerMarkup(type, label) {
+    return `<div class="overviewPager" aria-label="${label}">
+      <button type="button" class="overviewArrow" data-overview-nav="${type}" data-direction="-1" aria-label="Předchozí ${label.toLowerCase()}">‹</button>
+      <span id="overview-${type}-page" class="overviewPageCount" aria-live="polite">1/1</span>
+      <button type="button" class="overviewArrow" data-overview-nav="${type}" data-direction="1" aria-label="Další ${label.toLowerCase()}">›</button>
+    </div>`;
+  }
+
+  function shell() {
+    if ($('desktopOverview') || !$('categoriesSection')) return;
+    const section = document.createElement('section');
+    section.id = 'desktopOverview';
+    section.className = 'desktopOverview';
+    section.setAttribute('aria-label', 'Rychlý přehled akcí a obchodů');
+    section.innerHTML = `<div class="container desktopOverviewGrid">
+      <article class="overviewPanel">
+        <div class="overviewPanelHead">
+          <h2>Top letáky</h2>
+          <div class="overviewHeadActions">${pagerMarkup('leaflets', 'Letáky')}<button type="button" class="overviewAllLink" data-show-section="leaflets">Zobrazit všechny</button></div>
+        </div>
+        <div id="overviewLeaflets" class="overviewLeaflets"><span class="overviewLoading">Načítám letáky…</span></div>
+      </article>
+      <article class="overviewPanel">
+        <div class="overviewPanelHead">
+          <h2>Nejžádanější obchody</h2>
+          <div class="overviewHeadActions">${pagerMarkup('stores', 'Obchody')}<button type="button" class="overviewAllLink" data-show-section="stores">Zobrazit všechny</button></div>
+        </div>
+        <div id="overviewStores" class="overviewStores"><span class="overviewLoading">Načítám obchody…</span></div>
+      </article>
+      <article class="overviewPanel">
+        <div class="overviewPanelHead"><h2>Akce končí brzy</h2><button type="button" class="overviewAllLink" data-show-ending>Zobrazit všechny</button></div>
+        <div id="overviewEnding" class="overviewEnding"><span class="overviewLoading">Načítám akce…</span></div>
+      </article>
+    </div>`;
+    $('categoriesSection').insertAdjacentElement('afterend', section);
+    bind(section);
+  }
+
+  function clean(node) {
+    node.removeAttribute('id');
+    node.hidden = false;
+    node.removeAttribute('aria-hidden');
+    node.style.removeProperty('display');
+    node.querySelectorAll('[id]').forEach((element) => element.removeAttribute('id'));
+    return node;
+  }
+
+  function normalizePage(current, total) {
+    if (total <= 1) return 0;
+    return ((current % total) + total) % total;
+  }
+
+  function updatePager(type, current, total) {
+    const counter = $(`overview-${type}-page`);
+    if (counter) counter.textContent = `${current + 1}/${Math.max(total, 1)}`;
+    document.querySelectorAll(`[data-overview-nav="${type}"]`).forEach((button) => {
+      button.disabled = total <= 1;
+      button.setAttribute('aria-disabled', String(total <= 1));
+    });
+  }
+
+  function syncLeaflets() {
+    const source = $('leafletGrid');
+    const target = $('overviewLeaflets');
+    if (!source || !target) return;
+
+    const allCards = [...source.querySelectorAll('.leafletCard')]
+      .filter((card) => !card.hidden && card.dataset.homeLeafletVisibility !== 'hidden');
+
+    leafletPageCount = Math.max(1, Math.ceil(allCards.length / LEAFLETS_PER_PAGE));
+    leafletPage = normalizePage(leafletPage, leafletPageCount);
+    const start = leafletPage * LEAFLETS_PER_PAGE;
+    const cards = allCards.slice(start, start + LEAFLETS_PER_PAGE).map((card) => {
+      const clone = clean(card.cloneNode(true));
+      clone.classList.add('overviewLeafletCard');
+      return clone;
+    });
+
+    target.replaceChildren(...(cards.length ? cards : [Object.assign(document.createElement('span'), {
+      className: 'overviewLoading', textContent: 'Aktuální letáky se načítají…'
+    })]));
+    updatePager('leaflets', leafletPage, leafletPageCount);
+  }
+
+  function storeLogoMarkup(store) {
+    if (store.logo_url) {
+      return `<img src="${esc(store.logo_url)}" alt="Logo ${esc(store.name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'storeAllIcon',textContent:'🏪'}))">`;
+    }
+    return '<span class="storeAllIcon">🏪</span>';
+  }
+
+  function storeCardMarkup(store) {
+    return `<article class="storeCard overviewStoreCard">
+      <button type="button" class="storeFilterButton" data-store="${esc(store.slug)}">
+        <div class="storeLogoBox">${storeLogoMarkup(store)}</div>${esc(store.name)}
+      </button>
+    </article>`;
+  }
+
+  function fallbackStoresFromGrid() {
+    const source = $('storeGrid');
+    if (!source) return [];
+    return [...source.querySelectorAll('.storeCard')].filter((card) => {
+      const slug = card.querySelector('[data-store]')?.dataset.store;
+      return slug && slug !== 'all' && !card.hidden;
+    });
+  }
+
+  function syncStores() {
+    const target = $('overviewStores');
+    if (!target) return;
+
+    if (overviewStores.length) {
+      storePageCount = Math.max(1, Math.ceil(overviewStores.length / STORES_PER_PAGE));
+      storePage = normalizePage(storePage, storePageCount);
+      const start = storePage * STORES_PER_PAGE;
+      const rows = overviewStores.slice(start, start + STORES_PER_PAGE);
+      target.innerHTML = rows.length ? rows.map(storeCardMarkup).join('') : '<span class="overviewLoading">Obchody se načítají…</span>';
+    } else {
+      const allCards = fallbackStoresFromGrid();
+      storePageCount = Math.max(1, Math.ceil(allCards.length / STORES_PER_PAGE));
+      storePage = normalizePage(storePage, storePageCount);
+      const start = storePage * STORES_PER_PAGE;
+      const cards = allCards.slice(start, start + STORES_PER_PAGE).map((card) => {
+        const clone = clean(card.cloneNode(true));
+        clone.classList.add('overviewStoreCard');
+        clone.querySelector('.storePageLink')?.remove();
+        return clone;
+      });
+      target.replaceChildren(...(cards.length ? cards : [Object.assign(document.createElement('span'), {
+        className: 'overviewLoading', textContent: 'Obchody se načítají…'
+      })]));
+    }
+    updatePager('stores', storePage, storePageCount);
+  }
+
+  function fitPanels() {
+    const grid = document.querySelector('.desktopOverviewGrid');
+    if (!grid || window.matchMedia('(max-width:1100px)').matches) return;
+    cancelAnimationFrame(fitFrame);
+    grid.style.removeProperty('--overview-panel-height');
+    fitFrame = requestAnimationFrame(() => {
+      const first = grid.querySelector('.overviewPanel');
+      if (!first) return;
+      const height = Math.ceil(first.scrollHeight);
+      if (height > 0) grid.style.setProperty('--overview-panel-height', `${height}px`);
+    });
+  }
+
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      syncLeaflets();
+      syncStores();
+      fitPanels();
+    }, 100);
+  }
+
+  function relay(slug) {
+    const query = `[data-store="${CSS.escape(slug)}"]`;
+    const button = $('storeGrid')?.querySelector(query) || $('leafletGrid')?.querySelector(query);
+    if (button) button.click();
+    else {
+      const select = $('storeSelect');
+      if (select) {
+        select.value = slug;
+        select.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    setTimeout(() => $('dealsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }
+
+  function show(type) {
+    const stores = type === 'stores';
+    document.body.classList.add(stores ? 'showOriginalStores' : 'showOriginalLeaflets');
+    requestAnimationFrame(() => $(stores ? 'storesSection' : 'leafletsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  }
+
+  function showEnding() {
+    const select = $('sortSelect');
+    if (select) {
+      select.value = 'ending';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    $('dealsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function changePage(type, direction) {
+    if (type === 'leaflets') {
+      if (leafletPageCount <= 1) return;
+      leafletPage = normalizePage(leafletPage + direction, leafletPageCount);
+      syncLeaflets();
+    } else if (type === 'stores') {
+      if (storePageCount <= 1) return;
+      storePage = normalizePage(storePage + direction, storePageCount);
+      syncStores();
+    }
+    fitPanels();
+  }
+
+  function bind(section) {
+    section.addEventListener('click', (event) => {
+      const nav = event.target.closest('[data-overview-nav]');
+      if (nav) {
+        changePage(nav.dataset.overviewNav, Number(nav.dataset.direction || 1));
+        return;
+      }
+      const showButton = event.target.closest('[data-show-section]');
+      if (showButton) {
+        show(showButton.dataset.showSection);
+        return;
+      }
+      if (event.target.closest('[data-show-ending]')) {
+        showEnding();
+        return;
+      }
+      const storeButton = event.target.closest('button[data-store]');
+      if (!storeButton) return;
+      event.preventDefault();
+      event.stopPropagation();
+      relay(storeButton.dataset.store || 'all');
+    });
+  }
+
+  function days(value) {
+    if (!value) return 999;
+    return Math.max(0, Math.round((new Date(`${value}T12:00:00`) - new Date(`${TODAY}T12:00:00`)) / 86400000));
+  }
+
+  function endingLabel(value) {
+    const count = days(value);
+    if (count === 0) return 'Končí dnes';
+    if (count === 1) return 'Končí zítra';
+    return count < 5 ? `Končí za ${count} dny` : `Končí za ${count} dní`;
+  }
+
+  function offerLogo(store) {
+    return store?.logo_url
+      ? `<img src="${esc(store.logo_url)}" alt="Logo ${esc(store.name || '')}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'overviewLogoFallback',textContent:'%'}))">`
+      : '<span class="overviewLogoFallback">%</span>';
+  }
+
+  function offerImage(offer) {
+    return offer.image_url || offer.products?.image_url || '';
+  }
+
+  function renderEnding(rows) {
+    const target = $('overviewEnding');
+    if (!target) return;
+    const unique = new Map();
+    rows.forEach((offer) => {
+      const key = `${offer.stores?.slug || ''}|${String(offer.title || offer.products?.name || '').toLowerCase()}`;
+      const current = unique.get(key);
+      if (!current || (!offerImage(current) && offerImage(offer))) unique.set(key, offer);
+    });
+    const offers = [...unique.values()]
+      .sort((a, b) => days(a.valid_to) - days(b.valid_to)
+        || (Number(b.old_price || 0) - Number(b.price || 0)) - (Number(a.old_price || 0) - Number(a.price || 0)))
+      .slice(0, 3);
+
+    if (!offers.length) {
+      target.innerHTML = '<span class="overviewLoading">Žádná akce nyní nekončí.</span>';
+      fitPanels();
+      return;
+    }
+
+    target.innerHTML = offers.map((offer) => {
+      const store = offer.stores || {};
+      const title = offer.title || offer.products?.name || 'Akční nabídka';
+      const image = offerImage(offer);
+      const price = Number(offer.price || 0);
+      const oldPrice = Number(offer.old_price || 0);
+      const discount = oldPrice > price ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
+      const href = store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection';
+      return `<a class="overviewDealRow" href="${href}">
+        <span class="overviewDealImage">${image ? `<img src="${esc(image)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '<span class="overviewProductFallback">🏷️</span>'}</span>
+        <span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${offerLogo(store)}${esc(store.name || 'Obchod')}</small></span>
+        <span class="overviewEndingBadge">${endingLabel(offer.valid_to)}</span>
+        <span class="overviewDealPrice"><strong>${money(price)} Kč</strong>${oldPrice > price ? `<del>${money(oldPrice)} Kč</del>` : ''}</span>
+        ${discount ? `<span class="overviewDiscount">−${discount}%</span>` : ''}
+      </a>`;
+    }).join('');
+    fitPanels();
+  }
+
+  async function loadEnding() {
+    const target = $('overviewEnding');
+    try {
+      const query = new URLSearchParams({
+        select: 'id,title,price,old_price,image_url,valid_to,published_at,stores(name,slug,logo_url),products(name,image_url,quantity_text)',
+        status: 'eq.published', valid_from: `lte.${TODAY}`, valid_to: `gte.${TODAY}`,
+        order: 'valid_to.asc,published_at.desc', limit: '40'
+      });
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/offers?${query}`, {
+        headers: { apikey: SUPABASE_KEY }, cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      renderEnding(await response.json());
+    } catch (error) {
+      console.warn('Přehled končících akcí se nepodařilo načíst:', error);
+      if (target) target.innerHTML = '<span class="overviewLoading">Akce se nyní nepodařilo načíst.</span>';
+      fitPanels();
+    }
+  }
+
+  async function loadOverviewStores() {
+    try {
+      const query = new URLSearchParams({
+        select: 'name,slug,logo_url,is_active', is_active: 'eq.true'
+      });
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
+        headers: { apikey: SUPABASE_KEY }, cache: 'no-store'
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      overviewStores = (await response.json())
+        .filter((store) => store?.slug && store?.name)
+        .sort((a, b) => (STORE_RANK.get(a.slug) ?? 999) - (STORE_RANK.get(b.slug) ?? 999)
+          || String(a.name).localeCompare(String(b.name), 'cs'));
+      syncStores();
+      fitPanels();
+    } catch (error) {
+      console.warn('Přehled obchodů se nepodařilo načíst:', error);
+      syncStores();
+    }
+  }
+
+  function observe(id) {
+    const node = $(id);
+    if (node) new MutationObserver(schedule).observe(node, {
+      childList: true, subtree: true, attributes: true,
+      attributeFilter: ['src', 'hidden', 'style', 'class']
+    });
+  }
+
+  function init() {
+    shell();
+    schedule();
+    observe('leafletGrid');
+    observe('storeGrid');
+    loadEnding();
+    loadOverviewStores();
+    window.addEventListener('resize', schedule, { passive: true });
+    setInterval(loadEnding, 300000);
+    setInterval(loadOverviewStores, 300000);
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
+})();
