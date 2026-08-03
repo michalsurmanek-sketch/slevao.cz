@@ -6,12 +6,15 @@ on:
       - main
     paths:
       - 'admin.html'
+      - 'admin-nahrat-letaky.html'
       - '404.html'
       - 'obchod.html'
       - 'assets/admin-save-offer-v2.js'
       - 'assets/admin-offers-full-list.js'
       - 'assets/admin-store-delete.js'
       - 'assets/admin-homepage-image-nav.js'
+      - 'assets/admin-manual-leaflets.js'
+      - 'assets/admin-manual-leaflets-client-register.js'
       - 'assets/store-generic-bootstrap.js'
       - 'supabase/migrations/20260803182000_admin_integrity_hardening.sql'
       - 'supabase/migrations/20260803185000_admin_offer_transaction.sql'
@@ -19,6 +22,7 @@ on:
       - 'supabase/migrations/20260803193000_harden_public_rls.sql'
       - 'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
       - 'supabase/migrations/20260803200000_category_integrity.sql'
+      - 'supabase/migrations/20260803203000_manual_leaflet_uploads.sql'
       - '.github/workflows/apply-admin-integrity-migrations.yml'
   workflow_dispatch:
 
@@ -33,7 +37,7 @@ jobs:
   apply-and-test:
     name: Databáze, syntaxe a provozní kontrola
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 15
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,6 +48,8 @@ jobs:
           node --check assets/admin-offers-full-list.js
           node --check assets/admin-store-delete.js
           node --check assets/admin-homepage-image-nav.js
+          node --check assets/admin-manual-leaflets.js
+          node --check assets/admin-manual-leaflets-client-register.js
           node --check assets/store-generic-bootstrap.js
 
       - name: Ověřit přístupový token
@@ -69,6 +75,7 @@ jobs:
             'supabase/migrations/20260803193000_harden_public_rls.sql'
             'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
             'supabase/migrations/20260803200000_category_integrity.sql'
+            'supabase/migrations/20260803203000_manual_leaflet_uploads.sql'
           )
 
           run_query() {
@@ -109,6 +116,14 @@ jobs:
             end if;
             if to_regprocedure('public.admin_create_offer_v2(text,uuid,uuid,numeric,numeric,text,date,date,text,uuid)') is null then
               raise exception 'Chybí funkce admin_create_offer_v2';
+            end if;
+            if not exists (
+              select 1 from storage.buckets
+              where id = 'manual-leaflets'
+                and public = false
+                and file_size_limit = 52428800
+            ) then
+              raise exception 'Chybí soukromé úložiště manual-leaflets s limitem 50 MB';
             end if;
             if exists (
               select 1 from public.offers
@@ -153,9 +168,10 @@ jobs:
             (select count(*) from public.offers where status <> 'trash') as active_offers,
             (select count(*) from public.offers where status = 'trash') as trash_offers,
             (select count(*) from public.stores where is_active) as active_stores,
-            (select count(*) from public.categories where is_active) as active_categories;
+            (select count(*) from public.categories where is_active) as active_categories,
+            (select count(*) from storage.objects where bucket_id = 'manual-leaflets') as uploaded_leaflets;
           SQL
 
           echo 'Ověřuji výsledný stav databáze'
           run_query /tmp/verify_admin.sql false
-          echo 'Administrace a databázová integrita prošly automatickou kontrolou.'
+          echo 'Administrace, ruční letáky a databázová integrita prošly automatickou kontrolou.'
