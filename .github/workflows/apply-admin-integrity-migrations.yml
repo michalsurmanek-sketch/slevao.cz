@@ -1,10 +1,18 @@
-name: Nasazení databázových oprav administrace
+name: Nasazení a kontrola administrace
 
 on:
   push:
     branches:
       - main
     paths:
+      - 'admin.html'
+      - '404.html'
+      - 'obchod.html'
+      - 'assets/admin-save-offer-v2.js'
+      - 'assets/admin-offers-full-list.js'
+      - 'assets/admin-store-delete.js'
+      - 'assets/admin-homepage-image-nav.js'
+      - 'assets/store-generic-bootstrap.js'
       - 'supabase/migrations/20260803182000_admin_integrity_hardening.sql'
       - 'supabase/migrations/20260803185000_admin_offer_transaction.sql'
       - 'supabase/migrations/20260803190000_preserve_expired_offers.sql'
@@ -21,13 +29,21 @@ permissions:
   contents: read
 
 jobs:
-  apply:
-    name: Použít bezpečný koš, ukládání, archivaci a RLS
+  apply-and-test:
+    name: Databáze, syntaxe a provozní kontrola
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 12
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Zkontrolovat syntaxi JavaScriptu
+        run: |
+          node --check assets/admin-save-offer-v2.js
+          node --check assets/admin-offers-full-list.js
+          node --check assets/admin-store-delete.js
+          node --check assets/admin-homepage-image-nav.js
+          node --check assets/store-generic-bootstrap.js
 
       - name: Ověřit přístupový token
         env:
@@ -53,9 +69,11 @@ jobs:
             'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
           )
 
-          for file in "${files[@]}"; do
-            echo "Používám $file"
-            payload="$(jq -Rs '{query: ., read_only: false}' "$file")"
+          run_query() {
+            local file="$1"
+            local read_only="${2:-false}"
+            local payload response_file http_status
+            payload="$(jq -Rs --argjson read_only "$read_only" '{query: ., read_only: $read_only}' "$file")"
             response_file="$(mktemp)"
             http_status="$(curl --silent --show-error \
               --output "$response_file" \
@@ -65,13 +83,64 @@ jobs:
               --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
               --header 'Content-Type: application/json' \
               --data "$payload")"
-
             cat "$response_file"
             echo
             if [[ "$http_status" != '200' && "$http_status" != '201' ]]; then
-              echo "Nasazení $file selhalo s HTTP $http_status"
+              echo "Databázový dotaz selhal s HTTP $http_status"
               exit 1
             fi
+          }
+
+          for file in "${files[@]}"; do
+            echo "Používám $file"
+            run_query "$file" false
           done
 
-          echo 'Databázové opravy administrace byly úspěšně použity.'
+          cat > /tmp/verify_admin.sql <<'SQL'
+          do $$
+          begin
+            if to_regprocedure('public.admin_trash_offer(uuid)') is null then
+              raise exception 'Chybí funkce admin_trash_offer';
+            end if;
+            if to_regprocedure('public.admin_restore_offer(uuid)') is null then
+              raise exception 'Chybí funkce admin_restore_offer';
+            end if;
+            if to_regprocedure('public.admin_create_offer_v2(text,uuid,uuid,numeric,numeric,text,date,date,text,uuid)') is null then
+              raise exception 'Chybí funkce admin_create_offer_v2';
+            end if;
+            if exists (
+              select 1 from public.offers
+              where status not in ('published','draft','review','expired','trash')
+            ) then
+              raise exception 'Databáze obsahuje neplatný stav nabídky';
+            end if;
+            if exists (
+              select 1 from public.offers
+              where status = 'published' and valid_to < current_date
+            ) then
+              raise exception 'Databáze obsahuje publikovanou prošlou nabídku';
+            end if;
+            if exists (
+              select 1
+              from pg_class
+              where oid in (
+                'public.offers'::regclass,
+                'public.stores'::regclass,
+                'public.categories'::regclass,
+                'public.products'::regclass
+              ) and not relrowsecurity
+            ) then
+              raise exception 'Na některé veřejné tabulce není aktivní RLS';
+            end if;
+          end
+          $$;
+
+          select
+            (select count(*) from public.offers where status <> 'trash') as active_offers,
+            (select count(*) from public.offers where status = 'trash') as trash_offers,
+            (select count(*) from public.stores where is_active) as active_stores;
+          SQL
+
+          echo 'Ověřuji výsledný stav databáze'
+          run_query /tmp/verify_admin.sql false
+          echo 'Administrace a databázová integrita prošly automatickou kontrolou.'
