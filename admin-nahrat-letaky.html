@@ -8,7 +8,7 @@
   <title>Slevao.cz – nahrát letáky</title>
   <link rel="stylesheet" href="assets/admin-manual-leaflets.css?v=20260803-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="assets/admin-manual-leaflets.js?v=20260803-6"></script>
+  <script defer src="assets/admin-manual-leaflets.js?v=20260803-7"></script>
 </head>
 <body>
   <div id="authState" class="loginState hidden"></div>
@@ -32,14 +32,14 @@
           <article class="heroCard">
             <span class="eyebrow">Ruční zdroj automatizace</span>
             <h1>Nahraj letáky.<br>O zbytek se postará systém.</h1>
-            <p>Vyber obchod, přidej PDF nebo obrázky a Slevao.cz je předá přímo existujícímu procesoru bez závislosti na samostatném Storage bucketu.</p>
+            <p>Vyber obchod, přidej PDF nebo obrázky a Slevao.cz je odešle zabezpečenému serverovému uploadu, uloží soubor, zkontroluje duplicitu a spustí AI zpracování.</p>
           </article>
           <aside class="infoCard">
             <strong id="who">Načítám účet…</strong>
             <div class="infoList">
               <div class="infoItem"><span class="infoIcon">1</span><span>Hromadné nahrání více souborů najednou.</span></div>
               <div class="infoItem"><span class="infoIcon">2</span><span>Automatické rozpoznání produktů, cen a platnosti.</span></div>
-              <div class="infoItem"><span class="infoIcon">3</span><span>Ochrana proti opakovanému zpracování stejného souboru.</span></div>
+              <div class="infoItem"><span class="infoIcon">3</span><span>Skutečný stav importu se průběžně kontroluje v databázi.</span></div>
             </div>
           </aside>
         </div>
@@ -61,7 +61,7 @@
             <span class="dropIcon">⇧</span>
             <strong>Klikni nebo sem přetáhni letáky</strong>
             <p>PDF, JPG, PNG, WebP nebo GIF</p>
-            <small>Maximálně 4 MB na jeden soubor; můžeš vložit více stran najednou</small>
+            <small>Maximálně 8 MB na jeden soubor</small>
           </div>
 
           <div class="switchRow">
@@ -78,7 +78,7 @@
 
         <article class="panel">
           <div class="panelHead">
-            <div><h2>Fronta souborů</h2><p>Každý soubor se založí a zpracuje samostatně.</p></div>
+            <div><h2>Fronta souborů</h2><p>Každý soubor se bezpečně uloží a zpracuje samostatně.</p></div>
             <span id="uploadCount" class="statusPill">Prázdná fronta</span>
           </div>
           <div id="uploadQueue" class="queue"></div>
