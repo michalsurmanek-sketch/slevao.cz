@@ -5,7 +5,8 @@
 .heroCopy,.heroArtwork,.heroLocation{position:relative;z-index:1}
 .heroCopy{max-width:690px;align-self:center}
 .hero .eyebrow{display:inline-flex;align-items:center;justify-content:center;min-height:39px;padding:0 17px;border:1px solid rgba(21,94,184,.92);border-radius:999px;background:#155eb8;color:#fff;box-shadow:0 7px 18px rgba(21,94,184,.22);font-size:12px;font-weight:950;letter-spacing:.1em}
-.hero h1{max-width:760px;margin:16px 0 15px;color:#155eb8;font-size:clamp(47px,5.1vw,75px);line-height:.96;letter-spacing:-.055em;text-wrap:balance}
+.hero h1{max-width:760px;margin:16px 0 15px;color:#101e2d;font-size:clamp(47px,5.1vw,75px);line-height:.96;letter-spacing:-.055em;text-wrap:balance}
+.hero h1 .brandBlue{color:#155eb8}
 .heroCopy>p{max-width:650px;margin:0;color:#5f6c78;font-size:18px;line-height:1.48}
 .heroStats{display:flex;flex-wrap:wrap;gap:10px;margin-top:25px}
 .heroStats>span{min-height:46px;display:inline-flex;align-items:center;gap:7px;padding:0 14px;border:1px solid rgba(213,230,228,.96);border-radius:999px;background:rgba(255,255,255,.92);color:#1b2a36;box-shadow:0 7px 18px rgba(28,53,50,.045);font-size:13px;font-weight:850;backdrop-filter:blur(8px)}
