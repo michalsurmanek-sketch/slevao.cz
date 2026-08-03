@@ -29,7 +29,9 @@
   let session;
   let queue = [];
   let uploading = false;
+  let backendReady = false;
   let refreshTimer = 0;
+  let healthTimer = 0;
 
   function setMessage(text = '', type = 'info') {
     const box = $('uploadMessage');
@@ -98,6 +100,7 @@
     if (item.status === 'published') return 'Publikováno';
     if (item.status === 'duplicate') return 'Už existuje';
     if (item.status === 'failed') return 'Chyba';
+    if (item.status === 'ignored') return 'Přeskočeno';
     return 'Připraveno';
   }
 
@@ -105,7 +108,7 @@
     const target = $('uploadQueue');
     if (!target) return;
     $('uploadCount').textContent = queue.length ? `${queue.length} souborů` : 'Prázdná fronta';
-    $('uploadButton').disabled = uploading || !queue.some((item) => item.status === 'ready' || item.status === 'failed');
+    $('uploadButton').disabled = !backendReady || uploading || !queue.some((item) => item.status === 'ready' || item.status === 'failed');
     $('clearButton').disabled = uploading || !queue.length;
 
     if (!queue.length) {
@@ -140,22 +143,62 @@
     catch { return { error: text.slice(0, 1000) }; }
   }
 
-  async function callUploadFunction(body, json = false) {
-    const headers = {
-      authorization: `Bearer ${session.access_token}`,
-      apikey: SUPABASE_KEY,
-    };
-    if (json) headers['content-type'] = 'application/json';
-    const response = await fetch(`${SUPABASE_URL}/functions/v1/${UPLOAD_FUNCTION}`, {
-      method: 'POST',
-      headers,
-      body: json ? JSON.stringify(body) : body,
-    });
-    const payload = await responsePayload(response);
-    if (!response.ok || payload?.ok === false || payload?.error) {
-      throw new Error(payload?.error || `Server vrátil HTTP ${response.status}.`);
+  async function currentAccessToken() {
+    const auth = await db.auth.getSession();
+    session = auth.data.session;
+    if (!session?.access_token) throw new Error('Přihlášení vypršelo. Přihlas se znovu do administrace.');
+    return session.access_token;
+  }
+
+  async function checkBackendHealth({ quiet = false } = {}) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/${UPLOAD_FUNCTION}?health=1&t=${Date.now()}`, {
+        method: 'GET',
+        headers: { apikey: SUPABASE_KEY },
+        cache: 'no-store',
+      });
+      const payload = await responsePayload(response);
+      if (!response.ok || payload?.ok !== true || payload?.upload !== 'ready' || payload?.processor !== 'ready') {
+        throw new Error(payload?.error || `Serverový import není připravený (HTTP ${response.status}).`);
+      }
+      backendReady = true;
+      renderQueue();
+      if (!quiet) setMessage('Serverové nahrávání i procesor letáků jsou připravené.', 'ok');
+      return true;
+    } catch (error) {
+      backendReady = false;
+      renderQueue();
+      setMessage(`Nahrávání je dočasně vypnuté: ${error?.message || error}`, 'err');
+      return false;
     }
-    return payload;
+  }
+
+  async function callUploadFunction(body, json = false) {
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 120_000);
+    try {
+      const headers = {
+        authorization: `Bearer ${await currentAccessToken()}`,
+        apikey: SUPABASE_KEY,
+      };
+      if (json) headers['content-type'] = 'application/json';
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/${UPLOAD_FUNCTION}`, {
+        method: 'POST',
+        headers,
+        body: json ? JSON.stringify(body) : body,
+        signal: controller.signal,
+      });
+      const payload = await responsePayload(response);
+      if (!response.ok || payload?.ok === false || payload?.error) {
+        throw new Error(payload?.error || `Server vrátil HTTP ${response.status}.`);
+      }
+      return payload;
+    } catch (error) {
+      if (error?.name === 'AbortError') throw new Error('Server neodpověděl do 120 sekund.');
+      throw error;
+    } finally {
+      window.clearTimeout(timeout);
+    }
   }
 
   function statusProgress(status) {
@@ -168,7 +211,7 @@
 
   function statusMessage(status, errorMessage = '') {
     if (status === 'queued') return 'Import čeká ve frontě.';
-    if (status === 'downloading') return 'Server načítá uložený soubor.';
+    if (status === 'downloading') return 'Server načítá bezpečně uložený soubor.';
     if (status === 'processing') return 'AI rozpoznává produkty, ceny a platnost.';
     if (status === 'publishing') return 'Kvalitní výsledek se publikuje.';
     if (status === 'review') return 'Hotovo. Výsledek je připravený ke kontrole.';
@@ -182,6 +225,7 @@
     const token = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     item.monitorToken = token;
     const deadline = Date.now() + 10 * 60 * 1000;
+    let consecutiveErrors = 0;
 
     while (item.monitorToken === token && queue.includes(item) && Date.now() < deadline) {
       const result = await db.from('leaflet_imports')
@@ -189,7 +233,14 @@
         .eq('id', item.importId)
         .maybeSingle();
 
-      if (!result.error && result.data) {
+      if (result.error) {
+        consecutiveErrors++;
+        if (consecutiveErrors >= 3) {
+          item.message = `Import běží, ale nepodařilo se ověřit stav: ${result.error.message}`;
+          renderQueue();
+        }
+      } else if (result.data) {
+        consecutiveErrors = 0;
         const status = String(result.data.status || '');
         item.status = status;
         item.progress = statusProgress(status);
@@ -239,7 +290,13 @@
     item.importId = result.import_id || '';
     if (!item.importId) throw new Error('Server nevrátil identifikátor importu.');
 
-    if (result.duplicate) {
+    const status = String(result.status || 'queued');
+    item.status = status;
+    item.progress = statusProgress(status);
+    item.message = result.message || statusMessage(status);
+    renderQueue();
+
+    if (result.duplicate && !ACTIVE_STATUSES.has(status) && !SUCCESS_STATUSES.has(status)) {
       item.status = 'duplicate';
       item.progress = 100;
       item.message = result.message || 'Stejný leták už je v systému.';
@@ -247,15 +304,13 @@
       return;
     }
 
-    item.status = String(result.status || 'queued');
-    item.progress = 75;
-    item.message = 'Soubor je bezpečně uložený. Spouštím zpracování…';
-    renderQueue();
-    void monitorImport(item);
+    if (ACTIVE_STATUSES.has(status)) void monitorImport(item);
   }
 
   async function uploadQueue() {
     if (uploading) return;
+    if (!backendReady && !await checkBackendHealth()) return;
+
     const storeId = $('storeSelect').value;
     if (!storeId) {
       setMessage('Nejdřív vyber obchod, kterému letáky patří.', 'err');
@@ -288,7 +343,7 @@
     renderQueue();
     setMessage(failed
       ? `Dokončeno: ${accepted} souborů přijato, ${failed} souborů skončilo chybou. Přesná chyba je uvedená u souboru.`
-      : `Všech ${accepted} souborů bylo bezpečně nahráno a předáno zpracování.`, failed ? 'err' : 'ok');
+      : `Všech ${accepted} souborů bylo bezpečně nahráno a procesor potvrdil jejich převzetí.`, failed ? 'err' : 'ok');
     await loadRecent();
   }
 
@@ -339,8 +394,9 @@
       button.textContent = 'Spouštím…';
     }
     try {
-      await callUploadFunction({ action: 'retry', import_id: id }, true);
-      setMessage('Import byl znovu spuštěn z bezpečně uloženého souboru.', 'ok');
+      if (!backendReady && !await checkBackendHealth()) throw new Error('Serverový import není připravený.');
+      const result = await callUploadFunction({ action: 'retry', import_id: id }, true);
+      setMessage(`Import byl znovu spuštěn. Aktuální stav: ${importStatus(result.status)}.`, 'ok');
       await loadRecent();
     } catch (error) {
       setMessage(error?.message || 'Import se nepodařilo znovu spustit.', 'err');
@@ -430,12 +486,18 @@
     $('who').textContent = `${session.user.email} · ${role}`;
     bind();
     renderQueue();
+    setMessage('Ověřuji serverové nahrávání a procesor letáků…', 'info');
+
+    const healthOk = await checkBackendHealth({ quiet: true });
     try {
       await Promise.all([loadStores(), loadRecent()]);
+      if (healthOk) setMessage('Systém je připravený. Vyber obchod a nahraj leták.', 'ok');
     } catch (error) {
       setMessage(error?.message || 'Administraci se nepodařilo načíst.', 'err');
     }
+
     refreshTimer = window.setInterval(loadRecent, 5000);
+    healthTimer = window.setInterval(() => checkBackendHealth({ quiet: true }), 60_000);
     window.addEventListener('beforeunload', (event) => {
       if (!uploading) return;
       event.preventDefault();
@@ -445,6 +507,7 @@
 
   window.addEventListener('pagehide', () => {
     window.clearInterval(refreshTimer);
+    window.clearInterval(healthTimer);
     queue.forEach((item) => { item.monitorToken = ''; });
   });
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
