@@ -51,13 +51,21 @@ begin
     raise exception 'Prošlou nabídku nelze publikovat.';
   end if;
 
-  select count(*), min(id)
-  into matching_products, matched_product_id
+  select count(*)
+  into matching_products
   from public.products
   where lower(trim(name)) = lower(product_name);
 
   if matching_products > 1 then
     raise exception 'V databázi je více produktů se stejným názvem. Vyber existující produkt v našeptávači.';
+  end if;
+
+  if matching_products = 1 then
+    select id
+    into matched_product_id
+    from public.products
+    where lower(trim(name)) = lower(product_name)
+    limit 1;
   end if;
 
   if matched_product_id is null then
@@ -93,14 +101,12 @@ begin
   )
   returning * into created_offer;
 
-  if to_regclass('public.admin_audit_log') is not null then
-    insert into public.admin_audit_log(
-      actor_id, actor_email, action, entity_type, entity_id, after_data
-    ) values (
-      auth.uid(), auth.jwt() ->> 'email', 'offer_create', 'offer', created_offer.id,
-      to_jsonb(created_offer)
-    );
-  end if;
+  insert into public.admin_audit_log(
+    actor_id, actor_email, action, entity_type, entity_id, after_data
+  ) values (
+    auth.uid(), auth.jwt() ->> 'email', 'offer_create', 'offer', created_offer.id,
+    to_jsonb(created_offer)
+  );
 
   return created_offer;
 end;
