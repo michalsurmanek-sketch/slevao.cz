@@ -131,7 +131,6 @@
         const inserted = await db.from('offers').insert({
           product_id: match.product.id,
           store_id: value.storeId,
-          category_id: value.categoryId,
           title: value.name,
           price: value.price,
           old_price: value.oldPrice,
