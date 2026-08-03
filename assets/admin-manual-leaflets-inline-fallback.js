@@ -36,27 +36,39 @@
       const originalRemove = api.remove.bind(api);
 
       api.upload = async (path, file, options = {}) => {
-        const result = await originalUpload(path, file, options);
-        if (!result.error) return result;
-        if (!isMissingBucket(result.error)) return result;
-
         if (!(file instanceof Blob) || !file.size) {
           return { data: null, error: new Error('Nahrávaný soubor je prázdný.') };
         }
-        if (file.size > MAX_INLINE_BYTES) {
-          return {
-            data: null,
-            error: new Error('Úložiště letáků ještě není aktivní. Dočasně lze zpracovat soubor do 6 MB.'),
-          };
+
+        // Malé soubory posíláme rovnou procesoru. Díky tomu nahrávání funguje
+        // i v okamžiku, kdy produkční Storage bucket ještě nebyl vytvořen.
+        if (file.size <= MAX_INLINE_BYTES) {
+          try {
+            inlineFiles.set(String(path), await fileToDataUrl(file));
+            return {
+              data: { path: String(path), fullPath: `${TARGET_BUCKET}/${String(path)}` },
+              error: null,
+            };
+          } catch (error) {
+            return { data: null, error };
+          }
         }
 
         try {
-          inlineFiles.set(String(path), await fileToDataUrl(file));
+          const result = await originalUpload(path, file, options);
+          if (!result?.error) return result;
+          if (!isMissingBucket(result.error)) return result;
           return {
-            data: { path: String(path), fullPath: `${TARGET_BUCKET}/${String(path)}` },
-            error: null,
+            data: null,
+            error: new Error('Úložiště letáků ještě není aktivní. Soubor je větší než dočasný limit 6 MB.'),
           };
         } catch (error) {
+          if (isMissingBucket(error)) {
+            return {
+              data: null,
+              error: new Error('Úložiště letáků ještě není aktivní. Soubor je větší než dočasný limit 6 MB.'),
+            };
+          }
           return { data: null, error };
         }
       };
@@ -78,9 +90,14 @@
         list.forEach((path) => inlineFiles.delete(path));
         if (inlineOnly) return { data: list.map((name) => ({ name })), error: null };
 
-        const result = await originalRemove(paths);
-        if (isMissingBucket(result.error)) return { data: [], error: null };
-        return result;
+        try {
+          const result = await originalRemove(paths);
+          if (isMissingBucket(result?.error)) return { data: [], error: null };
+          return result;
+        } catch (error) {
+          if (isMissingBucket(error)) return { data: [], error: null };
+          return { data: null, error };
+        }
       };
 
       return api;
