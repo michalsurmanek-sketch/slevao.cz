@@ -8,7 +8,8 @@
   <title>Slevao.cz – nahrát letáky</title>
   <link rel="stylesheet" href="assets/admin-manual-leaflets.css?v=20260803-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script defer src="assets/admin-manual-leaflets.js?v=20260803-8"></script>
+  <script defer src="assets/admin-pdf-pages.js?v=20260803-1"></script>
+  <script defer src="assets/admin-manual-leaflets.js?v=20260803-9"></script>
 </head>
 <body>
   <div id="authState" class="loginState hidden"></div>
@@ -32,14 +33,14 @@
           <article class="heroCard">
             <span class="eyebrow">Ruční zdroj automatizace</span>
             <h1>Nahraj letáky.<br>O zbytek se postará systém.</h1>
-            <p>Vyber obchod, přidej PDF nebo obrázky a Slevao.cz je odešle zabezpečenému serverovému uploadu, uloží soubor, zkontroluje duplicitu a spustí AI zpracování.</p>
+            <p>Vyber obchod a nahraj původní PDF. Vícestránkový leták se automaticky rozdělí na všechny stránky a každá se samostatně zpracuje pomocí AI.</p>
           </article>
           <aside class="infoCard">
             <strong id="who">Načítám účet…</strong>
             <div class="infoList">
-              <div class="infoItem"><span class="infoIcon">1</span><span>Hromadné nahrání více souborů najednou.</span></div>
-              <div class="infoItem"><span class="infoIcon">2</span><span>Automatické rozpoznání produktů, cen a platnosti.</span></div>
-              <div class="infoItem"><span class="infoIcon">3</span><span>Skutečný stav importu se průběžně kontroluje v databázi.</span></div>
+              <div class="infoItem"><span class="infoIcon">1</span><span>PDF se automaticky rozdělí na všechny stránky.</span></div>
+              <div class="infoItem"><span class="infoIcon">2</span><span>Každá stránka se zpracuje samostatně, aby se neztratily produkty.</span></div>
+              <div class="infoItem"><span class="infoIcon">3</span><span>Skutečný stav všech stránek se průběžně kontroluje v databázi.</span></div>
             </div>
           </aside>
         </div>
@@ -48,7 +49,7 @@
       <section class="mainGrid">
         <article class="panel">
           <div class="panelHead">
-            <div><h2>Nahrát nové letáky</h2><p>Všechny vybrané soubory musí patřit stejnému obchodu.</p></div>
+            <div><h2>Nahrát nový leták</h2><p>Pro celý leták vyber původní PDF. Samotný obrázek představuje vždy jen jednu stránku.</p></div>
           </div>
 
           <div class="field">
@@ -59,9 +60,9 @@
           <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
           <div id="dropZone" class="dropZone" role="button" tabindex="0" aria-label="Vybrat nebo přetáhnout letáky">
             <span class="dropIcon">⇧</span>
-            <strong>Klikni nebo sem přetáhni letáky</strong>
-            <p>PDF, JPG, PNG, WebP nebo GIF</p>
-            <small>Maximálně 8 MB na jeden soubor</small>
+            <strong>Klikni nebo sem přetáhni celý PDF leták</strong>
+            <p>PDF se rozdělí na všechny stránky · lze nahrát i více JPG, PNG nebo WebP</p>
+            <small>PDF do 50 MB · jednotlivý obrázek do 8 MB</small>
           </div>
 
           <div class="switchRow">
@@ -78,7 +79,7 @@
 
         <article class="panel">
           <div class="panelHead">
-            <div><h2>Fronta souborů</h2><p>Každý soubor se bezpečně uloží a zpracuje samostatně.</p></div>
+            <div><h2>Fronta stránek</h2><p>U vícestránkového PDF se zobrazí každá stránka zvlášť.</p></div>
             <span id="uploadCount" class="statusPill">Prázdná fronta</span>
           </div>
           <div id="uploadQueue" class="queue"></div>
