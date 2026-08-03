@@ -109,7 +109,7 @@
         const output = [];
         for (let from = 0; from < 50000; from += 1000) {
           const result = await db.from('offers')
-            .select('id,product_id,store_id,category_id,title,price,old_price,image_url,status,valid_from,valid_to,published_at,created_at,stores(name)')
+            .select('id,product_id,store_id,title,price,old_price,image_url,status,valid_from,valid_to,published_at,created_at,stores(name),products(category_id)')
             .order('created_at', { ascending: false })
             .range(from, from + 999);
           if (result.error) throw result.error;
@@ -151,7 +151,6 @@
         const result = await db.from('offers').insert({
           product_id: offer.product_id,
           store_id: offer.store_id,
-          category_id: offer.category_id || null,
           title: `${offer.title} – kopie`,
           price: offer.price,
           old_price: offer.old_price,
