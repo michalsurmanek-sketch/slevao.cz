@@ -9,6 +9,7 @@
   const TODAY = new Date().toISOString().slice(0, 10);
   const LEAFLETS_PER_PAGE = 3;
   const STORES_PER_PAGE = 8;
+  const AUTO_ROTATE_MS = 10000;
   const STORE_PRIORITY = [
     'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
     'action', 'coop', 'hruska', 'norma', 'terno', 'rohlik', 'kosik',
@@ -23,8 +24,10 @@
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
 
-  let timer = 0;
+  let renderTimer = 0;
   let fitFrame = 0;
+  let autoRotateTimer = 0;
+  let autoRotatePaused = false;
   let leafletPage = 0;
   let storePage = 0;
   let leafletPageCount = 1;
@@ -181,8 +184,8 @@
   }
 
   function schedule() {
-    clearTimeout(timer);
-    timer = setTimeout(() => {
+    clearTimeout(renderTimer);
+    renderTimer = setTimeout(() => {
       syncLeaflets();
       syncStores();
       fitPanels();
@@ -231,11 +234,30 @@
     fitPanels();
   }
 
+  function clearAutoRotate() {
+    window.clearInterval(autoRotateTimer);
+    autoRotateTimer = 0;
+  }
+
+  function startAutoRotate() {
+    clearAutoRotate();
+    if (autoRotatePaused || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    autoRotateTimer = window.setInterval(() => {
+      if (leafletPageCount > 1) changePage('leaflets', 1);
+      if (storePageCount > 1) changePage('stores', 1);
+    }, AUTO_ROTATE_MS);
+  }
+
+  function resetAutoRotate() {
+    if (!autoRotatePaused) startAutoRotate();
+  }
+
   function bind(section) {
     section.addEventListener('click', (event) => {
       const nav = event.target.closest('[data-overview-nav]');
       if (nav) {
         changePage(nav.dataset.overviewNav, Number(nav.dataset.direction || 1));
+        resetAutoRotate();
         return;
       }
       const showButton = event.target.closest('[data-show-section]');
@@ -252,6 +274,24 @@
       event.preventDefault();
       event.stopPropagation();
       relay(storeButton.dataset.store || 'all');
+    });
+
+    section.addEventListener('mouseenter', () => {
+      autoRotatePaused = true;
+      clearAutoRotate();
+    });
+    section.addEventListener('mouseleave', () => {
+      autoRotatePaused = false;
+      startAutoRotate();
+    });
+    section.addEventListener('focusin', () => {
+      autoRotatePaused = true;
+      clearAutoRotate();
+    });
+    section.addEventListener('focusout', (event) => {
+      if (section.contains(event.relatedTarget)) return;
+      autoRotatePaused = false;
+      startAutoRotate();
     });
   }
 
@@ -351,6 +391,7 @@
           || String(a.name).localeCompare(String(b.name), 'cs'));
       syncStores();
       fitPanels();
+      resetAutoRotate();
     } catch (error) {
       console.warn('Přehled obchodů se nepodařilo načíst:', error);
       syncStores();
@@ -373,8 +414,13 @@
     loadEnding();
     loadOverviewStores();
     window.addEventListener('resize', schedule, { passive: true });
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) clearAutoRotate();
+      else startAutoRotate();
+    });
     setInterval(loadEnding, 300000);
     setInterval(loadOverviewStores, 300000);
+    startAutoRotate();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
