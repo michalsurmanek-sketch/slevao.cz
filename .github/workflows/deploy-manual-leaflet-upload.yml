@@ -1,4 +1,4 @@
-name: Nasazení ručního nahrávání letáků
+name: Kontrola ručního nahrávání letáků
 
 on:
   push:
@@ -8,135 +8,43 @@ on:
       - 'admin-nahrat-letaky.html'
       - 'assets/admin-manual-leaflets.css'
       - 'assets/admin-manual-leaflets.js'
-      - 'assets/admin-homepage-image-nav.js'
-      - 'supabase/functions/register-manual-leaflet/**'
-      - 'supabase/functions/process-leaflet/**'
-      - 'supabase/migrations/20260803203000_manual_leaflet_uploads.sql'
-      - '.github/scripts/patch_process_leaflet_manual_uploads.py'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
 concurrency:
-  group: deploy-manual-leaflet-upload
-  cancel-in-progress: false
+  group: check-manual-leaflet-upload
+  cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Úložiště, funkce a kontrola
+  validate:
+    name: Syntaxe a kontrola jediné importní cesty
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Zkontrolovat JavaScript
-        run: |
-          node --check assets/admin-manual-leaflets.js
-          node --check assets/admin-homepage-image-nav.js
+        run: node --check assets/admin-manual-leaflets.js
 
-      - name: Zapnout automatickou publikaci ručních importů
-        run: |
-          python .github/scripts/patch_process_leaflet_manual_uploads.py
-          grep -q "job.metadata?.auto_publish" supabase/functions/process-leaflet/index.ts
-
-      - name: Ověřit přístupový token
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
-            exit 1
-          }
-
-      - name: Vytvořit soukromé úložiště a oprávnění
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_PROJECT_REF: uhampjdqjxmbhaptgitn
+      - name: Zakázat návrat starých Storage hotfixů
         shell: bash
         run: |
           set -euo pipefail
-          sql_file='supabase/migrations/20260803203000_manual_leaflet_uploads.sql'
-          payload="$(jq -Rs '{query: ., read_only: false}' "$sql_file")"
-          response_file="$(mktemp)"
-          http_status="$(curl --silent --show-error \
-            --output "$response_file" \
-            --write-out '%{http_code}' \
-            --request POST \
-            --url "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
-            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-            --header 'Content-Type: application/json' \
-            --data "$payload")"
-          cat "$response_file"
-          echo
-          if [[ "$http_status" != '200' && "$http_status" != '201' ]]; then
-            echo "Vytvoření úložiště selhalo s HTTP $http_status"
-            exit 1
-          fi
+          grep -q "upload_transport: 'database-data-url'" assets/admin-manual-leaflets.js
+          ! grep -q "storage.from" assets/admin-manual-leaflets.js
+          ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
+          ! grep -q "admin-manual-leaflets-inline-fallback" admin-nahrat-letaky.html
+          ! grep -q "admin-manual-leaflets-client-register" admin-nahrat-letaky.html
+          ! grep -q "admin-manual-leaflets-bucket-hotfix" admin-nahrat-letaky.html
+          test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
 
-          cat > /tmp/verify_manual_leaflets.sql <<'SQL'
-          do $$
-          begin
-            if not exists (select 1 from storage.buckets where id = 'manual-leaflets' and public = false) then
-              raise exception 'Soukromý bucket manual-leaflets nebyl vytvořen';
-            end if;
-            if (select file_size_limit from storage.buckets where id = 'manual-leaflets') <> 52428800 then
-              raise exception 'Bucket manual-leaflets nemá limit 50 MB';
-            end if;
-          end
-          $$;
-          SQL
-          verify_payload="$(jq -Rs '{query: ., read_only: false}' /tmp/verify_manual_leaflets.sql)"
-          verify_file="$(mktemp)"
-          verify_status="$(curl --silent --show-error \
-            --output "$verify_file" \
-            --write-out '%{http_code}' \
-            --request POST \
-            --url "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
-            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
-            --header 'Content-Type: application/json' \
-            --data "$verify_payload")"
-          cat "$verify_file"
-          echo
-          if [[ "$verify_status" != '200' && "$verify_status" != '201' ]]; then
-            echo "Kontrola úložiště selhala s HTTP $verify_status"
-            exit 1
-          fi
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
-        with:
-          version: latest
-
-      - name: Nasadit registraci ručních letáků
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      - name: Ověřit produkční stránku
         run: |
-          supabase functions deploy register-manual-leaflet \
-            --project-ref uhampjdqjxmbhaptgitn
-
-      - name: Nasadit zpracování letáků s podporou ručního zdroje
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy process-leaflet \
-            --project-ref uhampjdqjxmbhaptgitn
-
-      - name: Počkat na zveřejnění produkční stránky
-        shell: bash
-        run: |
-          set -euo pipefail
-          for attempt in $(seq 1 12); do
-            if curl --fail --silent --show-error --location \
-              https://slevao.cz/admin-nahrat-letaky.html \
-              | grep -q 'Nahraj letáky'; then
-              echo 'Stránka ručního nahrávání je zveřejněná.'
-              exit 0
-            fi
-            echo "Stránka ještě není dostupná, pokus ${attempt}/12."
-            sleep 10
-          done
-          echo 'Stránka se nezveřejnila do dvou minut.'
-          exit 1
+          curl --fail --silent --show-error --location \
+            --retry 8 --retry-delay 5 \
+            https://slevao.cz/admin-nahrat-letaky.html \
+            | grep -q 'admin-manual-leaflets.js?v=20260803-6'
