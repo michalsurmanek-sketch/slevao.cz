@@ -261,6 +261,7 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return json({ ok: false, error: 'Metoda není podporována.' }, 405);
 
   let uploadedPath = '';
+  let importRegistered = false;
   try {
     const { user } = await authenticatedUser(request, db);
     const contentType = request.headers.get('content-type') || '';
@@ -367,6 +368,7 @@ Deno.serve(async (request) => {
       if (created.error || !created.data?.id) throw created.error || new Error('Import se nepodařilo založit.');
       importId = created.data.id;
     }
+    importRegistered = true;
 
     try {
       const status = await startAndConfirmProcessor(db, importId);
@@ -391,7 +393,7 @@ Deno.serve(async (request) => {
       throw processorError;
     }
   } catch (error) {
-    if (uploadedPath) await db.storage.from(BUCKET).remove([uploadedPath]).catch(() => {});
+    if (uploadedPath && !importRegistered) await db.storage.from(BUCKET).remove([uploadedPath]).catch(() => {});
     console.error('manual-leaflet-upload-v2 failed:', errorMessage(error));
     return json({ ok: false, error: errorMessage(error) }, 400);
   }
