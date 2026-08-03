@@ -80,6 +80,41 @@ async function signedUrl(path: string): Promise<string> {
   return data.signedUrl;
 }
 
+async function ensureManualSource(store: { id: string; name: string }) {
+  const sourceUrl = `manual-upload://${store.id}`;
+  const sourceName = `${store.name} – ruční nahrávání`;
+  const { data: existing, error: selectError } = await db.from('leaflet_sources')
+    .select('id,name')
+    .eq('source_url', sourceUrl)
+    .maybeSingle();
+  if (selectError) throw selectError;
+
+  if (existing) {
+    if (existing.name !== sourceName) {
+      const { error: updateError } = await db.from('leaflet_sources').update({
+        name: sourceName,
+        store_id: store.id,
+        is_active: false,
+        auto_publish: false,
+      }).eq('id', existing.id);
+      if (updateError) throw updateError;
+    }
+    return existing.id;
+  }
+
+  const { data: created, error: createError } = await db.from('leaflet_sources').insert({
+    store_id: store.id,
+    name: sourceName,
+    source_url: sourceUrl,
+    source_type: 'pdf',
+    is_active: false,
+    auto_publish: false,
+    check_interval_minutes: 525600,
+  }).select('id').single();
+  if (createError || !created) throw createError || new Error('Ruční zdroj letáků se nepodařilo vytvořit.');
+  return created.id;
+}
+
 async function queueProcessor(importId: string) {
   const response = await fetch(PROCESSOR_URL, {
     method: 'POST',
@@ -129,6 +164,7 @@ Deno.serve(async (request) => {
     const verified = await verifyObject(storeId, storagePath);
     const documentUrl = await signedUrl(verified.normalized);
     const sourceHash = `manual:${storeId}:${sha256}`;
+    const sourceId = await ensureManualSource(store);
 
     const { data: existing, error: existingError } = await db.from('leaflet_imports')
       .select('id,status,metadata')
@@ -154,6 +190,11 @@ Deno.serve(async (request) => {
     if (existing) {
       importId = existing.id;
       if (['published', 'review', 'processing', 'downloading', 'publishing', 'queued'].includes(existing.status)) {
+        const oldPath = String(existing.metadata?.storage_path || '');
+        if (verified.normalized !== oldPath) {
+          const { error: removeError } = await db.storage.from(BUCKET).remove([verified.normalized]);
+          if (removeError) console.warn('Duplicitní soubor se nepodařilo uklidit:', removeError.message);
+        }
         return json({
           ok: true,
           duplicate: true,
@@ -166,6 +207,7 @@ Deno.serve(async (request) => {
       }
 
       const { error: retryError } = await db.from('leaflet_imports').update({
+        source_id: sourceId,
         source_document_url: documentUrl,
         status: 'queued',
         error_message: null,
@@ -176,7 +218,7 @@ Deno.serve(async (request) => {
       if (retryError) throw retryError;
     } else {
       const { data: created, error: createError } = await db.from('leaflet_imports').insert({
-        source_id: null,
+        source_id: sourceId,
         store_id: storeId,
         source_document_url: documentUrl,
         source_hash: sourceHash,
