@@ -9,6 +9,7 @@ on:
       - 'supabase/migrations/20260803185000_admin_offer_transaction.sql'
       - 'supabase/migrations/20260803190000_preserve_expired_offers.sql'
       - 'supabase/migrations/20260803193000_harden_public_rls.sql'
+      - 'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
       - '.github/workflows/apply-admin-integrity-migrations.yml'
   workflow_dispatch:
 
@@ -49,6 +50,7 @@ jobs:
             'supabase/migrations/20260803185000_admin_offer_transaction.sql'
             'supabase/migrations/20260803190000_preserve_expired_offers.sql'
             'supabase/migrations/20260803193000_harden_public_rls.sql'
+            'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
           )
 
           for file in "${files[@]}"; do
