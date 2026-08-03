@@ -9,8 +9,7 @@ on:
       - 'assets/admin-manual-leaflets.css'
       - 'assets/admin-manual-leaflets.js'
       - 'supabase/functions/manual-leaflet-upload-v2/**'
-      - 'supabase/functions/process-leaflet/**'
-      - '.github/scripts/patch_process_leaflet_large_files.py'
+      - 'supabase/functions/process-manual-leaflet-v2/**'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -23,36 +22,29 @@ permissions:
 
 jobs:
   deploy-and-validate:
-    name: Nasadit a ověřit celý importní řetězec
+    name: Nasadit a ověřit celý ruční import
     runs-on: ubuntu-latest
     timeout-minutes: 18
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Zkontrolovat frontend a jedinou upload cestu
+      - name: Zkontrolovat jedinou bezpečnou cestu
         shell: bash
         run: |
           set -euo pipefail
           node --check assets/admin-manual-leaflets.js
           grep -q "manual-leaflet-upload-v2" assets/admin-manual-leaflets.js
-          grep -q "multipart/form-data" supabase/functions/manual-leaflet-upload-v2/index.ts
-          grep -q "edge-multipart-storage-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "process-manual-leaflet-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "edge-multipart-storage-v3" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "searchParams.get('health')" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "input_image" supabase/functions/process-manual-leaflet-v2/index.ts
+          grep -q "leaflet_import_items" supabase/functions/process-manual-leaflet-v2/index.ts
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
-          ! grep -q "admin-manual-leaflets-inline-fallback" admin-nahrat-letaky.html
-          ! grep -q "admin-manual-leaflets-client-register" admin-nahrat-letaky.html
-          ! grep -q "admin-manual-leaflets-bucket-hotfix" admin-nahrat-letaky.html
           test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
-
-      - name: Ověřit opravy procesoru velkých letáků
-        run: |
-          python .github/scripts/patch_process_leaflet_large_files.py
-          grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
-          grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -68,15 +60,15 @@ jobs:
             exit 1
           }
 
-      - name: Nasadit procesor letáků
+      - name: Nasadit procesor ručních letáků
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
-          supabase functions deploy process-leaflet \
+          supabase functions deploy process-manual-leaflet-v2 \
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Nasadit serverový upload ručních letáků
+      - name: Nasadit serverový upload
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
@@ -88,7 +80,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for function_name in process-leaflet manual-leaflet-upload-v2; do
+          for function_name in process-manual-leaflet-v2 manual-leaflet-upload-v2; do
             response="$(curl --fail --silent --show-error \
               --request OPTIONS \
               --retry 8 --retry-delay 3 \
@@ -96,7 +88,7 @@ jobs:
             test "$response" = 'ok'
           done
 
-      - name: Ověřit Storage a návaznost na procesor
+      - name: Ověřit Storage a návaznost
         shell: bash
         run: |
           set -euo pipefail
@@ -109,7 +101,7 @@ jobs:
           cat "$health_file"
           echo
           test "$http_status" = '200'
-          jq -e '.ok == true and .upload == "ready" and .processor == "ready" and .bucket == "leaflets"' "$health_file"
+          jq -e '.ok == true and .upload == "ready" and .processor == "ready" and .bucket == "leaflets" and .processor_name == "process-manual-leaflet-v2"' "$health_file"
 
       - name: Ověřit produkční stránku
         run: |
