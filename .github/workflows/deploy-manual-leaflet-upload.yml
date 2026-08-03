@@ -10,6 +10,7 @@ on:
       - 'assets/admin-manual-leaflets.js'
       - 'supabase/functions/manual-leaflet-upload-v2/**'
       - 'supabase/functions/process-manual-leaflet-v2/**'
+      - 'supabase/functions/run-manual-leaflet-import/**'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -39,8 +40,9 @@ jobs:
           grep -q "edge-multipart-storage-v3" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "searchParams.get('health')" supabase/functions/manual-leaflet-upload-v2/index.ts
-          grep -q "input_image" supabase/functions/process-manual-leaflet-v2/index.ts
+          grep -q "server-bytes-data-url" supabase/functions/process-manual-leaflet-v2/index.ts
           grep -q "leaflet_import_items" supabase/functions/process-manual-leaflet-v2/index.ts
+          grep -q "x-cron-secret" supabase/functions/run-manual-leaflet-import/index.ts
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
@@ -76,11 +78,19 @@ jobs:
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Ověřit obě Edge Functions
+      - name: Nasadit serverové opakování importu
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy run-manual-leaflet-import \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
+      - name: Ověřit Edge Functions
         shell: bash
         run: |
           set -euo pipefail
-          for function_name in process-manual-leaflet-v2 manual-leaflet-upload-v2; do
+          for function_name in process-manual-leaflet-v2 manual-leaflet-upload-v2 run-manual-leaflet-import; do
             response="$(curl --fail --silent --show-error \
               --request OPTIONS \
               --retry 8 --retry-delay 3 \
