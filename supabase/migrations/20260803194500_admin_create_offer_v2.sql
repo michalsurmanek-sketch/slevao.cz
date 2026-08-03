@@ -58,7 +58,7 @@ begin
   else
     select count(*) into matching_products
     from public.products
-    where public.normalize_product_name(name) = public.normalize_product_name(product_name);
+    where lower(trim(name)) = lower(product_name);
 
     if matching_products > 1 then
       raise exception 'V databázi je více produktů se stejným názvem. Vyber konkrétní produkt z našeptávače.';
@@ -67,7 +67,7 @@ begin
     if matching_products = 1 then
       select * into matched_product
       from public.products
-      where public.normalize_product_name(name) = public.normalize_product_name(product_name)
+      where lower(trim(name)) = lower(product_name)
       limit 1
       for update;
     end if;
