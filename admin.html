@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#102038">
+  <meta name="robots" content="noindex,nofollow,noarchive">
   <title>Slevao.cz – administrace</title>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="stylesheet" href="assets/admin.css?v=20260802-2">
@@ -79,7 +80,7 @@
       </section>
 
       <section id="offersPage" class="page">
-        <div class="head"><div><h1>Nabídky</h1><p>Přidávání, úprava, kopírování, publikace a mazání.</p></div><div class="toolbar"><input id="offerSearch" class="search" placeholder="Hledat nabídku"><button id="reload" class="btn light" type="button">Obnovit</button></div></div>
+        <div class="head"><div><h1>Nabídky</h1><p>Přidávání, úprava, kopírování, publikace a bezpečný koš.</p></div><div class="toolbar"><input id="offerSearch" class="search" placeholder="Hledat nabídku"><button id="reload" class="btn light" type="button">Obnovit</button></div></div>
         <div class="grid">
           <div class="card">
             <h2>Nová nabídka</h2>
@@ -117,10 +118,10 @@
             <h2>Přidat nový obchod</h2>
             <form id="storeForm" onsubmit="return false;">
               <div class="field"><label>Název</label><input id="storeName" required placeholder="Například Nový obchod"></div>
-              <div class="field"><label>Slug stránky</label><input id="storeSlug" required placeholder="novy-obchod"><span class="fieldHint">Použije se v adrese například <b>novy-obchod.html</b>.</span></div>
+              <div class="field"><label>Slug stránky</label><input id="storeSlug" required placeholder="novy-obchod"><span class="fieldHint">Veřejná stránka se po přidání vytvoří automaticky na adrese <b>novy-obchod.html</b>.</span></div>
               <div class="field"><label>Web obchodu</label><input id="storeWeb" type="url" placeholder="https://www.obchod.cz"></div>
               <div class="field"><label>URL loga</label><input id="storeLogo" type="url" placeholder="https://…/logo.svg"></div>
-              <div class="field"><label>Firemní barva</label><input id="storeColor" value="#159e94" pattern="#[0-9A-Fa-f]{6}"></div>
+              <div class="field"><label>Firemní barva</label><input id="storeColor" value="#069D92" pattern="#[0-9A-Fa-f]{6}"></div>
               <div class="switchRow"><div><strong>Zobrazit na webu</strong><div class="fieldHint">Nový obchod bude ihned viditelný v seznamu obchodů.</div></div><label class="switch"><input id="storeActive" type="checkbox" checked><span></span></label></div>
               <button id="storeSave" class="btn primary" type="button">Přidat obchod</button>
               <div id="storeMsg" class="msg"></div>
@@ -178,8 +179,8 @@
       <div class="field"><label>Web obchodu</label><input id="storeEditWeb" type="url" placeholder="https://www.obchod.cz"></div>
       <div class="field"><label>URL loga</label><input id="storeEditLogo" type="url" placeholder="https://…/logo.svg"></div>
       <div class="row">
-        <div class="field"><label>Firemní barva</label><input id="storeEditColor" type="color" value="#159e94"></div>
-        <div class="field"><label>HEX barva</label><input id="storeEditColorText" value="#159e94"></div>
+        <div class="field"><label>Firemní barva</label><input id="storeEditColor" type="color" value="#069D92"></div>
+        <div class="field"><label>HEX barva</label><input id="storeEditColorText" value="#069D92"></div>
       </div>
       <div class="switchRow"><div><strong>Zobrazit obchod na webu</strong><div id="storeEditVisibilityText" class="fieldHint"></div></div><label class="switch"><input id="storeEditVisible" type="checkbox"><span></span></label></div>
       <button id="storeEditSave" class="btn primary" type="button">Uložit obchod</button>
@@ -191,7 +192,7 @@
 <script defer src="assets/admin.js?v=20260802-2"></script>
 <script defer src="assets/admin-leaflet-sources.js?v=20260802-2"></script>
 <script defer src="assets/admin-modern-ui.js?v=20260802-3"></script>
-<script defer data-admin-store-delete="true" src="assets/admin-store-delete.js?v=20260802-2"></script>
+<script defer data-admin-store-delete="true" src="assets/admin-store-delete.js?v=20260803-1"></script>
 <script defer src="assets/admin-critical.js?v=20260802-1"></script>
 </body>
 </html>
