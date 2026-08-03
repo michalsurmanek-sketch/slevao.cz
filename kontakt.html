@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#069d92">
+  <meta name="description" content="Kontaktujte tým Slevao.cz, nahlaste chybnou nabídku nebo navrhněte spolupráci.">
+  <meta name="robots" content="index,follow">
+  <link rel="canonical" href="https://slevao.cz/kontakt.html">
+  <link rel="icon" href="favicon.svg?v=20260802-2" type="image/svg+xml">
+  <title>Kontakt | Slevao.cz</title>
+  <link rel="stylesheet" href="assets/info-pages.css?v=20260803-1">
+</head>
+<body>
+  <header class="infoHeader">
+    <div class="infoContainer infoHeaderInner">
+      <a class="infoLogo" href="index.html" aria-label="Slevao.cz domů"></a>
+      <nav class="infoNav" aria-label="Hlavní navigace">
+        <a href="kontakt.html" aria-current="page">Kontakt</a>
+        <a href="ochrana-soukromi.html">Ochrana soukromí</a>
+        <a href="podminky.html">Podmínky</a>
+        <a class="infoHomeButton" href="index.html">Zpět na nabídky</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="infoHero">
+      <div class="infoContainer">
+        <div class="infoHeroCard">
+          <span class="infoEyebrow">Jsme tu pro vás</span>
+          <h1>Kontaktujte Slevao.cz</h1>
+          <p>Nahlaste chybnou cenu, technický problém, chybějící obchod nebo nám pošlete návrh na spolupráci.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="infoMain">
+      <div class="infoContainer">
+        <div class="infoGrid" style="margin-bottom:20px">
+          <article class="infoCard">
+            <span class="infoCardIcon" aria-hidden="true">!</span>
+            <h2>Chybná nabídka</h2>
+            <p>Pošlete název produktu, obchod a popis problému. Pomůže také odkaz nebo fotografie ceny.</p>
+            <a href="mailto:info@slevao.cz?subject=Chybná%20nabídka%20na%20Slevao.cz">Nahlásit nabídku →</a>
+          </article>
+          <article class="infoCard">
+            <span class="infoCardIcon" aria-hidden="true">↔</span>
+            <h2>Spolupráce</h2>
+            <p>Jste obchod, značka nebo dodavatel dat? Napište nám, jaké nabídky či letáky chcete na Slevao.cz zveřejňovat.</p>
+            <a href="mailto:info@slevao.cz?subject=Spolupráce%20se%20Slevao.cz">Navrhnout spolupráci →</a>
+          </article>
+        </div>
+
+        <div class="contactLayout">
+          <aside class="contactPanel">
+            <h2>Přímý kontakt</h2>
+            <p>Nejrychleji nás zastihnete e-mailem. Do předmětu uveďte, čeho se zpráva týká.</p>
+            <a class="contactEmail" href="mailto:info@slevao.cz"><span aria-hidden="true">✉</span> info@slevao.cz</a>
+            <div class="contactMeta">
+              <div><strong>Provozovatel webu</strong><br>AO Holding s.r.o.</div>
+              <div><strong>Technické problémy</strong><br>Uveďte typ zařízení, prohlížeč a stránku, kde problém vznikl.</div>
+              <div><strong>Doba odpovědi</strong><br>Zprávy vyřizujeme průběžně a snažíme se odpovědět co nejdříve.</div>
+            </div>
+          </aside>
+
+          <form id="contactForm" class="contactForm">
+            <h2>Napište nám</h2>
+            <p>Po odeslání se otevře váš e-mailový program s připravenou zprávou.</p>
+
+            <label for="contactTopic">Téma
+              <select id="contactTopic" required>
+                <option value="Chybná nabídka">Chybná nabídka</option>
+                <option value="Technický problém">Technický problém</option>
+                <option value="Chybějící obchod nebo leták">Chybějící obchod nebo leták</option>
+                <option value="Spolupráce">Spolupráce</option>
+                <option value="Ochrana osobních údajů">Ochrana osobních údajů</option>
+                <option value="Jiný dotaz">Jiný dotaz</option>
+              </select>
+            </label>
+
+            <label for="contactName">Jméno
+              <input id="contactName" type="text" autocomplete="name" placeholder="Vaše jméno">
+            </label>
+
+            <label for="contactEmail">E-mail
+              <input id="contactEmail" type="email" autocomplete="email" placeholder="vas@email.cz" required>
+            </label>
+
+            <label for="contactMessage">Zpráva
+              <textarea id="contactMessage" placeholder="Popište svůj dotaz nebo problém…" required></textarea>
+            </label>
+
+            <button class="contactSubmit" type="submit">Připravit e-mail</button>
+            <p id="contactStatus" class="contactStatus" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="infoFooter">
+    <div class="infoFooterShell">
+      <div class="infoFooterMain">
+        <div><a class="infoFooterLogo" href="index.html" aria-label="Slevao.cz domů"></a><p>Chytrý přehled aktuálních akcí, letáků a cen českých obchodů.</p></div>
+        <div><h3>Slevao.cz</h3><div class="infoFooterLinks"><a href="index.html#dealsSection">Aktuální nabídky</a><a href="index.html#leafletsSection">Letáky</a><a href="index.html#storesSection">Obchody</a></div></div>
+        <div><h3>Informace</h3><div class="infoFooterLinks"><a href="kontakt.html">Kontakt</a><a href="ochrana-soukromi.html">Ochrana soukromí</a><a href="podminky.html">Podmínky používání</a></div></div>
+      </div>
+      <div class="infoFooterBottom">© 2026 Slevao.cz · Data aktualizována průběžně</div>
+    </div>
+  </footer>
+
+  <script>
+    (() => {
+      const form = document.getElementById('contactForm');
+      const status = document.getElementById('contactStatus');
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        if (!form.checkValidity()) {
+          form.reportValidity();
+          status.textContent = 'Doplňte prosím povinné údaje.';
+          return;
+        }
+        const topic = document.getElementById('contactTopic').value;
+        const name = document.getElementById('contactName').value.trim();
+        const email = document.getElementById('contactEmail').value.trim();
+        const message = document.getElementById('contactMessage').value.trim();
+        const subject = encodeURIComponent(`${topic} – Slevao.cz`);
+        const body = encodeURIComponent([
+          `Téma: ${topic}`,
+          `Jméno: ${name || 'neuvedeno'}`,
+          `Kontaktní e-mail: ${email}`,
+          '',
+          message,
+          '',
+          `Stránka: ${location.href}`
+        ].join('\n'));
+        status.textContent = 'Otevírám e-mailový program…';
+        location.href = `mailto:info@slevao.cz?subject=${subject}&body=${body}`;
+      });
+    })();
+  </script>
+</body>
+</html>
