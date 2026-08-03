@@ -90,6 +90,15 @@ function detectType(contentType: string, bytes: Uint8Array) {
   throw new Error(`Uložený soubor není platný PDF ani obrázek. Content-Type: ${contentType || 'neuveden'}`);
 }
 
+function bytesToBase64(bytes: Uint8Array): string {
+  let binary = '';
+  const chunkSize = 0x8000;
+  for (let offset = 0; offset < bytes.length; offset += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + chunkSize));
+  }
+  return btoa(binary);
+}
+
 function responseText(payload: any): string {
   if (typeof payload?.output_text === 'string' && payload.output_text.trim()) return payload.output_text;
   for (const item of payload?.output || []) {
@@ -118,7 +127,6 @@ async function uploadPdf(bytes: Uint8Array, importId: string): Promise<string> {
 
 async function extractWithAi(
   storeName: string,
-  sourceUrl: string,
   detected: { extension: string; mime: string },
   bytes: Uint8Array,
   importId: string,
@@ -160,7 +168,11 @@ async function extractWithAi(
 
   const documentInput = detected.extension === 'pdf'
     ? { type: 'input_file', file_id: await uploadPdf(bytes, importId) }
-    : { type: 'input_image', image_url: sourceUrl, detail: 'high' };
+    : {
+        type: 'input_image',
+        image_url: `data:${detected.mime};base64,${bytesToBase64(bytes)}`,
+        detail: 'high',
+      };
 
   const response = await fetch('https://api.openai.com/v1/responses', {
     method: 'POST',
@@ -175,13 +187,13 @@ async function extractWithAi(
         role: 'user',
         content: [{
           type: 'input_text',
-          text: `Zpracuj český akční leták obchodu ${storeName || 'neuvedený obchod'}. Vrať všechny skutečné produktové nabídky. Ceny uváděj jako čísla v Kč bez měnového symbolu. Starou cenu vyplň jen pokud je výslovně uvedena. Množství zachovej například jako 500 g, 1 l nebo 10 ks. Kategorie používej stručné české názvy jako Potraviny, Nápoje, Drogerie, Domácnost, Elektronika, Oblečení, Zahrada nebo Chovatelské potřeby. Neodhaduj chybějící údaje a nevytvářej produkty z nadpisů, kupónů ani obecných reklamních textů.`,
+          text: `Pečlivě přečti tuto stránku českého akčního letáku obchodu ${storeName || 'neuvedený obchod'}. Projdi celý obrázek včetně malého textu a všech produktových boxů. Vrať každou skutečnou nabídku, u které je vidět název produktu a prodejní cena. Cenu rozpoznej i tehdy, když je bez symbolu Kč, rozdělena na velkou a malou část nebo uvedena jako cena s kartou či kuponem. Price musí být výsledná prodejní cena jako číslo v Kč. Old_price vyplň jen při výslovně uvedené vyšší původní ceně. Confidence vyplň číslem 0 až 1; při čitelné ceně použij nejméně 0.75. Nevynechávej nabídku jen proto, že neznáš značku, množství, kategorii nebo platnost. Tyto neznámé údaje vrať jako null. Nevytvářej produkty z nadpisů, log, věrnostních bodů ani obecných reklamních textů. Pokud stránka opravdu neobsahuje žádný produkt s cenou, vrať prázdné items.`,
         }, documentInput],
       }],
       text: {
         format: {
           type: 'json_schema',
-          name: 'slevao_manual_leaflet_v2',
+          name: 'slevao_manual_leaflet_v3',
           strict: true,
           schema,
         },
@@ -212,6 +224,34 @@ function validDateRange(from: string, to: string): boolean {
   return Date.parse(`${to}T12:00:00Z`) - Date.parse(`${from}T12:00:00Z`) <= 62 * 86_400_000;
 }
 
+async function finishWithoutOffers(job: any, result: ExtractionResult, rawItems: ExtractedItem[]) {
+  await db.from('leaflet_imports').update({
+    status: 'review',
+    product_count: 0,
+    confidence: null,
+    detected_valid_from: result.valid_from || null,
+    detected_valid_to: result.valid_to || null,
+    page_count: result.page_count || 1,
+    error_message: null,
+    finished_at: new Date().toISOString(),
+    metadata: {
+      ...(job.metadata || {}),
+      processor: 'process-manual-leaflet-v3',
+      ai_raw_item_count: rawItems.length,
+      ai_valid_price_count: 0,
+      no_offers_detected: true,
+      processing_note: rawItems.length
+        ? 'AI rozpoznala položky, ale žádná neměla použitelný název a cenu.'
+        : 'Na této stránce nebyla rozpoznána žádná produktová nabídka s cenou.',
+      ai_sample_items: rawItems.slice(0, 8).map((item) => ({
+        title: item.title || null,
+        price: item.price ?? null,
+        confidence: item.confidence ?? null,
+      })),
+    },
+  }).eq('id', job.id);
+}
+
 async function processImport(importId: string) {
   try {
     const { data: job, error } = await db.from('leaflet_imports')
@@ -239,7 +279,8 @@ async function processImport(importId: string) {
       status: 'processing',
       metadata: {
         ...(job.metadata || {}),
-        processor: 'process-manual-leaflet-v2',
+        processor: 'process-manual-leaflet-v3',
+        image_transport: detected.extension === 'pdf' ? 'openai-file' : 'server-bytes-data-url',
         detected_mime: detected.mime,
         bytes: bytes.length,
         processing_started_at: new Date().toISOString(),
@@ -248,16 +289,23 @@ async function processImport(importId: string) {
 
     const result = await extractWithAi(
       String(job.stores?.name || ''),
-      String(sourceResponse.url || job.source_document_url),
       detected,
       bytes,
       importId,
     );
 
+    const rawItems = Array.isArray(result.items) ? result.items : [];
     const categories = await categoryMap();
-    const rows = (Array.isArray(result.items) ? result.items : [])
-      .filter((item) => item.title?.trim() && Number(item.price) > 0 && Number(item.price) <= 1_000_000 && Number(item.confidence ?? 0) >= 0.7)
-      .map((item) => ({
+    const validItems = rawItems.filter((item) => {
+      const price = Number(item.price);
+      return Boolean(item.title?.trim()) && Number.isFinite(price) && price > 0 && price <= 1_000_000;
+    });
+
+    const rows = validItems.map((item) => {
+      const confidence = item.confidence == null || !Number.isFinite(Number(item.confidence))
+        ? 0.75
+        : Math.max(0, Math.min(1, Number(item.confidence)));
+      return {
         import_id: importId,
         category_id: item.category_name ? categories.get(item.category_name.toLocaleLowerCase('cs')) || null : null,
         title: item.title.trim(),
@@ -268,13 +316,18 @@ async function processImport(importId: string) {
         unit_price: item.unit_price ? Number(item.unit_price) : null,
         unit_label: item.unit_label || null,
         image_url: item.image_url || null,
-        source_page: item.source_page || null,
-        confidence: item.confidence ?? null,
+        source_page: item.source_page || 1,
+        confidence,
         status: 'review',
         raw_data: item,
-      }));
+      };
+    });
 
-    if (!rows.length) throw new Error('AI nevrátila žádné nabídky s platnou cenou.');
+    if (!rows.length) {
+      await finishWithoutOffers(job, result, rawItems);
+      return;
+    }
+
     await db.from('leaflet_import_items').delete().eq('import_id', importId).neq('status', 'published');
     const inserted = await db.from('leaflet_import_items').insert(rows);
     if (inserted.error) throw inserted.error;
@@ -293,9 +346,21 @@ async function processImport(importId: string) {
       confidence: averageConfidence || null,
       detected_valid_from: validFrom || null,
       detected_valid_to: validTo || null,
-      page_count: result.page_count || null,
+      page_count: result.page_count || 1,
       error_message: null,
       finished_at: new Date().toISOString(),
+      metadata: {
+        ...(job.metadata || {}),
+        processor: 'process-manual-leaflet-v3',
+        image_transport: detected.extension === 'pdf' ? 'openai-file' : 'server-bytes-data-url',
+        ai_raw_item_count: rawItems.length,
+        ai_valid_price_count: rows.length,
+        ai_sample_items: rows.slice(0, 8).map((item) => ({
+          title: item.title,
+          price: item.price,
+          confidence: item.confidence,
+        })),
+      },
     }).eq('id', importId);
 
     if (autoPublish) {
