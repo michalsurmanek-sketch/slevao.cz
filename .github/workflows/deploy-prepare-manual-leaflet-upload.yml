@@ -1,0 +1,59 @@
+name: Nasadit opravu bucketu letáků
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/prepare-manual-leaflet-upload/**'
+      - 'assets/admin-manual-leaflets-bucket-hotfix.js'
+      - 'admin-nahrat-letaky.html'
+      - '.github/workflows/deploy-prepare-manual-leaflet-upload.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-prepare-manual-leaflet-upload
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Nasadit podepsané nahrávání
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Zkontrolovat JavaScript
+        run: node --check assets/admin-manual-leaflets-bucket-hotfix.js
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ověřit přístupový token
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
+            exit 1
+          }
+
+      - name: Nasadit přípravu bucketu a podepsaného uploadu
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy prepare-manual-leaflet-upload \
+            --project-ref uhampjdqjxmbhaptgitn
+
+      - name: Ověřit produkční stránku
+        run: |
+          curl --fail --silent --show-error --location \
+            --retry 5 --retry-delay 5 \
+            https://slevao.cz/admin-nahrat-letaky.html \
+            | grep -q 'admin-manual-leaflets-bucket-hotfix.js'
