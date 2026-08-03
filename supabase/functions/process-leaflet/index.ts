@@ -1248,7 +1248,7 @@ async function processImport(importId: string) {
       && (Date.parse(validTo + 'T12:00:00Z') - Date.parse(validFrom + 'T12:00:00Z')) <= 62 * 86_400_000;
     const minimumAutoPublishConfidence = ['tesco', 'makro', 'billa'].includes(String(job.stores?.slug || '')) ? 0.88 : 0.92;
     const minimumAutoPublishProducts = job.stores?.slug === 'globus' ? 5 : 8;
-    const autoPublish = Boolean(job.leaflet_sources?.auto_publish)
+    const autoPublish = Boolean(job.leaflet_sources?.auto_publish || job.metadata?.auto_publish)
       && rows.length >= minimumAutoPublishProducts
       && averageConfidence >= minimumAutoPublishConfidence
       && validDates;
