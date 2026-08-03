@@ -3,14 +3,27 @@
   if (window.__slevaoHomepageImageNavLoaded) return;
   window.__slevaoHomepageImageNavLoaded = true;
 
-  function loadSafeOfferSave() {
-    if (document.querySelector('script[data-admin-save-offer-v2]')) return;
+  function loadScriptOnce(src, dataName, errorText) {
+    if (document.querySelector(`script[${dataName}]`)) return;
     const script = document.createElement('script');
-    script.src = `assets/admin-save-offer-v2.js?v=20260803-2-${Date.now()}`;
+    script.src = `${src}-${Date.now()}`;
     script.async = false;
-    script.dataset.adminSaveOfferV2 = 'true';
-    script.onerror = () => console.error('Bezpečné ukládání nabídek se nepodařilo načíst.');
+    script.setAttribute(dataName, 'true');
+    script.onerror = () => console.error(errorText);
     document.head.append(script);
+  }
+
+  function loadAdminRepairs() {
+    loadScriptOnce(
+      'assets/admin-save-offer-v2.js?v=20260803-2',
+      'data-admin-save-offer-v2',
+      'Bezpečné ukládání nabídek se nepodařilo načíst.',
+    );
+    loadScriptOnce(
+      'assets/admin-offers-full-list.js?v=20260803-1',
+      'data-admin-offers-full-list',
+      'Kompletní seznam nabídek se nepodařilo načíst.',
+    );
   }
 
   function createLink(href, label, icon = '▤') {
@@ -57,7 +70,7 @@
     }
   };
 
-  loadSafeOfferSave();
+  loadAdminRepairs();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', addLink, { once: true });
   else addLink();
   new MutationObserver(addLink).observe(document.documentElement, { childList: true, subtree: true });
