@@ -7,7 +7,6 @@ on:
     paths:
       - 'supabase/functions/**'
       - '.github/scripts/patch_process_leaflet_large_files.py'
-      - '.github/scripts/patch_discover_kaufland_automatic_pdf.py'
       - '.github/workflows/deploy-edge-functions.yml'
   workflow_dispatch:
 
@@ -90,11 +89,8 @@ jobs:
       - name: Aplikovat opravu velkých letáků
         run: |
           python .github/scripts/patch_process_leaflet_large_files.py
-          python .github/scripts/patch_discover_kaufland_automatic_pdf.py
           grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
           grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
-          grep -q "process-automatic-pdf-v2" supabase/functions/discover-leaflets/index.ts
-          grep -q "queueProcessor(data.id, storeSlug)" supabase/functions/discover-leaflets/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -141,7 +137,7 @@ jobs:
           supabase functions deploy \
             --project-ref uhampjdqjxmbhaptgitn
 
-      - name: Vyčistit starou chybu velikosti a znovu spustit Kaufland
+      - name: Vyčistit chybu velikosti a znovu spustit Kaufland
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           SUPABASE_PROJECT_REF: uhampjdqjxmbhaptgitn
@@ -150,7 +146,7 @@ jobs:
           set -euo pipefail
           cat > /tmp/retry_kaufland.sql <<'SQL'
           update public.leaflet_imports
-          set source_hash = source_hash || ':automatic-pdf-v2:' || id::text,
+          set source_hash = source_hash || ':size-fix:' || id::text,
               updated_at = now()
           where source_id in (
             select ls.id
