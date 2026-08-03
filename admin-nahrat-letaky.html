@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#069d92">
+  <meta name="robots" content="noindex,nofollow,noarchive">
+  <title>Slevao.cz – nahrát letáky</title>
+  <link rel="stylesheet" href="assets/admin-manual-leaflets.css?v=20260803-1">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="assets/admin-manual-leaflets.js?v=20260803-1"></script>
+</head>
+<body>
+  <div id="authState" class="loginState hidden"></div>
+
+  <div id="app" class="hidden">
+    <header class="topbar">
+      <div class="topbarInner">
+        <a class="brand" href="admin.html" aria-label="Zpět do administrace"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a>
+        <div class="topActions">
+          <a class="btn" href="admin.html"><span>Administrace</span></a>
+          <a class="btn" href="admin-automatizace.html"><span>Automatizace</span></a>
+          <a class="btn" href="index.html"><span>Otevřít web</span></a>
+          <button id="logoutButton" class="btn" type="button"><span>Odhlásit</span></button>
+        </div>
+      </div>
+    </header>
+
+    <main class="shell">
+      <section class="hero">
+        <div class="heroGrid">
+          <article class="heroCard">
+            <span class="eyebrow">Ruční zdroj automatizace</span>
+            <h1>Nahraj letáky.<br>O zbytek se postará systém.</h1>
+            <p>Vyber obchod, přidej PDF nebo obrázky a Slevao.cz soubory bezpečně uloží, zkontroluje duplicity, spustí AI zpracování a připraví nabídky ke zveřejnění.</p>
+          </article>
+          <aside class="infoCard">
+            <strong id="who">Načítám účet…</strong>
+            <div class="infoList">
+              <div class="infoItem"><span class="infoIcon">1</span><span>Hromadné nahrání více souborů najednou.</span></div>
+              <div class="infoItem"><span class="infoIcon">2</span><span>Automatické rozpoznání produktů, cen a platnosti.</span></div>
+              <div class="infoItem"><span class="infoIcon">3</span><span>Ochrana proti opakovanému zpracování stejného letáku.</span></div>
+            </div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="mainGrid">
+        <article class="panel">
+          <div class="panelHead">
+            <div><h2>Nahrát nové letáky</h2><p>Všechny vybrané soubory musí patřit stejnému obchodu.</p></div>
+          </div>
+
+          <div class="field">
+            <label for="storeSelect">Obchod</label>
+            <select id="storeSelect"><option value="">Načítám obchody…</option></select>
+          </div>
+
+          <input id="fileInput" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,application/pdf,image/jpeg,image/png,image/webp,image/gif" multiple hidden>
+          <div id="dropZone" class="dropZone" role="button" tabindex="0" aria-label="Vybrat nebo přetáhnout letáky">
+            <span class="dropIcon">⇧</span>
+            <strong>Klikni nebo sem přetáhni letáky</strong>
+            <p>PDF, JPG, PNG, WebP nebo GIF</p>
+            <small>Maximálně 50 MB na jeden soubor</small>
+          </div>
+
+          <div class="switchRow">
+            <div><strong>Automaticky publikovat kvalitní výsledek</strong><small>Publikace proběhne jen při dostatečné jistotě AI, platném datu a minimálním počtu produktů.</small></div>
+            <label class="switch"><input id="autoPublish" type="checkbox"><span></span></label>
+          </div>
+
+          <div class="uploadActions">
+            <button id="clearButton" class="btn" type="button">Vymazat frontu</button>
+            <button id="uploadButton" class="btn primary" type="button">Nahrát a spustit zpracování</button>
+          </div>
+          <div id="uploadMessage" class="message info" hidden></div>
+        </article>
+
+        <article class="panel">
+          <div class="panelHead">
+            <div><h2>Fronta souborů</h2><p>Každý soubor se nahraje a zpracuje samostatně.</p></div>
+            <span id="uploadCount" class="statusPill">Prázdná fronta</span>
+          </div>
+          <div id="uploadQueue" class="queue"></div>
+        </article>
+      </section>
+
+      <section class="panel recent">
+        <div class="panelHead">
+          <div><h2>Poslední ruční importy</h2><p>Stav se během zpracování automaticky obnovuje každých 5 sekund.</p></div>
+          <a class="btn" href="admin-automatizace.html">Otevřít všechny importy</a>
+        </div>
+        <div id="recentList" class="recentList"><div class="queueEmpty">Načítám historii…</div></div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
