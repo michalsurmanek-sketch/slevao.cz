@@ -31,6 +31,7 @@
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const $ = (id) => document.getElementById(id);
     const nullable = (value) => String(value || '').trim() || null;
+    const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const today = () => new Date().toISOString().slice(0, 10);
     let pendingStoreSlug = '';
 
@@ -69,6 +70,135 @@
       if ($('sPublished')) $('sPublished').textContent = published.error ? '—' : (published.count ?? 0).toLocaleString('cs-CZ');
       if ($('sStores')) $('sStores').textContent = stores.error || activeStores.error ? '—' : `${activeStores.count ?? 0}/${stores.count ?? 0}`;
       if ($('sCategories')) $('sCategories').textContent = categories.error ? '—' : (categories.count ?? 0).toLocaleString('cs-CZ');
+    }
+
+    function resetOfferForm() {
+      $('offerForm')?.reset();
+      const now = new Date();
+      if ($('from')) $('from').value = now.toISOString().slice(0, 10);
+      if ($('to')) $('to').value = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
+      if ($('status')) $('status').value = 'published';
+      $('title')?.dispatchEvent(new Event('input', { bubbles: true }));
+      $('image')?.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+
+    function rpcMissing(error) {
+      return error?.code === 'PGRST202' || /function.*admin_create_offer|schema cache|could not find/i.test(error?.message || '');
+    }
+
+    async function findMatchingProducts(name) {
+      const normalized = fold(name);
+      let result = await db.from('products')
+        .select('id,name,category_id,image_url')
+        .eq('normalized_name', normalized)
+        .limit(3);
+      if (result.error && /normalized_name|column/i.test(result.error.message || '')) {
+        result = await db.from('products')
+          .select('id,name,category_id,image_url')
+          .eq('name', name)
+          .limit(3);
+      }
+      if (result.error) throw result.error;
+      return result.data || [];
+    }
+
+    async function saveNewOfferSafely() {
+      const button = $('saveBtn');
+      const name = $('title')?.value.trim();
+      const storeId = $('store')?.value;
+      const categoryId = $('category')?.value || null;
+      const price = Number($('price')?.value);
+      const oldPrice = $('oldPrice')?.value ? Number($('oldPrice').value) : null;
+      const imageUrl = nullable($('image')?.value);
+      const validFrom = $('from')?.value;
+      const validTo = $('to')?.value;
+      const status = $('status')?.value || 'review';
+
+      if (!name || !storeId || !Number.isFinite(price) || price <= 0 || !validFrom || !validTo) {
+        setMessage('formMsg', 'Vyplň název, obchod, kladnou cenu a platnost.', 'err');
+        return;
+      }
+      if (oldPrice !== null && (!Number.isFinite(oldPrice) || oldPrice < price)) {
+        setMessage('formMsg', 'Původní cena nesmí být nižší než akční cena.', 'err');
+        return;
+      }
+      if (validFrom > validTo) {
+        setMessage('formMsg', 'Datum začátku nesmí být po datu konce.', 'err');
+        return;
+      }
+      if (status === 'published' && validTo < today()) {
+        setMessage('formMsg', 'Prošlou nabídku nelze publikovat.', 'err');
+        return;
+      }
+
+      button.disabled = true;
+      button.textContent = 'Ukládám…';
+      let createdProductId = '';
+      try {
+        await requireStaff();
+        const rpc = await db.rpc('admin_create_offer', {
+          product_name: name,
+          target_store_id: storeId,
+          target_category_id: categoryId,
+          target_price: price,
+          target_old_price: oldPrice,
+          target_image_url: imageUrl,
+          target_valid_from: validFrom,
+          target_valid_to: validTo,
+          target_status: status,
+        });
+
+        if (rpc.error && !rpcMissing(rpc.error)) throw rpc.error;
+
+        if (rpc.error) {
+          const products = await findMatchingProducts(name);
+          if (products.length > 1) throw new Error('V databázi je více produktů se stejným názvem. Vyber správný produkt z našeptávače.');
+
+          let product = products[0] || null;
+          if (!product) {
+            const insertedProduct = await db.from('products')
+              .insert({ name, category_id: categoryId, image_url: imageUrl, is_verified: true })
+              .select('id,name,category_id,image_url')
+              .single();
+            if (insertedProduct.error) throw insertedProduct.error;
+            product = insertedProduct.data;
+            createdProductId = product.id;
+          } else if (imageUrl && !product.image_url) {
+            const imageUpdate = await db.from('products').update({ image_url: imageUrl }).eq('id', product.id);
+            if (imageUpdate.error) throw imageUpdate.error;
+          }
+
+          const insertedOffer = await db.from('offers').insert({
+            product_id: product.id,
+            store_id: storeId,
+            title: name,
+            price,
+            old_price: oldPrice,
+            image_url: imageUrl || product.image_url || null,
+            valid_from: validFrom,
+            valid_to: validTo,
+            status,
+            is_verified: true,
+            published_at: status === 'published' ? new Date().toISOString() : null,
+          }).select('id').single();
+          if (insertedOffer.error) throw insertedOffer.error;
+        }
+
+        clearPublicCache();
+        setMessage('formMsg', 'Nabídka byla bezpečně uložena bez vytvoření osiřelého produktu.');
+        resetOfferForm();
+        $('reload')?.click();
+        await refreshStats();
+      } catch (error) {
+        if (createdProductId) {
+          const cleanup = await db.from('products').delete().eq('id', createdProductId);
+          if (cleanup.error) console.error('Úklid osiřelého produktu selhal:', cleanup.error);
+        }
+        setMessage('formMsg', error?.message || 'Nabídku se nepodařilo uložit.', 'err');
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Uložit nabídku';
+      }
     }
 
     async function moveOfferToTrash(id) {
@@ -205,6 +335,14 @@
     }
 
     document.addEventListener('click', (event) => {
+      const save = event.target.closest('#saveBtn');
+      if (save) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        saveNewOfferSafely();
+        return;
+      }
+
       const remove = event.target.closest('[data-delete]');
       if (remove) {
         event.preventDefault();
