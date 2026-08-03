@@ -1,0 +1,70 @@
+:root{--brand:#34d6c7;--brand-dark:#069d92;--brand-soft:#e8fbf8;--ink:#132321;--muted:#667876;--line:#dbe9e7;--page:#f5f9f8;--card:#fff;--shadow:0 20px 55px rgba(15,58,55,.09)}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:var(--page);color:var(--ink)}
+a{color:inherit}
+button,input,select,textarea{font:inherit}
+button{cursor:pointer}
+.infoContainer{width:min(1180px,calc(100% - 32px));margin:auto}
+.infoHeader{position:sticky;top:0;z-index:50;padding:12px 0;background:rgba(245,249,248,.9);backdrop-filter:blur(18px);border-bottom:1px solid rgba(219,233,231,.8)}
+.infoHeaderInner{min-height:68px;display:flex;align-items:center;justify-content:space-between;gap:24px;padding:8px 16px;border:1px solid rgba(219,233,231,.9);border-radius:20px;background:rgba(255,255,255,.97);box-shadow:0 10px 30px rgba(15,58,55,.06)}
+.infoLogo{display:block;width:224px;height:52px;background:url('slevao-logo.svg?v=20260802-1') left center/contain no-repeat;text-decoration:none}
+.infoNav{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.infoNav a{padding:10px 13px;border-radius:11px;text-decoration:none;color:#41514f;font-size:14px;font-weight:850}
+.infoNav a:hover,.infoNav a[aria-current="page"]{background:var(--brand-soft);color:var(--brand-dark)}
+.infoHomeButton{background:var(--brand-dark)!important;color:#fff!important;padding-inline:17px!important}
+.infoHero{padding:58px 0 26px}
+.infoHeroCard{position:relative;overflow:hidden;padding:54px 56px;border:1px solid #d5ebe8;border-radius:30px;background:linear-gradient(135deg,#e6fbf8 0%,#fff 58%,#fff3ee 100%);box-shadow:var(--shadow)}
+.infoHeroCard:after{content:"%";position:absolute;right:38px;top:-34px;color:rgba(6,157,146,.07);font-size:210px;font-weight:950;line-height:1;transform:rotate(-11deg)}
+.infoEyebrow{position:relative;z-index:1;display:inline-flex;align-items:center;min-height:36px;padding:0 14px;border-radius:999px;background:var(--brand-dark);color:#fff;font-size:11px;font-weight:950;letter-spacing:.09em;text-transform:uppercase}
+.infoHero h1{position:relative;z-index:1;max-width:760px;margin:16px 0 14px;font-size:clamp(40px,6vw,68px);line-height:.98;letter-spacing:-.055em}
+.infoHero p{position:relative;z-index:1;max-width:760px;margin:0;color:var(--muted);font-size:18px;line-height:1.65}
+.infoUpdated{display:inline-flex;margin-top:22px;padding:8px 11px;border:1px solid #cae5e1;border-radius:10px;background:rgba(255,255,255,.72);color:#4b625f;font-size:12px;font-weight:800}
+.infoMain{padding:20px 0 64px}
+.infoLayout{display:grid;grid-template-columns:250px minmax(0,1fr);gap:24px;align-items:start}
+.infoToc{position:sticky;top:112px;padding:18px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 10px 28px rgba(15,58,55,.05)}
+.infoToc strong{display:block;margin-bottom:10px;font-size:14px}
+.infoToc a{display:block;padding:9px 10px;border-radius:10px;text-decoration:none;color:#59706d;font-size:13px;font-weight:750}
+.infoToc a:hover{background:var(--brand-soft);color:var(--brand-dark)}
+.infoContent{display:grid;gap:16px}
+.infoSection{scroll-margin-top:110px;padding:28px 30px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 10px 30px rgba(15,58,55,.045)}
+.infoSection h2{margin:0 0 13px;font-size:25px;letter-spacing:-.025em}
+.infoSection h3{margin:22px 0 9px;font-size:18px}
+.infoSection p,.infoSection li{color:#536663;line-height:1.72}
+.infoSection p{margin:9px 0}
+.infoSection ul{margin:10px 0 0;padding-left:21px}
+.infoSection a{color:var(--brand-dark);font-weight:850}
+.infoNotice{padding:17px 18px;border-left:4px solid var(--brand-dark);border-radius:13px;background:var(--brand-soft);color:#315c57;line-height:1.6}
+.infoGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.infoCard{padding:23px;border:1px solid var(--line);border-radius:20px;background:#fff;box-shadow:0 10px 28px rgba(15,58,55,.045)}
+.infoCardIcon{width:44px;height:44px;display:grid;place-items:center;margin-bottom:15px;border-radius:14px;background:var(--brand-soft);color:var(--brand-dark);font-size:21px;font-weight:950}
+.infoCard h2,.infoCard h3{margin:0 0 9px;font-size:20px}
+.infoCard p{margin:0;color:var(--muted);line-height:1.6}
+.infoCard a{display:inline-flex;margin-top:14px;color:var(--brand-dark);font-weight:900;text-decoration:none}
+.contactLayout{display:grid;grid-template-columns:.82fr 1.18fr;gap:20px;align-items:start}
+.contactPanel,.contactForm{padding:28px;border:1px solid var(--line);border-radius:22px;background:#fff;box-shadow:0 12px 34px rgba(15,58,55,.055)}
+.contactPanel h2,.contactForm h2{margin:0 0 10px;font-size:26px}
+.contactPanel p,.contactForm>p{color:var(--muted);line-height:1.65}
+.contactEmail{display:flex;align-items:center;gap:12px;margin:22px 0;padding:15px;border-radius:15px;background:var(--brand-soft);color:var(--brand-dark);font-weight:950;text-decoration:none;overflow-wrap:anywhere}
+.contactMeta{display:grid;gap:12px;margin-top:20px}
+.contactMeta div{padding-top:12px;border-top:1px solid #edf3f2;color:#5d706d;font-size:13px;line-height:1.55}
+.contactForm label{display:grid;gap:7px;margin-top:15px;color:#344744;font-size:13px;font-weight:900}
+.contactForm input,.contactForm select,.contactForm textarea{width:100%;border:1px solid #d7e6e4;border-radius:13px;background:#fff;color:var(--ink);outline:none}
+.contactForm input,.contactForm select{height:48px;padding:0 13px}
+.contactForm textarea{min-height:150px;padding:13px;resize:vertical}
+.contactForm input:focus,.contactForm select:focus,.contactForm textarea:focus{border-color:var(--brand-dark);box-shadow:0 0 0 4px rgba(6,157,146,.13)}
+.contactSubmit{width:100%;min-height:50px;margin-top:18px;border:0;border-radius:13px;background:linear-gradient(135deg,#18b9ad,#069d92);color:#fff;font-weight:950;box-shadow:0 11px 24px rgba(6,157,146,.22)}
+.contactStatus{min-height:20px;margin:12px 0 0;color:var(--brand-dark);font-size:13px;font-weight:850}
+.infoFooter{padding:0 0 28px}
+.infoFooterShell{width:min(1180px,calc(100% - 32px));margin:auto;overflow:hidden;border:1px solid rgba(101,230,216,.2);border-radius:25px;background:linear-gradient(135deg,#042f33,#03383b 52%,#02282d);color:#fff;box-shadow:0 20px 60px rgba(0,35,38,.18)}
+.infoFooterMain{display:grid;grid-template-columns:1.25fr repeat(2,.8fr);gap:34px;padding:34px 38px}
+.infoFooterLogo{display:block;width:230px;height:58px;background:url('slevao-logo-footer.svg?v=20260803-1') left center/contain no-repeat}
+.infoFooter p{max-width:330px;color:#bdd1ce;line-height:1.6}
+.infoFooter h3{margin:0 0 13px;font-size:16px}
+.infoFooterLinks{display:grid;gap:10px}
+.infoFooterLinks a{color:#d9e7e5;text-decoration:none;font-size:14px}
+.infoFooterLinks a:hover{color:#55dfd1}
+.infoFooterBottom{padding:18px 38px;border-top:1px solid rgba(255,255,255,.12);color:#9eb7b3;font-size:13px}
+.infoSrOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+@media(max-width:900px){.infoLayout{grid-template-columns:1fr}.infoToc{position:static;display:flex;gap:4px;overflow-x:auto}.infoToc strong{display:none}.infoToc a{white-space:nowrap}.contactLayout{grid-template-columns:1fr}.infoFooterMain{grid-template-columns:1fr 1fr}.infoFooterMain>div:first-child{grid-column:1/-1}}
+@media(max-width:680px){.infoContainer{width:calc(100% - 20px)}.infoHeader{padding:7px 0}.infoHeaderInner{min-height:58px;padding:6px 10px}.infoLogo{width:52px;height:48px;background-image:url('slevao-mark.svg?v=20260802-1');background-position:center}.infoNav a:not(.infoHomeButton){display:none}.infoHero{padding:28px 0 18px}.infoHeroCard{padding:34px 22px;border-radius:23px}.infoHeroCard:after{right:-20px;top:-15px;font-size:140px}.infoHero h1{font-size:clamp(36px,12vw,52px)}.infoHero p{font-size:15px}.infoMain{padding-top:8px}.infoSection,.contactPanel,.contactForm{padding:22px 18px;border-radius:18px}.infoGrid{grid-template-columns:1fr}.infoFooterShell{width:calc(100% - 20px);border-radius:22px}.infoFooterMain{grid-template-columns:1fr;padding:28px 22px}.infoFooterMain>div:first-child{grid-column:auto}.infoFooterBottom{padding:17px 22px}.infoFooterLogo{width:210px}}
