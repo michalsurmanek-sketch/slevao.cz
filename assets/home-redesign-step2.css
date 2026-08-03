@@ -1,7 +1,7 @@
 /* Slevao.cz redesign – krok 2: hlavní hero kontejner */
 .hero{padding:18px 0 14px}
 .hero>.container{width:min(1450px,calc(100% - 48px))}
-.heroCard{position:relative;min-height:430px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.14fr) minmax(290px,.72fr) minmax(310px,.72fr);align-items:center;gap:20px;padding:30px 34px 30px 42px;border:1px solid rgba(214,231,229,.9);border-radius:32px;background:#f5fbfa url('/assets/hero-banner.svg?v=20260803-2') center center/cover no-repeat;box-shadow:0 18px 48px rgba(20,44,43,.08)}
+.heroCard{position:relative;min-height:430px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.14fr) minmax(290px,.72fr) minmax(310px,.72fr);align-items:center;gap:20px;padding:30px 34px 30px 42px;border:1px solid rgba(214,231,229,.9);border-radius:32px;background:#f5fbfa url('/assets/hero-banner.webp?v=20260803-3') center center/cover no-repeat;box-shadow:0 18px 48px rgba(20,44,43,.08)}
 .heroCopy,.heroArtwork,.heroLocation{position:relative;z-index:1}
 .heroCopy{max-width:690px;align-self:center}
 .hero .eyebrow{display:inline-flex;align-items:center;justify-content:center;min-height:39px;padding:0 17px;border:1px solid rgba(121,220,211,.28);border-radius:999px;background:rgba(244,255,253,.86);color:#129b91;box-shadow:0 5px 16px rgba(31,145,136,.05);font-size:12px;font-weight:950;letter-spacing:.1em}
