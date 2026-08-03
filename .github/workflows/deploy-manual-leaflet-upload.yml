@@ -38,8 +38,9 @@ jobs:
           node --check assets/admin-manual-leaflets.js
           node --check assets/admin-pdf-pages.js
           grep -q "manual-leaflet-upload-v2" assets/admin-manual-leaflets.js
-          grep -q "pdfjs-dist@" assets/admin-pdf-pages.js
-          grep -q "pageCount" assets/admin-pdf-pages.js
+          grep -q "MAX_PDF_SIZE = 50 \* 1024 \* 1024" assets/admin-pdf-pages.js
+          grep -q "MAX_PAGES = 160" assets/admin-pdf-pages.js
+          grep -q "splitPdf" assets/admin-pdf-pages.js
           grep -q "PDF bylo rozděleno na všech" assets/admin-pdf-pages.js
           grep -q "process-manual-leaflet-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "edge-multipart-storage-v3" supabase/functions/manual-leaflet-upload-v2/index.ts
@@ -119,10 +120,15 @@ jobs:
           test "$http_status" = '200'
           jq -e '.ok == true and .upload == "ready" and .processor == "ready" and .bucket == "leaflets" and .processor_name == "process-manual-leaflet-v2"' "$health_file"
 
-      - name: Ověřit produkční stránku
+      - name: Ověřit produkční stránku a 50MB PDF
+        shell: bash
         run: |
-          page="$(curl --fail --silent --show-error --location \
-            --retry 12 --retry-delay 5 \
-            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}")"
-          grep -q 'admin-pdf-pages.js?v=20260803-1' <<< "$page"
-          grep -q 'admin-manual-leaflets.js?v=20260803-9' <<< "$page"
+          set -euo pipefail
+          page_file="$(mktemp)"
+          curl --fail --silent --show-error --location \
+            --retry 18 --retry-delay 5 \
+            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}" \
+            > "$page_file"
+          grep -q 'admin-pdf-pages.js?v=20260803-2' "$page_file"
+          grep -q 'admin-manual-leaflets.js?v=20260803-10' "$page_file"
+          grep -q 'PDF do 50 MB' "$page_file"
