@@ -90,12 +90,11 @@ begin
   end if;
 
   insert into public.offers(
-    product_id, store_id, category_id, title, price, old_price, image_url,
+    product_id, store_id, title, price, old_price, image_url,
     valid_from, valid_to, status, is_verified, published_at
   ) values (
     matched_product.id,
     target_store_id,
-    target_category_id,
     product_name,
     target_price,
     target_old_price,
