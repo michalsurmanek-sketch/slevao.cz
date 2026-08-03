@@ -3,6 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 const BUCKET = 'leaflets';
+const PROCESSOR = 'process-manual-leaflet-v2';
 const MAX_BYTES = 8 * 1024 * 1024;
 const SIGNED_URL_SECONDS = 4 * 60 * 60;
 const PROCESS_START_TIMEOUT_MS = 20_000;
@@ -14,11 +15,6 @@ const CORS_HEADERS = {
   'access-control-allow-headers': 'authorization, apikey, x-client-info, content-type',
 };
 const JSON_HEADERS = { ...CORS_HEADERS, 'content-type': 'application/json; charset=utf-8' };
-const BUCKET_OPTIONS = {
-  public: false,
-  fileSizeLimit: 120 * 1024 * 1024,
-  allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-};
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -46,20 +42,10 @@ function safeFilename(value: string): string {
 }
 
 function detectType(bytes: Uint8Array): { mime: string; extension: string } | null {
-  if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
-    return { mime: 'application/pdf', extension: 'pdf' };
-  }
-  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
-    return { mime: 'image/jpeg', extension: 'jpg' };
-  }
-  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
-    return { mime: 'image/png', extension: 'png' };
-  }
-  if (bytes.length >= 12
-    && new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF'
-    && new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP') {
-    return { mime: 'image/webp', extension: 'webp' };
-  }
+  if (bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) return { mime: 'application/pdf', extension: 'pdf' };
+  if (bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) return { mime: 'image/jpeg', extension: 'jpg' };
+  if (bytes.length >= 8 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) return { mime: 'image/png', extension: 'png' };
+  if (bytes.length >= 12 && new TextDecoder().decode(bytes.slice(0, 4)) === 'RIFF' && new TextDecoder().decode(bytes.slice(8, 12)) === 'WEBP') return { mime: 'image/webp', extension: 'webp' };
   if (bytes.length >= 6) {
     const magic = new TextDecoder().decode(bytes.slice(0, 6));
     if (magic === 'GIF87a' || magic === 'GIF89a') return { mime: 'image/gif', extension: 'gif' };
@@ -75,15 +61,13 @@ async function sha256(bytes: Uint8Array): Promise<string> {
 async function ensureBucket(db: ReturnType<typeof createClient>): Promise<void> {
   const current = await db.storage.getBucket(BUCKET);
   if (current.error && !/not found|does not exist/i.test(current.error.message)) throw current.error;
-
-  if (!current.data) {
-    const created = await db.storage.createBucket(BUCKET, BUCKET_OPTIONS);
-    if (created.error && !/already exists/i.test(created.error.message)) throw created.error;
-    return;
-  }
-
-  const updated = await db.storage.updateBucket(BUCKET, BUCKET_OPTIONS);
-  if (updated.error) throw updated.error;
+  if (current.data) return;
+  const created = await db.storage.createBucket(BUCKET, {
+    public: false,
+    fileSizeLimit: 50 * 1024 * 1024,
+    allowedMimeTypes: ['application/pdf', 'image/jpeg', 'image/png', 'image/webp', 'image/gif'],
+  });
+  if (created.error && !/already exists/i.test(created.error.message)) throw created.error;
 }
 
 async function authenticatedUser(request: Request, db: ReturnType<typeof createClient>) {
@@ -94,11 +78,11 @@ async function authenticatedUser(request: Request, db: ReturnType<typeof createC
   if (error || !data.user) throw new Error('Přihlášení vypršelo.');
   const role = String(data.user.app_metadata?.role || '').toLowerCase();
   if (!['admin', 'editor'].includes(role)) throw new Error('Nedostatečné oprávnění.');
-  return { user: data.user, role };
+  return data.user;
 }
 
 async function processorRequest(importId: string): Promise<Record<string, unknown>> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/process-leaflet`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/${PROCESSOR}`, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${SERVICE_ROLE_KEY}`,
@@ -124,8 +108,6 @@ async function processorRequest(importId: string): Promise<Record<string, unknow
 
 async function confirmProcessorStarted(db: ReturnType<typeof createClient>, importId: string): Promise<string> {
   const deadline = Date.now() + PROCESS_START_TIMEOUT_MS;
-  let lastStatus = 'queued';
-
   while (Date.now() < deadline) {
     const result = await db.from('leaflet_imports')
       .select('status,error_message,updated_at')
@@ -133,15 +115,11 @@ async function confirmProcessorStarted(db: ReturnType<typeof createClient>, impo
       .maybeSingle();
     if (result.error) throw result.error;
     if (!result.data) throw new Error('Import po spuštění zmizel z databáze.');
-
-    lastStatus = String(result.data.status || '');
-    if (lastStatus === 'failed') {
-      throw new Error(String(result.data.error_message || 'Procesor import okamžitě ukončil chybou.'));
-    }
-    if (lastStatus !== 'queued') return lastStatus;
+    const status = String(result.data.status || '');
+    if (status === 'failed') throw new Error(String(result.data.error_message || 'Procesor import okamžitě ukončil chybou.'));
+    if (status !== 'queued') return status;
     await new Promise((resolve) => setTimeout(resolve, 750));
   }
-
   throw new Error(`Procesor nepotvrdil spuštění do ${Math.round(PROCESS_START_TIMEOUT_MS / 1000)} sekund; import zůstal ve stavu queued.`);
 }
 
@@ -151,11 +129,11 @@ async function startAndConfirmProcessor(db: ReturnType<typeof createClient>, imp
 }
 
 async function processorHealth(): Promise<void> {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/process-leaflet`, {
+  const response = await fetch(`${SUPABASE_URL}/functions/v1/${PROCESSOR}`, {
     method: 'OPTIONS',
     headers: { apikey: SERVICE_ROLE_KEY },
   });
-  if (!response.ok) throw new Error(`Procesor letáků není dostupný: HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(`Ruční procesor letáků není dostupný: HTTP ${response.status}.`);
 }
 
 function statusAgeMs(updatedAt: unknown): number {
@@ -183,7 +161,6 @@ async function findExisting(db: ReturnType<typeof createClient>, storeId: string
     .maybeSingle();
   if (direct.error) throw direct.error;
   if (direct.data) return direct.data;
-
   const legacy = await db.from('leaflet_imports')
     .select('id,status,metadata,source_hash,updated_at')
     .eq('store_id', storeId)
@@ -197,25 +174,19 @@ async function findExisting(db: ReturnType<typeof createClient>, storeId: string
 
 async function signedUrl(db: ReturnType<typeof createClient>, path: string): Promise<string> {
   const result = await db.storage.from(BUCKET).createSignedUrl(path, SIGNED_URL_SECONDS);
-  if (result.error || !result.data?.signedUrl) {
-    throw result.error || new Error('Nepodařilo se vytvořit dočasný odkaz na soubor.');
-  }
+  if (result.error || !result.data?.signedUrl) throw result.error || new Error('Nepodařilo se vytvořit dočasný odkaz na soubor.');
   return result.data.signedUrl;
 }
 
 async function retryImport(db: ReturnType<typeof createClient>, importId: string) {
-  const result = await db.from('leaflet_imports')
-    .select('id,status,metadata')
-    .eq('id', importId)
-    .maybeSingle();
+  const result = await db.from('leaflet_imports').select('id,status,metadata').eq('id', importId).maybeSingle();
   if (result.error) throw result.error;
   if (!result.data) throw new Error('Import nebyl nalezen.');
-
   const metadata = result.data.metadata || {};
-  const bucket = String(metadata.storage_bucket || '');
   const path = String(metadata.storage_path || '');
-  if (bucket !== BUCKET || !path) throw new Error('Tento starý import nemá uložený soubor. Nahraj ho znovu z počítače.');
-
+  if (String(metadata.storage_bucket || '') !== BUCKET || !path) {
+    throw new Error('Tento starý import nemá uložený soubor. Nahraj ho znovu z počítače.');
+  }
   const sourceUrl = await signedUrl(db, path);
   const updated = await db.from('leaflet_imports').update({
     source_document_url: sourceUrl,
@@ -226,7 +197,6 @@ async function retryImport(db: ReturnType<typeof createClient>, importId: string
     metadata: { ...metadata, retried_at: new Date().toISOString() },
   }).eq('id', importId).select('id').single();
   if (updated.error) throw updated.error;
-
   try {
     const status = await startAndConfirmProcessor(db, importId);
     return { ok: true, import_id: importId, accepted: true, status };
@@ -243,34 +213,29 @@ async function retryImport(db: ReturnType<typeof createClient>, importId: string
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS_HEADERS });
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) return json({ ok: false, error: 'Na serveru chybí Supabase secrets.' }, 500);
-
-  const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
   if (request.method === 'GET' && new URL(request.url).searchParams.get('health') === '1') {
     try {
       await ensureBucket(db);
       await processorHealth();
-      return json({ ok: true, upload: 'ready', processor: 'ready', bucket: BUCKET });
+      return json({ ok: true, upload: 'ready', processor: 'ready', bucket: BUCKET, processor_name: PROCESSOR });
     } catch (error) {
       return json({ ok: false, error: errorMessage(error) }, 503);
     }
   }
 
   if (request.method !== 'POST') return json({ ok: false, error: 'Metoda není podporována.' }, 405);
-
   let uploadedPath = '';
-  let importRegistered = false;
-  try {
-    const { user } = await authenticatedUser(request, db);
-    const contentType = request.headers.get('content-type') || '';
+  let keepUploadedFile = false;
 
+  try {
+    const user = await authenticatedUser(request, db);
+    const contentType = request.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
       const body = await request.json().catch(() => ({}));
       if (body?.action !== 'retry') throw new Error('Neplatná akce.');
-      const importId = validUuid(body.import_id, 'Import');
-      return json(await retryImport(db, importId), 202);
+      return json(await retryImport(db, validUuid(body.import_id, 'Import')), 202);
     }
 
     if (!contentType.includes('multipart/form-data')) throw new Error('Očekává se soubor ve formuláři.');
@@ -290,7 +255,7 @@ Deno.serve(async (request) => {
     const computedHash = await sha256(bytes);
     if (suppliedHash && suppliedHash !== computedHash) throw new Error('Kontrolní otisk souboru nesouhlasí. Nahraj soubor znovu.');
     const hash = computedHash;
-    const sourceHash = `manual-upload-v2:${storeId}:${hash}`;
+    const sourceHash = `manual-upload-v3:${storeId}:${hash}`;
 
     const storeResult = await db.from('stores').select('id,name,slug,is_active').eq('id', storeId).maybeSingle();
     if (storeResult.error) throw storeResult.error;
@@ -328,7 +293,8 @@ Deno.serve(async (request) => {
     const metadata = {
       ...(existing?.metadata || {}),
       manual_upload: true,
-      upload_transport: 'edge-multipart-storage-v2',
+      upload_transport: 'edge-multipart-storage-v3',
+      processor: PROCESSOR,
       original_filename: candidate.name,
       content_type: detected.mime,
       file_size: candidate.size,
@@ -368,22 +334,14 @@ Deno.serve(async (request) => {
       if (created.error || !created.data?.id) throw created.error || new Error('Import se nepodařilo založit.');
       importId = created.data.id;
     }
-    importRegistered = true;
 
+    keepUploadedFile = true;
     try {
       const status = await startAndConfirmProcessor(db, importId);
       if (previousBucket === BUCKET && previousPath && previousPath !== uploadedPath) {
         await db.storage.from(BUCKET).remove([previousPath]).catch(() => {});
       }
-      uploadedPath = '';
-      return json({
-        ok: true,
-        accepted: true,
-        duplicate: false,
-        import_id: importId,
-        status,
-        store: storeResult.data,
-      }, 202);
+      return json({ ok: true, accepted: true, duplicate: false, import_id: importId, status, store: storeResult.data }, 202);
     } catch (processorError) {
       await db.from('leaflet_imports').update({
         status: 'failed',
@@ -393,7 +351,7 @@ Deno.serve(async (request) => {
       throw processorError;
     }
   } catch (error) {
-    if (uploadedPath && !importRegistered) await db.storage.from(BUCKET).remove([uploadedPath]).catch(() => {});
+    if (uploadedPath && !keepUploadedFile) await db.storage.from(BUCKET).remove([uploadedPath]).catch(() => {});
     console.error('manual-leaflet-upload-v2 failed:', errorMessage(error));
     return json({ ok: false, error: errorMessage(error) }, 400);
   }
