@@ -9,6 +9,8 @@ on:
       - 'assets/admin-manual-leaflets.css'
       - 'assets/admin-manual-leaflets.js'
       - 'supabase/functions/manual-leaflet-upload-v2/**'
+      - 'supabase/functions/process-leaflet/**'
+      - '.github/scripts/patch_process_leaflet_large_files.py'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -21,23 +23,23 @@ permissions:
 
 jobs:
   deploy-and-validate:
-    name: Nasadit a ověřit serverový upload
+    name: Nasadit a ověřit celý importní řetězec
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 18
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Zkontrolovat JavaScript
-        run: node --check assets/admin-manual-leaflets.js
-
-      - name: Ověřit jedinou upload cestu
+      - name: Zkontrolovat frontend a jedinou upload cestu
         shell: bash
         run: |
           set -euo pipefail
+          node --check assets/admin-manual-leaflets.js
           grep -q "manual-leaflet-upload-v2" assets/admin-manual-leaflets.js
           grep -q "multipart/form-data" supabase/functions/manual-leaflet-upload-v2/index.ts
-          grep -q "upload_transport: 'edge-multipart-storage'" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "edge-multipart-storage-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "health=1" supabase/functions/manual-leaflet-upload-v2/index.ts
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
@@ -45,6 +47,12 @@ jobs:
           ! grep -q "admin-manual-leaflets-client-register" admin-nahrat-letaky.html
           ! grep -q "admin-manual-leaflets-bucket-hotfix" admin-nahrat-letaky.html
           test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
+
+      - name: Ověřit opravy procesoru velkých letáků
+        run: |
+          python .github/scripts/patch_process_leaflet_large_files.py
+          grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
+          grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -60,6 +68,14 @@ jobs:
             exit 1
           }
 
+      - name: Nasadit procesor letáků
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy process-leaflet \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
       - name: Nasadit serverový upload ručních letáků
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -68,17 +84,36 @@ jobs:
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Ověřit dostupnost Edge Function
+      - name: Ověřit obě Edge Functions
+        shell: bash
         run: |
-          curl --fail --silent --show-error \
-            --request OPTIONS \
-            --retry 6 --retry-delay 3 \
-            https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/manual-leaflet-upload-v2 \
-            | grep -q '^ok$'
+          set -euo pipefail
+          for function_name in process-leaflet manual-leaflet-upload-v2; do
+            response="$(curl --fail --silent --show-error \
+              --request OPTIONS \
+              --retry 8 --retry-delay 3 \
+              "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/${function_name}")"
+            test "$response" = 'ok'
+          done
+
+      - name: Ověřit Storage a návaznost na procesor
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_file="$(mktemp)"
+          http_status="$(curl --silent --show-error \
+            --output "$health_file" \
+            --write-out '%{http_code}' \
+            --retry 8 --retry-delay 3 \
+            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/manual-leaflet-upload-v2?health=1')"
+          cat "$health_file"
+          echo
+          test "$http_status" = '200'
+          jq -e '.ok == true and .upload == "ready" and .processor == "ready" and .bucket == "leaflets"' "$health_file"
 
       - name: Ověřit produkční stránku
         run: |
           curl --fail --silent --show-error --location \
             --retry 12 --retry-delay 5 \
-            https://slevao.cz/admin-nahrat-letaky.html \
+            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}" \
             | grep -q 'admin-manual-leaflets.js?v=20260803-7'
