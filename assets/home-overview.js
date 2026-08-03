@@ -9,6 +9,7 @@
   const TODAY = new Date().toISOString().slice(0, 10);
   const LEAFLETS_PER_PAGE = 3;
   const STORES_PER_PAGE = 8;
+  const ENDING_VISIBLE = 3;
   const AUTO_ROTATE_MS = 10000;
   const STORE_PRIORITY = [
     'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
@@ -33,6 +34,8 @@
   let leafletPageCount = 1;
   let storePageCount = 1;
   let overviewStores = [];
+  let endingOffers = [];
+  let endingOffset = 0;
 
   function pagerMarkup(type, label) {
     return `<div class="overviewPager" aria-label="${label}">
@@ -265,6 +268,7 @@
       if (document.hidden) return;
       changePage('leaflets', 1);
       changePage('stores', 1);
+      advanceEndingRow();
     }, AUTO_ROTATE_MS);
   }
 
@@ -318,10 +322,52 @@
     return offer.image_url || offer.products?.image_url || '';
   }
 
-  function renderEnding(rows) {
+  function endingOfferMarkup(offer) {
+    const store = offer.stores || {};
+    const title = offer.title || offer.products?.name || 'Akční nabídka';
+    const image = offerImage(offer);
+    const price = Number(offer.price || 0);
+    const oldPrice = Number(offer.old_price || 0);
+    const discount = oldPrice > price ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
+    const href = store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection';
+
+    return `<a class="overviewDealRow" href="${href}">
+      <span class="overviewDealImage">${image ? `<img src="${esc(image)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '<span class="overviewProductFallback">🏷️</span>'}</span>
+      <span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${offerLogo(store)}${esc(store.name || 'Obchod')}</small></span>
+      <span class="overviewEndingBadge">${endingLabel(offer.valid_to)}</span>
+      <span class="overviewDealPrice"><strong>${money(price)} Kč</strong>${oldPrice > price ? `<del>${money(oldPrice)} Kč</del>` : ''}</span>
+      ${discount ? `<span class="overviewDiscount">−${discount}%</span>` : ''}
+    </a>`;
+  }
+
+  function renderEndingWindow() {
     const target = $('overviewEnding');
     if (!target) return;
 
+    if (!endingOffers.length) {
+      target.innerHTML = '<span class="overviewLoading">Žádná akce nyní nekončí.</span>';
+      fitPanels();
+      return;
+    }
+
+    endingOffset = normalizePage(endingOffset, endingOffers.length);
+    const visibleCount = Math.min(ENDING_VISIBLE, endingOffers.length);
+    const visibleOffers = Array.from({ length: visibleCount }, (_, index) => (
+      endingOffers[(endingOffset + index) % endingOffers.length]
+    ));
+
+    target.innerHTML = visibleOffers.map(endingOfferMarkup).join('');
+    fitPanels();
+  }
+
+  function advanceEndingRow() {
+    if (endingOffers.length <= ENDING_VISIBLE) return false;
+    endingOffset = normalizePage(endingOffset + 1, endingOffers.length);
+    renderEndingWindow();
+    return true;
+  }
+
+  function renderEnding(rows) {
     const unique = new Map();
     rows.forEach((offer) => {
       const key = `${offer.stores?.slug || ''}|${String(offer.title || offer.products?.name || '').toLowerCase()}`;
@@ -329,36 +375,13 @@
       if (!current || (!offerImage(current) && offerImage(offer))) unique.set(key, offer);
     });
 
-    const offers = [...unique.values()]
+    endingOffers = [...unique.values()]
       .sort((a, b) => days(a.valid_to) - days(b.valid_to)
         || (Number(b.old_price || 0) - Number(b.price || 0)) - (Number(a.old_price || 0) - Number(a.price || 0)))
-      .slice(0, 3);
+      .slice(0, 24);
 
-    if (!offers.length) {
-      target.innerHTML = '<span class="overviewLoading">Žádná akce nyní nekončí.</span>';
-      fitPanels();
-      return;
-    }
-
-    target.innerHTML = offers.map((offer) => {
-      const store = offer.stores || {};
-      const title = offer.title || offer.products?.name || 'Akční nabídka';
-      const image = offerImage(offer);
-      const price = Number(offer.price || 0);
-      const oldPrice = Number(offer.old_price || 0);
-      const discount = oldPrice > price ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
-      const href = store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection';
-
-      return `<a class="overviewDealRow" href="${href}">
-        <span class="overviewDealImage">${image ? `<img src="${esc(image)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '<span class="overviewProductFallback">🏷️</span>'}</span>
-        <span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${offerLogo(store)}${esc(store.name || 'Obchod')}</small></span>
-        <span class="overviewEndingBadge">${endingLabel(offer.valid_to)}</span>
-        <span class="overviewDealPrice"><strong>${money(price)} Kč</strong>${oldPrice > price ? `<del>${money(oldPrice)} Kč</del>` : ''}</span>
-        ${discount ? `<span class="overviewDiscount">−${discount}%</span>` : ''}
-      </a>`;
-    }).join('');
-
-    fitPanels();
+    endingOffset = normalizePage(endingOffset, endingOffers.length);
+    renderEndingWindow();
   }
 
   async function loadEnding() {
@@ -381,6 +404,7 @@
       renderEnding(await response.json());
     } catch (error) {
       console.warn('Přehled končících akcí se nepodařilo načíst:', error);
+      endingOffers = [];
       if (target) target.innerHTML = '<span class="overviewLoading">Akce se nyní nepodařilo načíst.</span>';
       fitPanels();
     }
