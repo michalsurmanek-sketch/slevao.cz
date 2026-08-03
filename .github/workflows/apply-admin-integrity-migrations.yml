@@ -18,6 +18,7 @@ on:
       - 'supabase/migrations/20260803190000_preserve_expired_offers.sql'
       - 'supabase/migrations/20260803193000_harden_public_rls.sql'
       - 'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
+      - 'supabase/migrations/20260803200000_category_integrity.sql'
       - '.github/workflows/apply-admin-integrity-migrations.yml'
   workflow_dispatch:
 
@@ -67,6 +68,7 @@ jobs:
             'supabase/migrations/20260803190000_preserve_expired_offers.sql'
             'supabase/migrations/20260803193000_harden_public_rls.sql'
             'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
+            'supabase/migrations/20260803200000_category_integrity.sql'
           )
 
           run_query() {
@@ -121,6 +123,18 @@ jobs:
               raise exception 'Databáze obsahuje publikovanou prošlou nabídku';
             end if;
             if exists (
+              select 1 from public.categories
+              where coalesce(trim(slug), '') = ''
+            ) then
+              raise exception 'Některá kategorie nemá slug';
+            end if;
+            if exists (
+              select slug from public.categories
+              group by slug having count(*) > 1
+            ) then
+              raise exception 'Kategorie obsahují duplicitní slug';
+            end if;
+            if exists (
               select 1
               from pg_class
               where oid in (
@@ -138,7 +152,8 @@ jobs:
           select
             (select count(*) from public.offers where status <> 'trash') as active_offers,
             (select count(*) from public.offers where status = 'trash') as trash_offers,
-            (select count(*) from public.stores where is_active) as active_stores;
+            (select count(*) from public.stores where is_active) as active_stores,
+            (select count(*) from public.categories where is_active) as active_categories;
           SQL
 
           echo 'Ověřuji výsledný stav databáze'
