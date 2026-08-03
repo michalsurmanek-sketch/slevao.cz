@@ -1,0 +1,106 @@
+name: Opravit zobrazení budoucích nabídek
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/patch-upcoming-offers.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Upravit veřejný feed
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          js_path = Path('assets/home-v2.js')
+          js = js_path.read_text(encoding='utf-8')
+
+          replacements = [
+              (
+                  "const CACHE_KEY = 'slevao-home-v2-data';",
+                  "const CACHE_KEY = 'slevao-home-v2-data-upcoming-v1';"
+              ),
+              (
+                  "const TODAY = new Date().toISOString().slice(0, 10);",
+                  "const TODAY = new Date().toISOString().slice(0, 10);\n  const UPCOMING_DAYS = 7;\n  const UPCOMING_TO = new Date(Date.now() + UPCOMING_DAYS * 86400000).toISOString().slice(0, 10);\n  const isUpcoming = (offer) => String(offer?.valid_from || '') > TODAY;"
+              ),
+              (
+                  "valid_from:`lte.${TODAY}`, valid_to:`gte.${TODAY}`",
+                  "valid_from:`lte.${UPCOMING_TO}`, valid_to:`gte.${TODAY}`"
+              ),
+              (
+                  "return output.sort((a, b) => {\n      if (mode === 'discount')",
+                  "return output.sort((a, b) => {\n      const upcomingOrder = Number(isUpcoming(a)) - Number(isUpcoming(b));\n      if (upcomingOrder) return upcomingOrder;\n      if (mode === 'discount')"
+              ),
+              (
+                  "const modeTitles = { recommended:'Nejvýhodnější právě teď', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };\n    $('dealsTitle').textContent = state.savedOnly ? 'Uložené nabídky' : store ? `Akční nabídky – ${store.name}` : modeTitles[state.mode];\n    $('dealsSubtitle').textContent = state.savedOnly ? 'Produkty, které sis uložil v tomto prohlížeči.' : state.mode === 'ending' ? 'Tyto ceny platí naposledy dnes.' : 'Porovnej cenu, úsporu a dobu platnosti.';",
+                  "const upcomingOnly = rows.length > 0 && rows.every(isUpcoming);\n    const nextStart = upcomingOnly ? [...new Set(rows.map((offer) => offer.valid_from).filter(Boolean))].sort()[0] : '';\n    const modeTitles = { recommended: upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };\n    $('dealsTitle').textContent = state.savedOnly ? 'Uložené nabídky' : store ? `Akční nabídky – ${store.name}` : modeTitles[state.mode];\n    $('dealsSubtitle').textContent = state.savedOnly ? 'Produkty, které sis uložil v tomto prohlížeči.' : upcomingOnly ? `Tyto nabídky začínají platit ${date(nextStart)}.` : state.mode === 'ending' ? 'Tyto ceny platí naposledy dnes.' : 'Porovnej cenu, úsporu a dobu platnosti.';"
+              ),
+              (
+                  "${offer.valid_to === TODAY ? '<span class=\"endingBadge\">Končí dnes</span>' : ''}",
+                  "${isUpcoming(offer) ? `<span class=\"endingBadge\">Platí od ${date(offer.valid_from)}</span>` : offer.valid_to === TODAY ? '<span class=\"endingBadge\">Končí dnes</span>' : ''}"
+              ),
+              (
+                  "$('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');\n    $('statusPill').textContent = status;",
+                  "$('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');\n    const currentCount = state.offers.filter((offer) => !isUpcoming(offer)).length;\n    const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];\n    $('statusPill').textContent = !currentCount && state.offers.length && nextStart ? `✓ Nabídky platí od ${date(nextStart)}` : status;"
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in js:
+                  raise SystemExit(f'Nenalezen očekávaný úsek v home-v2.js: {old[:100]}')
+              js = js.replace(old, new, 1)
+
+          js_path.write_text(js, encoding='utf-8')
+
+          index_path = Path('index.html')
+          index = index_path.read_text(encoding='utf-8')
+          old_version = 'assets/home-v2.js?v=20260802-2'
+          new_version = 'assets/home-v2.js?v=20260803-3'
+          if old_version not in index:
+              raise SystemExit('Nenalezena očekávaná verze home-v2.js v index.html')
+          index_path.write_text(index.replace(old_version, new_version, 1), encoding='utf-8')
+
+          migration = Path('supabase/migrations/20260803224000_show_upcoming_offers_publicly.sql')
+          migration.write_text('''drop policy if exists "Public read published offers" on public.offers;
+          create policy "Public read published offers"
+          on public.offers
+          for select
+          to anon, authenticated
+          using (
+            (
+              status = 'published'
+              and valid_to >= current_date
+              and valid_from <= current_date + 7
+            )
+            or is_admin()
+          );
+          ''', encoding='utf-8')
+          PY
+
+          node --check assets/home-v2.js
+          grep -q "UPCOMING_TO" assets/home-v2.js
+          grep -q "Platí od" assets/home-v2.js
+          grep -q "home-v2.js?v=20260803-3" index.html
+
+      - name: Uložit opravu
+        shell: bash
+        run: |
+          git config user.name "slevao-automation"
+          git config user.email "actions@users.noreply.github.com"
+          git add assets/home-v2.js index.html supabase/migrations/20260803224000_show_upcoming_offers_publicly.sql
+          git commit -m "Zobrazit na webu nabídky začínající během 7 dnů"
+          git push origin main
