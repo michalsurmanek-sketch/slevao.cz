@@ -36,6 +36,12 @@
 
   const addLink = () => {
     const nav = document.querySelector('.side .nav');
+    if (nav && !nav.querySelector('a[href="admin-nahrat-letaky.html"]')) {
+      const target = nav.querySelector('a[href="admin-automatizace.html"]');
+      const link = createLink('admin-nahrat-letaky.html', 'Nahrát letáky', '⇧');
+      if (target) nav.insertBefore(link, target);
+      else nav.append(link);
+    }
     if (nav && !nav.querySelector('a[href="admin-obrazky-letaku.html"]')) {
       const target = nav.querySelector('a[href="admin-fotografie.html"]') || nav.querySelector('a[href="index.html"]');
       const link = createLink('admin-obrazky-letaku.html', 'Obrázky letáků');
@@ -50,6 +56,15 @@
     }
 
     const quick = document.querySelector('#dashboard .toolbar');
+    if (quick && !quick.querySelector('a[href="admin-nahrat-letaky.html"]')) {
+      const link = document.createElement('a');
+      link.className = 'btn primary';
+      link.href = 'admin-nahrat-letaky.html';
+      link.textContent = '⇧ Nahrát nové letáky';
+      const target = quick.querySelector('a[href="admin-automatizace.html"]');
+      if (target) quick.insertBefore(link, target);
+      else quick.prepend(link);
+    }
     if (quick && !quick.querySelector('a[href="admin-obrazky-letaku.html"]')) {
       const link = document.createElement('a');
       link.className = 'btn light';
