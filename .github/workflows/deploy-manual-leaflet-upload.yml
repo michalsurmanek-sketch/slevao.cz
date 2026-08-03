@@ -39,7 +39,7 @@ jobs:
           grep -q "multipart/form-data" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "edge-multipart-storage-v2" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
-          grep -q "health=1" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "searchParams.get('health')" supabase/functions/manual-leaflet-upload-v2/index.ts
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
