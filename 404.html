@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="robots" content="noindex,follow">
+  <meta name="theme-color" content="#069d92">
+  <title>Stránka nenalezena | Slevao.cz</title>
+  <style>
+    *{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;padding:24px;font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;background:#f4f8f7;color:#172222}.box{width:min(620px,100%);padding:38px;border:1px solid #dce8e7;border-radius:28px;background:#fff;box-shadow:0 24px 70px rgba(23,34,34,.12);text-align:center}.mark{width:64px;height:64px;margin:auto;display:grid;place-items:center;border-radius:20px;background:#069d92;color:#fff;font-size:28px;font-weight:950}.box h1{margin:20px 0 10px;font-size:34px}.box p{color:#667373;line-height:1.6}.box a{display:inline-flex;margin-top:14px;padding:13px 20px;border-radius:14px;background:#069d92;color:#fff;text-decoration:none;font-weight:900}
+  </style>
+</head>
+<body>
+  <main class="box">
+    <div class="mark">%</div>
+    <h1>Stránku jsme nenašli</h1>
+    <p>Odkaz může být neplatný nebo byla stránka přesunuta.</p>
+    <a href="/">Zpět na Slevao.cz</a>
+  </main>
+  <script>
+    (() => {
+      const match = decodeURIComponent(location.pathname).match(/^\/([^/]+)\.html$/i);
+      if (!match) return;
+      const slug = String(match[1] || '').toLowerCase().replace(/[^a-z0-9-]/g, '');
+      const reserved = new Set(['index','admin','login','kontakt','ochrana-soukromi','podminky','obchod','moderation']);
+      if (!slug || reserved.has(slug)) return;
+      location.replace(`/obchod.html?store=${encodeURIComponent(slug)}`);
+    })();
+  </script>
+</body>
+</html>
