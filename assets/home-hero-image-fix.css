@@ -1,0 +1,4 @@
+/* Oprava hero pozadí – originální obrázek uživatele */
+.heroCard{background-image:url('/assets/hero-background-centered.webp?v=20260803-5')!important;background-repeat:no-repeat!important;background-size:cover!important;background-position:center center!important}
+@media(max-width:800px){.heroCard{background-size:auto 365px!important;background-position:center 120px!important}}
+@media(max-width:480px){.heroCard{background-size:auto 310px!important;background-position:center 155px!important}}
