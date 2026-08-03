@@ -17,6 +17,7 @@
     'ikea', 'jysk', 'obi', 'hornbach', 'bauhaus', 'mountfield',
     'dr-max', 'benu', 'pilulka', 'pepco', 'kik'
   ];
+
   const STORE_RANK = new Map(STORE_PRIORITY.map((slug, index) => [slug, index]));
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -27,7 +28,6 @@
   let renderTimer = 0;
   let fitFrame = 0;
   let autoRotateTimer = 0;
-  let autoRotatePaused = false;
   let leafletPage = 0;
   let storePage = 0;
   let leafletPageCount = 1;
@@ -44,6 +44,7 @@
 
   function shell() {
     if ($('desktopOverview') || !$('categoriesSection')) return;
+
     const section = document.createElement('section');
     section.id = 'desktopOverview';
     section.className = 'desktopOverview';
@@ -68,6 +69,7 @@
         <div id="overviewEnding" class="overviewEnding"><span class="overviewLoading">Načítám akce…</span></div>
       </article>
     </div>`;
+
     $('categoriesSection').insertAdjacentElement('afterend', section);
     bind(section);
   }
@@ -89,9 +91,11 @@
   function updatePager(type, current, total) {
     const counter = $(`overview-${type}-page`);
     if (counter) counter.textContent = `${current + 1}/${Math.max(total, 1)}`;
+
     document.querySelectorAll(`[data-overview-nav="${type}"]`).forEach((button) => {
-      button.disabled = total <= 1;
-      button.setAttribute('aria-disabled', String(total <= 1));
+      const disabled = total <= 1;
+      button.disabled = disabled;
+      button.setAttribute('aria-disabled', String(disabled));
     });
   }
 
@@ -136,6 +140,7 @@
   function fallbackStoresFromGrid() {
     const source = $('storeGrid');
     if (!source) return [];
+
     return [...source.querySelectorAll('.storeCard')].filter((card) => {
       const slug = card.querySelector('[data-store]')?.dataset.store;
       return slug && slug !== 'all' && !card.hidden;
@@ -151,7 +156,9 @@
       storePage = normalizePage(storePage, storePageCount);
       const start = storePage * STORES_PER_PAGE;
       const rows = overviewStores.slice(start, start + STORES_PER_PAGE);
-      target.innerHTML = rows.length ? rows.map(storeCardMarkup).join('') : '<span class="overviewLoading">Obchody se načítají…</span>';
+      target.innerHTML = rows.length
+        ? rows.map(storeCardMarkup).join('')
+        : '<span class="overviewLoading">Obchody se načítají…</span>';
     } else {
       const allCards = fallbackStoresFromGrid();
       storePageCount = Math.max(1, Math.ceil(allCards.length / STORES_PER_PAGE));
@@ -163,16 +170,19 @@
         clone.querySelector('.storePageLink')?.remove();
         return clone;
       });
+
       target.replaceChildren(...(cards.length ? cards : [Object.assign(document.createElement('span'), {
         className: 'overviewLoading', textContent: 'Obchody se načítají…'
       })]));
     }
+
     updatePager('stores', storePage, storePageCount);
   }
 
   function fitPanels() {
     const grid = document.querySelector('.desktopOverviewGrid');
     if (!grid || window.matchMedia('(max-width:1100px)').matches) return;
+
     cancelAnimationFrame(fitFrame);
     grid.style.removeProperty('--overview-panel-height');
     fitFrame = requestAnimationFrame(() => {
@@ -185,7 +195,7 @@
 
   function schedule() {
     clearTimeout(renderTimer);
-    renderTimer = setTimeout(() => {
+    renderTimer = window.setTimeout(() => {
       syncLeaflets();
       syncStores();
       fitPanels();
@@ -195,6 +205,7 @@
   function relay(slug) {
     const query = `[data-store="${CSS.escape(slug)}"]`;
     const button = $('storeGrid')?.querySelector(query) || $('leafletGrid')?.querySelector(query);
+
     if (button) button.click();
     else {
       const select = $('storeSelect');
@@ -203,13 +214,16 @@
         select.dispatchEvent(new Event('change', { bubbles: true }));
       }
     }
-    setTimeout(() => $('dealsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+
+    window.setTimeout(() => $('dealsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   }
 
   function show(type) {
     const stores = type === 'stores';
     document.body.classList.add(stores ? 'showOriginalStores' : 'showOriginalLeaflets');
-    requestAnimationFrame(() => $(stores ? 'storesSection' : 'leafletsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    requestAnimationFrame(() => $(stores ? 'storesSection' : 'leafletsSection')?.scrollIntoView({
+      behavior: 'smooth', block: 'start'
+    }));
   }
 
   function showEnding() {
@@ -223,15 +237,19 @@
 
   function changePage(type, direction) {
     if (type === 'leaflets') {
-      if (leafletPageCount <= 1) return;
+      if (leafletPageCount <= 1) return false;
       leafletPage = normalizePage(leafletPage + direction, leafletPageCount);
       syncLeaflets();
     } else if (type === 'stores') {
-      if (storePageCount <= 1) return;
+      if (storePageCount <= 1) return false;
       storePage = normalizePage(storePage + direction, storePageCount);
       syncStores();
+    } else {
+      return false;
     }
+
     fitPanels();
+    return true;
   }
 
   function clearAutoRotate() {
@@ -241,15 +259,13 @@
 
   function startAutoRotate() {
     clearAutoRotate();
-    if (autoRotatePaused || document.hidden || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    autoRotateTimer = window.setInterval(() => {
-      if (leafletPageCount > 1) changePage('leaflets', 1);
-      if (storePageCount > 1) changePage('stores', 1);
-    }, AUTO_ROTATE_MS);
-  }
+    if (document.hidden) return;
 
-  function resetAutoRotate() {
-    if (!autoRotatePaused) startAutoRotate();
+    autoRotateTimer = window.setInterval(() => {
+      if (document.hidden) return;
+      changePage('leaflets', 1);
+      changePage('stores', 1);
+    }, AUTO_ROTATE_MS);
   }
 
   function bind(section) {
@@ -257,41 +273,26 @@
       const nav = event.target.closest('[data-overview-nav]');
       if (nav) {
         changePage(nav.dataset.overviewNav, Number(nav.dataset.direction || 1));
-        resetAutoRotate();
+        startAutoRotate();
         return;
       }
+
       const showButton = event.target.closest('[data-show-section]');
       if (showButton) {
         show(showButton.dataset.showSection);
         return;
       }
+
       if (event.target.closest('[data-show-ending]')) {
         showEnding();
         return;
       }
+
       const storeButton = event.target.closest('button[data-store]');
       if (!storeButton) return;
       event.preventDefault();
       event.stopPropagation();
       relay(storeButton.dataset.store || 'all');
-    });
-
-    section.addEventListener('mouseenter', () => {
-      autoRotatePaused = true;
-      clearAutoRotate();
-    });
-    section.addEventListener('mouseleave', () => {
-      autoRotatePaused = false;
-      startAutoRotate();
-    });
-    section.addEventListener('focusin', () => {
-      autoRotatePaused = true;
-      clearAutoRotate();
-    });
-    section.addEventListener('focusout', (event) => {
-      if (section.contains(event.relatedTarget)) return;
-      autoRotatePaused = false;
-      startAutoRotate();
     });
   }
 
@@ -320,12 +321,14 @@
   function renderEnding(rows) {
     const target = $('overviewEnding');
     if (!target) return;
+
     const unique = new Map();
     rows.forEach((offer) => {
       const key = `${offer.stores?.slug || ''}|${String(offer.title || offer.products?.name || '').toLowerCase()}`;
       const current = unique.get(key);
       if (!current || (!offerImage(current) && offerImage(offer))) unique.set(key, offer);
     });
+
     const offers = [...unique.values()]
       .sort((a, b) => days(a.valid_to) - days(b.valid_to)
         || (Number(b.old_price || 0) - Number(b.price || 0)) - (Number(a.old_price || 0) - Number(a.price || 0)))
@@ -345,6 +348,7 @@
       const oldPrice = Number(offer.old_price || 0);
       const discount = oldPrice > price ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
       const href = store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection';
+
       return `<a class="overviewDealRow" href="${href}">
         <span class="overviewDealImage">${image ? `<img src="${esc(image)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '<span class="overviewProductFallback">🏷️</span>'}</span>
         <span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${offerLogo(store)}${esc(store.name || 'Obchod')}</small></span>
@@ -353,6 +357,7 @@
         ${discount ? `<span class="overviewDiscount">−${discount}%</span>` : ''}
       </a>`;
     }).join('');
+
     fitPanels();
   }
 
@@ -361,11 +366,16 @@
     try {
       const query = new URLSearchParams({
         select: 'id,title,price,old_price,image_url,valid_to,published_at,stores(name,slug,logo_url),products(name,image_url,quantity_text)',
-        status: 'eq.published', valid_from: `lte.${TODAY}`, valid_to: `gte.${TODAY}`,
-        order: 'valid_to.asc,published_at.desc', limit: '40'
+        status: 'eq.published',
+        valid_from: `lte.${TODAY}`,
+        valid_to: `gte.${TODAY}`,
+        order: 'valid_to.asc,published_at.desc',
+        limit: '40'
       });
+
       const response = await fetch(`${SUPABASE_URL}/rest/v1/offers?${query}`, {
-        headers: { apikey: SUPABASE_KEY }, cache: 'no-store'
+        headers: { apikey: SUPABASE_KEY },
+        cache: 'no-store'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       renderEnding(await response.json());
@@ -379,19 +389,23 @@
   async function loadOverviewStores() {
     try {
       const query = new URLSearchParams({
-        select: 'name,slug,logo_url,is_active', is_active: 'eq.true'
+        select: 'name,slug,logo_url,is_active',
+        is_active: 'eq.true'
       });
+
       const response = await fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
-        headers: { apikey: SUPABASE_KEY }, cache: 'no-store'
+        headers: { apikey: SUPABASE_KEY },
+        cache: 'no-store'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
       overviewStores = (await response.json())
         .filter((store) => store?.slug && store?.name)
         .sort((a, b) => (STORE_RANK.get(a.slug) ?? 999) - (STORE_RANK.get(b.slug) ?? 999)
           || String(a.name).localeCompare(String(b.name), 'cs'));
+
       syncStores();
       fitPanels();
-      resetAutoRotate();
     } catch (error) {
       console.warn('Přehled obchodů se nepodařilo načíst:', error);
       syncStores();
@@ -400,8 +414,12 @@
 
   function observe(id) {
     const node = $(id);
-    if (node) new MutationObserver(schedule).observe(node, {
-      childList: true, subtree: true, attributes: true,
+    if (!node) return;
+
+    new MutationObserver(schedule).observe(node, {
+      childList: true,
+      subtree: true,
+      attributes: true,
       attributeFilter: ['src', 'hidden', 'style', 'class']
     });
   }
@@ -413,16 +431,21 @@
     observe('storeGrid');
     loadEnding();
     loadOverviewStores();
+
     window.addEventListener('resize', schedule, { passive: true });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) clearAutoRotate();
       else startAutoRotate();
     });
-    setInterval(loadEnding, 300000);
-    setInterval(loadOverviewStores, 300000);
+
+    window.setInterval(loadEnding, 300000);
+    window.setInterval(loadOverviewStores, 300000);
     startAutoRotate();
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true });
-  else init();
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init, { once: true });
+  } else {
+    init();
+  }
 })();
