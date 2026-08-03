@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'supabase/functions/**'
+      - '.github/scripts/patch_process_leaflet_large_files.py'
       - '.github/workflows/deploy-edge-functions.yml'
   workflow_dispatch:
 
@@ -80,10 +81,16 @@ jobs:
   deploy-other-functions:
     name: Nasadit ostatní funkce
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Aplikovat opravu velkých letáků
+        run: |
+          python .github/scripts/patch_process_leaflet_large_files.py
+          grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
+          grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
