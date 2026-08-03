@@ -4,8 +4,9 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
 
-  window.addEventListener('DOMContentLoaded', () => {
-    if (!window.supabase || !document.getElementById('saveBtn')) return;
+  function init() {
+    if (window.__slevaoAdminSaveOfferV2Loaded || !window.supabase || !document.getElementById('saveBtn')) return;
+    window.__slevaoAdminSaveOfferV2Loaded = true;
 
     const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
     const $ = (id) => document.getElementById(id);
@@ -13,7 +14,6 @@
     const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
     const today = () => new Date().toISOString().slice(0, 10);
     let selectedProductId = '';
-    let selectedProductName = '';
 
     function setMessage(text, type = 'ok') {
       const box = $('formMsg');
@@ -56,7 +56,6 @@
     function resetForm() {
       $('offerForm')?.reset();
       selectedProductId = '';
-      selectedProductName = '';
       const now = new Date();
       if ($('from')) $('from').value = now.toISOString().slice(0, 10);
       if ($('to')) $('to').value = new Date(now.getTime() + 7 * 86400000).toISOString().slice(0, 10);
@@ -160,6 +159,7 @@
       try {
         await requireStaff();
         const value = validate();
+        const chosenProductId = selectedProductId;
         const rpc = await db.rpc('admin_create_offer_v2', {
           product_name: value.name,
           target_store_id: value.storeId,
@@ -170,7 +170,7 @@
           target_valid_from: value.validFrom,
           target_valid_to: value.validTo,
           target_status: value.status,
-          target_product_id: selectedProductId || null,
+          target_product_id: chosenProductId || null,
         });
 
         if (rpc.error) {
@@ -179,8 +179,8 @@
         }
 
         clearCache();
-        setMessage(selectedProductId
-          ? 'Nabídka byla uložena k vybranému existujícímu produktu.'
+        setMessage(chosenProductId
+          ? 'Nabídka byla uložena k přesně vybranému existujícímu produktu.'
           : 'Nabídka byla bezpečně uložena.', 'ok');
         resetForm();
         $('reload')?.click();
@@ -192,29 +192,25 @@
       }
     }
 
-    document.addEventListener('click', (event) => {
-      const product = event.target.closest('[data-critical-product]');
+    window.addEventListener('click', (event) => {
+      const product = event.target.closest?.('[data-critical-product]');
       if (product) {
         selectedProductId = product.dataset.criticalProduct || '';
-        selectedProductName = product.querySelector('strong')?.textContent || '';
         return;
       }
 
-      const saveButton = event.target.closest('#saveBtn');
+      const saveButton = event.target.closest?.('#saveBtn');
       if (!saveButton) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       save();
     }, true);
 
-    $('title')?.addEventListener('input', () => {
-      if (!selectedProductId) return;
-      const current = fold($('title').value);
-      const selected = fold(selectedProductName.split(' · ')[0]);
-      if (current && selected && !selected.includes(current) && !current.includes(selected)) {
-        selectedProductId = '';
-        selectedProductName = '';
-      }
+    $('title')?.addEventListener('input', (event) => {
+      if (event.isTrusted) selectedProductId = '';
     });
-  });
+  }
+
+  if (document.readyState === 'loading') window.addEventListener('DOMContentLoaded', init, { once: true });
+  else init();
 })();
