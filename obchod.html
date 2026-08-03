@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#069d92">
+  <title>Obchod – aktuální leták a nabídky | Slevao.cz</title>
+  <meta name="description" content="Aktuální leták, slevy a akční ceny vybraného obchodu na Slevao.cz.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://slevao.cz/obchod.html">
+  <meta property="og:title" content="Aktuální leták a slevy | Slevao.cz">
+  <meta property="og:description" content="Živý přehled platných akcí vybraného obchodu.">
+  <meta property="og:url" content="https://slevao.cz/obchod.html">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="favicon.svg?v=20260802-2">
+  <link rel="stylesheet" href="assets/store-feed.css?v=20260801-16">
+  <link rel="stylesheet" href="assets/store-bottom-nav.css?v=20260802-3">
+</head>
+<body class="store-page--brand">
+  <header class="top">
+    <div class="c topin">
+      <a class="logo" href="./" aria-label="Slevao.cz – domů"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
+      <div class="search">
+        <span class="searchIcon" aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="Hledat v akcích obchodu…" aria-label="Hledat v nabídkách obchodu">
+        <button type="button" onclick="document.getElementById('q').focus()">Hledat</button>
+      </div>
+      <button id="savedToggle" class="savedToggle" type="button" aria-pressed="false" aria-label="Zobrazit uložené nabídky">♡ <span>Uložené</span> <b id="savedCount">0</b></button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="c">
+        <div class="heroBox">
+          <div class="heroCopy">
+            <img id="storeLogo" class="tescoWordmark" src="" alt="" hidden>
+            <h1><span id="titleName">Obchod</span></h1>
+            <p>Aktuální slevy, které právě platí.</p>
+            <div class="pills">
+              <span class="pill pillLive" id="status">Načítám obchod…</span>
+              <span class="pill" id="offerCount">0 nabídek</span>
+              <span class="pill" id="updated">Aktualizuji…</span>
+            </div>
+          </div>
+          <div class="heroVisual" aria-hidden="true">
+            <div class="heroBubble">Šetřete<br>každý den</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="c">
+      <section class="leafletSection" aria-labelledby="leafletHeading">
+        <div class="leafletHead">
+          <div>
+            <span id="leafletEyebrow" class="eyebrow">LETÁKY A NABÍDKY OBCHODU</span>
+            <h2 id="leafletHeading">Aktuální letáky</h2>
+            <p>Prohlédni si právě platné nabídky a dostupné letáky.</p>
+          </div>
+          <a id="officialStoreLink" class="officialLink" href="#" target="_blank" rel="noopener noreferrer" hidden>Oficiální web obchodu ↗</a>
+        </div>
+        <div id="leafletGrid" class="leafletGrid" aria-live="polite">
+          <div class="leafletLoading">Načítám aktuální letáky…</div>
+        </div>
+        <div id="leafletViewer" class="leafletViewer" hidden>
+          <div class="leafletViewerHead">
+            <div><span class="eyebrow">PROHLÍŽÍŠ NA SLEVAO.CZ</span><h3 id="leafletViewerTitle">Aktuální leták</h3></div>
+            <button id="closeLeafletViewer" type="button" aria-label="Zavřít prohlížeč letáku">× Zavřít</button>
+          </div>
+          <div id="leafletViewerStatus" class="leafletViewerStatus">Načítám leták…</div>
+          <iframe id="leafletFrame" title="Prohlížeč aktuálního letáku" loading="lazy" referrerpolicy="no-referrer" allow="fullscreen"></iframe>
+          <p class="leafletViewerHelp">V prohlížeči můžeš listovat, přibližovat a otevřít leták na celou obrazovku.</p>
+        </div>
+      </section>
+
+      <nav class="categoryBar" id="categoryBar" aria-label="Kategorie nabídek">
+        <button class="category active" type="button" data-category="all">Vše</button>
+        <button class="category" type="button" data-category="food">🛒 Potraviny</button>
+        <button class="category" type="button" data-category="drinks">🥤 Nápoje</button>
+        <button class="category" type="button" data-category="drugstore">🧴 Drogerie</button>
+        <button class="category" type="button" data-category="home">⌂ Domácnost</button>
+        <button class="category" type="button" data-category="pets">🐾 Mazlíčci</button>
+      </nav>
+
+      <div class="toolbar">
+        <div><h2>Akční nabídky</h2><div id="resultCount" class="muted">Načítám…</div></div>
+        <select id="sort" class="sort" aria-label="Řazení">
+          <option value="newest">Nejnovější</option>
+          <option value="discount">Největší sleva</option>
+          <option value="saving">Největší úspora</option>
+          <option value="price">Nejnižší cena</option>
+          <option value="name">Podle názvu</option>
+        </select>
+      </div>
+
+      <div id="grid" class="grid"><div class="loading">Načítám aktuální nabídky…</div></div>
+      <div class="more"><button id="loadMore" class="loadMore" hidden>Načíst další nabídky</button></div>
+
+      <div class="trustBar" aria-label="Výhody Slevao.cz">
+        <span>✓ <strong>Pouze platné nabídky</strong></span>
+        <span>↻ <strong>Automaticky aktualizováno</strong></span>
+        <span>◇ <strong>Ceny z aktuálních zdrojů</strong></span>
+      </div>
+      <a class="back" href="./">← Všechny obchody a nabídky</a>
+    </section>
+  </main>
+
+  <footer><div class="c"><strong>SLEVAO.cz</strong><p>Platné slevy českých obchodů na jednom místě.</p></div></footer>
+  <script src="assets/store-generic-bootstrap.js?v=20260803-1"></script>
+  <script src="assets/store-bottom-nav.js?v=20260802-2"></script>
+</body>
+</html>
