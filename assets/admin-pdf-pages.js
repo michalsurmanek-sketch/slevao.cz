@@ -19,7 +19,7 @@
   };
 
   function message(text, type = 'info') {
-    const box = document.getElementById('uploadMessage');
+    const box = window.document.getElementById('uploadMessage');
     if (!box) return;
     box.hidden = !text;
     box.textContent = text;
@@ -59,8 +59,8 @@
 
     const library = await pdfjs();
     const loadingTask = library.getDocument({ data: new Uint8Array(await file.arrayBuffer()) });
-    const document = await loadingTask.promise;
-    const pageCount = Number(document.numPages || 0);
+    const pdfDocument = await loadingTask.promise;
+    const pageCount = Number(pdfDocument.numPages || 0);
 
     if (!pageCount) throw new Error(`${file.name} neobsahuje žádné stránky.`);
     if (pageCount > MAX_PAGES) throw new Error(`${file.name} má ${pageCount} stran. Maximum je ${MAX_PAGES} stran.`);
@@ -72,11 +72,11 @@
 
     for (let pageNumber = 1; pageNumber <= pageCount; pageNumber++) {
       message(`Připravuji celý PDF leták: stránka ${pageNumber} z ${pageCount}. Nezavírej stránku.`, 'info');
-      const page = await document.getPage(pageNumber);
+      const page = await pdfDocument.getPage(pageNumber);
       const natural = page.getViewport({ scale: 1 });
       const scale = Math.max(1, Math.min(3, TARGET_WIDTH / Math.max(1, natural.width)));
       const viewport = page.getViewport({ scale });
-      const canvas = document.createElement('canvas');
+      const canvas = window.document.createElement('canvas');
       canvas.width = Math.ceil(viewport.width);
       canvas.height = Math.ceil(viewport.height);
       const context = canvas.getContext('2d', { alpha: false });
@@ -87,19 +87,18 @@
       const blob = await canvasToWebp(canvas);
       const pageLabel = String(pageNumber).padStart(width, '0');
       const totalLabel = String(pageCount).padStart(width, '0');
-      const converted = new File(
+      result.push(new File(
         [blob],
         `${name}__page-${pageLabel}-of-${totalLabel}__batch-${batchId}.webp`,
         { type: 'image/webp', lastModified: file.lastModified || Date.now() },
-      );
-      result.push(converted);
+      ));
       page.cleanup?.();
       canvas.width = 1;
       canvas.height = 1;
       await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
-    await document.destroy?.();
+    await pdfDocument.destroy?.();
     return result;
   }
 
@@ -121,10 +120,13 @@
     try {
       const expanded = [];
       let pdfCount = 0;
+      let totalPdfPages = 0;
       for (const file of files) {
         if (isPdf(file)) {
           pdfCount++;
-          expanded.push(...await splitPdf(file));
+          const pages = await splitPdf(file);
+          totalPdfPages += pages.length;
+          expanded.push(...pages);
         } else {
           expanded.push(file);
         }
@@ -132,11 +134,10 @@
       setInputFiles(input, expanded);
       input.dataset.pdfExpanded = '1';
       input.dispatchEvent(new Event('change', { bubbles: true }));
-      const pages = expanded.length;
       window.setTimeout(() => {
         message(pdfCount
-          ? `PDF bylo rozděleno na všech ${pages} stran. Každá stránka je ve frontě a zpracuje se samostatně.`
-          : `${pages} souborů bylo přidáno do fronty.`, 'ok');
+          ? `PDF bylo rozděleno na všech ${totalPdfPages} stran. Každá stránka je ve frontě a zpracuje se samostatně.`
+          : `${expanded.length} souborů bylo přidáno do fronty.`, 'ok');
       }, 0);
     } catch (error) {
       message(error?.message || 'PDF se nepodařilo připravit.', 'err');
@@ -146,8 +147,8 @@
   }
 
   function bind() {
-    const input = document.getElementById('fileInput');
-    const dropZone = document.getElementById('dropZone');
+    const input = window.document.getElementById('fileInput');
+    const dropZone = window.document.getElementById('dropZone');
     if (!input || !dropZone) return;
 
     input.addEventListener('change', (event) => {
@@ -181,6 +182,6 @@
     }, true);
   }
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once: true });
+  if (window.document.readyState === 'loading') window.document.addEventListener('DOMContentLoaded', bind, { once: true });
   else bind();
 })();
