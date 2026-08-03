@@ -8,6 +8,7 @@ on:
       - 'admin-nahrat-letaky.html'
       - 'assets/admin-manual-leaflets.css'
       - 'assets/admin-manual-leaflets.js'
+      - 'supabase/functions/manual-leaflet-upload-v2/**'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -20,9 +21,9 @@ permissions:
 
 jobs:
   validate:
-    name: Syntaxe a kontrola jediné importní cesty
+    name: Syntaxe a kontrola serverové importní cesty
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,11 +31,14 @@ jobs:
       - name: Zkontrolovat JavaScript
         run: node --check assets/admin-manual-leaflets.js
 
-      - name: Zakázat návrat starých Storage hotfixů
+      - name: Ověřit jedinou upload cestu
         shell: bash
         run: |
           set -euo pipefail
-          grep -q "upload_transport: 'database-data-url'" assets/admin-manual-leaflets.js
+          grep -q "manual-leaflet-upload-v2" assets/admin-manual-leaflets.js
+          grep -q "multipart/form-data" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "upload_transport: 'edge-multipart-storage'" supabase/functions/manual-leaflet-upload-v2/index.ts
+          ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
           ! grep -q "admin-manual-leaflets-inline-fallback" admin-nahrat-letaky.html
@@ -45,6 +49,6 @@ jobs:
       - name: Ověřit produkční stránku
         run: |
           curl --fail --silent --show-error --location \
-            --retry 8 --retry-delay 5 \
+            --retry 12 --retry-delay 5 \
             https://slevao.cz/admin-nahrat-letaky.html \
-            | grep -q 'admin-manual-leaflets.js?v=20260803-6'
+            | grep -q 'admin-manual-leaflets.js?v=20260803-7'
