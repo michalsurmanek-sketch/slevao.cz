@@ -14,7 +14,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260804-2"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260804-2"></script>
-  <script defer src="assets/account.js?v=20260804-2"></script>
+  <script defer src="assets/account.js?v=20260804-3"></script>
   <script defer src="assets/product-personalization.js?v=20260804-2"></script>
 </head>
 <body class="sfPage">
@@ -35,10 +35,10 @@
 
   <section id="profileArea" hidden>
     <div class="sfSectionHead"><div><span class="sfEyebrow">Přihlášený účet</span><h2 id="accountEmail">—</h2></div><div class="sfAccountToolbar"><a class="sfButton" href="hledat.html">Najít produkt</a><a class="sfButton" href="seznam.html">Otevřít seznam</a><button id="logout" class="sfButton bad" type="button">Odhlásit</button></div></div>
-    <div class="sfStats"><div class="sfCard sfStat"><small>Oblíbené produkty</small><strong id="accountFavoriteCount">0</strong></div><div class="sfCard sfStat"><small>Aktivní seznamy</small><strong id="accountListCount">0</strong></div><div class="sfCard sfStat"><small>Aktivní hlídače</small><strong id="accountAlertCount">0</strong></div><div class="sfCard sfStat"><small>Nepřečtená upozornění</small><strong id="accountUnreadCount">0</strong></div><div class="sfCard sfStat"><small>Splněné ceny celkem</small><strong id="accountNotificationCount">0</strong></div></div>
+    <div class="sfStats"><div class="sfCard sfStat"><small>Oblíbené produkty</small><strong id="accountFavoriteCount">0</strong></div><div class="sfCard sfStat"><small>Aktivní seznamy</small><strong id="accountListCount">0</strong></div><div class="sfCard sfStat"><small>Aktivní hlídače</small><strong id="accountAlertCount">0</strong></div><div class="sfCard sfStat"><small>Nepřečtená upozornění</small><strong id="accountUnreadCount">0</strong></div><div class="sfCard sfStat"><small>Upozornění celkem</small><strong id="accountNotificationCount">0</strong></div></div>
 
     <section class="sfSection sfCard sfPanel">
-      <div class="sfSectionHead"><div><span class="sfEyebrow">Automatická upozornění</span><h2>Splněné cenové hlídače</h2><p class="sfMuted">Upozornění vznikne automaticky při nové nebo zlevněné nabídce pod nastaveným limitem.</p></div><button id="markAllRead" class="sfButton" type="button">Označit vše jako přečtené</button></div>
+      <div class="sfSectionHead"><div><span class="sfEyebrow">Automatická upozornění</span><h2>Nové akce a splněné cenové hlídače</h2><p class="sfMuted">Upozornění vznikne při zlevnění oblíbeného produktu nebo při nabídce pod nastaveným cenovým limitem.</p></div><button id="markAllRead" class="sfButton" type="button">Označit vše jako přečtené</button></div>
       <div id="notifications" class="sfNotificationList"><div class="sfLoading">Načítám upozornění…</div></div>
     </section>
 
