@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <meta name="description" content="Chytrý nákupní seznam Slevao.cz porovná dnešní i nejbližší nadcházející ceny a navrhne nejlevnější kombinaci obchodů.">
+  <meta name="description" content="Chytrý a sdílený nákupní seznam Slevao.cz porovná dnešní i nejbližší nadcházející ceny a navrhne nejlevnější kombinaci obchodů.">
   <meta name="theme-color" content="#0b776f">
   <link rel="canonical" href="https://slevao.cz/seznam.html">
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
@@ -12,7 +12,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260804-2"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260804-3"></script>
-  <script defer src="assets/shopping-list.js?v=20260804-2"></script>
+  <script defer src="assets/shopping-list.js?v=20260804-3"></script>
 </head>
 <body class="sfPage">
 <header class="sfTop"><div class="sfTopInner">
@@ -21,7 +21,7 @@
 </div></header>
 <main class="sfShell">
   <section class="sfHero">
-    <div class="sfCard sfHeroMain"><span class="sfEyebrow">Nejlevnější celý nákup</span><h1>Tvůj nákupní seznam</h1><p class="sfMuted">Přidej akční produkty nebo vlastní položky. Slevao porovná dnešní ceny a při chybějící nabídce použije nejbližší akci začínající během sedmi dnů.</p><p id="accountStatus" class="sfMuted"></p></div>
+    <div class="sfCard sfHeroMain"><span class="sfEyebrow">Nejlevnější celý nákup</span><h1>Tvůj nákupní seznam</h1><p class="sfMuted">Přidej akční produkty nebo vlastní položky. Přihlášený seznam můžeš sdílet s rodinou – všichni uvidí změny, množství i odškrtnuté položky.</p><p id="accountStatus" class="sfMuted"></p></div>
     <aside class="sfCard sfHeroSide"><strong id="listCount">0 položek</strong><button id="shareList" class="sfButton primary" type="button">Sdílet seznam</button><button id="clearCompleted" class="sfButton" type="button">Odstranit koupené</button><p id="listMessage" class="sfMuted" aria-live="polite"></p></aside>
   </section>
 
