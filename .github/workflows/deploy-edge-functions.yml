@@ -91,6 +91,9 @@ jobs:
           python .github/scripts/patch_process_leaflet_large_files.py
           grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
           grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
+          grep -q "MAX_RUN_MS = 85_000" supabase/functions/match-product-catalog/index.ts
+          grep -q "catalog_checked_at" supabase/functions/match-product-catalog/index.ts
+          grep -q "leaflet_ai_crop" supabase/functions/generate-leaflet-product-crops/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -136,3 +139,15 @@ jobs:
         run: |
           supabase functions deploy \
             --project-ref uhampjdqjxmbhaptgitn
+
+      - name: Ověřit klíčové automatizační funkce
+        shell: bash
+        run: |
+          set -euo pipefail
+          for function_name in sync-official-leaflet-sources match-product-catalog generate-leaflet-product-crops; do
+            response="$(curl --fail --silent --show-error \
+              --request OPTIONS \
+              --retry 10 --retry-delay 3 \
+              "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/${function_name}")"
+            test "$response" = 'ok'
+          done
