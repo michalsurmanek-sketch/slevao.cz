@@ -6,24 +6,38 @@
   const LIST_KEY = 'slevao-shopping-list-v1';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const money = (v) => Number(v || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
-  const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+  }[char]));
+  const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+  const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const today = new Date().toISOString().slice(0, 10);
   const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const queryParams = new URLSearchParams(location.search);
+  const sharedToken = hashParams.get('share') || queryParams.get('share') || '';
+  const sharedMode = Boolean(sharedToken);
 
   let rows = [];
   let session = null;
   let listId = null;
   let activeOffers = [];
+  let sharedPermission = 'view';
+  let sharedPollTimer = 0;
+  let sharedBusy = false;
 
   function readLocal() {
-    try { const value = JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); return Array.isArray(value) ? value : []; }
-    catch { return []; }
+    try {
+      const value = JSON.parse(localStorage.getItem(LIST_KEY) || '[]');
+      return Array.isArray(value) ? value : [];
+    } catch {
+      return [];
+    }
   }
 
   function saveLocal() {
+    if (sharedMode) return;
     localStorage.setItem(LIST_KEY, JSON.stringify(rows));
     window.SlevaoPublic?.updateNavCount?.();
   }
@@ -32,22 +46,116 @@
     return row.product_id ? `p:${row.product_id}` : `c:${norm(row.custom_name || row.name)}`;
   }
 
+  function sharedRows(data) {
+    const items = Array.isArray(data?.items) ? data.items : [];
+    return items.map((item) => ({
+      local_id: item.id || uid(),
+      server_id: item.id || null,
+      key: rowKey(item),
+      product_id: item.product_id || null,
+      selected_offer_id: item.selected_offer_id || null,
+      custom_name: item.custom_name || null,
+      name: item.name || item.custom_name || 'Položka',
+      brand: item.brand || null,
+      quantity_text: item.quantity_text || null,
+      image_url: item.image_url || null,
+      quantity: Number(item.quantity || 1),
+      unit: item.unit || 'ks',
+      completed: Boolean(item.is_completed),
+      added_at: item.created_at,
+      updated_at: item.updated_at
+    }));
+  }
+
+  function applySharedData(data, { renderNow = true } = {}) {
+    listId = data?.list_id || listId;
+    sharedPermission = data?.permission === 'edit' ? 'edit' : 'view';
+    rows = sharedRows(data);
+    const listName = data?.name || 'Sdílený nákupní seznam';
+    document.title = `${listName} | Slevao.cz`;
+    $('accountStatus').innerHTML = sharedPermission === 'edit'
+      ? '<strong>Sdílený seznam:</strong> změny se ukládají všem, kdo mají odkaz.'
+      : '<strong>Sdílený seznam pouze ke čtení.</strong>';
+    $('shareList').textContent = 'Sdílet tento odkaz';
+    $('customName').disabled = sharedPermission !== 'edit';
+    $('customQuantity').disabled = sharedPermission !== 'edit';
+    $('addCustom').disabled = sharedPermission !== 'edit';
+    $('clearCompleted').disabled = sharedPermission !== 'edit';
+    if (renderNow) render();
+  }
+
+  async function loadSharedList({ silent = false } = {}) {
+    if (!sharedMode || sharedBusy) return;
+    sharedBusy = true;
+    try {
+      const { data, error } = await db.rpc('get_shared_shopping_list', { p_token: sharedToken });
+      if (error) throw error;
+      applySharedData(data || {});
+      await fetchOffers();
+      if (!silent) showMessage('Sdílený seznam je aktuální.');
+    } catch (error) {
+      if (!silent) showMessage(error.message || 'Sdílený seznam se nepodařilo otevřít.', true);
+      if (!$('listItems').children.length || $('listItems').querySelector('.sfLoading')) {
+        $('listItems').innerHTML = '<div class="sfEmpty">Tento sdílený odkaz neexistuje, vypršel nebo byl zrušen.</div>';
+      }
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
+  async function mutateShared(action, row = null, overrides = {}) {
+    if (!sharedMode || sharedPermission !== 'edit') {
+      throw new Error('Tento sdílený odkaz dovoluje pouze prohlížení.');
+    }
+    const payload = {
+      p_token: sharedToken,
+      p_action: action,
+      p_item_id: row?.server_id || null,
+      p_product_id: overrides.product_id ?? row?.product_id ?? null,
+      p_selected_offer_id: overrides.selected_offer_id ?? row?.selected_offer_id ?? null,
+      p_custom_name: overrides.custom_name ?? row?.custom_name ?? row?.name ?? null,
+      p_quantity: Number(overrides.quantity ?? row?.quantity ?? 1),
+      p_unit: overrides.unit ?? row?.unit ?? 'ks',
+      p_is_completed: Boolean(overrides.completed ?? row?.completed ?? false)
+    };
+    sharedBusy = true;
+    try {
+      const { data, error } = await db.rpc('mutate_shared_shopping_list', payload);
+      if (error) throw error;
+      applySharedData(data || {});
+      await fetchOffers();
+      return data;
+    } finally {
+      sharedBusy = false;
+    }
+  }
+
   async function ensureRemoteList() {
     if (!session) return null;
-    const { data: existing, error } = await db.from('shopping_lists').select('id,name').eq('user_id', session.user.id).eq('is_archived', false).order('created_at').limit(1).maybeSingle();
+    const { data: existing, error } = await db.from('shopping_lists')
+      .select('id,name')
+      .eq('user_id', session.user.id)
+      .eq('is_archived', false)
+      .order('created_at')
+      .limit(1)
+      .maybeSingle();
     if (error) throw error;
     if (existing) return existing.id;
-    const { data, error: createError } = await db.from('shopping_lists').insert({ user_id: session.user.id, name: 'Můj nákup' }).select('id').single();
+    const { data, error: createError } = await db.from('shopping_lists')
+      .insert({ user_id: session.user.id, name: 'Můj nákup' })
+      .select('id')
+      .single();
     if (createError) throw createError;
     return data.id;
   }
 
   async function mergeRemote() {
-    if (!session) return;
+    if (!session || sharedMode) return;
     listId = await ensureRemoteList();
     const { data: remote, error } = await db.from('shopping_list_items')
       .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at')
-      .eq('shopping_list_id', listId).order('created_at');
+      .eq('shopping_list_id', listId)
+      .order('created_at');
     if (error) throw error;
 
     const localMap = new Map(rows.map((row) => [rowKey(row), row]));
@@ -56,12 +164,16 @@
 
     if (missingRemote.length) {
       const payload = missingRemote.map((row) => ({
-        shopping_list_id: listId, product_id: row.product_id || null,
+        shopping_list_id: listId,
+        product_id: row.product_id || null,
         selected_offer_id: row.selected_offer_id || null,
         custom_name: row.product_id ? null : (row.custom_name || row.name),
-        quantity: Number(row.quantity || 1), unit: row.unit || 'ks', is_completed: Boolean(row.completed)
+        quantity: Number(row.quantity || 1),
+        unit: row.unit || 'ks',
+        is_completed: Boolean(row.completed)
       }));
-      const { data: inserted, error: insertError } = await db.from('shopping_list_items').insert(payload)
+      const { data: inserted, error: insertError } = await db.from('shopping_list_items')
+        .insert(payload)
         .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at');
       if (insertError) throw insertError;
       (inserted || []).forEach((item) => remoteMap.set(rowKey(item), item));
@@ -85,12 +197,21 @@
         local.completed = Boolean(item.is_completed);
       } else {
         rows.push({
-          local_id: uid(), server_id: item.id, key,
-          product_id: item.product_id || null, selected_offer_id: item.selected_offer_id || null,
-          custom_name: item.custom_name || null, name: product?.name || item.custom_name || 'Položka',
-          brand: product?.brand || null, quantity_text: product?.quantity_text || null,
-          image_url: product?.image_url || null, quantity: Number(item.quantity || 1), unit: item.unit || 'ks',
-          completed: Boolean(item.is_completed), added_at: item.created_at, updated_at: item.updated_at
+          local_id: uid(),
+          server_id: item.id,
+          key,
+          product_id: item.product_id || null,
+          selected_offer_id: item.selected_offer_id || null,
+          custom_name: item.custom_name || null,
+          name: product?.name || item.custom_name || 'Položka',
+          brand: product?.brand || null,
+          quantity_text: product?.quantity_text || null,
+          image_url: product?.image_url || null,
+          quantity: Number(item.quantity || 1),
+          unit: item.unit || 'ks',
+          completed: Boolean(item.is_completed),
+          added_at: item.created_at,
+          updated_at: item.updated_at
         });
       }
     }
@@ -98,13 +219,20 @@
   }
 
   async function persistRow(row) {
+    if (sharedMode) {
+      await mutateShared('update', row);
+      return;
+    }
     saveLocal();
     if (!session || !listId) return;
     const payload = {
-      shopping_list_id: listId, product_id: row.product_id || null,
+      shopping_list_id: listId,
+      product_id: row.product_id || null,
       selected_offer_id: row.selected_offer_id || null,
       custom_name: row.product_id ? null : (row.custom_name || row.name),
-      quantity: Number(row.quantity || 1), unit: row.unit || 'ks', is_completed: Boolean(row.completed)
+      quantity: Number(row.quantity || 1),
+      unit: row.unit || 'ks',
+      is_completed: Boolean(row.completed)
     };
     if (row.server_id) {
       const { error } = await db.from('shopping_list_items').update(payload).eq('id', row.server_id);
@@ -118,6 +246,10 @@
   }
 
   async function deleteRow(row) {
+    if (sharedMode) {
+      await mutateShared('delete', row);
+      return;
+    }
     rows = rows.filter((item) => item.local_id !== row.local_id);
     saveLocal();
     if (session && row.server_id) {
@@ -128,10 +260,18 @@
 
   async function fetchOffers() {
     const productIds = [...new Set(rows.filter((row) => !row.completed).map((row) => row.product_id).filter(Boolean))];
-    if (!productIds.length) { activeOffers = []; renderResults(); return; }
+    if (!productIds.length) {
+      activeOffers = [];
+      renderResults();
+      return;
+    }
     const { data, error } = await db.from('offers')
       .select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
-      .in('product_id', productIds).eq('status', 'published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(5000);
+      .in('product_id', productIds)
+      .eq('status', 'published')
+      .lte('valid_from', upcomingTo)
+      .gte('valid_to', today)
+      .limit(5000);
     if (error) throw error;
     activeOffers = data || [];
     renderResults();
@@ -149,12 +289,17 @@
     for (const item of items) {
       const offer = cheapestFor(item.product_id, allowedStores);
       if (!offer) return null;
-      const qty = Math.max(.01, Number(item.quantity || 1));
-      total += Number(offer.price || 0) * qty;
-      chosen.push({ item, offer, subtotal: Number(offer.price || 0) * qty });
+      const quantity = Math.max(0.01, Number(item.quantity || 1));
+      total += Number(offer.price || 0) * quantity;
+      chosen.push({ item, offer, subtotal: Number(offer.price || 0) * quantity });
     }
     const stores = [...new Map(chosen.map((row) => [row.offer.store_id, row.offer.stores])).values()];
-    return { total, chosen, stores, upcomingCount: chosen.filter((row) => String(row.offer.valid_from || '') > today).length };
+    return {
+      total,
+      chosen,
+      stores,
+      upcomingCount: chosen.filter((row) => String(row.offer.valid_from || '') > today).length
+    };
   }
 
   function calculatePlans() {
@@ -176,14 +321,19 @@
         const plan = planFromOffers(items, new Set([storeIds[i], storeIds[j]]));
         if (!plan) continue;
         const score = plan.total + Math.max(0, plan.stores.length - 1) * 35;
-        if (score < balancedScore) { balanced = plan; balancedScore = score; }
+        if (score < balancedScore) {
+          balanced = plan;
+          balancedScore = score;
+        }
       }
     }
     return { items, absolute, oneStore, balanced };
   }
 
   function planHtml(title, plan, description, best = false) {
-    if (!plan) return `<div class="sfResultBox"><h3>${esc(title)}</h3><p class="sfMuted">Pro tuto variantu zatím chybí dostatek cen.</p></div>`;
+    if (!plan) {
+      return `<div class="sfResultBox"><h3>${esc(title)}</h3><p class="sfMuted">Pro tuto variantu zatím chybí dostatek cen.</p></div>`;
+    }
     const groups = new Map();
     plan.chosen.forEach(({ item, offer, subtotal }) => {
       const name = offer.stores?.name || 'Obchod';
@@ -191,7 +341,9 @@
       group.push(`${item.name} – ${money(subtotal)} Kč`);
       groups.set(name, group);
     });
-    const upcoming = plan.upcomingCount ? ` ${plan.upcomingCount} položek používá akci začínající během příštích 7 dnů.` : '';
+    const upcoming = plan.upcomingCount
+      ? ` ${plan.upcomingCount} položek používá akci začínající během příštích 7 dnů.`
+      : '';
     return `<div class="sfResultBox ${best ? 'best' : ''}"><h3>${esc(title)}</h3><div class="sfResultPrice">${money(plan.total)} Kč</div><p class="sfMuted">${esc(description + upcoming)}</p><div class="sfStoreTags">${[...groups].map(([store, lines]) => `<span class="sfStoreTag" title="${esc(lines.join('\n'))}">${esc(store)} · ${lines.length} položek</span>`).join('')}</div></div>`;
   }
 
@@ -205,30 +357,60 @@
 
   function render() {
     const active = rows.filter((row) => !row.completed);
+    const readOnly = sharedMode && sharedPermission !== 'edit';
     $('listCount').textContent = `${active.length} položek`;
-    $('listItems').innerHTML = rows.length ? rows.map((row) => `
-      <article class="sfListItem ${row.completed ? 'done' : ''}" data-id="${esc(row.local_id)}">
-        <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} aria-label="Označit jako koupené">
-        <div><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand,row.quantity_text,row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : 'Vlastní položka'))}</div></div>
-        <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity aria-label="Množství">
-        <button class="sfIconButton" type="button" data-delete aria-label="Odstranit">×</button>
-      </article>`).join('') : '<div class="sfEmpty">Seznam je prázdný.</div>';
+    $('listItems').innerHTML = rows.length
+      ? rows.map((row) => `
+        <article class="sfListItem ${row.completed ? 'done' : ''}" data-id="${esc(row.local_id)}">
+          <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} ${readOnly ? 'disabled' : ''} aria-label="Označit jako koupené">
+          <div><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : 'Vlastní položka'))}</div></div>
+          <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity ${readOnly ? 'disabled' : ''} aria-label="Množství">
+          <button class="sfIconButton" type="button" data-delete ${readOnly ? 'disabled' : ''} aria-label="Odstranit">×</button>
+        </article>`).join('')
+      : '<div class="sfEmpty">Seznam je prázdný.</div>';
     renderResults();
     saveLocal();
   }
 
   async function addCustom() {
     const name = $('customName').value.trim();
-    const quantity = Math.max(.01, Number($('customQuantity').value || 1));
-    if (!name) { $('customName').focus(); return; }
+    const quantity = Math.max(0.01, Number($('customQuantity').value || 1));
+    if (!name) {
+      $('customName').focus();
+      return;
+    }
+
+    if (sharedMode) {
+      await mutateShared('add', null, { custom_name: name, quantity, unit: 'ks', completed: false });
+      $('customName').value = '';
+      $('customQuantity').value = '1';
+      showMessage('Položka byla přidána do sdíleného seznamu.');
+      return;
+    }
+
     const existing = rows.find((row) => !row.product_id && norm(row.custom_name || row.name) === norm(name) && !row.completed);
     if (existing) existing.quantity = Number(existing.quantity || 1) + quantity;
-    else rows.push({ local_id: uid(), key: `c:${norm(name)}`, product_id: null, selected_offer_id: null, custom_name: name, name, quantity, unit: 'ks', completed: false, added_at: new Date().toISOString() });
+    else rows.push({
+      local_id: uid(),
+      key: `c:${norm(name)}`,
+      product_id: null,
+      selected_offer_id: null,
+      custom_name: name,
+      name,
+      quantity,
+      unit: 'ks',
+      completed: false,
+      added_at: new Date().toISOString()
+    });
     $('customName').value = '';
     $('customQuantity').value = '1';
     const row = existing || rows.at(-1);
     render();
-    try { await persistRow(row); } catch (error) { showMessage(error.message, true); }
+    try {
+      await persistRow(row);
+    } catch (error) {
+      showMessage(error.message, true);
+    }
   }
 
   function showMessage(text, bad = false) {
@@ -236,53 +418,133 @@
     $('listMessage').style.color = bad ? '#b32631' : '#0b7a58';
   }
 
+  async function copyOrShare(url, text) {
+    if (navigator.share) {
+      await navigator.share({ title: 'Nákupní seznam Slevao.cz', text, url });
+      return;
+    }
+    await navigator.clipboard.writeText(url || text);
+    showMessage(url ? 'Odkaz na seznam byl zkopírován.' : 'Seznam byl zkopírován do schránky.');
+  }
+
   async function shareList() {
     const lines = rows.filter((row) => !row.completed).map((row) => `${row.quantity || 1}× ${row.name || row.custom_name}`);
-    if (!lines.length) { showMessage('Seznam je prázdný.', true); return; }
-    const text = `Nákupní seznam Slevao.cz\n\n${lines.join('\n')}`;
+    if (!lines.length) {
+      showMessage('Seznam je prázdný.', true);
+      return;
+    }
+
     try {
-      if (navigator.share) await navigator.share({ title: 'Nákupní seznam Slevao.cz', text });
-      else { await navigator.clipboard.writeText(text); showMessage('Seznam byl zkopírován do schránky.'); }
-    } catch (error) { if (error.name !== 'AbortError') showMessage('Sdílení se nepodařilo.', true); }
+      if (sharedMode) {
+        const url = `${location.origin}${location.pathname}#share=${encodeURIComponent(sharedToken)}`;
+        await copyOrShare(url, 'Společný nákupní seznam, který lze průběžně upravovat.');
+        return;
+      }
+
+      if (!session) {
+        const text = `Nákupní seznam Slevao.cz\n\n${lines.join('\n')}`;
+        await copyOrShare('', text);
+        showMessage('Text seznamu byl sdílen. Pro živý společný seznam se přihlas.');
+        return;
+      }
+
+      listId = listId || await ensureRemoteList();
+      const { data: token, error } = await db.rpc('create_shopping_list_share', {
+        p_list_id: listId,
+        p_permission: 'edit',
+        p_expires_days: 30
+      });
+      if (error) throw error;
+      const url = `${location.origin}${location.pathname}#share=${encodeURIComponent(token)}`;
+      await copyOrShare(url, 'Společný nákupní seznam Slevao.cz. Odkaz dovoluje upravovat a odškrtávat položky po dobu 30 dnů.');
+      showMessage('Živý sdílený odkaz je platný 30 dnů. Nové sdílení zrušilo předchozí odkaz.');
+    } catch (error) {
+      if (error.name !== 'AbortError') showMessage(error.message || 'Sdílení se nepodařilo.', true);
+    }
+  }
+
+  async function clearCompleted() {
+    const completed = rows.filter((row) => row.completed);
+    if (!completed.length) return;
+
+    if (sharedMode) {
+      try {
+        for (const row of completed) await mutateShared('delete', row);
+        showMessage('Koupené položky byly odstraněny ze sdíleného seznamu.');
+      } catch (error) {
+        showMessage(error.message || 'Položky se nepodařilo odstranit.', true);
+      }
+      return;
+    }
+
+    rows = rows.filter((row) => !row.completed);
+    saveLocal();
+    render();
+    if (session) {
+      const ids = completed.map((row) => row.server_id).filter(Boolean);
+      if (ids.length) {
+        const { error } = await db.from('shopping_list_items').delete().in('id', ids);
+        if (error) showMessage(error.message, true);
+      }
+    }
   }
 
   async function init() {
-    rows = readLocal();
     const { data: { session: current } } = await db.auth.getSession();
     session = current;
+
+    if (sharedMode) {
+      rows = [];
+      $('accountStatus').textContent = 'Načítám sdílený seznam…';
+      render();
+      await loadSharedList();
+      sharedPollTimer = window.setInterval(() => loadSharedList({ silent: true }), 5000);
+      window.addEventListener('beforeunload', () => clearInterval(sharedPollTimer), { once: true });
+      return;
+    }
+
+    rows = readLocal();
     $('accountStatus').innerHTML = session
       ? `Přihlášen jako <strong>${esc(session.user.email)}</strong> · seznam se synchronizuje.`
       : 'Seznam je uložen v tomto zařízení. <a href="ucet.html?redirect=seznam.html">Přihlásit a synchronizovat</a>.';
     if (session) {
-      try { await mergeRemote(); showMessage('Seznam je synchronizovaný s účtem.'); }
-      catch (error) { showMessage(`Synchronizace se nepodařila: ${error.message}`, true); }
+      try {
+        await mergeRemote();
+        showMessage('Seznam je synchronizovaný s účtem.');
+      } catch (error) {
+        showMessage(`Synchronizace se nepodařila: ${error.message}`, true);
+      }
     }
     render();
-    try { await fetchOffers(); } catch (error) { showMessage(`Ceny se nepodařilo načíst: ${error.message}`, true); }
+    try {
+      await fetchOffers();
+    } catch (error) {
+      showMessage(`Ceny se nepodařilo načíst: ${error.message}`, true);
+    }
   }
 
-  $('addCustom').addEventListener('click', addCustom);
-  $('customName').addEventListener('keydown', (event) => { if (event.key === 'Enter') addCustom(); });
-  $('shareList').addEventListener('click', shareList);
-  $('clearCompleted').addEventListener('click', async () => {
-    const completed = rows.filter((row) => row.completed);
-    rows = rows.filter((row) => !row.completed);
-    saveLocal(); render();
-    if (session) {
-      const ids = completed.map((row) => row.server_id).filter(Boolean);
-      if (ids.length) await db.from('shopping_list_items').delete().in('id', ids);
-    }
+  $('addCustom').addEventListener('click', () => addCustom().catch((error) => showMessage(error.message, true)));
+  $('customName').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') addCustom().catch((error) => showMessage(error.message, true));
   });
+  $('shareList').addEventListener('click', shareList);
+  $('clearCompleted').addEventListener('click', clearCompleted);
 
   $('listItems').addEventListener('change', async (event) => {
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
     if (event.target.matches('[data-complete]')) row.completed = event.target.checked;
-    if (event.target.matches('[data-quantity]')) row.quantity = Math.max(.01, Number(event.target.value || 1));
+    if (event.target.matches('[data-quantity]')) row.quantity = Math.max(0.01, Number(event.target.value || 1));
     row.updated_at = new Date().toISOString();
     render();
-    try { await persistRow(row); await fetchOffers(); } catch (error) { showMessage(error.message, true); }
+    try {
+      await persistRow(row);
+      if (!sharedMode) await fetchOffers();
+    } catch (error) {
+      showMessage(error.message || 'Změnu se nepodařilo uložit.', true);
+      if (sharedMode) await loadSharedList({ silent: true });
+    }
   });
 
   $('listItems').addEventListener('click', async (event) => {
@@ -290,8 +552,16 @@
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
-    try { await deleteRow(row); render(); await fetchOffers(); } catch (error) { showMessage(error.message, true); }
+    try {
+      await deleteRow(row);
+      if (!sharedMode) {
+        render();
+        await fetchOffers();
+      }
+    } catch (error) {
+      showMessage(error.message || 'Položku se nepodařilo odstranit.', true);
+    }
   });
 
-  init();
+  init().catch((error) => showMessage(error.message || 'Seznam se nepodařilo načíst.', true));
 })();
