@@ -11,12 +11,13 @@
   <link rel="stylesheet" href="assets/public-features.css?v=20260804-2">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260804-2"></script>
+  <script defer src="assets/public-nav-upgrade.js?v=20260804-1"></script>
   <script defer src="assets/shopping-list.js?v=20260804-2"></script>
 </head>
 <body class="sfPage">
 <header class="sfTop"><div class="sfTopInner">
   <a class="sfLogo" href="index.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
-  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="index.html">Nabídky</a><a href="index.html#leafletsSection">Letáky</a><a class="sfAlways" href="ucet.html">Účet</a></nav>
+  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="hledat.html">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a class="sfAlways" href="ucet.html">Účet</a></nav>
 </div></header>
 <main class="sfShell">
   <section class="sfHero">
@@ -26,7 +27,7 @@
 
   <section class="sfListLayout">
     <div class="sfCard sfPanel">
-      <div class="sfSectionHead"><div><span class="sfEyebrow">Položky</span><h2>Co potřebuješ koupit</h2></div><a class="sfButton" href="index.html#dealsSection">Přidat z akcí</a></div>
+      <div class="sfSectionHead"><div><span class="sfEyebrow">Položky</span><h2>Co potřebuješ koupit</h2></div><a class="sfButton" href="hledat.html">Přidat z akcí</a></div>
       <div class="sfAddRow"><input id="customName" class="sfInput" type="text" placeholder="Vlastní položka, například rohlíky"><input id="customQuantity" class="sfInput" type="number" min="0.01" step="0.01" value="1" aria-label="Množství"><button id="addCustom" class="sfButton primary" type="button">Přidat</button></div>
       <div id="listItems" class="sfListItems"><div class="sfLoading">Načítám seznam…</div></div>
     </div>
