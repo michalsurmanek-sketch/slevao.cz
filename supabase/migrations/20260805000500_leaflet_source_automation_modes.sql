@@ -136,7 +136,8 @@ select cron.schedule(
   $job$select public.recheck_paused_leaflet_sources(4);$job$
 );
 
-create or replace view public.leaflet_source_health
+drop view if exists public.leaflet_source_health;
+create view public.leaflet_source_health
 with (security_invoker=true)
 as
 select
@@ -144,23 +145,30 @@ select
   ls.store_id,
   s.slug as store_slug,
   s.name as store_name,
+  s.logo_url,
   ls.name as source_name,
   ls.source_url,
   ls.source_type,
   ls.is_active,
-  ls.automation_mode,
-  ls.disabled_reason,
+  ls.auto_publish,
   ls.check_interval_minutes,
   ls.last_checked_at,
   ls.last_success_at,
   ls.last_error,
-  ls.next_review_at,
   case
     when ls.automation_mode in ('blocked','paused','web_only') then ls.automation_mode
-    when ls.last_success_at>=now()-interval '24 hours' then 'healthy'
-    when ls.last_success_at>=now()-interval '7 days' then 'warning'
-    when ls.last_success_at is null then 'never_succeeded'
-    else 'stale'
-  end as health_status
+    when not ls.is_active and ls.last_success_at is null then 'waiting_test'
+    when ls.is_active and ls.last_error is null and ls.last_success_at is not null then 'healthy'
+    when ls.last_error is not null then 'error'
+    when ls.is_active then 'active_not_verified'
+    else 'inactive'
+  end as health_status,
+  case when ls.last_checked_at is null then null::integer
+       else floor(extract(epoch from (now()-ls.last_checked_at))/60)::integer end as minutes_since_check,
+  case when ls.last_success_at is null then null::integer
+       else floor(extract(epoch from (now()-ls.last_success_at))/60)::integer end as minutes_since_success,
+  ls.automation_mode,
+  ls.disabled_reason,
+  ls.next_review_at
 from public.leaflet_sources ls
-left join public.stores s on s.id=ls.store_id;
+join public.stores s on s.id=ls.store_id;
