@@ -9,7 +9,7 @@ const CORS = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") || "";
-const MAX_PRODUCTS = 8;
+const MAX_PRODUCTS = 4;
 
 function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: CORS });
@@ -154,47 +154,41 @@ Deno.serve(async (request) => {
       .filter((row: any) => storesByProduct.has(String(row.id)))
       .slice(0, limit);
 
-    const results: any[] = [];
-    const concurrency = 2;
-    for (let index = 0; index < selected.length; index += concurrency) {
-      const chunk = selected.slice(index, index + concurrency);
-      const chunkResults = await Promise.all(chunk.map(async (product: any) => {
-        const productId = String(product.id);
-        const storeSlug = preferredStore(storesByProduct.get(productId) || [], requestedStore);
-        let primary: any = null;
-        let fallback: any = null;
-        let error: string | null = null;
-        try {
-          primary = await invokeFunction("discover-product-images", {
-            product_id: productId,
-            store_slug: storeSlug,
-            limit: 1,
-          });
-          if (Number(primary.created || 0) === 0) {
-            fallback = await invokeFunction("discover-product-images-web", {
-              product_ids: [productId],
-              store_slug: storeSlug,
-            });
-          }
-        } catch (cause) {
-          error = cause instanceof Error ? cause.message : String(cause);
-        }
-        return {
+    const results = await Promise.all(selected.map(async (product: any) => {
+      const productId = String(product.id);
+      const storeSlug = preferredStore(storesByProduct.get(productId) || [], requestedStore);
+      let primary: any = null;
+      let fallback: any = null;
+      let error: string | null = null;
+      try {
+        primary = await invokeFunction("discover-product-images", {
           product_id: productId,
-          name: product.name,
-          brand: product.brand,
-          quantity_text: product.quantity_text,
           store_slug: storeSlug,
-          priority: priority(product),
-          primary_created: Number(primary?.created || 0),
-          web_created: Number(fallback?.created || 0),
-          created: Number(primary?.created || 0) + Number(fallback?.created || 0),
-          rejected: Number(primary?.visually_rejected || 0) + Number(fallback?.rejected || 0),
-          error,
-        };
-      }));
-      results.push(...chunkResults);
-    }
+          limit: 1,
+        });
+        if (Number(primary.created || 0) === 0) {
+          fallback = await invokeFunction("discover-product-images-web", {
+            product_ids: [productId],
+            store_slug: storeSlug,
+          });
+        }
+      } catch (cause) {
+        error = cause instanceof Error ? cause.message : String(cause);
+      }
+      return {
+        product_id: productId,
+        name: product.name,
+        brand: product.brand,
+        quantity_text: product.quantity_text,
+        store_slug: storeSlug,
+        priority: priority(product),
+        primary_created: Number(primary?.created || 0),
+        web_created: Number(fallback?.created || 0),
+        created: Number(primary?.created || 0) + Number(fallback?.created || 0),
+        rejected: Number(primary?.visually_rejected || 0) + Number(fallback?.rejected || 0),
+        error,
+      };
+    }));
 
     return json({
       ok: true,
