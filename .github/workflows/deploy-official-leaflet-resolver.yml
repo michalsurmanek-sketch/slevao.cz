@@ -45,3 +45,13 @@ jobs:
           supabase functions deploy sync-official-leaflet-sources \
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
+
+      - name: Ověřit dostupnost nasazené funkce
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(curl --fail --silent --show-error \
+            --request OPTIONS \
+            --retry 10 --retry-delay 3 \
+            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/sync-official-leaflet-sources')"
+          test "$response" = 'ok'
