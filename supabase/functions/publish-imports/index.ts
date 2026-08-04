@@ -3,12 +3,21 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
-const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type, x-cron-secret',
   'access-control-allow-methods': 'POST, OPTIONS',
+};
+
+type ProductResolution = {
+  productId: string;
+  imageUrl: string | null;
+  matchType: string;
+  matchScore: number;
 };
 
 function jsonResponse(payload: unknown, status = 200): Response {
@@ -28,7 +37,9 @@ function normalizeTitle(value: string): string {
 }
 
 function isIsoDate(value: unknown): value is string {
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
+  return typeof value === 'string'
+    && /^\d{4}-\d{2}-\d{2}$/.test(value)
+    && !Number.isNaN(Date.parse(`${value}T12:00:00Z`));
 }
 
 function isTescoJob(job: any): boolean {
@@ -38,17 +49,173 @@ function isTescoJob(job: any): boolean {
   return slug.includes('tesco') || adapter.includes('tesco') || sourceUrl.includes('tesco');
 }
 
-async function findExistingProduct(item: any): Promise<string | null> {
-  const title = String(item.title || '').trim();
-  if (!title) return null;
-  const { data, error } = await db.from('products').select('id,name').ilike('name', title).limit(10);
+function cleanText(value: unknown): string | null {
+  const text = String(value ?? '').replace(/\s+/g, ' ').trim();
+  return text || null;
+}
+
+function extractEan(item: any): string | null {
+  const raw = item?.raw_data || {};
+  const values = [
+    item?.ean,
+    item?.gtin,
+    item?.barcode,
+    raw?.ean,
+    raw?.gtin,
+    raw?.barcode,
+    raw?.product_ean,
+    raw?.product?.ean,
+    raw?.product?.gtin,
+  ];
+  for (const value of values) {
+    const digits = String(value ?? '').replace(/\D/g, '');
+    if (digits.length >= 8 && digits.length <= 14) return digits;
+  }
+  return null;
+}
+
+function safeIncomingImage(value: unknown): string | null {
+  const image = String(value ?? '').trim();
+  if (!/^https:\/\//i.test(image)) return null;
+  if (/placeholder|no[-_ ]?image|favicon|(?:^|[\/_-])logo(?:[\/_.-]|$)|\/leaflet-crops\//i.test(image)) return null;
+  return image;
+}
+
+async function loadProduct(productId: string): Promise<any | null> {
+  const { data, error } = await db.from('products')
+    .select('id,name,brand,quantity_text,ean,category_id,image_url,image_source,image_quality,image_verified')
+    .eq('id', productId)
+    .maybeSingle();
   if (error) throw error;
-  const normalized = normalizeTitle(title);
-  return (data || []).find((row: any) => normalizeTitle(row.name) === normalized)?.id || null;
+  return data || null;
+}
+
+function verifiedImageFromProduct(product: any): string | null {
+  if (!product?.image_verified || Number(product?.image_quality || 0) < 70) return null;
+  const image = safeIncomingImage(product?.image_url);
+  return image;
+}
+
+async function resolveProduct(job: any, item: any): Promise<ProductResolution | null> {
+  if (item.product_id) {
+    const product = await loadProduct(String(item.product_id));
+    if (product) {
+      return {
+        productId: product.id,
+        imageUrl: verifiedImageFromProduct(product),
+        matchType: 'linked_product',
+        matchScore: 1,
+      };
+    }
+  }
+
+  const { data, error } = await db.rpc('resolve_product_for_import', {
+    p_title: String(item.title || ''),
+    p_brand: cleanText(item.brand),
+    p_quantity: cleanText(item.quantity_text),
+    p_ean: extractEan(item),
+    p_store_id: job.store_id || null,
+  });
+  if (error) throw error;
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row?.matched_product_id) return null;
+
+  return {
+    productId: String(row.matched_product_id),
+    imageUrl: safeIncomingImage(row.matched_image_url),
+    matchType: String(row.match_type || 'database_match'),
+    matchScore: Number(row.match_score || 0),
+  };
+}
+
+async function enrichExistingProduct(productId: string, item: any): Promise<void> {
+  const product = await loadProduct(productId);
+  if (!product) return;
+
+  const payload: Record<string, unknown> = {};
+  const brand = cleanText(item.brand);
+  const quantity = cleanText(item.quantity_text);
+  const ean = extractEan(item);
+
+  if (!product.brand && brand) payload.brand = brand;
+  if (!product.quantity_text && quantity) payload.quantity_text = quantity;
+  if (!product.ean && ean) payload.ean = ean;
+  if (!product.category_id && item.category_id) payload.category_id = item.category_id;
+
+  if (Object.keys(payload).length) {
+    const { error } = await db.from('products').update(payload).eq('id', productId);
+    if (error && !/duplicate key|unique constraint/i.test(error.message)) throw error;
+  }
+}
+
+async function createProduct(item: any): Promise<ProductResolution> {
+  const payload = {
+    name: String(item.title || '').trim(),
+    category_id: item.category_id || null,
+    brand: cleanText(item.brand),
+    quantity_text: cleanText(item.quantity_text),
+    ean: extractEan(item),
+    image_url: null,
+    image_verified: false,
+    image_quality: 0,
+    is_verified: Number(item.confidence || 0) >= 0.9,
+    metadata: {
+      created_from_leaflet_import: true,
+      source_confidence: Number(item.confidence || 0) || null,
+    },
+  };
+
+  const { data: product, error } = await db.from('products').insert(payload).select('id').single();
+  if (error) {
+    if (/duplicate key|unique constraint/i.test(error.message)) {
+      const fallback = await db.rpc('resolve_product_for_import', {
+        p_title: payload.name,
+        p_brand: payload.brand,
+        p_quantity: payload.quantity_text,
+        p_ean: payload.ean,
+        p_store_id: null,
+      });
+      if (!fallback.error) {
+        const row = Array.isArray(fallback.data) ? fallback.data[0] : fallback.data;
+        if (row?.matched_product_id) {
+          return {
+            productId: String(row.matched_product_id),
+            imageUrl: safeIncomingImage(row.matched_image_url),
+            matchType: String(row.match_type || 'unique_conflict_match'),
+            matchScore: Number(row.match_score || 1),
+          };
+        }
+      }
+    }
+    throw error;
+  }
+
+  return {
+    productId: product.id,
+    imageUrl: null,
+    matchType: 'new_product',
+    matchScore: 1,
+  };
+}
+
+async function resolveOrCreateProduct(job: any, item: any): Promise<ProductResolution> {
+  const resolved = await resolveProduct(job, item);
+  if (resolved) {
+    await enrichExistingProduct(resolved.productId, item);
+    return resolved;
+  }
+  return await createProduct(item);
+}
+
+async function markLibraryImageUsed(productId: string, imageUrl: string | null): Promise<void> {
+  if (!imageUrl) return;
+  const { error } = await db.rpc('mark_product_image_used', { p_product_id: productId });
+  if (error) console.warn('Počítadlo použití fotografie se nepodařilo zvýšit:', error.message);
 }
 
 async function findExistingOffer(job: any, item: any, validFrom: string, validTo: string): Promise<any | null> {
-  let query = db.from('offers').select('id,product_id,title,price,old_price,image_url')
+  let query = db.from('offers')
+    .select('id,product_id,title,price,old_price,image_url,metadata')
     .eq('store_id', job.store_id)
     .eq('valid_from', validFrom)
     .eq('valid_to', validTo)
@@ -147,64 +314,74 @@ async function publishImport(job: any) {
   let published = 0;
   let skippedDuplicates = deduplicated.duplicateIds.length;
   let failed = 0;
+  let reusedLibraryImages = 0;
+  const matchTypes: Record<string, number> = {};
 
   for (const item of items) {
     try {
-      if (!item.title?.trim() || !(Number(item.price) > 0)) throw new Error('Položka nemá platný název nebo cenu.');
+      if (!item.title?.trim() || !(Number(item.price) > 0)) {
+        throw new Error('Položka nemá platný název nebo cenu.');
+      }
 
       const existingOffer = tesco ? null : await findExistingOffer(job, item, validFrom, validTo);
+      const resolution = await resolveOrCreateProduct(job, {
+        ...item,
+        product_id: existingOffer?.product_id || item.product_id || null,
+      });
+      matchTypes[resolution.matchType] = (matchTypes[resolution.matchType] || 0) + 1;
+
+      const incomingImage = safeIncomingImage(item.image_url);
+      const finalImage = resolution.imageUrl || incomingImage || existingOffer?.image_url || null;
+      const usedLibraryImage = Boolean(resolution.imageUrl && finalImage === resolution.imageUrl);
+      const matchMetadata = {
+        product_match_type: resolution.matchType,
+        product_match_score: resolution.matchScore,
+        reused_verified_product_image: usedLibraryImage,
+        incoming_ean: extractEan(item),
+      };
+
       if (existingOffer) {
         const samePrice = Number(existingOffer.price) === Number(item.price);
-        const imageUrl = item.image_url || existingOffer.image_url || null;
         const { error: updateOfferError } = await db.from('offers').update({
+          product_id: resolution.productId,
           price: item.price,
           old_price: item.old_price ?? existingOffer.old_price ?? null,
-          image_url: imageUrl,
+          image_url: finalImage,
           is_verified: Number(item.confidence || 0) >= 0.9,
+          metadata: { ...(existingOffer.metadata || {}), ...matchMetadata },
           published_at: new Date().toISOString(),
         }).eq('id', existingOffer.id);
         if (updateOfferError) throw updateOfferError;
 
-        if (imageUrl && existingOffer.product_id) {
-          const { error: imageProductError } = await db.from('products').update({ image_url: imageUrl }).eq('id', existingOffer.product_id);
-          if (imageProductError) throw imageProductError;
-        }
-
         await db.from('leaflet_import_items').update({
           status: samePrice ? 'ignored' : 'published',
-          product_id: existingOffer.product_id,
+          product_id: resolution.productId,
+          image_url: finalImage,
           raw_data: {
             ...(item.raw_data || {}),
+            ...matchMetadata,
             existing_offer_id: existingOffer.id,
-            ...(samePrice ? { ignored_reason: 'duplicate_offer' } : { publish_action: 'updated_existing_offer' }),
+            ...(samePrice
+              ? { ignored_reason: 'duplicate_offer' }
+              : { publish_action: 'updated_existing_offer' }),
           },
         }).eq('id', item.id);
+
+        if (usedLibraryImage) {
+          reusedLibraryImages++;
+          await markLibraryImageUsed(resolution.productId, resolution.imageUrl);
+        }
         if (samePrice) skippedDuplicates++; else published++;
         continue;
       }
 
-      let productId = item.product_id || await findExistingProduct(item);
-      if (!productId) {
-        const { data: product, error: productError } = await db.from('products').insert({
-          name: item.title,
-          category_id: item.category_id,
-          image_url: item.image_url,
-          is_verified: Number(item.confidence || 0) >= 0.9,
-        }).select('id').single();
-        if (productError) throw productError;
-        productId = product.id;
-      } else if (item.image_url) {
-        const { error: productImageError } = await db.from('products').update({ image_url: item.image_url }).eq('id', productId);
-        if (productImageError) throw productImageError;
-      }
-
       const { error: offerError } = await db.from('offers').insert({
-        product_id: productId,
+        product_id: resolution.productId,
         store_id: job.store_id,
         title: item.title,
         price: item.price,
         old_price: item.old_price,
-        image_url: item.image_url,
+        image_url: finalImage,
         valid_from: validFrom,
         valid_to: validTo,
         status: 'published',
@@ -214,16 +391,34 @@ async function publishImport(job: any) {
         region_code: job.region_code || null,
         city_name: job.city_name || null,
         store_location_name: job.store_location_name || null,
+        metadata: matchMetadata,
       });
       if (offerError) throw offerError;
 
-      await db.from('leaflet_import_items').update({ status: 'published', product_id: productId }).eq('id', item.id);
+      await db.from('leaflet_import_items').update({
+        status: 'published',
+        product_id: resolution.productId,
+        image_url: finalImage,
+        raw_data: {
+          ...(item.raw_data || {}),
+          ...matchMetadata,
+          publish_action: 'created_offer',
+        },
+      }).eq('id', item.id);
+
+      if (usedLibraryImage) {
+        reusedLibraryImages++;
+        await markLibraryImageUsed(resolution.productId, resolution.imageUrl);
+      }
       published++;
     } catch (itemError) {
       failed++;
       await db.from('leaflet_import_items').update({
         status: 'failed',
-        raw_data: { ...(item.raw_data || {}), publish_error: itemError instanceof Error ? itemError.message : String(itemError) },
+        raw_data: {
+          ...(item.raw_data || {}),
+          publish_error: itemError instanceof Error ? itemError.message : String(itemError),
+        },
       }).eq('id', item.id);
     }
   }
@@ -244,7 +439,9 @@ async function publishImport(job: any) {
     status: completed ? 'published' : 'failed',
     product_count: published,
     error_message: completed
-      ? (failed ? `${failed} položek se nepodařilo publikovat. ${skippedDuplicates} duplicit bylo přeskočeno.` : null)
+      ? (failed
+        ? `${failed} položek se nepodařilo publikovat. ${skippedDuplicates} duplicit bylo přeskočeno.`
+        : null)
       : 'Nepodařilo se publikovat žádný produkt.',
     metadata: {
       ...(job.metadata || {}),
@@ -253,6 +450,9 @@ async function publishImport(job: any) {
       failed_count: failed,
       deleted_old_offers: deletedOldOffers,
       tesco_full_replacement: tesco,
+      reused_product_library_images: reusedLibraryImages,
+      product_match_types: matchTypes,
+      product_image_library_version: 1,
     },
     finished_at: new Date().toISOString(),
   }).eq('id', job.id);
@@ -262,6 +462,8 @@ async function publishImport(job: any) {
     published,
     duplicates: skippedDuplicates,
     failed,
+    reused_library_images: reusedLibraryImages,
+    match_types: matchTypes,
     deleted_old_offers: deletedOldOffers,
     tesco_full_replacement: tesco,
   };
@@ -291,8 +493,16 @@ Deno.serve(async (request) => {
     }
 
     const body = await request.json().catch(() => ({}));
-    let query = db.from('leaflet_imports').select('*,stores(slug,name)').eq('status', 'publishing').limit(10);
-    if (body.import_id) query = db.from('leaflet_imports').select('*,stores(slug,name)').eq('id', String(body.import_id)).limit(1);
+    let query = db.from('leaflet_imports')
+      .select('*,stores(slug,name)')
+      .eq('status', 'publishing')
+      .limit(10);
+    if (body.import_id) {
+      query = db.from('leaflet_imports')
+        .select('*,stores(slug,name)')
+        .eq('id', String(body.import_id))
+        .limit(1);
+    }
     const { data: jobs, error } = await query;
     if (error) return jsonResponse({ error: error.message }, 500);
 
@@ -302,7 +512,11 @@ Deno.serve(async (request) => {
         results.push(await publishImport(job));
       } catch (jobError) {
         const message = jobError instanceof Error ? jobError.message : String(jobError);
-        await db.from('leaflet_imports').update({ status: 'failed', error_message: message, finished_at: new Date().toISOString() }).eq('id', job.id);
+        await db.from('leaflet_imports').update({
+          status: 'failed',
+          error_message: message,
+          finished_at: new Date().toISOString(),
+        }).eq('id', job.id);
         results.push({ import_id: job.id, error: message });
       }
     }
