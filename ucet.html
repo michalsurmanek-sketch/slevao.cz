@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Uživatelský účet Slevao.cz pro nákupní seznamy, oblíbené produkty a cenové hlídače.">
+  <meta name="theme-color" content="#0b776f">
+  <meta name="robots" content="noindex,follow">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Můj účet | Slevao.cz</title>
+  <link rel="stylesheet" href="assets/public-features.css?v=20260804-1">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="assets/public-features.js?v=20260804-1"></script>
+  <script defer src="assets/account.js?v=20260804-1"></script>
+</head>
+<body class="sfPage">
+<header class="sfTop"><div class="sfTopInner">
+  <a class="sfLogo" href="index.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
+  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="index.html">Nabídky</a><a href="seznam.html">Seznam</a><a class="sfAlways" href="index.html#leafletsSection">Letáky</a></nav>
+</div></header>
+<main class="sfShell">
+  <section class="sfHero">
+    <div class="sfCard sfHeroMain"><span class="sfEyebrow">Osobní Slevao</span><h1>Můj účet</h1><p class="sfMuted">Ukládej nákupní seznamy, nastavuj cílové ceny a měj všechny hlídače na jednom místě. Základní prohlížení Slevao zůstává bez registrace.</p><p id="accountMessage" class="sfMuted" aria-live="polite"></p></div>
+    <aside class="sfCard sfHeroSide"><strong>Účet je zdarma</strong><span class="sfMuted">Žádný povinný prémiový tarif pro základní seznam a hlídače.</span></aside>
+  </section>
+
+  <section id="authArea" class="sfAuthGrid">
+    <div class="sfCard sfForm"><span class="sfEyebrow">Už mám účet</span><h2>Přihlášení</h2><label>E-mail<input id="loginEmail" type="email" autocomplete="email"></label><label>Heslo<input id="loginPassword" type="password" autocomplete="current-password"></label><button id="signIn" class="sfButton primary" type="button">Přihlásit</button><button id="googleLogin" class="sfButton" type="button" style="margin-left:7px">Pokračovat přes Google</button></div>
+    <div class="sfCard sfForm"><span class="sfEyebrow">Nový účet</span><h2>Registrace</h2><label>E-mail<input id="registerEmail" type="email" autocomplete="email"></label><label>Heslo<input id="registerPassword" type="password" minlength="6" autocomplete="new-password"></label><button id="signUp" class="sfButton primary" type="button">Vytvořit účet</button></div>
+  </section>
+
+  <section id="profileArea" hidden>
+    <div class="sfStats"><div class="sfCard sfStat"><small>Přihlášený účet</small><strong id="accountEmail" style="font-size:18px">—</strong></div><div class="sfCard sfStat"><small>Aktivní seznamy</small><strong id="accountListCount">0</strong></div><div class="sfCard sfStat"><small>Aktivní hlídače</small><strong id="accountAlertCount">0</strong></div><div class="sfCard sfStat"><small>Správa účtu</small><button id="logout" class="sfButton" type="button" style="margin-top:7px">Odhlásit</button></div></div>
+    <section class="sfSection sfCard sfPanel"><div class="sfSectionHead"><div><span class="sfEyebrow">Cenové hlídače</span><h2>Moje sledované ceny</h2></div><a class="sfButton primary" href="index.html#dealsSection">Najít produkt</a></div><div id="alerts"><div class="sfLoading">Načítám hlídače…</div></div></section>
+  </section>
+</main>
+</body>
+</html>
