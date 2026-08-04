@@ -9,10 +9,12 @@ on:
       - 'assets/shopping-list.js'
       - 'assets/product-detail.js'
       - 'assets/product-search.js'
+      - 'assets/product-seo.js'
       - 'assets/account.js'
       - 'assets/store-bottom-nav.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/admin-modern-ui.js'
+      - 'scripts/generate-product-sitemap.mjs'
       - '.github/workflows/public-features-check.yml'
   workflow_dispatch:
 
@@ -32,7 +34,9 @@ jobs:
           node --check assets/shopping-list.js
           node --check assets/product-detail.js
           node --check assets/product-search.js
+          node --check assets/product-seo.js
           node --check assets/account.js
           node --check assets/store-bottom-nav.js
           node --check assets/home-footer-redesign.js
           node --check assets/admin-modern-ui.js
+          node --check scripts/generate-product-sitemap.mjs
