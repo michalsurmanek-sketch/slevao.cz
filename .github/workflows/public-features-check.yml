@@ -11,6 +11,7 @@ on:
       - 'assets/product-search.js'
       - 'assets/product-seo.js'
       - 'assets/product-personalization.js'
+      - 'assets/home-personal-deals.js'
       - 'assets/pwa-install.js'
       - 'assets/account.js'
       - 'assets/store-bottom-nav.js'
@@ -41,6 +42,7 @@ jobs:
           node --check assets/product-search.js
           node --check assets/product-seo.js
           node --check assets/product-personalization.js
+          node --check assets/home-personal-deals.js
           node --check assets/pwa-install.js
           node --check assets/account.js
           node --check assets/store-bottom-nav.js
