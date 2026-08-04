@@ -11,10 +11,14 @@ on:
       - 'assets/product-search.js'
       - 'assets/product-seo.js'
       - 'assets/product-personalization.js'
+      - 'assets/pwa-install.js'
       - 'assets/account.js'
       - 'assets/store-bottom-nav.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/admin-modern-ui.js'
+      - 'service-worker.js'
+      - 'manifest.webmanifest'
+      - 'offline.html'
       - 'scripts/generate-product-sitemap.mjs'
       - '.github/workflows/public-features-check.yml'
   workflow_dispatch:
@@ -28,7 +32,7 @@ jobs:
     steps:
       - name: Načíst repozitář
         uses: actions/checkout@v4
-      - name: Zkontrolovat syntaxi JavaScriptu
+      - name: Zkontrolovat JavaScript a manifest
         run: |
           node --check assets/public-features.js
           node --check assets/public-nav-upgrade.js
@@ -37,8 +41,11 @@ jobs:
           node --check assets/product-search.js
           node --check assets/product-seo.js
           node --check assets/product-personalization.js
+          node --check assets/pwa-install.js
           node --check assets/account.js
           node --check assets/store-bottom-nav.js
           node --check assets/home-footer-redesign.js
           node --check assets/admin-modern-ui.js
+          node --check service-worker.js
           node --check scripts/generate-product-sitemap.mjs
+          node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
