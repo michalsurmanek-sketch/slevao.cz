@@ -1,0 +1,43 @@
+{
+  "name": "Slevao.cz – akce, ceny a nákupní seznam",
+  "short_name": "Slevao",
+  "description": "Porovnání akčních cen, letáky, oblíbené produkty a chytrý nákupní seznam.",
+  "lang": "cs",
+  "id": "/",
+  "start_url": "/index.html?source=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#f3f7f6",
+  "theme_color": "#0b776f",
+  "categories": ["shopping", "utilities", "lifestyle"],
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Hledat produkt",
+      "short_name": "Hledat",
+      "url": "/hledat.html?source=shortcut",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Nákupní seznam",
+      "short_name": "Seznam",
+      "url": "/seznam.html?source=shortcut",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    },
+    {
+      "name": "Můj účet",
+      "short_name": "Účet",
+      "url": "/ucet.html?source=shortcut",
+      "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
+    }
+  ]
+}
