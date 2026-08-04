@@ -34,6 +34,25 @@
     document.head.appendChild(script);
   }
 
+  function loadHomePersonalDeals() {
+    if (!/\/(?:index\.html)?$/i.test(location.pathname)) return;
+    if (document.querySelector('script[src*="home-personal-deals.js"]')) return;
+    let attempts = 0;
+    const attach = () => {
+      if (document.querySelector('script[src*="home-personal-deals.js"]')) return;
+      if (!window.supabase && attempts++ < 80) {
+        window.setTimeout(attach, 100);
+        return;
+      }
+      if (!window.supabase) return;
+      const script = document.createElement('script');
+      script.src = 'assets/home-personal-deals.js?v=20260804-1';
+      script.defer = true;
+      document.head.appendChild(script);
+    };
+    attach();
+  }
+
   function upgrade() {
     const nav = document.querySelector('.slevaoBottomNav');
     if (!nav) return false;
@@ -51,6 +70,7 @@
 
   loadPersonalization();
   loadPwa();
+  loadHomePersonalDeals();
   if (upgrade()) return;
   const observer = new MutationObserver(() => {
     if (upgrade()) observer.disconnect();
