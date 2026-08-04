@@ -12,6 +12,8 @@ on:
       - 'supabase/functions/manual-leaflet-upload-v2/**'
       - 'supabase/functions/process-manual-leaflet-v2/**'
       - 'supabase/functions/run-manual-leaflet-import/**'
+      - 'supabase/functions/generate-leaflet-product-crops/**'
+      - 'supabase/migrations/*leaflet_product_crops*.sql'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -49,6 +51,9 @@ jobs:
           grep -q "server-bytes-data-url" supabase/functions/process-manual-leaflet-v2/index.ts
           grep -q "leaflet_import_items" supabase/functions/process-manual-leaflet-v2/index.ts
           grep -q "x-cron-secret" supabase/functions/run-manual-leaflet-import/index.ts
+          grep -q "leaflet_ai_crop" supabase/functions/generate-leaflet-product-crops/index.ts
+          grep -q "crop_box_percent" supabase/functions/generate-leaflet-product-crops/index.ts
+          grep -q "product_image_candidates" supabase/functions/generate-leaflet-product-crops/index.ts
           ! grep -q "database-data-url" assets/admin-manual-leaflets.js
           ! grep -q "storage.from" assets/admin-manual-leaflets.js
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
@@ -77,6 +82,14 @@ jobs:
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
+      - name: Nasadit výřezy produktů z letáků
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy generate-leaflet-product-crops \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
       - name: Nasadit serverový upload
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
@@ -97,7 +110,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for function_name in process-manual-leaflet-v2 manual-leaflet-upload-v2 run-manual-leaflet-import; do
+          for function_name in process-manual-leaflet-v2 generate-leaflet-product-crops manual-leaflet-upload-v2 run-manual-leaflet-import; do
             response="$(curl --fail --silent --show-error \
               --request OPTIONS \
               --retry 8 --retry-delay 3 \
