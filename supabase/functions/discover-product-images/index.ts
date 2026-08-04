@@ -5,6 +5,9 @@ const cors = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
+const KAUFLAND_OFFERS_URL = "https://prodejny.kaufland.cz/nabidka/prehled.html";
+const MAX_CANDIDATES_PER_PRODUCT = 3;
+
 type Product = {
   id: string;
   name: string;
@@ -25,12 +28,25 @@ type Candidate = {
   metadata: Record<string, unknown>;
 };
 
+type CatalogItem = {
+  title: string;
+  image: string;
+  sourceUrl: string;
+};
+
 const providers = [
   { key: "open_food_facts", host: "world.openfoodfacts.org" },
   { key: "open_products_facts", host: "world.openproductsfacts.org" },
   { key: "open_beauty_facts", host: "world.openbeautyfacts.org" },
   { key: "open_pet_food_facts", host: "world.openpetfoodfacts.org" },
 ];
+
+const STOP_WORDS = new Set([
+  "akce", "akcni", "bezna", "bezny", "cena", "kartou", "karta", "kaufland",
+  "ruzne", "druhy", "druh", "vybrane", "vybrany", "baleni", "pouze", "set",
+  "lahev", "pet", "tetra", "pak", "jvp", "kus", "kusu", "ks", "prodej",
+  "smesny", "smesna", "tuk", "obsah", "zdarma", "navic", "multipack",
+]);
 
 function repairMojibake(value: unknown): string {
   const input = String(value ?? "");
@@ -39,30 +55,83 @@ function repairMojibake(value: unknown): string {
     const bytes = Uint8Array.from([...input].map((char) => char.charCodeAt(0) & 0xff));
     const repaired = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
     return (repaired.match(/[ÃÅÄ]/g) ?? []).length < (input.match(/[ÃÅÄ]/g) ?? []).length ? repaired : input;
-  } catch { return input; }
+  } catch {
+    return input;
+  }
 }
 
-const normalize = (value: unknown) => repairMojibake(value)
-  .normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
-  .replace(/[^a-z0-9]+/g, " ").trim();
+function decodeHtml(value: string): string {
+  return String(value || "")
+    .replace(/&amp;/g, "&")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;|&apos;/g, "'")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&#(\d+);/g, (_match, code) => String.fromCharCode(Number(code)));
+}
 
-const tokens = (value: unknown) => new Set(normalize(value).split(" ").filter((x) => x.length > 1));
+function normalize(value: unknown): string {
+  return repairMojibake(value)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-function similarity(a: unknown, b: unknown): number {
-  const aa = tokens(a), bb = tokens(b);
-  if (!aa.size || !bb.size) return 0;
-  let common = 0;
-  for (const token of aa) if (bb.has(token)) common++;
-  return common / Math.max(aa.size, bb.size);
+function coreName(value: unknown): string {
+  return repairMojibake(value)
+    .replace(/\([^)]*(?:kart|akc|bezna|cena|ruzne|druh)[^)]*\)/gi, " ")
+    .replace(/(?:^|\s)[·•|]\s*\d[\s\S]*$/u, " ")
+    .replace(/\b\d+(?:[,.]\d+)?\s*(?:kg|g|l|ml|cl|ks|%)\b/gi, " ")
+    .replace(/\b(?:s\s+kartou|akcni\s+set|bezna\s+akcni\s+cena|ruzne\s+druhy|vybrane\s+druhy)\b/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function significantWords(value: unknown): string[] {
+  return [...new Set(normalize(coreName(value)).split(" ").filter((word) => word.length > 1 && !STOP_WORDS.has(word)))];
+}
+
+function quantityTokens(value: unknown): string[] {
+  const input = repairMojibake(value).toLowerCase().replace(/,/g, ".");
+  return [...new Set([...input.matchAll(/\b(\d+(?:\.\d+)?)\s*(kg|g|l|ml|cl|ks)\b/g)]
+    .map((match) => `${Number(match[1])}${match[2]}`))];
+}
+
+function matchDetails(left: unknown, right: unknown) {
+  const a = significantWords(left);
+  const b = significantWords(right);
+  if (!a.length || !b.length) return { score: 0, common: 0, containment: false, quantityConflict: false };
+  const setB = new Set(b);
+  const common = a.filter((word) => setB.has(word)).length;
+  const containmentScore = common / Math.min(a.length, b.length);
+  const jaccard = common / new Set([...a, ...b]).size;
+  const prefixBonus = a[0] === b[0] ? 0.08 : 0;
+  const qa = quantityTokens(left);
+  const qb = quantityTokens(right);
+  const quantityOverlap = qa.some((item) => qb.includes(item));
+  const quantityConflict = qa.length > 0 && qb.length > 0 && !quantityOverlap;
+  const quantityAdjustment = quantityOverlap ? 0.08 : quantityConflict ? -0.16 : 0;
+  const score = Math.max(0, Math.min(1, containmentScore * 0.72 + jaccard * 0.28 + prefixBonus + quantityAdjustment));
+  const containment = a.every((word) => setB.has(word)) || b.every((word) => a.includes(word));
+  return { score, common, containment, quantityConflict };
 }
 
 function productQuery(product: Product): string {
-  return [repairMojibake(product.brand), repairMojibake(product.name), repairMojibake(product.quantity_text)]
-    .filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  const cleanName = coreName(product.name);
+  const brand = coreName(product.brand || "");
+  const query = [brand, cleanName].filter(Boolean).join(" ").replace(/\s+/g, " ").trim();
+  return query || repairMojibake(product.name).trim();
 }
 
 function domainOf(url: unknown): string | null {
-  try { return new URL(String(url)).hostname; } catch { return null; }
+  try {
+    return new URL(String(url)).hostname;
+  } catch {
+    return null;
+  }
 }
 
 function validHttpsUrl(value: unknown): value is string {
@@ -70,18 +139,108 @@ function validHttpsUrl(value: unknown): value is string {
 }
 
 function validImageUrl(value: unknown): value is string {
-  return validHttpsUrl(value) && !/placeholder|no[-_ ]?image|default-image/i.test(value);
+  return validHttpsUrl(value)
+    && !/placeholder|no[-_ ]?image|default-image|favicon|(?:^|[\/_-])logo(?:[\/_.-]|$)/i.test(value);
 }
 
 function sourceOrImage(sourceUrl: unknown, imageUrl: string): string {
   return validHttpsUrl(sourceUrl) ? sourceUrl : imageUrl;
 }
 
+function htmlAttribute(tag: string, name: string): string {
+  const match = tag.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"));
+  return decodeHtml(match?.[1] || "").trim();
+}
+
+function absoluteHttpsUrl(value: string, base: string): string | null {
+  try {
+    const url = new URL(value.startsWith("//") ? `https:${value}` : value, base);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+async function loadKauflandCatalog(): Promise<CatalogItem[]> {
+  try {
+    const response = await fetch(KAUFLAND_OFFERS_URL, {
+      headers: {
+        "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36",
+        accept: "text/html,application/xhtml+xml",
+        "accept-language": "cs-CZ,cs;q=0.9",
+        "cache-control": "no-cache",
+      },
+      redirect: "follow",
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const html = await response.text();
+    const catalog: CatalogItem[] = [];
+    const seen = new Set<string>();
+
+    for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
+      const tag = match[0];
+      const className = htmlAttribute(tag, "class");
+      if (!/k-product-tile__main-image/i.test(className)) continue;
+      const title = htmlAttribute(tag, "alt").replace(/\s+/g, " ").trim();
+      const srcset = htmlAttribute(tag, "srcset").split(",")[0]?.trim().split(/\s+/)[0] || "";
+      const rawImage = htmlAttribute(tag, "src") || htmlAttribute(tag, "data-src") || srcset;
+      const image = absoluteHttpsUrl(rawImage, response.url || KAUFLAND_OFFERS_URL);
+      if (!title || !image || !/kaufland\.media\.schwarz$/i.test(domainOf(image) || "") || seen.has(image)) continue;
+      seen.add(image);
+      catalog.push({ title, image, sourceUrl: KAUFLAND_OFFERS_URL });
+    }
+    return catalog;
+  } catch (error) {
+    console.warn("Kaufland catalog lookup failed:", error instanceof Error ? error.message : String(error));
+    return [];
+  }
+}
+
+function kauflandCandidate(master: Product, catalog: CatalogItem[]): Candidate | null {
+  if (!catalog.length) return null;
+  const query = productQuery(master);
+  let best: CatalogItem | null = null;
+  let bestDetails = { score: 0, common: 0, containment: false, quantityConflict: false };
+  let secondScore = 0;
+
+  for (const item of catalog) {
+    const details = matchDetails(query, item.title);
+    if (details.score > bestDetails.score) {
+      secondScore = bestDetails.score;
+      bestDetails = details;
+      best = item;
+    } else if (details.score > secondScore) {
+      secondScore = details.score;
+    }
+  }
+
+  const uniqueEnough = bestDetails.containment || bestDetails.score - secondScore >= 0.07;
+  if (!best || bestDetails.common < 2 || bestDetails.score < 0.72 || bestDetails.quantityConflict || !uniqueEnough) return null;
+
+  return {
+    image_url: best.image,
+    source_url: best.sourceUrl,
+    source_domain: "prodejny.kaufland.cz",
+    source_type: "retailer",
+    width: null,
+    height: null,
+    quality_score: Math.round(82 + bestDetails.score * 14),
+    match_score: Number(bestDetails.score.toFixed(4)),
+    metadata: {
+      provider: "official_kaufland_offer_catalog",
+      official_retailer: true,
+      matched_title: best.title,
+      searched_title: query,
+      common_words: bestDetails.common,
+    },
+  };
+}
+
 async function existingCandidates(db: any, master: Product): Promise<Candidate[]> {
   const found: Candidate[] = [];
   const seen = new Set<string>();
   const add = (url: unknown, source: string, score: number, sourceUrl: unknown = null, metadata: Record<string, unknown> = {}) => {
-    if (!validImageUrl(url) || seen.has(url) || found.length >= 3) return;
+    if (!validImageUrl(url) || seen.has(url) || found.length >= MAX_CANDIDATES_PER_PRODUCT) return;
     const finalSourceUrl = sourceOrImage(sourceUrl, url);
     seen.add(url);
     found.push({
@@ -103,8 +262,6 @@ async function existingCandidates(db: any, master: Product): Promise<Candidate[]
     .maybeSingle();
   add(productRow?.image_url, "products", 88, productRow?.image_source);
 
-  // Import má skutečný zdrojový dokument. Musí se zpracovat před nabídkou,
-  // jinak stejný obrázek z offers obsadí deduplikační klíč bez source_url.
   const { data: imports } = await db.from("leaflet_import_items")
     .select("image_url,created_at,source_page,import_id,leaflet_imports(source_document_url)")
     .eq("product_id", master.id)
@@ -139,43 +296,54 @@ async function existingCandidates(db: any, master: Product): Promise<Candidate[]
 }
 
 function imageFromFacts(product: any): string | null {
-  return [product?.selected_images?.front?.display?.cs, product?.selected_images?.front?.display?.en, product?.image_front_url, product?.image_url]
-    .find((url) => validImageUrl(url)) ?? null;
+  return [
+    product?.selected_images?.front?.display?.cs,
+    product?.selected_images?.front?.display?.en,
+    product?.image_front_url,
+    product?.image_url,
+  ].find((url) => validImageUrl(url)) ?? null;
 }
 
 async function factsCandidates(master: Product): Promise<Candidate[]> {
   const found: Candidate[] = [];
   const seen = new Set<string>();
   const cleanEan = master.ean?.replace(/\D/g, "") ?? "";
+  const query = productQuery(master);
+
   for (const provider of providers) {
     let products: any[] = [];
     try {
       if (/^\d{8,14}$/.test(cleanEan)) {
-        const r = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(cleanEan)}.json`, { headers: { "User-Agent": "Slevao.cz/1.5" } });
-        const data = r.ok ? await r.json() : null;
+        const response = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(cleanEan)}.json`, {
+          headers: { "User-Agent": "Slevao.cz/2.0 (https://slevao.cz)" },
+        });
+        const data = response.ok ? await response.json() : null;
         if (data?.status === 1 && data.product) products = [data.product];
       }
-      if (!products.length) {
+      if (!products.length && significantWords(query).length >= 2) {
         const url = new URL(`https://${provider.host}/cgi/search.pl`);
-        url.searchParams.set("search_terms", productQuery(master));
+        url.searchParams.set("search_terms", query);
         url.searchParams.set("search_simple", "1");
         url.searchParams.set("action", "process");
         url.searchParams.set("json", "1");
-        url.searchParams.set("page_size", "8");
+        url.searchParams.set("page_size", "10");
         url.searchParams.set("fields", "code,product_name,product_name_cs,generic_name_cs,brands,quantity,image_url,image_front_url,image_front_width,image_front_height,selected_images");
-        const r = await fetch(url, { headers: { "User-Agent": "Slevao.cz/1.5" } });
-        const data = r.ok ? await r.json() : null;
+        const response = await fetch(url, { headers: { "User-Agent": "Slevao.cz/2.0 (https://slevao.cz)" } });
+        const data = response.ok ? await response.json() : null;
         products = Array.isArray(data?.products) ? data.products : [];
       }
-    } catch { products = []; }
+    } catch {
+      products = [];
+    }
 
     for (const product of products) {
       const image = imageFromFacts(product);
       if (!image || seen.has(image)) continue;
-      const exactEan = cleanEan && String(product?.code || "").replace(/\D/g, "") === cleanEan;
+      const exactEan = Boolean(cleanEan && String(product?.code || "").replace(/\D/g, "") === cleanEan);
       const foundText = [product?.brands, product?.product_name_cs, product?.product_name, product?.quantity].filter(Boolean).join(" ");
-      const match = exactEan ? 1 : similarity(productQuery(master), foundText);
-      if (!exactEan && match < 0.58) continue;
+      const details = matchDetails(query, foundText);
+      const quantitySafe = !details.quantityConflict;
+      if (!exactEan && (details.common < 2 || details.score < 0.6 || !quantitySafe)) continue;
       const productPage = `https://${provider.host}/product/${encodeURIComponent(String(product?.code || cleanEan))}`;
       seen.add(image);
       found.push({
@@ -185,11 +353,17 @@ async function factsCandidates(master: Product): Promise<Candidate[]> {
         source_type: "barcode_database",
         width: Number(product?.image_front_width) || null,
         height: Number(product?.image_front_height) || null,
-        quality_score: exactEan ? 92 : Math.round(68 + match * 18),
-        match_score: Number(match.toFixed(4)),
-        metadata: { provider: provider.key, exact_ean: exactEan, product_name: foundText },
+        quality_score: exactEan ? 94 : Math.round(70 + details.score * 18),
+        match_score: exactEan ? 1 : Number(details.score.toFixed(4)),
+        metadata: {
+          provider: provider.key,
+          exact_ean: exactEan,
+          matched_title: foundText,
+          searched_title: query,
+          common_words: details.common,
+        },
       });
-      if (found.length >= 3) return found;
+      if (found.length >= MAX_CANDIDATES_PER_PRODUCT) return found;
     }
   }
   return found;
@@ -207,7 +381,7 @@ Deno.serve(async (req) => {
     const productId = typeof body?.product_id === "string" ? body.product_id.trim() : "";
     const storeSlug = typeof body?.store_slug === "string" ? normalize(body.store_slug).replace(/\s+/g, "-") : "";
     const limit = Math.max(1, Math.min(Number(body?.limit ?? 30), 100));
-    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false } });
+    const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
 
     const authorization = req.headers.get("authorization") || "";
     const token = authorization.replace(/^Bearer\s+/i, "").trim();
@@ -219,7 +393,10 @@ Deno.serve(async (req) => {
       isStaff = ["admin", "editor"].includes(String(data.user?.app_metadata?.role || "").toLowerCase());
     }
     if (!isService && !isCron && !isStaff) {
-      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), { status: 401, headers: { ...cors, "Content-Type": "application/json" } });
+      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...cors, "Content-Type": "application/json" },
+      });
     }
 
     let storeProductIds: string[] | null = null;
@@ -238,7 +415,9 @@ Deno.serve(async (req) => {
       if (offerError) throw offerError;
       storeProductIds = [...new Set((storeOffers || []).map((row: any) => String(row.product_id)).filter(Boolean))];
       if (!storeProductIds.length) {
-        return new Response(JSON.stringify({ ok: true, checked: 0, created: 0, without_match: 0, store_slug: storeSlug, results: [] }), { headers: { ...cors, "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ ok: true, checked: 0, created: 0, without_match: 0, store_slug: storeSlug, results: [] }), {
+          headers: { ...cors, "Content-Type": "application/json" },
+        });
       }
     }
 
@@ -255,7 +434,12 @@ Deno.serve(async (req) => {
     if (error) throw error;
     if (productId && !(products || []).length) throw new Error("Vybraný produkt nebyl nalezen nebo už má ověřenou fotografii.");
 
-    let checked = 0, created = 0, withoutMatch = 0;
+    const kauflandCatalog = storeSlug === "kaufland" ? await loadKauflandCatalog() : [];
+    let checked = 0;
+    let created = 0;
+    let withoutMatch = 0;
+    let kauflandMatches = 0;
+    let factsMatches = 0;
     const results: Record<string, unknown>[] = [];
 
     for (const master of (products || []) as Product[]) {
@@ -264,23 +448,43 @@ Deno.serve(async (req) => {
       const seen = new Set<string>();
       const addMany = (rows: Candidate[]) => {
         for (const row of rows) {
-          if (!seen.has(row.image_url) && found.length < 3) { seen.add(row.image_url); found.push(row); }
+          if (!seen.has(row.image_url) && found.length < MAX_CANDIDATES_PER_PRODUCT) {
+            seen.add(row.image_url);
+            found.push(row);
+          }
         }
       };
 
       addMany(await existingCandidates(db, master));
-      if (found.length < 3) addMany(await factsCandidates(master));
+      if (storeSlug === "kaufland" && found.length < MAX_CANDIDATES_PER_PRODUCT) {
+        const official = kauflandCandidate(master, kauflandCatalog);
+        if (official) {
+          addMany([official]);
+          kauflandMatches++;
+        }
+      }
+      if (found.length < MAX_CANDIDATES_PER_PRODUCT) {
+        const facts = await factsCandidates(master);
+        if (facts.length) factsMatches++;
+        addMany(facts);
+      }
 
       if (!found.length) {
         withoutMatch++;
         await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", master.id);
-        results.push({ product_id: master.id, name: repairMojibake(master.name), status: "not_found", searched: productQuery(master), sources_checked: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)] });
+        results.push({
+          product_id: master.id,
+          name: repairMojibake(master.name),
+          status: "not_found",
+          searched: productQuery(master),
+          sources_checked: ["products", "leaflet_import_items", "offers", ...(storeSlug === "kaufland" ? ["official_kaufland_offer_catalog"] : []), ...providers.map((provider) => provider.key)],
+        });
         continue;
       }
 
       let productCreated = 0;
       for (const candidate of found) {
-        const { error: insertError } = await db.from("product_image_candidates").upsert({
+        const { data: inserted, error: insertError } = await db.from("product_image_candidates").upsert({
           product_id: master.id,
           image_url: candidate.image_url,
           source_url: candidate.source_url,
@@ -295,15 +499,36 @@ Deno.serve(async (req) => {
           has_price_overlay: false,
           status: "pending",
           metadata: candidate.metadata,
-        }, { onConflict: "product_id,image_url", ignoreDuplicates: true });
-        if (!insertError) { created++; productCreated++; }
+        }, { onConflict: "product_id,image_url", ignoreDuplicates: true }).select("id");
+        if (insertError) {
+          console.warn("Candidate insert failed", master.id, insertError.message);
+          continue;
+        }
+        const insertedCount = Array.isArray(inserted) ? inserted.length : 0;
+        created += insertedCount;
+        productCreated += insertedCount;
       }
       await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", master.id);
       results.push({ product_id: master.id, name: repairMojibake(master.name), status: "candidates", count: productCreated, candidates: found });
     }
 
-    return new Response(JSON.stringify({ ok: true, checked, created, without_match: withoutMatch, product_id: productId || null, store_slug: storeSlug || null, sources: ["products", "leaflet_import_items", "offers", ...providers.map(p => p.key)], results }), { headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({
+      ok: true,
+      checked,
+      created,
+      without_match: withoutMatch,
+      kaufland_catalog_items: kauflandCatalog.length,
+      kaufland_matches: kauflandMatches,
+      facts_matches: factsMatches,
+      product_id: productId || null,
+      store_slug: storeSlug || null,
+      sources: ["products", "leaflet_import_items", "offers", ...(storeSlug === "kaufland" ? ["official_kaufland_offer_catalog"] : []), ...providers.map((provider) => provider.key)],
+      results,
+    }), { headers: { ...cors, "Content-Type": "application/json" } });
   } catch (error) {
-    return new Response(JSON.stringify({ ok: false, error: String(error?.message ?? error) }), { status: 500, headers: { ...cors, "Content-Type": "application/json" } });
+    return new Response(JSON.stringify({ ok: false, error: String((error as any)?.message ?? error) }), {
+      status: 500,
+      headers: { ...cors, "Content-Type": "application/json" },
+    });
   }
 });
