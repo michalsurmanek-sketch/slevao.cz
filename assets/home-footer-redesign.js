@@ -4,12 +4,12 @@
   if (!document.querySelector('link[href*="public-features.css"]')) {
     const style = document.createElement('link');
     style.rel = 'stylesheet';
-    style.href = 'assets/public-features.css?v=20260804-1';
+    style.href = 'assets/public-features.css?v=20260804-2';
     document.head.appendChild(style);
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260804-1';
+    script.src = 'assets/public-features.js?v=20260804-2';
     script.defer = true;
     document.head.appendChild(script);
   }
