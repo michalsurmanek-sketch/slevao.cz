@@ -8,7 +8,6 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const formatDate = (value) => value ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric' }).format(new Date(`${String(value).slice(0,10)}T12:00:00`)) : '–';
-  const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const today = new Date().toISOString().slice(0, 10);
   const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
@@ -84,6 +83,8 @@
       rows.sort((a, b) => new Set(productOffers(b.id).map((row) => row.store_id)).size - new Set(productOffers(a.id).map((row) => row.store_id)).size);
     } else if (state.sort === 'name') {
       rows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'cs'));
+    } else if (state.query) {
+      rows.sort((a, b) => Number(b.relevance || 0) - Number(a.relevance || 0) || String(a.name).localeCompare(String(b.name), 'cs'));
     }
     return rows;
   }
@@ -141,26 +142,16 @@
 
   async function loadSearch(query, token) {
     const safe = query.replace(/[(),]/g, ' ').replace(/[%_*]/g, ' ').replace(/\s+/g, ' ').trim();
-    const pattern = `%${safe}%`;
-    const { data, error } = await db.from('products')
-      .select('id,name,brand,quantity_text,image_url,slug,category_id')
-      .or(`name.ilike.${pattern},brand.ilike.${pattern},quantity_text.ilike.${pattern}`)
-      .order('name')
-      .limit(120);
+    const { data, error } = await db.rpc('search_products_catalog', {
+      search_query: safe,
+      result_limit: 120
+    });
     if (error) throw error;
     if (token !== state.loadingToken) return;
     state.products = data || [];
     const offers = await fetchOffers(state.products.map((row) => row.id));
     if (token !== state.loadingToken) return;
     setOffers(offers);
-
-    const queryNorm = norm(query);
-    state.products.sort((a, b) => {
-      const aName = norm(a.name), bName = norm(b.name);
-      const aScore = aName === queryNorm ? 0 : aName.startsWith(queryNorm) ? 1 : aName.includes(queryNorm) ? 2 : 3;
-      const bScore = bName === queryNorm ? 0 : bName.startsWith(queryNorm) ? 1 : bName.includes(queryNorm) ? 2 : 3;
-      return aScore - bScore || aName.localeCompare(bName, 'cs');
-    });
   }
 
   function setOffers(offers) {
