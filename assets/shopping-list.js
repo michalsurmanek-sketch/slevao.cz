@@ -11,6 +11,7 @@
   const norm = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const today = new Date().toISOString().slice(0, 10);
+  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
 
   let rows = [];
   let session = null;
@@ -51,12 +52,11 @@
 
     const localMap = new Map(rows.map((row) => [rowKey(row), row]));
     const remoteMap = new Map((remote || []).map((row) => [rowKey(row), row]));
-
     const missingRemote = rows.filter((row) => !remoteMap.has(rowKey(row)));
+
     if (missingRemote.length) {
       const payload = missingRemote.map((row) => ({
-        shopping_list_id: listId,
-        product_id: row.product_id || null,
+        shopping_list_id: listId, product_id: row.product_id || null,
         selected_offer_id: row.selected_offer_id || null,
         custom_name: row.product_id ? null : (row.custom_name || row.name),
         quantity: Number(row.quantity || 1), unit: row.unit || 'ks', is_completed: Boolean(row.completed)
@@ -67,7 +67,7 @@
       (inserted || []).forEach((item) => remoteMap.set(rowKey(item), item));
     }
 
-    const productIds = [...new Set((remote || []).map((row) => row.product_id).filter(Boolean))];
+    const productIds = [...new Set([...remoteMap.values()].map((row) => row.product_id).filter(Boolean))];
     let products = [];
     if (productIds.length) {
       const result = await db.from('products').select('id,name,brand,quantity_text,image_url').in('id', productIds);
@@ -101,8 +101,7 @@
     saveLocal();
     if (!session || !listId) return;
     const payload = {
-      shopping_list_id: listId,
-      product_id: row.product_id || null,
+      shopping_list_id: listId, product_id: row.product_id || null,
       selected_offer_id: row.selected_offer_id || null,
       custom_name: row.product_id ? null : (row.custom_name || row.name),
       quantity: Number(row.quantity || 1), unit: row.unit || 'ks', is_completed: Boolean(row.completed)
@@ -132,16 +131,16 @@
     if (!productIds.length) { activeOffers = []; renderResults(); return; }
     const { data, error } = await db.from('offers')
       .select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
-      .in('product_id', productIds).eq('status', 'published').lte('valid_from', today).gte('valid_to', today).limit(5000);
+      .in('product_id', productIds).eq('status', 'published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(5000);
     if (error) throw error;
     activeOffers = data || [];
     renderResults();
   }
 
   function cheapestFor(productId, allowedStores = null) {
-    return activeOffers
-      .filter((offer) => offer.product_id === productId && (!allowedStores || allowedStores.has(offer.store_id)))
-      .sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+    const candidates = activeOffers.filter((offer) => offer.product_id === productId && (!allowedStores || allowedStores.has(offer.store_id)));
+    const current = candidates.filter((offer) => String(offer.valid_from || '') <= today);
+    return (current.length ? current : candidates).sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
   }
 
   function planFromOffers(items, allowedStores = null) {
@@ -155,7 +154,7 @@
       chosen.push({ item, offer, subtotal: Number(offer.price || 0) * qty });
     }
     const stores = [...new Map(chosen.map((row) => [row.offer.store_id, row.offer.stores])).values()];
-    return { total, chosen, stores };
+    return { total, chosen, stores, upcomingCount: chosen.filter((row) => String(row.offer.valid_from || '') > today).length };
   }
 
   function calculatePlans() {
@@ -174,8 +173,7 @@
     let balancedScore = oneStore ? oneStore.total : Infinity;
     for (let i = 0; i < storeIds.length; i++) {
       for (let j = i; j < storeIds.length; j++) {
-        const allowed = new Set([storeIds[i], storeIds[j]]);
-        const plan = planFromOffers(items, allowed);
+        const plan = planFromOffers(items, new Set([storeIds[i], storeIds[j]]));
         if (!plan) continue;
         const score = plan.total + Math.max(0, plan.stores.length - 1) * 35;
         if (score < balancedScore) { balanced = plan; balancedScore = score; }
@@ -185,7 +183,7 @@
   }
 
   function planHtml(title, plan, description, best = false) {
-    if (!plan) return `<div class="sfResultBox"><h3>${esc(title)}</h3><p class="sfMuted">Pro tuto variantu zatím chybí dostatek aktuálních cen.</p></div>`;
+    if (!plan) return `<div class="sfResultBox"><h3>${esc(title)}</h3><p class="sfMuted">Pro tuto variantu zatím chybí dostatek cen.</p></div>`;
     const groups = new Map();
     plan.chosen.forEach(({ item, offer, subtotal }) => {
       const name = offer.stores?.name || 'Obchod';
@@ -193,7 +191,8 @@
       group.push(`${item.name} – ${money(subtotal)} Kč`);
       groups.set(name, group);
     });
-    return `<div class="sfResultBox ${best ? 'best' : ''}"><h3>${esc(title)}</h3><div class="sfResultPrice">${money(plan.total)} Kč</div><p class="sfMuted">${esc(description)}</p><div class="sfStoreTags">${[...groups].map(([store, lines]) => `<span class="sfStoreTag" title="${esc(lines.join('\n'))}">${esc(store)} · ${lines.length} položek</span>`).join('')}</div></div>`;
+    const upcoming = plan.upcomingCount ? ` ${plan.upcomingCount} položek používá akci začínající během příštích 7 dnů.` : '';
+    return `<div class="sfResultBox ${best ? 'best' : ''}"><h3>${esc(title)}</h3><div class="sfResultPrice">${money(plan.total)} Kč</div><p class="sfMuted">${esc(description + upcoming)}</p><div class="sfStoreTags">${[...groups].map(([store, lines]) => `<span class="sfStoreTag" title="${esc(lines.join('\n'))}">${esc(store)} · ${lines.length} položek</span>`).join('')}</div></div>`;
   }
 
   function renderResults() {
