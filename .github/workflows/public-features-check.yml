@@ -7,6 +7,8 @@ on:
       - 'assets/public-features.js'
       - 'assets/public-nav-upgrade.js'
       - 'assets/shopping-list.js'
+      - 'assets/shopping-insights.js'
+      - 'assets/shopping-insights.css'
       - 'assets/product-detail.js'
       - 'assets/product-search.js'
       - 'assets/product-seo.js'
@@ -38,6 +40,7 @@ jobs:
           node --check assets/public-features.js
           node --check assets/public-nav-upgrade.js
           node --check assets/shopping-list.js
+          node --check assets/shopping-insights.js
           node --check assets/product-detail.js
           node --check assets/product-search.js
           node --check assets/product-seo.js
