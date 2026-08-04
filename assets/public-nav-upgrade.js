@@ -1,6 +1,31 @@
 (() => {
   'use strict';
 
+  function loadPersonalization() {
+    if (!document.querySelector('link[href*="product-personalization.css"]')) {
+      const style = document.createElement('link');
+      style.rel = 'stylesheet';
+      style.href = 'assets/product-personalization.css?v=20260804-1';
+      document.head.appendChild(style);
+    }
+    if (document.querySelector('script[src*="product-personalization.js"]')) return;
+
+    let attempts = 0;
+    const attach = () => {
+      if (document.querySelector('script[src*="product-personalization.js"]')) return;
+      if (!window.supabase && attempts++ < 80) {
+        window.setTimeout(attach, 100);
+        return;
+      }
+      if (!window.supabase) return;
+      const script = document.createElement('script');
+      script.src = 'assets/product-personalization.js?v=20260804-1';
+      script.defer = true;
+      document.head.appendChild(script);
+    };
+    attach();
+  }
+
   function upgrade() {
     const nav = document.querySelector('.slevaoBottomNav');
     if (!nav) return false;
@@ -16,6 +41,7 @@
     return true;
   }
 
+  loadPersonalization();
   if (upgrade()) return;
   const observer = new MutationObserver(() => {
     if (upgrade()) observer.disconnect();
