@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<title>Slevao.cz – hlášení uživatelů</title>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="stylesheet" href="assets/public-features.css?v=20260804-1">
+<style>.reportGrid{display:grid;gap:12px}.reportCard{padding:18px}.reportHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.reportType{font-weight:950}.reportMeta{font-size:12px;color:var(--sf-muted);margin-top:5px}.reportNote{padding:12px;background:#f5f8f7;border-radius:12px;margin:12px 0}.reportActions{display:flex;gap:8px;flex-wrap:wrap}.loginBox{max-width:430px;margin:70px auto;padding:24px}</style>
+</head>
+<body class="sfPage">
+<section id="loginBox" class="sfCard loginBox"><h1>Přihlášení správce</h1><label style="display:grid;gap:7px;margin:12px 0">E-mail<input id="email" class="sfInput" type="email"></label><label style="display:grid;gap:7px;margin:12px 0">Heslo<input id="password" class="sfInput" type="password"></label><button id="login" class="sfButton primary" type="button">Přihlásit</button><p id="loginMsg" class="sfMuted"></p></section>
+<div id="app" hidden>
+<header class="sfTop"><div class="sfTopInner"><a class="sfLogo" href="admin.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a><nav class="sfTopLinks"><a href="admin.html">Administrace</a><a href="admin-automatizace.html">Automatizace</a><a href="admin-fotografie.html">Fotografie</a><button id="logout" class="sfAlways" type="button">Odhlásit</button></nav></div></header>
+<main class="sfShell"><section class="sfHero"><div class="sfCard sfHeroMain"><span class="sfEyebrow">Důvěryhodnost dat</span><h1>Hlášení uživatelů</h1><p class="sfMuted">Chybné ceny, fotografie, gramáže, skončené akce a nedostupné produkty.</p></div><aside class="sfCard sfHeroSide"><label>Stav<select id="status" class="sfInput"><option value="new">Nová</option><option value="reviewing">Řeší se</option><option value="resolved">Vyřešená</option><option value="rejected">Zamítnutá</option><option value="all">Všechna</option></select></label><strong id="count">—</strong></aside></section><div id="message" class="sfMuted"></div><section id="reports" class="reportGrid"><div class="sfLoading">Načítám hlášení…</div></section></main>
+</div>
+<script>
+window.addEventListener('DOMContentLoaded',()=>{
+const db=window.supabase.createClient('https://uhampjdqjxmbhaptgitn.supabase.co','sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU');
+const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const labels={wrong_price:'Chybná cena',wrong_image:'Špatná fotografie',wrong_quantity:'Nesprávná gramáž',expired:'Akce skončila',unavailable:'Produkt není dostupný',other:'Jiný problém'};
+function msg(text,bad=false){$('message').textContent=text;$('message').style.color=bad?'#b32631':'#0b7a58'}
+async function auth(){const {data:{session}}=await db.auth.getSession();const role=session?.user?.app_metadata?.role;if(!session||!['admin','editor'].includes(role)){$('loginBox').hidden=false;$('app').hidden=true;return}$('loginBox').hidden=true;$('app').hidden=false;load()}
+async function load(){let query=db.from('offer_reports').select('id,offer_id,product_id,user_id,report_type,note,page_url,status,created_at,resolved_at,offers(title,price,valid_to,stores(name,slug)),products(name,brand,quantity_text)',{count:'exact'}).order('created_at',{ascending:false}).limit(300);if($('status').value!=='all')query=query.eq('status',$('status').value);const {data,error,count}=await query;if(error){msg(error.message,true);return}$('count').textContent=`${count??data.length} hlášení`;$('reports').innerHTML=data.length?data.map(r=>`<article class="sfCard reportCard" data-id="${r.id}"><div class="reportHead"><div><div class="reportType">${esc(labels[r.report_type]||r.report_type)}</div><div class="reportMeta">${esc(r.products?.name||r.offers?.title||'Nabídka')} · ${esc(r.offers?.stores?.name||'')} · ${new Date(r.created_at).toLocaleString('cs-CZ')}</div></div><span class="sfBadge ${r.status==='new'?'warn':''}">${esc(r.status)}</span></div><div class="reportNote">${esc(r.note||'Bez poznámky')}</div><div class="reportActions">${r.page_url?`<a class="sfButton" href="${esc(r.page_url)}" target="_blank" rel="noopener">Otevřít stránku</a>`:''}<button class="sfButton" data-status="reviewing">Řeší se</button><button class="sfButton primary" data-status="resolved">Vyřešit</button><button class="sfButton bad" data-status="rejected">Zamítnout</button></div></article>`).join(''):'<div class="sfEmpty">V tomto stavu nejsou žádná hlášení.</div>'}
+$('reports').addEventListener('click',async e=>{const b=e.target.closest('[data-status]'),card=e.target.closest('[data-id]');if(!b||!card)return;const status=b.dataset.status;const {error}=await db.from('offer_reports').update({status,resolved_at:['resolved','rejected'].includes(status)?new Date().toISOString():null}).eq('id',card.dataset.id);if(error)msg(error.message,true);else{msg('Stav hlášení byl změněn.');load()}});
+$('status').onchange=load;$('login').onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error)$('loginMsg').textContent=error.message;else auth()};$('logout').onclick=async()=>{await db.auth.signOut();location.reload()};auth();
+});
+</script></body></html>
