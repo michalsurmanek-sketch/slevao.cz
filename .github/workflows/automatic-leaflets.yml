@@ -2,7 +2,7 @@ name: Automatické letáky
 
 on:
   schedule:
-    - cron: '17 */3 * * *'
+    - cron: '17 */12 * * *'
   workflow_dispatch:
   workflow_run:
     workflows:
@@ -28,7 +28,6 @@ jobs:
       max-parallel: 4
       matrix:
         store:
-          - enapo
           - flop
           - terno
           - trefa
@@ -54,23 +53,15 @@ jobs:
           - pepco
           - kik
           - takko
-          - obi
           - hornbach
-          - bauhaus
-          - mountfield
           - dek
           - pro-doma
           - stavmat
           - datart
           - planeo
           - okay
-          - alza
           - smarty
-          - ikea
           - jysk
-          - moebelix
-          - sconto
-          - asko
           - xxxlutz
           - decathlon
           - sportisimo
