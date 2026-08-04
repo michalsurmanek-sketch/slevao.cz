@@ -1,15 +1,30 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const cors = {
+const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-cron-secret",
 };
 
-const KAUFLAND_OFFERS_URL = "https://prodejny.kaufland.cz/nabidka/prehled.html";
+const KAUFLAND_URL = "https://prodejny.kaufland.cz/nabidka/prehled.html";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") || "";
 const OPENAI_MODEL = Deno.env.get("OPENAI_MODEL") || "gpt-5-mini";
-const MAX_CANDIDATES_PER_PRODUCT = 1;
-const MAX_VISUAL_CHECKS_PER_PRODUCT = 2;
+const MAX_RESULTS_PER_PRODUCT = 2;
+const MAX_VISUAL_CHECKS_PER_PRODUCT = 3;
+const MAX_PRODUCTS_PER_RUN = 20;
+
+const FACTS_PROVIDERS = [
+  { key: "open_food_facts", host: "world.openfoodfacts.org" },
+  { key: "open_products_facts", host: "world.openproductsfacts.org" },
+  { key: "open_beauty_facts", host: "world.openbeautyfacts.org" },
+  { key: "open_pet_food_facts", host: "world.openpetfoodfacts.org" },
+];
+
+const STOP_WORDS = new Set([
+  "akce", "akcni", "bezna", "bezny", "cena", "kartou", "karta", "kaufland",
+  "ruzne", "druhy", "druh", "vybrane", "vybrany", "baleni", "pouze", "set",
+  "lahev", "pet", "tetra", "pak", "jvp", "kus", "kusu", "ks", "prodej",
+  "smesny", "smesna", "tuk", "obsah", "zdarma", "navic", "multipack",
+]);
 
 type Product = {
   id: string;
@@ -38,7 +53,6 @@ type CatalogItem = {
 };
 
 type VisualReview = {
-  usable_for_product_card: boolean;
   product_matches: boolean;
   front_or_catalog_view: boolean;
   clean_background: boolean;
@@ -53,19 +67,9 @@ type VisualReview = {
   reason: string;
 };
 
-const providers = [
-  { key: "open_food_facts", host: "world.openfoodfacts.org" },
-  { key: "open_products_facts", host: "world.openproductsfacts.org" },
-  { key: "open_beauty_facts", host: "world.openbeautyfacts.org" },
-  { key: "open_pet_food_facts", host: "world.openpetfoodfacts.org" },
-];
-
-const STOP_WORDS = new Set([
-  "akce", "akcni", "bezna", "bezny", "cena", "kartou", "karta", "kaufland",
-  "ruzne", "druhy", "druh", "vybrane", "vybrany", "baleni", "pouze", "set",
-  "lahev", "pet", "tetra", "pak", "jvp", "kus", "kusu", "ks", "prodej",
-  "smesny", "smesna", "tuk", "obsah", "zdarma", "navic", "multipack",
-]);
+function json(body: unknown, status = 200): Response {
+  return Response.json(body, { status, headers: CORS });
+}
 
 function repairMojibake(value: unknown): string {
   const input = String(value ?? "");
@@ -99,18 +103,17 @@ function normalize(value: unknown): string {
     .trim();
 }
 
-function coreName(value: unknown): string {
+function cleanName(value: unknown): string {
   return repairMojibake(value)
     .replace(/\([^)]*(?:kart|akc|bezna|cena|ruzne|druh)[^)]*\)/gi, " ")
-    .replace(/(?:^|\s)[·•|]\s*\d[\s\S]*$/u, " ")
-    .replace(/\b\d+(?:[,.]\d+)?\s*(?:kg|g|l|ml|cl|ks|%)\b/gi, " ")
     .replace(/\b(?:s\s+kartou|akcni\s+set|bezna\s+akcni\s+cena|ruzne\s+druhy|vybrane\s+druhy)\b/gi, " ")
+    .replace(/[·•|]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
 
-function significantWords(value: unknown): string[] {
-  return [...new Set(normalize(coreName(value)).split(" ").filter((word) => word.length > 1 && !STOP_WORDS.has(word)))];
+function words(value: unknown): string[] {
+  return [...new Set(normalize(cleanName(value)).split(" ").filter((word) => word.length > 1 && !STOP_WORDS.has(word)))];
 }
 
 function canonicalQuantity(numberText: string, unitText: string): string {
@@ -123,48 +126,49 @@ function canonicalQuantity(numberText: string, unitText: string): string {
   return `${Number(value.toFixed(3))}${unit}`;
 }
 
-function quantityTokens(value: unknown): string[] {
+function quantities(value: unknown): string[] {
   const input = repairMojibake(value).toLowerCase();
-  return [...new Set([...input.matchAll(/\b(\d+(?:[,.]\d+)?)\s*(kg|g|l|ml|cl|ks)\b/g)]
-    .map((match) => canonicalQuantity(match[1], match[2]))
-    .filter(Boolean))];
-}
-
-function productSearchText(product: Product): string {
-  return [coreName(product.brand || ""), coreName(product.name), repairMojibake(product.quantity_text || "")]
-    .filter(Boolean)
-    .join(" ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function matchDetails(left: unknown, right: unknown) {
-  const a = significantWords(left);
-  const b = significantWords(right);
-  if (!a.length || !b.length) {
-    return { score: 0, common: 0, containment: false, quantityConflict: false, quantityOverlap: false };
+  const result: string[] = [];
+  for (const match of input.matchAll(/\b(\d+(?:[,.]\d+)?)\s*(kg|g|l|ml|cl|ks)\b/g)) {
+    result.push(canonicalQuantity(match[1], match[2]));
   }
+  for (const match of input.matchAll(/\b(\d+(?:[,.]\d+)?)\s*\/\s*(\d+(?:[,.]\d+)?)\s*(kg|g|l|ml|cl|ks)\b/g)) {
+    result.push(canonicalQuantity(match[1], match[3]), canonicalQuantity(match[2], match[3]));
+  }
+  return [...new Set(result.filter(Boolean))];
+}
+
+function productText(product: Product): string {
+  return [product.brand, product.name, product.quantity_text].filter(Boolean).join(" ");
+}
+
+function lexicalMatch(left: unknown, right: unknown) {
+  const a = words(left);
+  const b = words(right);
+  if (!a.length || !b.length) return { score: 0, common: 0, quantityOverlap: false, quantityConflict: false };
   const setB = new Set(b);
-  const common = a.filter((word) => setB.has(word)).length;
-  const containmentScore = common / Math.min(a.length, b.length);
+  const commonWords = a.filter((word) => setB.has(word));
+  const common = commonWords.length;
+  const containment = common / Math.min(a.length, b.length);
   const jaccard = common / new Set([...a, ...b]).size;
-  const prefixBonus = a[0] === b[0] ? 0.08 : 0;
-  const qa = quantityTokens(left);
-  const qb = quantityTokens(right);
-  const quantityOverlap = qa.some((item) => qb.includes(item));
+  const distinctive = commonWords.some((word) => word.length >= 5);
+  const qa = quantities(left);
+  const qb = quantities(right);
+  const quantityOverlap = qa.some((value) => qb.includes(value));
   const quantityConflict = qa.length > 0 && qb.length > 0 && !quantityOverlap;
-  const quantityAdjustment = quantityOverlap ? 0.1 : quantityConflict ? -0.35 : 0;
-  const score = Math.max(0, Math.min(1, containmentScore * 0.72 + jaccard * 0.28 + prefixBonus + quantityAdjustment));
-  const containment = a.every((word) => setB.has(word)) || b.every((word) => a.includes(word));
-  return { score, common, containment, quantityConflict, quantityOverlap };
+  const score = Math.max(0, Math.min(1,
+    containment * 0.58
+    + jaccard * 0.22
+    + (quantityOverlap ? 0.16 : 0)
+    + (distinctive ? 0.08 : 0)
+    - (quantityConflict ? 0.18 : 0)
+  ));
+  return { score, common, quantityOverlap, quantityConflict };
 }
 
-function domainOf(url: unknown): string | null {
-  try {
-    return new URL(String(url)).hostname;
-  } catch {
-    return null;
-  }
+function viableLexicalCandidate(left: unknown, right: unknown): boolean {
+  const match = lexicalMatch(left, right);
+  return match.common >= 2 || (match.common >= 1 && (match.quantityOverlap || match.score >= 0.48));
 }
 
 function validHttpsUrl(value: unknown): value is string {
@@ -173,19 +177,23 @@ function validHttpsUrl(value: unknown): value is string {
 
 function validImageUrl(value: unknown): value is string {
   return validHttpsUrl(value)
-    && !/placeholder|no[-_ ]?image|default-image|favicon|(?:^|[\/_-])logo(?:[\/_.-]|$)|\/leaflet-crops\//i.test(value);
+    && !/placeholder|no[-_ ]?image|default-image|favicon|(?:^|[\/_-])logo(?:[\/_.-]|$)/i.test(value);
 }
 
-function sourceOrImage(sourceUrl: unknown, imageUrl: string): string {
-  return validHttpsUrl(sourceUrl) ? sourceUrl : imageUrl;
+function domainOf(value: unknown): string | null {
+  try {
+    return new URL(String(value)).hostname;
+  } catch {
+    return null;
+  }
 }
 
-function htmlAttribute(tag: string, name: string): string {
+function attribute(tag: string, name: string): string {
   const match = tag.match(new RegExp(`\\b${name}=["']([^"']*)["']`, "i"));
   return decodeHtml(match?.[1] || "").trim();
 }
 
-function absoluteHttpsUrl(value: string, base: string): string | null {
+function absoluteUrl(value: string, base: string): string | null {
   try {
     const url = new URL(value.startsWith("//") ? `https:${value}` : value, base);
     return url.protocol === "https:" ? url.toString() : null;
@@ -204,9 +212,20 @@ function responseText(payload: any): string {
   return "";
 }
 
+async function authorize(request: Request, db: any, serviceKey: string, cronSecret: string) {
+  const authorization = request.headers.get("authorization") || "";
+  const token = authorization.replace(/^Bearer\s+/i, "").trim();
+  if (token === serviceKey) return;
+  if (cronSecret && request.headers.get("x-cron-secret") === cronSecret) return;
+  if (!token) throw new Error("Unauthorized");
+  const { data, error } = await db.auth.getUser(token);
+  const role = String(data.user?.app_metadata?.role || "").toLowerCase();
+  if (error || !data.user || !["admin", "editor"].includes(role)) throw new Error("Unauthorized");
+}
+
 async function loadKauflandCatalog(): Promise<CatalogItem[]> {
   try {
-    const response = await fetch(KAUFLAND_OFFERS_URL, {
+    const response = await fetch(KAUFLAND_URL, {
       headers: {
         "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36",
         accept: "text/html,application/xhtml+xml",
@@ -215,236 +234,197 @@ async function loadKauflandCatalog(): Promise<CatalogItem[]> {
       },
       redirect: "follow",
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) return [];
     const html = await response.text();
-    const catalog: CatalogItem[] = [];
     const seen = new Set<string>();
-
+    const items: CatalogItem[] = [];
     for (const match of html.matchAll(/<img\b[^>]*>/gi)) {
       const tag = match[0];
-      const className = htmlAttribute(tag, "class");
-      if (!/k-product-tile__main-image/i.test(className)) continue;
-      const title = htmlAttribute(tag, "alt").replace(/\s+/g, " ").trim();
-      const srcset = htmlAttribute(tag, "srcset").split(",")[0]?.trim().split(/\s+/)[0] || "";
-      const rawImage = htmlAttribute(tag, "src") || htmlAttribute(tag, "data-src") || srcset;
-      const image = absoluteHttpsUrl(rawImage, response.url || KAUFLAND_OFFERS_URL);
-      if (!title || !image || !/kaufland\.media\.schwarz$/i.test(domainOf(image) || "") || seen.has(image)) continue;
+      if (!/k-product-tile__main-image/i.test(attribute(tag, "class"))) continue;
+      const title = attribute(tag, "alt").replace(/\s+/g, " ").trim();
+      const srcset = attribute(tag, "srcset").split(",")[0]?.trim().split(/\s+/)[0] || "";
+      const raw = attribute(tag, "src") || attribute(tag, "data-src") || srcset;
+      const image = absoluteUrl(raw, response.url || KAUFLAND_URL);
+      if (!title || !image || seen.has(image) || !/kaufland\.media\.schwarz$/i.test(domainOf(image) || "")) continue;
       seen.add(image);
-      catalog.push({ title, image, sourceUrl: KAUFLAND_OFFERS_URL });
+      items.push({ title, image, sourceUrl: KAUFLAND_URL });
     }
-    return catalog;
-  } catch (error) {
-    console.warn("Kaufland catalog lookup failed:", error instanceof Error ? error.message : String(error));
+    return items;
+  } catch {
     return [];
   }
 }
 
-function kauflandCandidates(master: Product, catalog: CatalogItem[]): Candidate[] {
-  const query = productSearchText(master);
+function kauflandCandidates(product: Product, catalog: CatalogItem[]): Candidate[] {
+  const query = productText(product);
   return catalog
-    .map((item) => ({ item, details: matchDetails(query, item.title) }))
-    .filter(({ details }) =>
-      details.common >= 2
-      && details.score >= 0.74
-      && !details.quantityConflict
-    )
-    .sort((a, b) => b.details.score - a.details.score)
-    .slice(0, 5)
-    .map(({ item, details }) => ({
+    .filter((item) => viableLexicalCandidate(query, item.title))
+    .map((item) => ({ item, match: lexicalMatch(query, item.title) }))
+    .sort((a, b) => b.match.score - a.match.score)
+    .slice(0, 8)
+    .map(({ item, match }) => ({
       image_url: item.image,
       source_url: item.sourceUrl,
       source_domain: "prodejny.kaufland.cz",
       source_type: "retailer" as const,
       width: null,
       height: null,
-      quality_score: Math.round(82 + details.score * 14),
-      match_score: Number(details.score.toFixed(4)),
+      quality_score: 88,
+      match_score: Number(match.score.toFixed(4)),
       metadata: {
-        provider: "official_kaufland_offer_catalog",
+        provider: "official_kaufland_catalog",
         official_retailer: true,
         matched_title: item.title,
         searched_title: query,
-        common_words: details.common,
-        quantity_overlap: details.quantityOverlap,
+        quantity_overlap: match.quantityOverlap,
+        quantity_conflict: match.quantityConflict,
       },
     }));
 }
 
-async function existingCandidates(db: any, master: Product): Promise<Candidate[]> {
+function factsImage(row: any): string | null {
+  return [
+    row?.image_front_url,
+    row?.selected_images?.front?.display?.cs,
+    row?.selected_images?.front?.display?.en,
+    row?.image_url,
+  ].find((url) => validImageUrl(url)) || null;
+}
+
+async function factsCandidates(product: Product): Promise<Candidate[]> {
+  const cleanEan = String(product.ean || "").replace(/\D/g, "");
+  const query = productText(product);
   const found: Candidate[] = [];
   const seen = new Set<string>();
-  const add = (
-    url: unknown,
-    source: string,
-    score: number,
-    sourceUrl: unknown = null,
-    metadata: Record<string, unknown> = {},
-  ) => {
-    if (!validImageUrl(url) || seen.has(url)) return;
-    const finalSourceUrl = sourceOrImage(sourceUrl, url);
-    seen.add(url);
+
+  for (const provider of FACTS_PROVIDERS) {
+    let rows: any[] = [];
+    try {
+      if (/^\d{8,14}$/.test(cleanEan)) {
+        const response = await fetch(`https://${provider.host}/api/v2/product/${cleanEan}.json`, {
+          headers: { "User-Agent": "Slevao.cz/4.0 (https://slevao.cz)" },
+        });
+        const payload = response.ok ? await response.json() : null;
+        if (payload?.status === 1 && payload.product) rows = [payload.product];
+      }
+      if (!rows.length) {
+        const url = new URL(`https://${provider.host}/cgi/search.pl`);
+        url.searchParams.set("search_terms", query);
+        url.searchParams.set("search_simple", "1");
+        url.searchParams.set("action", "process");
+        url.searchParams.set("json", "1");
+        url.searchParams.set("page_size", "25");
+        url.searchParams.set("fields", "code,product_name,product_name_cs,generic_name_cs,brands,quantity,image_url,image_front_url,image_front_width,image_front_height,selected_images");
+        const response = await fetch(url, { headers: { "User-Agent": "Slevao.cz/4.0 (https://slevao.cz)" } });
+        const payload = response.ok ? await response.json() : null;
+        rows = Array.isArray(payload?.products) ? payload.products : [];
+      }
+    } catch {
+      rows = [];
+    }
+
+    for (const row of rows) {
+      const image = factsImage(row);
+      if (!image || seen.has(image)) continue;
+      const rowEan = String(row?.code || "").replace(/\D/g, "");
+      const exactEan = Boolean(cleanEan && rowEan === cleanEan);
+      const title = [row?.brands, row?.product_name_cs, row?.product_name, row?.generic_name_cs, row?.quantity]
+        .filter(Boolean).join(" ");
+      if (!exactEan && !viableLexicalCandidate(query, title)) continue;
+      const match = lexicalMatch(query, title);
+      seen.add(image);
+      found.push({
+        image_url: image,
+        source_url: `https://${provider.host}/product/${encodeURIComponent(rowEan || cleanEan)}`,
+        source_domain: provider.host,
+        source_type: "barcode_database",
+        width: Number(row?.image_front_width) || null,
+        height: Number(row?.image_front_height) || null,
+        quality_score: exactEan ? 96 : 76,
+        match_score: exactEan ? 1 : Number(match.score.toFixed(4)),
+        metadata: {
+          provider: provider.key,
+          exact_ean: exactEan,
+          matched_title: title,
+          searched_title: query,
+          quantity_overlap: match.quantityOverlap,
+          quantity_conflict: match.quantityConflict,
+        },
+      });
+    }
+  }
+
+  return found.sort((a, b) => b.match_score - a.match_score).slice(0, 12);
+}
+
+async function storedCandidates(db: any, product: Product): Promise<Candidate[]> {
+  const found: Candidate[] = [];
+  const seen = new Set<string>();
+  const add = (image: unknown, sourceUrl: unknown, sourceType: Candidate["source_type"], metadata: Record<string, unknown>) => {
+    if (!validImageUrl(image) || seen.has(image)) return;
+    seen.add(image);
     found.push({
-      image_url: url,
-      source_url: finalSourceUrl,
-      source_domain: domainOf(finalSourceUrl) || domainOf(url),
-      source_type: source === "products" ? "official_catalog" : "retailer",
+      image_url: image,
+      source_url: validHttpsUrl(sourceUrl) ? sourceUrl : image,
+      source_domain: domainOf(sourceUrl) || domainOf(image),
+      source_type: sourceType,
       width: null,
       height: null,
-      quality_score: score,
+      quality_score: 72,
       match_score: 1,
-      metadata: { provider: `slevao_${source}`, exact_product_id: true, ...metadata },
+      metadata,
     });
   };
 
   const { data: imports } = await db.from("leaflet_import_items")
-    .select("image_url,created_at,source_page,import_id,leaflet_imports(source_document_url)")
-    .eq("product_id", master.id)
+    .select("image_url,import_id,source_page,leaflet_imports(source_document_url)")
+    .eq("product_id", product.id)
     .not("image_url", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(20);
+    .limit(10);
   for (const row of imports || []) {
     const importRow = Array.isArray(row.leaflet_imports) ? row.leaflet_imports[0] : row.leaflet_imports;
-    const documentUrl = importRow?.source_document_url || null;
-    add(row.image_url, "leaflet_import_items", 82, documentUrl, {
-      import_id: row.import_id || null,
-      source_page: row.source_page || null,
-      source_document_url: documentUrl,
+    add(row.image_url, importRow?.source_document_url, "retailer", {
+      provider: "leaflet_import",
+      import_id: row.import_id,
+      source_page: row.source_page,
     });
   }
 
   const { data: offers } = await db.from("offers")
-    .select("image_url,published_at,stores(name,slug)")
-    .eq("product_id", master.id)
+    .select("image_url,stores(slug,name)")
+    .eq("product_id", product.id)
     .not("image_url", "is", null)
-    .order("published_at", { ascending: false })
-    .limit(20);
+    .limit(10);
   for (const row of offers || []) {
     const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
-    add(row.image_url, "offers", 80, row.image_url, {
-      store_name: store?.name || null,
+    add(row.image_url, row.image_url, "retailer", {
+      provider: "existing_offer",
       store_slug: store?.slug || null,
+      store_name: store?.name || null,
     });
   }
 
   return found;
 }
 
-function imageFromFacts(product: any): string | null {
-  return [
-    product?.image_front_url,
-    product?.image_url,
-    product?.selected_images?.front?.display?.cs,
-    product?.selected_images?.front?.display?.en,
-  ].find((url) => validImageUrl(url)) ?? null;
+async function blockedUrls(db: any, productId: string): Promise<Set<string>> {
+  const { data } = await db.from("product_image_candidates")
+    .select("image_url")
+    .eq("product_id", productId)
+    .in("status", ["rejected", "invalid"]);
+  return new Set((data || []).map((row: any) => String(row.image_url || "")).filter(Boolean));
 }
 
-async function factsCandidates(master: Product): Promise<Candidate[]> {
-  const found: Candidate[] = [];
-  const seen = new Set<string>();
-  const cleanEan = master.ean?.replace(/\D/g, "") ?? "";
-  const query = productSearchText(master);
-
-  for (const provider of providers) {
-    let products: any[] = [];
-    try {
-      if (/^\d{8,14}$/.test(cleanEan)) {
-        const response = await fetch(`https://${provider.host}/api/v2/product/${encodeURIComponent(cleanEan)}.json`, {
-          headers: { "User-Agent": "Slevao.cz/3.0 (https://slevao.cz)" },
-        });
-        const data = response.ok ? await response.json() : null;
-        if (data?.status === 1 && data.product) products = [data.product];
-      }
-      if (!products.length && significantWords(query).length >= 2) {
-        const url = new URL(`https://${provider.host}/cgi/search.pl`);
-        url.searchParams.set("search_terms", query);
-        url.searchParams.set("search_simple", "1");
-        url.searchParams.set("action", "process");
-        url.searchParams.set("json", "1");
-        url.searchParams.set("page_size", "20");
-        url.searchParams.set(
-          "fields",
-          "code,product_name,product_name_cs,generic_name_cs,brands,quantity,image_url,image_front_url,image_front_width,image_front_height,selected_images",
-        );
-        const response = await fetch(url, { headers: { "User-Agent": "Slevao.cz/3.0 (https://slevao.cz)" } });
-        const data = response.ok ? await response.json() : null;
-        products = Array.isArray(data?.products) ? data.products : [];
-      }
-    } catch {
-      products = [];
-    }
-
-    for (const product of products) {
-      const image = imageFromFacts(product);
-      if (!image || seen.has(image)) continue;
-      const exactEan = Boolean(cleanEan && String(product?.code || "").replace(/\D/g, "") === cleanEan);
-      const foundText = [
-        product?.brands,
-        product?.product_name_cs,
-        product?.product_name,
-        product?.generic_name_cs,
-        product?.quantity,
-      ].filter(Boolean).join(" ");
-      const details = matchDetails(query, foundText);
-      const hasMasterQuantity = quantityTokens(master.quantity_text || master.name).length > 0;
-      const candidateHasQuantity = quantityTokens(foundText).length > 0;
-      const quantityRequiredButMissing = hasMasterQuantity && !candidateHasQuantity && !exactEan;
-
-      if (!exactEan && (
-        details.common < 2
-        || details.score < 0.72
-        || details.quantityConflict
-        || quantityRequiredButMissing
-      )) continue;
-
-      const productPage = `https://${provider.host}/product/${encodeURIComponent(String(product?.code || cleanEan))}`;
-      seen.add(image);
-      found.push({
-        image_url: image,
-        source_url: productPage,
-        source_domain: provider.host,
-        source_type: "barcode_database",
-        width: Number(product?.image_front_width) || null,
-        height: Number(product?.image_front_height) || null,
-        quality_score: exactEan ? 94 : Math.round(72 + details.score * 18),
-        match_score: exactEan ? 1 : Number(details.score.toFixed(4)),
-        metadata: {
-          provider: provider.key,
-          exact_ean: exactEan,
-          matched_title: foundText,
-          searched_title: query,
-          common_words: details.common,
-          quantity_overlap: details.quantityOverlap,
-        },
-      });
-    }
-  }
-
-  return found.sort((a, b) => b.match_score - a.match_score).slice(0, 10);
-}
-
-async function visualReview(master: Product, candidate: Candidate): Promise<VisualReview> {
-  if (!OPENAI_API_KEY) throw new Error("V Supabase chybí OPENAI_API_KEY.");
-
+async function visualReview(product: Product, candidate: Candidate): Promise<VisualReview> {
   const schema = {
     type: "object",
     additionalProperties: false,
     required: [
-      "usable_for_product_card",
-      "product_matches",
-      "front_or_catalog_view",
-      "clean_background",
-      "hands_or_people",
-      "shelf_or_scene",
-      "back_label_dominant",
-      "price_or_promo_overlay",
-      "text_dominant",
-      "package_quantity_matches",
-      "quality_score",
-      "confidence",
-      "reason",
+      "product_matches", "front_or_catalog_view", "clean_background", "hands_or_people",
+      "shelf_or_scene", "back_label_dominant", "price_or_promo_overlay", "text_dominant",
+      "package_quantity_matches", "quality_score", "confidence", "reason",
     ],
     properties: {
-      usable_for_product_card: { type: "boolean" },
       product_matches: { type: "boolean" },
       front_or_catalog_view: { type: "boolean" },
       clean_background: { type: "boolean" },
@@ -475,94 +455,50 @@ async function visualReview(master: Product, candidate: Candidate): Promise<Visu
           {
             type: "input_text",
             text:
-              `Zkontroluj kandidátní fotografii pro produktovou kartu e-shopového typu.\n`
-              + `Očekávaný produkt: ${repairMojibake(master.name)}.\n`
-              + `Značka: ${repairMojibake(master.brand || "neuvedena")}.\n`
-              + `Balení: ${repairMojibake(master.quantity_text || "neuvedeno")}.\n`
-              + `Fotografie je přijatelná jen tehdy, když zobrazuje správný produkt nebo čistou fotografii čerstvé potraviny, `
-              + `je dobře viditelná zepředu či jako profesionální katalogový záběr a neobsahuje ruku, člověka, regál, nákupní scénu, cenovku ani reklamní grafiku. `
-              + `Běžný text vytištěný na přední straně obalu není text_dominant. text_dominant nastav true jen pro zadní etiketu, složení, screenshot nebo obrázek tvořený hlavně textem. `
-              + `back_label_dominant nastav true, pokud je vidět hlavně zadní strana, složení nebo nutriční tabulka. `
-              + `package_quantity_matches nastav false, když je z obrázku zřejmé jiné balení než očekávané; null, když množství nelze ověřit. `
-              + `Buď přísný. Fotografie s rukou, zadní etiketou nebo jinou gramáží je nepoužitelná.`,
+              `Posuď fotografii pro produkt: ${repairMojibake(product.name)}. `
+              + `Značka: ${repairMojibake(product.brand || "neuvedena")}. `
+              + `Balení: ${repairMojibake(product.quantity_text || "neuvedeno")}. `
+              + `Rozlišuj tvrdé chyby a pouze kosmetické nedostatky. Tvrdá chyba je jiný produkt, prokazatelně jiné balení, `
+              + `zadní etiketa jako hlavní obsah, ruka nebo člověk zakrývající produkt, cenovka či reklamní grafika. `
+              + `Horší pozadí, regál nebo běžná fotografie nejsou samy o sobě důvod k zamítnutí, pokud je produkt zepředu dobře viditelný. `
+              + `U čerstvých potravin přijmi čistou ilustrační fotografii daného druhu.`,
           },
-          {
-            type: "input_image",
-            image_url: candidate.image_url,
-            detail: "high",
-          },
+          { type: "input_image", image_url: candidate.image_url, detail: "high" },
         ],
       }],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "slevao_product_image_validation",
-          strict: true,
-          schema,
-        },
-      },
+      text: { format: { type: "json_schema", name: "slevao_balanced_image_review", strict: true, schema } },
     }),
   });
 
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    throw new Error(`Vizuální kontrola selhala: ${payload?.error?.message || `HTTP ${response.status}`}`);
-  }
+  if (!response.ok) throw new Error(payload?.error?.message || `HTTP ${response.status}`);
   const text = responseText(payload);
   if (!text) throw new Error("Vizuální kontrola nevrátila výsledek.");
   return JSON.parse(text) as VisualReview;
 }
 
-function visualAccepted(review: VisualReview): boolean {
-  return review.usable_for_product_card
-    && review.product_matches
-    && review.front_or_catalog_view
-    && !review.hands_or_people
-    && !review.shelf_or_scene
-    && !review.back_label_dominant
-    && !review.price_or_promo_overlay
-    && !review.text_dominant
-    && review.package_quantity_matches !== false
-    && review.quality_score >= 74
-    && review.confidence >= 0.82;
+function hardReject(review: VisualReview): boolean {
+  return !review.product_matches
+    || !review.front_or_catalog_view
+    || review.hands_or_people
+    || review.back_label_dominant
+    || review.price_or_promo_overlay
+    || review.text_dominant
+    || review.package_quantity_matches === false
+    || review.quality_score < 50
+    || review.confidence < 0.6;
 }
 
-async function knownBlockedUrls(db: any, productId: string): Promise<Set<string>> {
-  const { data } = await db.from("product_image_candidates")
-    .select("image_url")
-    .eq("product_id", productId)
-    .in("status", ["rejected", "invalid"]);
-  return new Set((data || []).map((row: any) => String(row.image_url || "")).filter(Boolean));
+function reviewTier(review: VisualReview): "clean" | "usable_manual" {
+  return review.clean_background && !review.shelf_or_scene && review.quality_score >= 74 && review.confidence >= 0.82
+    ? "clean"
+    : "usable_manual";
 }
 
-async function saveRejectedCandidate(db: any, master: Product, candidate: Candidate, review: VisualReview) {
-  await db.from("product_image_candidates").upsert({
-    product_id: master.id,
-    image_url: candidate.image_url,
-    source_url: candidate.source_url,
-    source_domain: candidate.source_domain,
-    source_type: candidate.source_type,
-    width: candidate.width,
-    height: candidate.height,
-    quality_score: Math.max(0, Math.min(100, Number(review.quality_score || 0))),
-    match_score: Math.max(0, Math.min(1, Math.min(candidate.match_score, Number(review.confidence || 0)))),
-    has_clean_background: review.clean_background,
-    has_text_overlay: review.text_dominant,
-    has_price_overlay: review.price_or_promo_overlay,
-    status: "invalid",
-    rejection_reason: `Automatická vizuální kontrola: ${review.reason}`.slice(0, 500),
-    reviewed_at: new Date().toISOString(),
-    metadata: {
-      ...candidate.metadata,
-      visual_validation: review,
-      validation_version: 1,
-    },
-  }, { onConflict: "product_id,image_url", ignoreDuplicates: true });
-}
-
-async function savePendingCandidate(db: any, master: Product, candidate: Candidate, review: VisualReview): Promise<number> {
+async function saveCandidate(db: any, product: Product, candidate: Candidate, review: VisualReview, status: "pending" | "invalid") {
+  const tier = status === "pending" ? reviewTier(review) : "rejected";
   const { data, error } = await db.from("product_image_candidates").upsert({
-    product_id: master.id,
+    product_id: product.id,
     image_url: candidate.image_url,
     source_url: candidate.source_url,
     source_domain: candidate.source_domain,
@@ -574,121 +510,106 @@ async function savePendingCandidate(db: any, master: Product, candidate: Candida
     has_clean_background: review.clean_background,
     has_text_overlay: review.text_dominant,
     has_price_overlay: review.price_or_promo_overlay,
-    status: "pending",
+    status,
+    rejection_reason: status === "invalid" ? `Automatická kontrola: ${review.reason}`.slice(0, 500) : null,
+    reviewed_at: status === "invalid" ? new Date().toISOString() : null,
     metadata: {
       ...candidate.metadata,
       visual_validation: review,
-      validation_version: 1,
+      review_tier: tier,
+      validation_version: 2,
     },
   }, { onConflict: "product_id,image_url", ignoreDuplicates: true }).select("id");
   if (error) throw error;
   return Array.isArray(data) ? data.length : 0;
 }
 
-async function processProduct(
-  db: any,
-  master: Product,
-  storeSlug: string,
-  kauflandCatalog: CatalogItem[],
-): Promise<Record<string, unknown>> {
-  const blocked = await knownBlockedUrls(db, master.id);
-  const candidates: Candidate[] = [];
+async function processProduct(db: any, product: Product, storeSlug: string, catalog: CatalogItem[]) {
+  const pool: Candidate[] = [];
   const seen = new Set<string>();
-
-  const addMany = (rows: Candidate[]) => {
+  const blocked = await blockedUrls(db, product.id);
+  const add = (rows: Candidate[]) => {
     for (const row of rows) {
       if (!validImageUrl(row.image_url) || seen.has(row.image_url) || blocked.has(row.image_url)) continue;
-      if (row.width && row.height && (row.width < 500 || row.height < 500)) continue;
+      if (row.width && row.height && (row.width < 280 || row.height < 280)) continue;
       seen.add(row.image_url);
-      candidates.push(row);
+      pool.push(row);
     }
   };
 
-  addMany(await existingCandidates(db, master));
-  if (storeSlug === "kaufland") addMany(kauflandCandidates(master, kauflandCatalog));
-  addMany(await factsCandidates(master));
-  candidates.sort((a, b) =>
+  add(await storedCandidates(db, product));
+  if (storeSlug === "kaufland") add(kauflandCandidates(product, catalog));
+  add(await factsCandidates(product));
+
+  pool.sort((a, b) =>
     Number(Boolean(b.metadata?.official_retailer)) - Number(Boolean(a.metadata?.official_retailer))
     || b.match_score - a.match_score
     || b.quality_score - a.quality_score
   );
 
-  let visualChecks = 0;
+  let checked = 0;
   let created = 0;
-  const rejected: Array<{ image_url: string; reason: string }> = [];
+  let rejected = 0;
   let validationError: string | null = null;
+  const accepted: Array<{ image_url: string; tier: string }> = [];
 
-  for (const candidate of candidates) {
-    if (created >= MAX_CANDIDATES_PER_PRODUCT || visualChecks >= MAX_VISUAL_CHECKS_PER_PRODUCT) break;
-    visualChecks++;
+  for (const candidate of pool) {
+    if (created >= MAX_RESULTS_PER_PRODUCT || checked >= MAX_VISUAL_CHECKS_PER_PRODUCT) break;
+    checked++;
     try {
-      const review = await visualReview(master, candidate);
-      if (visualAccepted(review)) {
-        created += await savePendingCandidate(db, master, candidate, review);
+      const review = await visualReview(product, candidate);
+      if (hardReject(review)) {
+        await saveCandidate(db, product, candidate, review, "invalid");
+        rejected++;
       } else {
-        await saveRejectedCandidate(db, master, candidate, review);
-        rejected.push({ image_url: candidate.image_url, reason: review.reason });
+        created += await saveCandidate(db, product, candidate, review, "pending");
+        accepted.push({ image_url: candidate.image_url, tier: reviewTier(review) });
       }
     } catch (error) {
       validationError = error instanceof Error ? error.message : String(error);
-      console.warn("Visual candidate validation failed", master.id, validationError);
       break;
     }
   }
 
-  await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", master.id);
-
+  await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", product.id);
   return {
-    product_id: master.id,
-    name: repairMojibake(master.name),
-    status: created > 0 ? "candidates" : "not_found",
+    product_id: product.id,
+    name: repairMojibake(product.name),
+    status: created ? "candidates" : "not_found",
+    pool_size: pool.length,
+    visual_checks: checked,
     count: created,
-    visual_checks: visualChecks,
-    visually_rejected: rejected.length,
+    visually_rejected: rejected,
     validation_error: validationError,
-    rejected,
+    accepted,
   };
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response("ok", { headers: cors });
+Deno.serve(async (request) => {
+  if (request.method === "OPTIONS") return new Response("ok", { headers: CORS });
+  if (request.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
   try {
-    const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const cronSecret = Deno.env.get("CRON_SECRET") || "";
-    if (!supabaseUrl || !serviceKey) throw new Error("Chybí Supabase secrets.");
-    if (!OPENAI_API_KEY) throw new Error("Chybí OPENAI_API_KEY pro vizuální kontrolu fotografií.");
-
-    const body = await req.json().catch(() => ({}));
-    const productId = typeof body?.product_id === "string" ? body.product_id.trim() : "";
-    const storeSlug = typeof body?.store_slug === "string" ? normalize(body.store_slug).replace(/\s+/g, "-") : "";
-    const limit = Math.max(1, Math.min(Number(body?.limit ?? 30), 50));
+    if (!supabaseUrl || !serviceKey || !OPENAI_API_KEY) throw new Error("Chybí serverové secrets.");
     const db = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    await authorize(request, db, serviceKey, cronSecret);
 
-    const authorization = req.headers.get("authorization") || "";
-    const token = authorization.replace(/^Bearer\s+/i, "").trim();
-    const isService = token === serviceKey;
-    const isCron = Boolean(cronSecret && req.headers.get("x-cron-secret") === cronSecret);
-    let isStaff = false;
-    if (!isService && !isCron && token) {
-      const { data } = await db.auth.getUser(token);
-      isStaff = ["admin", "editor"].includes(String(data.user?.app_metadata?.role || "").toLowerCase());
-    }
-    if (!isService && !isCron && !isStaff) {
-      return new Response(JSON.stringify({ ok: false, error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...cors, "Content-Type": "application/json" },
-      });
-    }
+    const body = await request.json().catch(() => ({}));
+    const productId = typeof body.product_id === "string" ? body.product_id.trim() : "";
+    const storeSlug = typeof body.store_slug === "string" ? normalize(body.store_slug).replace(/\s+/g, "-") : "";
+    const requestedLimit = Number(body.limit || 15);
+    const limit = productId ? 1 : Math.max(1, Math.min(requestedLimit, MAX_PRODUCTS_PER_RUN));
 
     let storeProductIds: string[] | null = null;
     if (storeSlug && !productId) {
-      const { data: store, error: storeError } = await db.from("stores").select("id").eq("slug", storeSlug).maybeSingle();
-      if (storeError) throw storeError;
+      const { data: store, error } = await db.from("stores").select("id").eq("slug", storeSlug).maybeSingle();
+      if (error) throw error;
       if (!store) throw new Error(`Obchod ${storeSlug} nebyl nalezen.`);
       const today = new Date().toISOString().slice(0, 10);
-      const { data: storeOffers, error: offerError } = await db.from("offers")
+      const { data: offers, error: offerError } = await db.from("offers")
         .select("product_id")
         .eq("store_id", store.id)
         .eq("status", "published")
@@ -696,18 +617,8 @@ Deno.serve(async (req) => {
         .not("product_id", "is", null)
         .limit(5000);
       if (offerError) throw offerError;
-      storeProductIds = [...new Set<string>((storeOffers || []).map((row: any) => String(row.product_id)).filter(Boolean))];
-      if (!storeProductIds.length) {
-        return new Response(JSON.stringify({
-          ok: true,
-          checked: 0,
-          created: 0,
-          without_match: 0,
-          visually_rejected: 0,
-          store_slug: storeSlug,
-          results: [],
-        }), { headers: { ...cors, "Content-Type": "application/json" } });
-      }
+      storeProductIds = [...new Set<string>((offers || []).map((row: any) => String(row.product_id)).filter(Boolean))];
+      if (!storeProductIds.length) return json({ ok: true, checked: 0, created: 0, without_match: 0, visually_rejected: 0, results: [] });
     }
 
     let query = db.from("products_missing_verified_images")
@@ -718,47 +629,42 @@ Deno.serve(async (req) => {
     query = query
       .order("image_checked_at", { ascending: true, nullsFirst: true })
       .order("active_offer_count", { ascending: false })
-      .order("last_offer_at", { ascending: false, nullsFirst: false });
+      .order("last_offer_at", { ascending: false, nullsFirst: false })
+      .limit(limit);
 
-    const { data: products, error } = await query.limit(productId ? 1 : limit);
+    const { data: rows, error } = await query;
     if (error) throw error;
-    if (productId && !(products || []).length) {
-      throw new Error("Vybraný produkt nebyl nalezen nebo už má ověřenou fotografii.");
-    }
+    if (productId && !(rows || []).length) throw new Error("Produkt nebyl nalezen nebo už má ověřenou fotografii.");
 
-    const kauflandCatalog = storeSlug === "kaufland" ? await loadKauflandCatalog() : [];
+    const catalog = storeSlug === "kaufland" ? await loadKauflandCatalog() : [];
+    const products = (rows || []) as Product[];
     const results: Record<string, unknown>[] = [];
-    const productRows = (products || []) as Product[];
-    const concurrency = 5;
-
-    for (let index = 0; index < productRows.length; index += concurrency) {
-      const chunk = productRows.slice(index, index + concurrency);
-      const chunkResults = await Promise.all(chunk.map((master) => processProduct(db, master, storeSlug, kauflandCatalog)));
-      results.push(...chunkResults);
+    const concurrency = 4;
+    for (let index = 0; index < products.length; index += concurrency) {
+      const chunk = products.slice(index, index + concurrency);
+      results.push(...await Promise.all(chunk.map((product) => processProduct(db, product, storeSlug, catalog))));
     }
 
     const created = results.reduce((sum, row: any) => sum + Number(row.count || 0), 0);
     const withoutMatch = results.filter((row: any) => row.status === "not_found").length;
-    const visuallyRejected = results.reduce((sum, row: any) => sum + Number(row.visually_rejected || 0), 0);
-    const validationErrors = results.filter((row: any) => row.validation_error).length;
+    const rejected = results.reduce((sum, row: any) => sum + Number(row.visually_rejected || 0), 0);
+    const errors = results.filter((row: any) => row.validation_error).length;
 
-    return new Response(JSON.stringify({
+    return json({
       ok: true,
       checked: results.length,
       created,
       without_match: withoutMatch,
-      visually_rejected: visuallyRejected,
-      validation_errors: validationErrors,
-      kaufland_catalog_items: kauflandCatalog.length,
-      product_id: productId || null,
+      visually_rejected: rejected,
+      validation_errors: errors,
+      kaufland_catalog_items: catalog.length,
       store_slug: storeSlug || null,
-      visual_validation: "required",
+      product_id: productId || null,
+      mode: "balanced_manual_review",
       results,
-    }), { headers: { ...cors, "Content-Type": "application/json" } });
-  } catch (error) {
-    return new Response(JSON.stringify({ ok: false, error: String((error as any)?.message ?? error) }), {
-      status: 500,
-      headers: { ...cors, "Content-Type": "application/json" },
     });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return json({ ok: false, error: message }, message === "Unauthorized" ? 401 : 500);
   }
 });
