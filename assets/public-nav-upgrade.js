@@ -5,7 +5,7 @@
     if (!document.querySelector('link[href*="product-personalization.css"]')) {
       const style = document.createElement('link');
       style.rel = 'stylesheet';
-      style.href = 'assets/product-personalization.css?v=20260804-1';
+      style.href = 'assets/product-personalization.css?v=20260804-2';
       document.head.appendChild(style);
     }
     if (document.querySelector('script[src*="product-personalization.js"]')) return;
@@ -19,7 +19,7 @@
       }
       if (!window.supabase) return;
       const script = document.createElement('script');
-      script.src = 'assets/product-personalization.js?v=20260804-1';
+      script.src = 'assets/product-personalization.js?v=20260804-2';
       script.defer = true;
       document.head.appendChild(script);
     };
