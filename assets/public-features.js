@@ -7,6 +7,7 @@
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   let supabasePromise = null;
   let toastTimer = 0;
+  let activeReportOfferId = null;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
@@ -144,6 +145,47 @@
     });
   }
 
+  async function submitHomeReport(event) {
+    const button = event.target.closest('#sendReport');
+    if (!button) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    button.disabled = true;
+    try {
+      const typeValue = document.getElementById('reportType')?.value || 'Jiný problém';
+      const typeMap = {
+        'Cena neplatí':'wrong_price', 'Špatná fotografie':'wrong_image',
+        'Nesprávná gramáž':'wrong_quantity', 'Akce skončila':'expired',
+        'Produkt není dostupný':'unavailable', 'Jiný problém':'other'
+      };
+      const offer = activeReportOfferId ? await restOffer(activeReportOfferId) : null;
+      const db = await getSupabase();
+      const { data: { session } } = await db.auth.getSession();
+      const note = String(document.getElementById('reportNote')?.value || '').slice(0, 2000);
+      const { error } = await db.from('offer_reports').insert({
+        offer_id: offer?.id || null,
+        product_id: offer?.product_id || null,
+        user_id: session?.user?.id || null,
+        report_type: typeMap[typeValue] || 'other',
+        note,
+        page_url: location.href,
+        status: 'new'
+      });
+      if (error) throw error;
+      const modal = document.getElementById('reportModal');
+      if (modal) modal.hidden = true;
+      document.body.style.overflow = '';
+      const noteField = document.getElementById('reportNote');
+      if (noteField) noteField.value = '';
+      activeReportOfferId = null;
+      toast('Děkujeme. Hlášení bylo uloženo ke kontrole.');
+    } catch (error) {
+      toast(error?.message || 'Hlášení se nepodařilo uložit.');
+    } finally {
+      button.disabled = false;
+    }
+  }
+
   function offerIdFromCard(card) {
     return card.querySelector('[data-save-id]')?.dataset.saveId
       || card.querySelector('[data-favorite]')?.dataset.favorite
@@ -166,6 +208,13 @@
   function enhanceAll(root = document) {
     root.querySelectorAll?.('.dealCard,.deal').forEach(enhanceCard);
   }
+
+  document.addEventListener('click', (event) => {
+    const reportTrigger = event.target.closest('[data-report-id]');
+    if (reportTrigger) activeReportOfferId = reportTrigger.dataset.reportId || null;
+    if (event.target.closest('#footerReport')) activeReportOfferId = null;
+    submitHomeReport(event);
+  }, true);
 
   document.addEventListener('click', async (event) => {
     const add = event.target.closest('[data-sf-add]');
