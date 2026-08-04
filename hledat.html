@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Vyhledej produkt napříč českými obchody, porovnej aktuální a brzy začínající akční ceny a přidej ho do nákupního seznamu.">
+  <meta name="theme-color" content="#0b776f">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://slevao.cz/hledat.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Vyhledávání produktů a cen | Slevao.cz</title>
+  <link rel="stylesheet" href="assets/public-features.css?v=20260804-2">
+  <link rel="stylesheet" href="assets/search-notifications.css?v=20260804-1">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="assets/public-features.js?v=20260804-2"></script>
+  <script defer src="assets/product-search.js?v=20260804-1"></script>
+</head>
+<body class="sfPage">
+<header class="sfTop"><div class="sfTopInner">
+  <a class="sfLogo" href="index.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
+  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="index.html">Nabídky</a><a href="index.html#leafletsSection">Letáky</a><a class="sfAlways" href="seznam.html">Seznam</a></nav>
+</div></header>
+<main class="sfShell">
+  <section class="sfHero">
+    <div class="sfCard sfHeroMain">
+      <span class="sfEyebrow">Všechny sjednocené produkty</span>
+      <h1>Najdi produkt a porovnej ceny</h1>
+      <p class="sfMuted">Vyhledávání spojuje stejné produkty napříč obchody, rozlišuje dnešní a brzy začínající akce a ukazuje nejnižší dostupnou cenu.</p>
+      <form id="searchForm" class="sfSearchHero" role="search">
+        <input id="searchInput" class="sfSearchInput" type="search" autocomplete="off" placeholder="Například kuřecí prsa, Coca-Cola nebo Nescafé" aria-label="Hledat produkt">
+        <button class="sfButton primary" type="submit">Vyhledat</button>
+      </form>
+    </div>
+    <aside class="sfCard sfHeroSide"><strong id="catalogCount">1 508 produktů</strong><span class="sfMuted">Výsledky vycházejí z databáze Slevao.cz, nikoli z placeného pořadí obchodů.</span></aside>
+  </section>
+
+  <section class="sfSection">
+    <div class="sfSearchSummary"><div><span class="sfEyebrow">Výsledky</span><h2 id="resultTitle" style="margin:4px 0 0">Nejzajímavější aktuální produkty</h2></div><select id="sort" class="sfSearchSelect" aria-label="Řazení"><option value="relevance">Nejrelevantnější</option><option value="price">Od nejnižší ceny</option><option value="stores">Nejvíce obchodů</option><option value="name">Podle názvu</option></select></div>
+    <div class="sfSearchFilters" role="group" aria-label="Platnost nabídky">
+      <button class="sfFilter active" type="button" data-filter="all">Všechny</button>
+      <button class="sfFilter" type="button" data-filter="current">Platí dnes</button>
+      <button class="sfFilter" type="button" data-filter="upcoming">Začíná brzy</button>
+      <button class="sfFilter" type="button" data-filter="without">Bez aktuální akce</button>
+    </div>
+    <div id="searchMessage" class="sfMuted" aria-live="polite"></div>
+    <div id="results" class="sfGrid"><div class="sfLoading">Načítám produkty…</div></div>
+  </section>
+</main>
+</body>
+</html>
