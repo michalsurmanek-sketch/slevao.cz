@@ -15,7 +15,7 @@
   }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260804-1';
+    navScript.src = 'assets/public-nav-upgrade.js?v=20260804-2';
     navScript.defer = true;
     document.head.appendChild(navScript);
   }
