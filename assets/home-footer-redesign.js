@@ -1,6 +1,19 @@
 (() => {
   'use strict';
 
+  if (!document.querySelector('link[href*="public-features.css"]')) {
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = 'assets/public-features.css?v=20260804-1';
+    document.head.appendChild(style);
+  }
+  if (!document.querySelector('script[src*="public-features.js"]')) {
+    const script = document.createElement('script');
+    script.src = 'assets/public-features.js?v=20260804-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
   const status = document.getElementById('footerAlertStatus');
@@ -16,17 +29,10 @@
       return;
     }
 
-    const subject = encodeURIComponent('Zájem o hlídání slev na Slevao.cz');
-    const body = encodeURIComponent([
-      'Dobrý den,',
-      '',
-      'mám zájem o upozornění na nejlepší akce a slevy na Slevao.cz.',
-      `Kontaktní e-mail: ${email}`,
-      '',
-      `Stránka: ${location.href}`
-    ].join('\n'));
-
-    status.textContent = 'Otevírám e-mail s připravenou žádostí…';
-    window.location.href = `mailto:info@slevao.cz?subject=${subject}&body=${body}`;
+    localStorage.setItem('slevao-account-email', email);
+    status.textContent = 'Pokračuj do účtu a nastav konkrétní produkty i cílové ceny.';
+    window.setTimeout(() => {
+      window.location.href = `ucet.html?email=${encodeURIComponent(email)}&redirect=${encodeURIComponent(location.href)}`;
+    }, 500);
   });
 })();
