@@ -28,11 +28,11 @@
   <div class="toolbar"><a class="btn" href="admin.html">Administrace</a><a class="btn" href="admin-automatizace.html">Automatizace</a><a class="btn" href="index.html">Otevřít web</a><button id="logout" class="btn">Odhlásit</button></div>
 </div></header>
 <main class="shell">
-<section class="hero"><div><h1>Fotografie produktů</h1><div class="muted">Nejdřív EAN, značka, balení a katalog konkrétního obchodu. Pak teprve web výrobce.</div><div class="version">Vyhledávač fotografií 2026-08-04.2</div></div><button id="refresh" class="btn primary">Obnovit</button></section>
+<section class="hero"><div><h1>Fotografie produktů</h1><div class="muted">Nejdřív EAN, značka, balení a katalog konkrétního obchodu. Pak teprve web výrobce.</div><div class="version">Vyhledávač fotografií 2026-08-04.3</div></div><button id="refresh" class="btn primary">Obnovit</button></section>
 <section class="stats"><div class="stat"><small>Čeká na schválení</small><strong id="sPending">—</strong></div><div class="stat"><small>Chybí ověřená fotka</small><strong id="sMissing">—</strong></div><div class="stat"><small>Schválené kandidáty</small><strong id="sApproved">—</strong></div></section>
 <div id="msg"></div>
 <section class="panel">
-  <div class="head"><div><h2 style="margin:0">Kandidátní fotografie</h2><div class="muted">Server sám zjistí obchod produktu a použije jeho katalog. Ke schválení se zobrazí nejvýše dvě nejlepší možnosti.</div></div><div class="toolbar"><select id="storeFilter" class="btn"><option value="">Všechny obchody</option><option value="kaufland">Kaufland</option><option value="tesco">Tesco</option><option value="albert">Albert</option><option value="billa">Billa</option><option value="penny">Penny</option><option value="makro">Makro</option><option value="lidl">Lidl</option><option value="globus">Globus</option></select><button id="discover" class="btn primary">Najít další fotky</button></div></div>
+  <div class="head"><div><h2 style="margin:0">Kandidátní fotografie</h2><div class="muted">Server sám zjistí obchod produktu a použije jeho katalog. Hledání běží na pozadí a stránka se průběžně obnovuje.</div></div><div class="toolbar"><select id="storeFilter" class="btn"><option value="">Všechny obchody</option><option value="kaufland">Kaufland</option><option value="tesco">Tesco</option><option value="albert">Albert</option><option value="billa">Billa</option><option value="penny">Penny</option><option value="makro">Makro</option><option value="lidl">Lidl</option><option value="globus">Globus</option></select><button id="discover" class="btn primary">Najít další fotky</button></div></div>
   <div id="candidates" class="grid"></div>
 </section>
 <section class="panel" style="margin-top:16px"><div class="head"><div><h2 style="margin:0">Produkty bez kvalitní fotografie</h2><div class="muted">Značkové a přesně identifikovatelné produkty se zpracují jako první.</div></div></div><div id="missing" class="grid"></div></section>
@@ -41,6 +41,7 @@
 window.addEventListener('DOMContentLoaded',()=>{
   const $=id=>document.getElementById(id);
   const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const db=window.supabase.createClient('https://uhampjdqjxmbhaptgitn.supabase.co','sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU');
   const show=(text,type='ok')=>{$('msg').className='msg '+type;$('msg').textContent=text};
 
@@ -81,17 +82,37 @@ window.addEventListener('DOMContentLoaded',()=>{
     show(status==='approved'?'Fotografie byla schválena, uložena do knihovny a propsána do nabídek.':'Fotografie byla zamítnuta.');
   }
 
+  async function pollRun(runId,selectedCount){
+    for(let attempt=1;attempt<=48;attempt++){
+      await sleep(5000);
+      const {data,error}=await db.from('product_image_search_runs').select('status,requested_count,processed_count,created_count,rejected_count,error_count,message,results').eq('id',runId).single();
+      if(error){show('Hledání běží na serveru, ale stav se nepodařilo načíst: '+error.message,'err');return}
+      await load(true);
+      if(data.status==='completed'){
+        const names=(data.results||[]).filter(x=>Number(x.created||0)>0).map(x=>x.name).slice(0,4);
+        show(`Hotovo: prověřeno ${data.processed_count}, ke schválení ${data.created_count}, vyřazeno ${data.rejected_count}, chyby ${data.error_count}.`+(names.length?' Nalezeno pro: '+names.join(', ')+'.':''),data.error_count?'err':'ok');
+        return;
+      }
+      if(data.status==='failed'){
+        show('Hledání skončilo chybou: '+(data.message||'neznámá chyba'),'err');
+        return;
+      }
+      show(`Hledání běží na serveru pro ${selectedCount} produkty. Nové fotografie se zobrazí automaticky…`);
+    }
+    show('Hledání stále pokračuje na serveru. Stránku můžeš později obnovit.');
+  }
+
   async function discover(){
     const store_slug=$('storeFilter').value;
     $('discover').disabled=true;
-    show('Hledám přesné produkty podle EAN, značky, balení a konkrétního obchodu. Může to trvat přibližně minutu…');
-    const {data,error}=await db.functions.invoke('discover-product-images-smart',{body:{store_slug,limit:8}});
+    show('Vybírám produkty podle EAN, značky, balení a konkrétního obchodu…');
+    const {data,error}=await db.functions.invoke('discover-product-images-smart',{body:{store_slug,limit:4}});
+    if(error||!data?.ok){$('discover').disabled=false;show(error?.message||data?.error||'Hledání fotografií selhalo.','err');return}
+    if(!data.accepted){$('discover').disabled=false;show(data.message||'Nejsou další produkty k hledání.');return}
+    const names=(data.selected_products||[]).map(x=>x.name).join(', ');
+    show(`Spuštěno hledání pro ${data.selected_count} produkty: ${names}.`);
+    await pollRun(data.run_id,data.selected_count);
     $('discover').disabled=false;
-    if(error||!data?.ok){show(error?.message||data?.error||'Hledání fotografií selhalo.','err');return}
-    await load(true);
-    const names=(data.results||[]).filter(x=>x.created>0).map(x=>x.name).slice(0,4);
-    const detail=names.length?' Nalezeno pro: '+names.join(', ')+'.':'';
-    show(`Hotovo: cíleně prověřeno ${data.checked} produktů, ke schválení ${data.created}, vyřazeno ${data.rejected}, chyby ${data.errors}.${detail}`,data.errors?'err':'ok');
   }
 
   document.addEventListener('click',e=>{
