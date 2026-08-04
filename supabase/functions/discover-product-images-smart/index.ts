@@ -45,38 +45,128 @@ function priority(row: any): number {
   return score;
 }
 
-async function authorize(request: Request, db: any) {
+async function authorize(request: Request, db: any): Promise<string | null> {
   const authorization = request.headers.get("authorization") || "";
   const token = authorization.replace(/^Bearer\s+/i, "").trim();
-  if (token === SERVICE_ROLE_KEY) return;
-  if (CRON_SECRET && request.headers.get("x-cron-secret") === CRON_SECRET) return;
+  if (token === SERVICE_ROLE_KEY) return null;
+  if (CRON_SECRET && request.headers.get("x-cron-secret") === CRON_SECRET) return null;
   if (!token) throw new Error("Unauthorized");
   const { data, error } = await db.auth.getUser(token);
   const role = String(data.user?.app_metadata?.role || "").toLowerCase();
   if (error || !data.user || !["admin", "editor"].includes(role)) throw new Error("Unauthorized");
+  return data.user.id;
 }
 
-async function invokeFunction(name: string, body: Record<string, unknown>) {
-  const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
-    method: "POST",
-    headers: {
-      authorization: `Bearer ${SERVICE_ROLE_KEY}`,
-      apikey: SERVICE_ROLE_KEY,
-      "content-type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok || !payload?.ok) {
-    throw new Error(String(payload?.error || `${name}: HTTP ${response.status}`));
+async function invokeFunction(name: string, body: Record<string, unknown>, timeoutMs: number) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        apikey: SERVICE_ROLE_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload?.ok) {
+      throw new Error(String(payload?.error || `${name}: HTTP ${response.status}`));
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
   }
-  return payload;
 }
 
 function preferredStore(slugs: string[], requested: string): string {
   if (requested) return requested;
-  const priority = ["kaufland", "tesco", "albert", "billa", "penny", "lidl", "globus", "makro"];
-  return priority.find((slug) => slugs.includes(slug)) || slugs[0] || "";
+  const order = ["kaufland", "tesco", "albert", "billa", "penny", "lidl", "globus", "makro"];
+  return order.find((slug) => slugs.includes(slug)) || slugs[0] || "";
+}
+
+function runInBackground(task: Promise<unknown>) {
+  const runtime = (globalThis as any).EdgeRuntime;
+  if (runtime?.waitUntil) runtime.waitUntil(task);
+  else task.catch((error) => console.error("Background image search failed", error));
+}
+
+async function processOne(product: any, storeSlug: string) {
+  let primary: any = null;
+  let fallback: any = null;
+  let error: string | null = null;
+  try {
+    primary = await invokeFunction("discover-product-images", {
+      product_id: String(product.id),
+      store_slug: storeSlug,
+      limit: 1,
+    }, 45_000);
+    if (Number(primary.created || 0) === 0) {
+      fallback = await invokeFunction("discover-product-images-web", {
+        product_ids: [String(product.id)],
+        store_slug: storeSlug,
+      }, 110_000);
+    }
+  } catch (cause) {
+    error = cause instanceof Error ? cause.message : String(cause);
+  }
+  return {
+    product_id: String(product.id),
+    name: product.name,
+    brand: product.brand,
+    quantity_text: product.quantity_text,
+    store_slug: storeSlug,
+    priority: priority(product),
+    primary_created: Number(primary?.created || 0),
+    web_created: Number(fallback?.created || 0),
+    created: Number(primary?.created || 0) + Number(fallback?.created || 0),
+    rejected: Number(primary?.visually_rejected || 0) + Number(fallback?.rejected || 0),
+    error,
+  };
+}
+
+async function processRun(db: any, runId: string, selected: any[], storesByProduct: Map<string, string[]>, requestedStore: string) {
+  try {
+    await db.from("product_image_search_runs").update({
+      status: "processing",
+      started_at: new Date().toISOString(),
+      message: "Hledání fotografií běží na serveru.",
+      updated_at: new Date().toISOString(),
+    }).eq("id", runId);
+
+    const results = await Promise.all(selected.map((product) =>
+      processOne(product, preferredStore(storesByProduct.get(String(product.id)) || [], requestedStore))
+    ));
+
+    const created = results.reduce((sum, row) => sum + row.created, 0);
+    const rejected = results.reduce((sum, row) => sum + row.rejected, 0);
+    const errors = results.filter((row) => row.error).length;
+
+    await db.from("product_image_search_runs").update({
+      status: "completed",
+      processed_count: results.length,
+      created_count: created,
+      rejected_count: rejected,
+      error_count: errors,
+      message: created
+        ? `Nalezeno ${created} fotografií ke schválení.`
+        : "Pro vybrané produkty nebyla nalezena bezpečná fotografie.",
+      results,
+      finished_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", runId);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await db.from("product_image_search_runs").update({
+      status: "failed",
+      message: message.slice(0, 1000),
+      error_count: 1,
+      finished_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    }).eq("id", runId);
+  }
 }
 
 Deno.serve(async (request) => {
@@ -89,7 +179,7 @@ Deno.serve(async (request) => {
   });
 
   try {
-    await authorize(request, db);
+    const requestedBy = await authorize(request, db);
     const body = await request.json().catch(() => ({}));
     const requestedStore = normalize(body.store_slug || "").replace(/\s+/g, "-");
     const limit = Math.max(1, Math.min(Number(body.limit || MAX_PRODUCTS), MAX_PRODUCTS));
@@ -112,7 +202,6 @@ Deno.serve(async (request) => {
         .limit(5000);
       if (offerError) throw offerError;
       allowedProductIds = new Set((offers || []).map((row: any) => String(row.product_id)).filter(Boolean));
-      if (!allowedProductIds.size) return json({ ok: true, checked: 0, created: 0, results: [] });
     }
 
     const { data: poolRows, error: poolError } = await db.from("products_missing_verified_images")
@@ -128,7 +217,7 @@ Deno.serve(async (request) => {
       .sort((a: any, b: any) => priority(b) - priority(a))
       .slice(0, Math.max(limit * 4, 24));
 
-    if (!pool.length) return json({ ok: true, checked: 0, created: 0, results: [] });
+    if (!pool.length) return json({ ok: true, accepted: false, selected_count: 0, message: "Nejsou další produkty k hledání." });
 
     const productIds = pool.map((row: any) => String(row.id));
     const { data: activeOffers, error: offersError } = await db.from("offers")
@@ -154,52 +243,34 @@ Deno.serve(async (request) => {
       .filter((row: any) => storesByProduct.has(String(row.id)))
       .slice(0, limit);
 
-    const results = await Promise.all(selected.map(async (product: any) => {
-      const productId = String(product.id);
-      const storeSlug = preferredStore(storesByProduct.get(productId) || [], requestedStore);
-      let primary: any = null;
-      let fallback: any = null;
-      let error: string | null = null;
-      try {
-        primary = await invokeFunction("discover-product-images", {
-          product_id: productId,
-          store_slug: storeSlug,
-          limit: 1,
-        });
-        if (Number(primary.created || 0) === 0) {
-          fallback = await invokeFunction("discover-product-images-web", {
-            product_ids: [productId],
-            store_slug: storeSlug,
-          });
-        }
-      } catch (cause) {
-        error = cause instanceof Error ? cause.message : String(cause);
-      }
-      return {
-        product_id: productId,
-        name: product.name,
-        brand: product.brand,
-        quantity_text: product.quantity_text,
-        store_slug: storeSlug,
-        priority: priority(product),
-        primary_created: Number(primary?.created || 0),
-        web_created: Number(fallback?.created || 0),
-        created: Number(primary?.created || 0) + Number(fallback?.created || 0),
-        rejected: Number(primary?.visually_rejected || 0) + Number(fallback?.rejected || 0),
-        error,
-      };
-    }));
+    if (!selected.length) return json({ ok: true, accepted: false, selected_count: 0, message: "Produkty nemají aktivní obchod." });
+
+    const { data: run, error: runError } = await db.from("product_image_search_runs").insert({
+      requested_by: requestedBy,
+      store_slug: requestedStore || null,
+      status: "queued",
+      requested_count: selected.length,
+      message: "Hledání bylo zařazeno do fronty.",
+      results: selected.map((row: any) => ({
+        product_id: row.id,
+        name: row.name,
+        brand: row.brand,
+        quantity_text: row.quantity_text,
+        priority: priority(row),
+      })),
+    }).select("id").single();
+    if (runError || !run) throw runError || new Error("Nepodařilo se vytvořit běh hledání.");
+
+    runInBackground(processRun(db, run.id, selected, storesByProduct, requestedStore));
 
     return json({
       ok: true,
-      checked: results.length,
-      created: results.reduce((sum, row) => sum + row.created, 0),
-      rejected: results.reduce((sum, row) => sum + row.rejected, 0),
-      errors: results.filter((row) => row.error).length,
-      requested_store: requestedStore || null,
+      accepted: true,
+      run_id: run.id,
+      selected_count: selected.length,
+      selected_products: selected.map((row: any) => ({ id: row.id, name: row.name, brand: row.brand, quantity_text: row.quantity_text })),
       selection: "ean_brand_quantity_store_catalog_web_fallback",
-      results,
-    });
+    }, 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return json({ ok: false, error: message }, message === "Unauthorized" ? 401 : 500);
