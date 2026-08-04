@@ -1,0 +1,40 @@
+name: Aktualizace produktového sitemapu
+
+on:
+  schedule:
+    - cron: '20 3 * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/generate-product-sitemap.mjs'
+      - '.github/workflows/generate-product-sitemap.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Připravit Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Vygenerovat sitemap
+        run: node scripts/generate-product-sitemap.mjs
+      - name: Uložit změny
+        run: |
+          if git diff --quiet -- sitemap-products.xml; then
+            echo "Produktový sitemap je aktuální."
+            exit 0
+          fi
+          git config user.name "slevao-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add sitemap-products.xml
+          git commit -m "seo: refresh product sitemap"
+          git push
