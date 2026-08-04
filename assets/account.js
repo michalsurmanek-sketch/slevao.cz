@@ -43,7 +43,7 @@
       db.from('shopping_lists').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_archived', false),
       db.from('price_alerts').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_active', true),
       db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_read', false),
-      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('type', 'price_alert')
+      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', session.user.id)
     ]);
     $('accountListCount').textContent = String(lists.count || 0);
     $('accountAlertCount').textContent = String(alerts.count || 0);
@@ -79,9 +79,11 @@
     const created = new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(row.created_at));
     const productName = product?.name || 'Sledovaný produkt';
     const target = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : (store?.slug ? `${encodeURIComponent(store.slug)}.html` : 'hledat.html');
+    const icon = row.type === 'favorite_offer' ? '♥' : '↓';
+    const kind = row.type === 'favorite_offer' ? 'Oblíbený produkt' : 'Cenový hlídač';
     return `<article class="sfNotification ${row.is_read ? '' : 'unread'}" data-notification-id="${esc(row.id)}" data-target="${esc(target)}">
-      <div class="sfNotificationIcon" aria-hidden="true">↓</div>
-      <div><div class="sfNotificationTitle">${esc(row.title || 'Cena splnila tvůj limit')}</div><div class="sfNotificationText">${esc(row.message || productName)}</div><div class="sfNotificationMeta">${esc(productName)}${store?.name ? ` · ${esc(store.name)}` : ''} · ${created}</div></div>
+      <div class="sfNotificationIcon" aria-hidden="true">${icon}</div>
+      <div><div class="sfNotificationTitle">${esc(row.title || 'Nové cenové upozornění')}</div><div class="sfNotificationText">${esc(row.message || productName)}</div><div class="sfNotificationMeta">${kind} · ${esc(productName)}${store?.name ? ` · ${esc(store.name)}` : ''} · ${created}</div></div>
       <div>${row.is_read ? '' : '<span class="sfUnreadDot" title="Nepřečtené"></span>'}<button class="sfButton" type="button" data-open-notification style="margin-top:8px">Otevřít</button></div>
     </article>`;
   }
@@ -91,13 +93,12 @@
     const { data, error } = await db.from('notifications')
       .select('id,type,title,message,offer_id,product_id,price_alert_id,is_read,created_at,products(name,brand,quantity_text),offers(price,valid_from,valid_to,stores(name,slug))')
       .eq('user_id', session.user.id)
-      .eq('type', 'price_alert')
       .order('created_at', { ascending:false })
       .limit(100);
     if (error) throw error;
     $('notifications').innerHTML = data?.length
       ? data.map(notificationHtml).join('')
-      : '<div class="sfEmpty">Zatím nemáš žádné splněné cenové upozornění. Po nastavení hlídače se zde automaticky objeví nabídka pod tvým limitem.</div>';
+      : '<div class="sfEmpty">Zatím nemáš žádné upozornění. Oblíb si produkt nebo nastav cílovou cenu a nové akce se zde objeví automaticky.</div>';
   }
 
   async function loadAccountData() {
