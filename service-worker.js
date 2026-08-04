@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260804-4';
+const CACHE_NAME = 'slevao-shell-20260804-5';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -21,6 +21,8 @@ const SHELL = [
   '/assets/search-notifications.css?v=20260804-1',
   '/assets/product-search.js?v=20260804-2',
   '/assets/shopping-list.js?v=20260804-3',
+  '/assets/shopping-insights.css?v=20260804-1',
+  '/assets/shopping-insights.js?v=20260804-1',
   '/assets/account.js?v=20260804-3',
   '/assets/product-detail.js?v=20260804-2',
   '/assets/product-seo.js?v=20260804-1'
