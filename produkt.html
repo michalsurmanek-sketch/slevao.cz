@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="description" content="Porovnání aktuálních cen produktu, historie cen a cenový hlídač na Slevao.cz.">
+  <meta name="theme-color" content="#0b776f">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://slevao.cz/produkt.html">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <title>Produkt – ceny a historie | Slevao.cz</title>
+  <link rel="stylesheet" href="assets/public-features.css?v=20260804-1">
+  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script defer src="assets/public-features.js?v=20260804-1"></script>
+  <script defer src="assets/product-detail.js?v=20260804-1"></script>
+</head>
+<body class="sfPage">
+<header class="sfTop"><div class="sfTopInner">
+  <a class="sfLogo" href="index.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
+  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="index.html#dealsSection">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a class="sfAlways" href="seznam.html">Seznam</a></nav>
+</div></header>
+<main id="productContent" class="sfShell">
+  <section class="sfHero">
+    <div class="sfCard sfHeroMain"><span class="sfEyebrow">Porovnání stejného produktu</span><h1 id="productName">Načítám produkt…</h1><p id="productMeta" class="sfMuted"></p><div style="margin-top:20px"><strong id="currentPrice" class="sfPrice">—</strong><p id="currentStore" class="sfMuted"></p></div></div>
+    <aside id="productImage" class="sfCard sfProductImage"><div class="sfLoading">Načítám fotografii…</div></aside>
+  </section>
+
+  <section class="sfStats" aria-label="Cenový přehled">
+    <div class="sfCard sfStat"><small>Nejnižší za 30 dní</small><strong id="stat30">—</strong></div>
+    <div class="sfCard sfStat"><small>Nejnižší za 90 dní</small><strong id="stat90">—</strong></div>
+    <div class="sfCard sfStat"><small>Obvyklá akční cena</small><strong id="statTypical">—</strong></div>
+    <div class="sfCard sfStat"><small>Obchody s nabídkou</small><strong id="statStores">—</strong></div>
+  </section>
+
+  <section class="sfSection">
+    <div class="sfSectionHead"><div><span class="sfEyebrow">Aktuálně platné</span><h2>Porovnání obchodů</h2></div><a class="sfButton" href="seznam.html">Otevřít nákupní seznam</a></div>
+    <div id="offers" class="sfGrid"><div class="sfLoading">Načítám nabídky…</div></div>
+  </section>
+
+  <section class="sfSection sfCard sfPanel">
+    <div class="sfSectionHead"><div><span class="sfEyebrow">Historie cen</span><h2>Jak se cena měnila</h2><p id="historyInfo" class="sfMuted"></p></div></div>
+    <div id="priceChart" class="sfChart"><div class="sfLoading">Načítám historii…</div></div>
+  </section>
+</main>
+</body>
+</html>
