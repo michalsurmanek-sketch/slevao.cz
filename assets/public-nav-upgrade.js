@@ -26,6 +26,14 @@
     attach();
   }
 
+  function loadPwa() {
+    if (document.querySelector('script[src*="pwa-install.js"]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/pwa-install.js?v=20260804-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function upgrade() {
     const nav = document.querySelector('.slevaoBottomNav');
     if (!nav) return false;
@@ -42,6 +50,7 @@
   }
 
   loadPersonalization();
+  loadPwa();
   if (upgrade()) return;
   const observer = new MutationObserver(() => {
     if (upgrade()) observer.disconnect();
