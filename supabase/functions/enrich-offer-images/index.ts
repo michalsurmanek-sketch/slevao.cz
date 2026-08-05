@@ -15,6 +15,18 @@ const CORS = {
   'access-control-allow-methods': 'POST, OPTIONS',
 };
 
+const OFFICIAL_DOMAINS = [
+  'alza.cz', 'itesco.cz', 'tesco.com', 'rohlik.cz', 'kosik.cz', 'benu.cz',
+  'pilulka.cz', 'datart.cz', 'sportisimo.cz', 'superzoo.cz', 'petcenter.cz',
+  'rossmann.cz', 'dm.cz', 'kaufland.cz', 'lidl.cz', 'globus.cz', 'albert.cz',
+  'penny.cz', 'coop.cz', 'terno.cz', 'action.com', 'mountfield.cz', 'bauhaus.cz',
+];
+
+const REJECTED_URL_PARTS = [
+  '/letak', '/letaky', '/leaflet', '/catalog', '/katalog', '/page-', '/pages/',
+  'prospekt', 'akcniletak', '.pdf', 'screenshot', 'preview-page',
+];
+
 function json(payload: unknown, status = 200) {
   return new Response(JSON.stringify(payload), {
     status,
@@ -27,7 +39,7 @@ function normalize(value: unknown): string {
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .toLocaleLowerCase('cs')
-    .replace(/\b(akce|baleni|vybrane druhy|dle nabidky|chlazene|cerstve|clubcard)\b/g, ' ')
+    .replace(/\b(akce|baleni|vybrane druhy|dle nabidky|chlazene|cerstve|clubcard|sleva|super cena)\b/g, ' ')
     .replace(/\b\d+(?:[.,]\d+)?\s*(?:g|kg|ml|l|ks|%)\b/g, ' ')
     .replace(/[^a-z0-9]+/g, ' ')
     .replace(/\s+/g, ' ')
@@ -47,40 +59,86 @@ function similarity(a: unknown, b: unknown): number {
   const coverage = hit / Math.min(left.size, right.size);
   const union = new Set([...left, ...right]).size;
   const jaccard = union ? hit / union : 0;
-  return coverage * 0.7 + jaccard * 0.3;
+  return coverage * 0.72 + jaccard * 0.28;
 }
 
-function validUrl(value: unknown): string | null {
+function hostname(value: unknown): string {
+  try { return new URL(String(value || '')).hostname.replace(/^www\./, '').toLowerCase(); }
+  catch { return ''; }
+}
+
+function isOfficialDomain(value: unknown): boolean {
+  const host = hostname(value);
+  return OFFICIAL_DOMAINS.some((domain) => host === domain || host.endsWith(`.${domain}`));
+}
+
+function validProductImageUrl(value: unknown): string | null {
   const url = String(value || '').trim();
   if (!/^https:\/\//i.test(url)) return null;
-  if (!/\.(?:jpe?g|png|webp)(?:\?|$)/i.test(url)) return null;
+  const lower = url.toLowerCase();
+  if (REJECTED_URL_PARTS.some((part) => lower.includes(part))) return null;
+  if (!/\.(?:jpe?g|png|webp|avif)(?:\?|$)/i.test(url)) return null;
   return url;
 }
 
-async function existingImage(title: string) {
+type Match = {
+  url: string;
+  score: number;
+  source: 'verified_catalog' | 'catalog' | 'offers' | 'official_web' | 'web_search';
+  sourceUrl?: string;
+};
+
+async function existingImage(title: string): Promise<Match | null> {
   const probe = [...tokenSet(title)][0];
   if (!probe) return null;
+
   const [products, offers] = await Promise.all([
-    db.from('products').select('name,image_url').not('image_url', 'is', null).ilike('name', `%${probe}%`).limit(80),
-    db.from('offers').select('title,image_url').not('image_url', 'is', null).ilike('title', `%${probe}%`).limit(120),
+    db.from('products')
+      .select('name,image_url,image_verified,image_quality')
+      .not('image_url', 'is', null)
+      .ilike('name', `%${probe}%`)
+      .limit(100),
+    db.from('offers')
+      .select('title,image_url,products(image_verified,image_quality)')
+      .not('image_url', 'is', null)
+      .ilike('title', `%${probe}%`)
+      .limit(120),
   ]);
+
   const candidates = [
-    ...((products.data || []).map((x: any) => ({ title: x.name, url: x.image_url, source: 'catalog' }))),
-    ...((offers.data || []).map((x: any) => ({ title: x.title, url: x.image_url, source: 'offers' }))),
+    ...((products.data || []).map((x: any) => ({
+      title: x.name,
+      url: x.image_url,
+      verified: Boolean(x.image_verified),
+      quality: Number(x.image_quality || 0),
+      source: x.image_verified ? 'verified_catalog' : 'catalog',
+    }))),
+    ...((offers.data || []).map((x: any) => ({
+      title: x.title,
+      url: x.image_url,
+      verified: Boolean(x.products?.image_verified),
+      quality: Number(x.products?.image_quality || 0),
+      source: 'offers',
+    }))),
   ];
-  let best: any = null;
+
+  let best: Match | null = null;
   for (const candidate of candidates) {
     const score = similarity(title, candidate.title);
-    const url = validUrl(candidate.url);
-    if (!url || score < 0.78) continue;
-    if (!best || score > best.score) best = { url, score, source: candidate.source };
+    const url = validProductImageUrl(candidate.url);
+    const minimum = candidate.verified && candidate.quality >= 70 ? 0.72 : 0.84;
+    if (!url || score < minimum) continue;
+    const adjusted = Math.min(1, score + (candidate.verified ? 0.08 : 0));
+    if (!best || adjusted > best.score) {
+      best = { url, score: adjusted, source: candidate.source as Match['source'] };
+    }
   }
   return best;
 }
 
-async function serpImage(title: string, storeName: string) {
+async function serpImage(title: string, storeName: string): Promise<Match | null> {
   if (!SERPAPI_KEY) return null;
-  const q = `${title} ${storeName} produkt`;
+  const q = `"${title}" ${storeName} produkt -leták -letak -katalog`;
   const endpoint = new URL('https://serpapi.com/search.json');
   endpoint.searchParams.set('engine', 'google_images');
   endpoint.searchParams.set('q', q);
@@ -92,15 +150,90 @@ async function serpImage(title: string, storeName: string) {
   const response = await fetch(endpoint, { signal: AbortSignal.timeout(20_000) }).catch(() => null);
   if (!response?.ok) return null;
   const payload = await response.json().catch(() => ({}));
-  let best: any = null;
+  let best: Match | null = null;
+
   for (const item of payload?.images_results || []) {
-    const url = validUrl(item.original) || validUrl(item.thumbnail);
+    const original = validProductImageUrl(item.original);
+    const thumbnail = validProductImageUrl(item.thumbnail);
+    const url = original || thumbnail;
+    const sourceUrl = String(item.link || item.source || '');
     const candidateTitle = `${item.title || ''} ${item.source || ''}`;
-    const score = similarity(title, candidateTitle);
-    if (!url || score < 0.55) continue;
-    if (!best || score > best.score) best = { url, score, source: 'serpapi' };
+    let score = similarity(title, candidateTitle);
+    if (!url || score < 0.58) continue;
+
+    const official = isOfficialDomain(sourceUrl) || isOfficialDomain(url);
+    if (official) score = Math.min(1, score + 0.12);
+    const source: Match['source'] = official ? 'official_web' : 'web_search';
+    if (!best || score > best.score || (score === best.score && source === 'official_web')) {
+      best = { url, score, source, sourceUrl: sourceUrl || url };
+    }
   }
   return best;
+}
+
+async function applyTrustedImage(offer: any, match: Match) {
+  if (!offer.product_id) throw new Error('Nabídka není propojena s hlavním produktem.');
+  const now = new Date().toISOString();
+  const quality = match.source === 'verified_catalog'
+    ? 92
+    : match.source === 'official_web'
+      ? Math.round(78 + Math.min(match.score, 1) * 14)
+      : Math.round(72 + Math.min(match.score, 1) * 12);
+
+  const { error: productError } = await db.from('products').update({
+    image_url: match.url,
+    image_verified: true,
+    image_quality: quality,
+    image_source_url: match.sourceUrl || match.url,
+    image_updated_at: now,
+  }).eq('id', offer.product_id);
+  if (productError) throw productError;
+
+  const { error: offerError } = await db.from('offers')
+    .update({ image_url: match.url })
+    .eq('product_id', offer.product_id)
+    .or('image_url.is.null,image_url.eq.');
+  if (offerError) throw offerError;
+
+  const { error: itemError } = await db.from('leaflet_import_items')
+    .update({ image_url: match.url })
+    .eq('product_id', offer.product_id)
+    .or('image_url.is.null,image_url.eq.');
+  if (itemError) throw itemError;
+
+  await db.from('product_image_candidates').upsert({
+    product_id: offer.product_id,
+    image_url: match.url,
+    source_url: match.sourceUrl || match.url,
+    source_domain: hostname(match.sourceUrl || match.url) || null,
+    source_type: match.source === 'official_web' ? 'official_catalog' : 'product_database',
+    quality_score: quality,
+    match_score: Number(Math.min(match.score, 1).toFixed(4)),
+    has_text_overlay: false,
+    has_price_overlay: false,
+    status: 'approved',
+    reviewed_at: now,
+    metadata: { provider: match.source, offer_id: offer.id, offer_title: offer.title, automatic: true },
+  }, { onConflict: 'product_id,image_url', ignoreDuplicates: false });
+}
+
+async function queueCandidate(offer: any, match: Match) {
+  if (!offer.product_id) throw new Error('Nabídka není propojena s hlavním produktem.');
+  const quality = Math.round(52 + Math.min(match.score, 1) * 24);
+  const { error } = await db.from('product_image_candidates').upsert({
+    product_id: offer.product_id,
+    image_url: match.url,
+    source_url: match.sourceUrl || match.url,
+    source_domain: hostname(match.sourceUrl || match.url) || null,
+    source_type: 'web_search',
+    quality_score: quality,
+    match_score: Number(Math.min(match.score, 1).toFixed(4)),
+    has_text_overlay: false,
+    has_price_overlay: false,
+    status: 'pending',
+    metadata: { provider: match.source, offer_id: offer.id, offer_title: offer.title, automatic: false },
+  }, { onConflict: 'product_id,image_url', ignoreDuplicates: false });
+  if (error) throw error;
 }
 
 async function enrich(storeId?: string, limit = 100) {
@@ -114,7 +247,7 @@ async function enrich(storeId?: string, limit = 100) {
   const { data: offers, error } = await query;
   if (error) throw error;
 
-  let enriched = 0, notFound = 0, failed = 0;
+  let applied = 0, queued = 0, notFound = 0, failed = 0;
   const bySource: Record<string, number> = {};
   const results: any[] = [];
 
@@ -123,40 +256,42 @@ async function enrich(storeId?: string, limit = 100) {
       const storeName = String((offer as any).stores?.name || (offer as any).stores?.slug || '');
       const match = await existingImage(String(offer.title || ''))
         || await serpImage(String(offer.title || ''), storeName);
+
       if (!match) {
         notFound++;
         results.push({ offer_id: offer.id, title: offer.title, status: 'not_found' });
         continue;
       }
-      if (!offer.product_id) throw new Error('Nabídka není propojena s hlavním produktem.');
-      const sourceType = match.source === 'serpapi' ? 'unknown' : 'official_catalog';
-      const qualityScore = match.source === 'serpapi'
-        ? Math.round(55 + Math.min(match.score, 1) * 20)
-        : Math.round(70 + Math.min(match.score, 1) * 20);
-      const { error: candidateError } = await db.from('product_image_candidates').upsert({
-        product_id: offer.product_id,
-        image_url: match.url,
-        source_url: match.url,
-        source_domain: (() => { try { return new URL(match.url).hostname; } catch { return null; } })(),
-        source_type: sourceType,
-        quality_score: qualityScore,
-        match_score: Number(Math.min(match.score, 1).toFixed(4)),
-        has_text_overlay: false,
-        has_price_overlay: false,
-        status: 'pending',
-        metadata: { provider: match.source, offer_id: offer.id, offer_title: offer.title },
-      }, { onConflict: 'product_id,image_url', ignoreDuplicates: true });
-      if (candidateError) throw candidateError;
-      enriched++;
+
+      const trusted = ['verified_catalog', 'catalog', 'official_web'].includes(match.source)
+        && match.score >= (match.source === 'official_web' ? 0.72 : 0.84);
+
+      if (trusted) {
+        await applyTrustedImage(offer, match);
+        applied++;
+        results.push({ offer_id: offer.id, title: offer.title, status: 'applied', source: match.source, score: match.score });
+      } else {
+        await queueCandidate(offer, match);
+        queued++;
+        results.push({ offer_id: offer.id, title: offer.title, status: 'queued_for_review', source: match.source, score: match.score });
+      }
       bySource[match.source] = (bySource[match.source] || 0) + 1;
-      results.push({ offer_id: offer.id, title: offer.title, status: 'queued_for_review', source: match.source, score: match.score });
     } catch (e) {
       failed++;
       results.push({ offer_id: offer.id, title: offer.title, status: 'failed', error: e instanceof Error ? e.message : String(e) });
     }
   }
 
-  return { checked: offers?.length || 0, enriched, not_found: notFound, failed, by_source: bySource, serpapi_configured: Boolean(SERPAPI_KEY), results };
+  return {
+    checked: offers?.length || 0,
+    applied,
+    queued_for_review: queued,
+    not_found: notFound,
+    failed,
+    by_source: bySource,
+    serpapi_configured: Boolean(SERPAPI_KEY),
+    results,
+  };
 }
 
 Deno.serve(async (request) => {
