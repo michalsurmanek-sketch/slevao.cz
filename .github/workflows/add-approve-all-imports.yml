@@ -98,3 +98,5 @@ $('approveAllImports').onclick=approveAllImports;
           fi
           git commit -m "Přidat tlačítko Schválit vše k importům"
           git push
+
+# trigger: 2026-08-05
