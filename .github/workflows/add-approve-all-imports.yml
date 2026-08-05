@@ -3,7 +3,7 @@ name: Přidat Schválit vše k importům
 on:
   push:
     paths:
-      - '.github/workflows/add-approve-all-imports.yml'
+      - '.github/approve-all-trigger.txt'
   workflow_dispatch:
 
 permissions:
@@ -98,5 +98,3 @@ $('approveAllImports').onclick=approveAllImports;
           fi
           git commit -m "Přidat tlačítko Schválit vše k importům"
           git push
-
-# trigger: 2026-08-05
