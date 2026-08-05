@@ -1,5 +1,7 @@
 from pathlib import Path
 
+# Tento skript se spouští při nasazení Edge Functions a zajišťuje,
+# že velké stránky letáků nezastaví import kvůli limitu Storage nebo JSON těla.
 PATH = Path("supabase/functions/process-leaflet/index.ts")
 text = PATH.read_text(encoding="utf-8")
 original = text
@@ -28,7 +30,7 @@ image_new = """  } else {
     // Velké stránky letáků neposíláme jako base64 v JSON těle. OpenAI si je
     // stáhne přímo z veřejné HTTPS adresy, čímž se vyhneme limitu velikosti
     // požadavku Edge Function i zbytečnému násobení velikosti přes base64.
-    const useRemoteUrl = bytes.length > 4 * 1024 * 1024 && /^https:\\/\\//i.test(sourceUrl);
+    const useRemoteUrl = bytes.length > 4 * 1024 * 1024 && /^https:\/\//i.test(sourceUrl);
     const imageUrl = useRemoteUrl ? sourceUrl : `data:${mime};base64,${bytesToBase64(bytes)}`;
     documentInput = { type: 'input_image', image_url: imageUrl, detail: 'high' };
   }"""
