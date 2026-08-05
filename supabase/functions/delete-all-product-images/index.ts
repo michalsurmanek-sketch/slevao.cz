@@ -46,15 +46,8 @@ Deno.serve(async (request) => {
       db.from('products').select('id', { count: 'exact', head: true }).not('image_url', 'is', null),
       db.from('offers').select('id', { count: 'exact', head: true }).not('image_url', 'is', null),
       db.from('leaflet_import_items').select('id', { count: 'exact', head: true }).not('image_url', 'is', null),
-      db.from('product_image_candidates').select('id', { count: 'exact', head: true }),
-      db.from('product_image_library').select('id', { count: 'exact', head: true }),
     ]);
     for (const result of counts) if (result.error) throw result.error;
-
-    const candidatesDelete = await db.from('product_image_candidates').delete().not('id', 'is', null);
-    if (candidatesDelete.error) throw candidatesDelete.error;
-    const libraryDelete = await db.from('product_image_library').delete().not('id', 'is', null);
-    if (libraryDelete.error) throw libraryDelete.error;
 
     const now = new Date().toISOString();
     const productsUpdate = await db.from('products').update({
@@ -68,17 +61,19 @@ Deno.serve(async (request) => {
 
     const offersUpdate = await db.from('offers').update({ image_url: null }).not('id', 'is', null);
     if (offersUpdate.error) throw offersUpdate.error;
+
     const itemsUpdate = await db.from('leaflet_import_items').update({ image_url: null }).not('id', 'is', null);
     if (itemsUpdate.error) throw itemsUpdate.error;
 
-    console.log('All product images deleted by admin', admin.id);
+    console.log('Product image assignments cleared by admin; library and storage preserved', admin.id);
     return json({
       ok: true,
       products_cleared: counts[0].count || 0,
       offers_cleared: counts[1].count || 0,
       items_cleared: counts[2].count || 0,
-      candidates_deleted: counts[3].count || 0,
-      library_deleted: counts[4].count || 0,
+      library_preserved: true,
+      candidates_preserved: true,
+      storage_preserved: true,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
