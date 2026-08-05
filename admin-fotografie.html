@@ -4,127 +4,39 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-<meta http-equiv="Pragma" content="no-cache">
-<meta http-equiv="Expires" content="0">
 <title>Slevao.cz – fotografie produktů</title>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root{--brand:#0b6f68;--brand2:#12b8a6;--ink:#10201e;--muted:#687774;--line:#dbe8e5;--bg:#f3f7f6;--bad:#b32631;--warn:#9a6500;--shadow:0 18px 55px rgba(15,45,40,.08)}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg)}button,input,select{font:inherit}.hidden{display:none!important}.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line)}.topin{max-width:1450px;margin:auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-size:26px;font-weight:950}.brand b{color:var(--brand2)}.toolbar{display:flex;gap:9px;flex-wrap:wrap}.btn{min-height:42px;padding:0 15px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);font-weight:850;cursor:pointer;text-decoration:none;display:inline-grid;place-items:center}.btn.primary{color:#fff;border:0;background:linear-gradient(135deg,var(--brand),var(--brand2))}.btn.bad{color:#fff;border:0;background:var(--bad)}.btn:disabled{opacity:.6;cursor:wait}.shell{max-width:1450px;margin:auto;padding:24px}.hero{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:18px}.hero h1{margin:0 0 8px;font-size:38px}.muted{color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.stat,.panel,.card,.login{background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:20px}.stat{padding:18px}.stat small{display:block;color:var(--muted);font-weight:800}.stat strong{display:block;font-size:32px;margin-top:7px}.panel{padding:18px}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{overflow:hidden}.img{height:230px;background:#eef4f3;display:grid;place-items:center}.img img{width:100%;height:100%;object-fit:contain;background:#fff}.body{padding:15px}.body h3{margin:0 0 6px;font-size:18px}.meta{font-size:12px;color:var(--muted);line-height:1.5}.verified{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:5px 9px;border-radius:999px;background:#e7f8f3;color:#08705a;font-size:12px;font-weight:900}.verified.warn{background:#fff4d7;color:var(--warn)}.actions{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}.empty{padding:28px;text-align:center;color:var(--muted)}.login{max-width:430px;margin:70px auto;padding:24px}.field{display:grid;gap:7px;margin:12px 0}.field input{height:46px;border:1px solid var(--line);border-radius:13px;padding:0 13px}.msg{margin:12px 0;padding:12px 14px;border-radius:12px;font-weight:800}.msg.ok{background:#e9f9f2;color:#0b694b}.msg.err{background:#fff0f1;color:var(--bad)}.version{font-size:11px;color:#9aa8a5;margin-top:8px}@media(max-width:1000px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:650px){.shell,.topin{padding:14px}.grid,.stats{grid-template-columns:1fr}.hero{align-items:flex-start;flex-direction:column}.hero h1{font-size:30px}.head{align-items:flex-start;flex-direction:column}}
+:root{--brand:#0b6f68;--brand2:#12b8a6;--ink:#10201e;--muted:#687774;--line:#dbe8e5;--bg:#f3f7f6;--bad:#b32631;--warn:#9a6500;--shadow:0 18px 55px rgba(15,45,40,.08)}*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;color:var(--ink);background:var(--bg)}button,input,select{font:inherit}.hidden{display:none!important}.top{position:sticky;top:0;z-index:20;background:#fff;border-bottom:1px solid var(--line)}.topin{max-width:1450px;margin:auto;padding:14px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px}.brand{font-size:26px;font-weight:950}.brand b{color:var(--brand2)}.toolbar{display:flex;gap:9px;flex-wrap:wrap}.btn{min-height:42px;padding:0 15px;border:1px solid var(--line);border-radius:13px;background:#fff;color:var(--ink);font-weight:850;cursor:pointer;text-decoration:none;display:inline-grid;place-items:center}.btn.primary{color:#fff;border:0;background:linear-gradient(135deg,var(--brand),var(--brand2))}.btn.bad{color:#fff;border:0;background:var(--bad)}.btn:disabled{opacity:.6;cursor:wait}.shell{max-width:1450px;margin:auto;padding:24px}.hero{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:18px}.hero h1{margin:0 0 8px;font-size:38px}.muted{color:var(--muted)}.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-bottom:18px}.stat,.panel,.card,.login{background:#fff;border:1px solid var(--line);box-shadow:var(--shadow);border-radius:20px}.stat{padding:18px}.stat small{display:block;color:var(--muted);font-weight:800}.stat strong{display:block;font-size:32px;margin-top:7px}.panel{padding:18px}.danger{border-color:#efb6bc;background:#fffafb}.head{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}.card{overflow:hidden}.img{height:230px;background:#eef4f3;display:grid;place-items:center}.img img{width:100%;height:100%;object-fit:contain;background:#fff}.body{padding:15px}.body h3{margin:0 0 6px;font-size:18px}.meta{font-size:12px;color:var(--muted);line-height:1.5}.verified{display:inline-flex;margin-top:8px;padding:5px 9px;border-radius:999px;background:#e7f8f3;color:#08705a;font-size:12px;font-weight:900}.verified.warn{background:#fff4d7;color:var(--warn)}.actions{display:flex;gap:8px;margin-top:13px;flex-wrap:wrap}.empty{padding:28px;text-align:center;color:var(--muted)}.login{max-width:430px;margin:70px auto;padding:24px}.field{display:grid;gap:7px;margin:12px 0}.field input{height:46px;border:1px solid var(--line);border-radius:13px;padding:0 13px}.msg{margin:12px 0;padding:12px 14px;border-radius:12px;font-weight:800}.msg.ok{background:#e9f9f2;color:#0b694b}.msg.err{background:#fff0f1;color:var(--bad)}.version{font-size:11px;color:#9aa8a5;margin-top:8px}@media(max-width:1000px){.grid{grid-template-columns:1fr 1fr}}@media(max-width:650px){.shell,.topin{padding:14px}.grid,.stats{grid-template-columns:1fr}.hero,.head{align-items:flex-start;flex-direction:column}.hero h1{font-size:30px}}
 </style>
 <link rel="stylesheet" href="assets/admin-unified-icons.css?v=20260802-1">
 <script defer src="assets/admin-unified-icons.js?v=20260802-1"></script>
 </head>
 <body>
-<section id="loginBox" class="login">
-  <h1>Přihlášení správce</h1>
-  <div class="field"><label>E-mail</label><input id="email" type="email"></div>
-  <div class="field"><label>Heslo</label><input id="password" type="password"></div>
-  <button id="loginBtn" class="btn primary">Přihlásit</button>
-  <div id="loginMsg"></div>
-</section>
+<section id="loginBox" class="login"><h1>Přihlášení správce</h1><div class="field"><label>E-mail</label><input id="email" type="email"></div><div class="field"><label>Heslo</label><input id="password" type="password"></div><button id="loginBtn" class="btn primary">Přihlásit</button><div id="loginMsg"></div></section>
 <div id="app" class="hidden">
-<header class="top"><div class="topin">
-  <div><div class="brand">SLEVAO<b>.cz</b></div><div id="who" class="muted"></div></div>
-  <div class="toolbar"><a class="btn" href="admin.html">Administrace</a><a class="btn" href="admin-automatizace.html">Automatizace</a><a class="btn" href="index.html">Otevřít web</a><button id="logout" class="btn">Odhlásit</button></div>
-</div></header>
+<header class="top"><div class="topin"><div><div class="brand">SLEVAO<b>.cz</b></div><div id="who" class="muted"></div></div><div class="toolbar"><a class="btn" href="admin.html">Administrace</a><a class="btn" href="admin-automatizace.html">Automatizace</a><a class="btn" href="index.html">Otevřít web</a><button id="logout" class="btn">Odhlásit</button></div></div></header>
 <main class="shell">
-<section class="hero"><div><h1>Fotografie produktů</h1><div class="muted">Nejdřív EAN, značka, balení a katalog konkrétního obchodu. Pak teprve web výrobce.</div><div class="version">Vyhledávač fotografií 2026-08-04.3</div></div><button id="refresh" class="btn primary">Obnovit</button></section>
+<section class="hero"><div><h1>Fotografie produktů</h1><div class="muted">Fotografie se párují z knihovny, katalogů obchodů a ověřených internetových zdrojů.</div><div class="version">Správa fotografií 2026-08-05.1</div></div><button id="refresh" class="btn primary">Obnovit</button></section>
 <section class="stats"><div class="stat"><small>Čeká na schválení</small><strong id="sPending">—</strong></div><div class="stat"><small>Chybí ověřená fotka</small><strong id="sMissing">—</strong></div><div class="stat"><small>Schválené kandidáty</small><strong id="sApproved">—</strong></div></section>
 <div id="msg"></div>
-<section class="panel">
-  <div class="head"><div><h2 style="margin:0">Kandidátní fotografie</h2><div class="muted">Server sám zjistí obchod produktu a použije jeho katalog. Hledání běží na pozadí a stránka se průběžně obnovuje.</div></div><div class="toolbar"><select id="storeFilter" class="btn"><option value="">Všechny obchody</option><option value="kaufland">Kaufland</option><option value="tesco">Tesco</option><option value="albert">Albert</option><option value="billa">Billa</option><option value="penny">Penny</option><option value="makro">Makro</option><option value="lidl">Lidl</option><option value="globus">Globus</option></select><button id="discover" class="btn primary">Najít další fotky</button></div></div>
-  <div id="candidates" class="grid"></div>
-</section>
+<section class="panel danger" style="margin-bottom:16px"><div class="head"><div><h2 style="margin:0;color:var(--bad)">Nebezpečná zóna</h2><div class="muted">Smaže všechny produktové fotografie, kandidáty a knihovnu. Produkty, ceny a nabídky zůstanou zachované.</div></div><button id="deleteAllImages" class="btn bad">Smazat všechny fotografie</button></div></section>
+<section class="panel"><div class="head"><div><h2 style="margin:0">Kandidátní fotografie</h2><div class="muted">Nalezené obrázky čekající na kontrolu.</div></div><div class="toolbar"><select id="storeFilter" class="btn"><option value="">Všechny obchody</option><option value="kaufland">Kaufland</option><option value="tesco">Tesco</option><option value="albert">Albert</option><option value="billa">Billa</option><option value="penny">Penny</option><option value="makro">Makro</option><option value="lidl">Lidl</option><option value="globus">Globus</option></select><button id="discover" class="btn primary">Najít další fotky</button></div></div><div id="candidates" class="grid"></div></section>
 <section class="panel" style="margin-top:16px"><div class="head"><div><h2 style="margin:0">Produkty bez kvalitní fotografie</h2><div class="muted">Značkové a přesně identifikovatelné produkty se zpracují jako první.</div></div></div><div id="missing" class="grid"></div></section>
 </main></div>
 <script>
 window.addEventListener('DOMContentLoaded',()=>{
-  const $=id=>document.getElementById(id);
-  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
-  const db=window.supabase.createClient('https://uhampjdqjxmbhaptgitn.supabase.co','sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU');
-  const show=(text,type='ok')=>{$('msg').className='msg '+type;$('msg').textContent=text};
-
-  async function auth(){
-    const {data:{session}}=await db.auth.getSession();
-    if(!session){$('loginBox').classList.remove('hidden');$('app').classList.add('hidden');return}
-    const role=session.user.app_metadata?.role;
-    if(!['admin','editor'].includes(role)){await db.auth.signOut();$('loginMsg').className='msg err';$('loginMsg').textContent='Účet nemá oprávnění správce.';return}
-    $('who').textContent=session.user.email+' · '+role;
-    $('loginBox').classList.add('hidden');$('app').classList.remove('hidden');
-    load();
-  }
-
-  async function load(preserveMessage=false){
-    if(!preserveMessage)show('Načítám data…');
-    const [cands,missing,approved]=await Promise.all([
-      db.from('product_image_candidates').select('id,product_id,image_url,source_url,source_domain,source_type,width,height,quality_score,match_score,status,metadata,products(name,brand,ean,quantity_text)',{count:'exact'}).eq('status','pending').order('quality_score',{ascending:false}).limit(100),
-      db.from('products_missing_verified_images').select('*',{count:'exact'}).gt('active_offer_count',0).order('image_checked_at',{ascending:true}).order('active_offer_count',{ascending:false}).limit(100),
-      db.from('product_image_candidates').select('id',{count:'exact',head:true}).eq('status','approved')
-    ]);
-    if(cands.error||missing.error||approved.error){show(cands.error?.message||missing.error?.message||approved.error?.message,'err');return}
-    $('sPending').textContent=cands.count??cands.data.length;
-    $('sMissing').textContent=missing.count??missing.data.length;
-    $('sApproved').textContent=approved.count??0;
-    $('candidates').innerHTML=cands.data.length?cands.data.map(x=>{
-      const ai=x.metadata?.visual_validation,tier=x.metadata?.review_tier,clean=tier==='clean';
-      return `<article class="card"><div class="img"><img src="${esc(x.image_url)}" alt=""></div><div class="body"><h3>${esc(x.products?.name||'Produkt')}</h3><div class="meta">${esc(x.products?.brand||'')} ${esc(x.products?.quantity_text||'')}<br>Zdroj: ${esc(x.source_domain||x.source_type||'neuveden')}<br>Kvalita: ${esc(x.quality_score)} · Shoda: ${x.match_score==null?'—':Math.round(Number(x.match_score)*100)+' %'}</div>${ai?`<div class="verified${clean?'':' warn'}">${clean?'✓ Čistá fotka':'⚠ Použitelná – ručně zkontroluj'} · jistota ${Math.round(Number(ai.confidence||0)*100)} %</div>`:''}<div class="actions"><button class="btn primary" data-approve="${x.id}">Schválit</button><button class="btn bad" data-reject="${x.id}">Zamítnout</button>${x.source_url?`<a class="btn" target="_blank" rel="noopener" href="${esc(x.source_url)}">Zdroj</a>`:''}</div></div></article>`
-    }).join(''):'<div class="empty">Žádné fotografie nečekají na schválení.</div>';
-    $('missing').innerHTML=missing.data.length?missing.data.map(x=>`<article class="card"><div class="img">Bez fotografie</div><div class="body"><h3>${esc(x.name)}</h3><div class="meta">Značka: ${esc(x.brand||'neuvedena')} · Balení: ${esc(x.quantity_text||'neuvedeno')}<br>Aktivní nabídky: ${esc(x.active_offer_count||0)} · obchody: ${esc(x.active_store_count||0)}<br>EAN: ${esc(x.ean||'neuveden')}</div></div></article>`).join(''):'<div class="empty">Všechny produkty mají ověřenou fotografii.</div>';
-    if(!preserveMessage){$('msg').className='';$('msg').textContent=''}
-  }
-
-  async function setStatus(id,status){
-    const payload={status,reviewed_at:new Date().toISOString(),rejection_reason:status==='rejected'?'Zamítnuto správcem':null};
-    const {error}=await db.from('product_image_candidates').update(payload).eq('id',id);
-    if(error){show(error.message,'err');return}
-    await load(true);
-    show(status==='approved'?'Fotografie byla schválena, uložena do knihovny a propsána do nabídek.':'Fotografie byla zamítnuta.');
-  }
-
-  async function pollRun(runId,selectedCount){
-    for(let attempt=1;attempt<=48;attempt++){
-      await sleep(5000);
-      const {data,error}=await db.from('product_image_search_runs').select('status,requested_count,processed_count,created_count,rejected_count,error_count,message,results').eq('id',runId).single();
-      if(error){show('Hledání běží na serveru, ale stav se nepodařilo načíst: '+error.message,'err');return}
-      await load(true);
-      if(data.status==='completed'){
-        const names=(data.results||[]).filter(x=>Number(x.created||0)>0).map(x=>x.name).slice(0,4);
-        show(`Hotovo: prověřeno ${data.processed_count}, ke schválení ${data.created_count}, vyřazeno ${data.rejected_count}, chyby ${data.error_count}.`+(names.length?' Nalezeno pro: '+names.join(', ')+'.':''),data.error_count?'err':'ok');
-        return;
-      }
-      if(data.status==='failed'){
-        show('Hledání skončilo chybou: '+(data.message||'neznámá chyba'),'err');
-        return;
-      }
-      show(`Hledání běží na serveru pro ${selectedCount} produkty. Nové fotografie se zobrazí automaticky…`);
-    }
-    show('Hledání stále pokračuje na serveru. Stránku můžeš později obnovit.');
-  }
-
-  async function discover(){
-    const store_slug=$('storeFilter').value;
-    $('discover').disabled=true;
-    show('Vybírám produkty podle EAN, značky, balení a konkrétního obchodu…');
-    const {data,error}=await db.functions.invoke('discover-product-images-smart',{body:{store_slug,limit:4}});
-    if(error||!data?.ok){$('discover').disabled=false;show(error?.message||data?.error||'Hledání fotografií selhalo.','err');return}
-    if(!data.accepted){$('discover').disabled=false;show(data.message||'Nejsou další produkty k hledání.');return}
-    const names=(data.selected_products||[]).map(x=>x.name).join(', ');
-    show(`Spuštěno hledání pro ${data.selected_count} produkty: ${names}.`);
-    await pollRun(data.run_id,data.selected_count);
-    $('discover').disabled=false;
-  }
-
-  document.addEventListener('click',e=>{
-    const a=e.target.closest('[data-approve]'),r=e.target.closest('[data-reject]');
-    if(a)setStatus(a.dataset.approve,'approved');
-    if(r)setStatus(r.dataset.reject,'rejected');
-  });
-  $('loginBtn').onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){$('loginMsg').className='msg err';$('loginMsg').textContent=error.message}else auth()};
-  $('logout').onclick=async()=>{await db.auth.signOut();location.reload()};
-  $('refresh').onclick=()=>load();
-  $('discover').onclick=discover;
-  auth();
+const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])),sleep=ms=>new Promise(r=>setTimeout(r,ms));
+const db=window.supabase.createClient('https://uhampjdqjxmbhaptgitn.supabase.co','sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU');
+const show=(text,type='ok')=>{$('msg').className='msg '+type;$('msg').textContent=text};
+async function auth(){const {data:{session}}=await db.auth.getSession();if(!session){$('loginBox').classList.remove('hidden');$('app').classList.add('hidden');return}const role=session.user.app_metadata?.role;if(!['admin','editor'].includes(role)){await db.auth.signOut();$('loginMsg').className='msg err';$('loginMsg').textContent='Účet nemá oprávnění správce.';return}$('who').textContent=session.user.email+' · '+role;$('deleteAllImages').classList.toggle('hidden',role!=='admin');$('loginBox').classList.add('hidden');$('app').classList.remove('hidden');load()}
+async function load(preserve=false){if(!preserve)show('Načítám data…');const [c,m,a]=await Promise.all([db.from('product_image_candidates').select('id,product_id,image_url,source_url,source_domain,source_type,quality_score,match_score,status,metadata,products(name,brand,quantity_text)',{count:'exact'}).eq('status','pending').order('quality_score',{ascending:false}).limit(100),db.from('products_missing_verified_images').select('*',{count:'exact'}).gt('active_offer_count',0).order('image_checked_at',{ascending:true}).limit(100),db.from('product_image_candidates').select('id',{count:'exact',head:true}).eq('status','approved')]);if(c.error||m.error||a.error){show(c.error?.message||m.error?.message||a.error?.message,'err');return}$('sPending').textContent=c.count??c.data.length;$('sMissing').textContent=m.count??m.data.length;$('sApproved').textContent=a.count??0;$('candidates').innerHTML=c.data.length?c.data.map(x=>`<article class="card"><div class="img"><img src="${esc(x.image_url)}" alt=""></div><div class="body"><h3>${esc(x.products?.name||'Produkt')}</h3><div class="meta">${esc(x.products?.brand||'')} ${esc(x.products?.quantity_text||'')}<br>Zdroj: ${esc(x.source_domain||x.source_type||'neuveden')}<br>Kvalita: ${esc(x.quality_score)} · Shoda: ${x.match_score==null?'—':Math.round(Number(x.match_score)*100)+' %'}</div><div class="actions"><button class="btn primary" data-approve="${x.id}">Schválit</button><button class="btn bad" data-reject="${x.id}">Zamítnout</button>${x.source_url?`<a class="btn" target="_blank" rel="noopener" href="${esc(x.source_url)}">Zdroj</a>`:''}</div></div></article>`).join(''):'<div class="empty">Žádné fotografie nečekají na schválení.</div>';$('missing').innerHTML=m.data.length?m.data.map(x=>`<article class="card"><div class="img">Bez fotografie</div><div class="body"><h3>${esc(x.name)}</h3><div class="meta">Značka: ${esc(x.brand||'neuvedena')} · Balení: ${esc(x.quantity_text||'neuvedeno')}<br>Aktivní nabídky: ${esc(x.active_offer_count||0)} · obchody: ${esc(x.active_store_count||0)}<br>EAN: ${esc(x.ean||'neuveden')}</div></div></article>`).join(''):'<div class="empty">Všechny produkty mají ověřenou fotografii.</div>';if(!preserve){$('msg').className='';$('msg').textContent=''}}
+async function setStatus(id,status){const {error}=await db.from('product_image_candidates').update({status,reviewed_at:new Date().toISOString(),rejection_reason:status==='rejected'?'Zamítnuto správcem':null}).eq('id',id);if(error){show(error.message,'err');return}await load(true);show(status==='approved'?'Fotografie byla schválena a propsána do nabídek.':'Fotografie byla zamítnuta.')}
+async function deleteAll(){if(!confirm('Opravdu chceš smazat VŠECHNY produktové fotografie? Produkty, ceny a nabídky zůstanou zachované.'))return;const phrase=prompt('Pro potvrzení napiš přesně: SMAZAT VŠE');if(phrase!=='SMAZAT VŠE'){show('Mazání bylo zrušeno.','err');return}const b=$('deleteAllImages');b.disabled=true;show('Mažu všechny fotografie…');const {data,error}=await db.functions.invoke('delete-all-product-images',{body:{confirmation:'SMAZAT VŠE'}});b.disabled=false;if(error||!data?.ok){show(error?.message||data?.error||'Mazání selhalo.','err');return}await load(true);show(`Hotovo. Produkty: ${data.products_cleared}, nabídky: ${data.offers_cleared}, položky letáků: ${data.items_cleared}, kandidáti: ${data.candidates_deleted}, knihovna: ${data.library_deleted}.`)}
+async function poll(runId,count){for(let i=0;i<48;i++){await sleep(5000);const {data,error}=await db.from('product_image_search_runs').select('status,processed_count,created_count,rejected_count,error_count,message').eq('id',runId).single();if(error){show(error.message,'err');return}await load(true);if(data.status==='completed'){show(`Hotovo: prověřeno ${data.processed_count}, ke schválení ${data.created_count}, vyřazeno ${data.rejected_count}, chyby ${data.error_count}.`,data.error_count?'err':'ok');return}if(data.status==='failed'){show(data.message||'Hledání selhalo.','err');return}show(`Hledání běží pro ${count} produkty…`)}}
+async function discover(){const b=$('discover');b.disabled=true;show('Vybírám produkty a hledám fotografie…');const {data,error}=await db.functions.invoke('discover-product-images-smart',{body:{store_slug:$('storeFilter').value,limit:4}});if(error||!data?.ok){b.disabled=false;show(error?.message||data?.error||'Hledání selhalo.','err');return}if(!data.accepted){b.disabled=false;show(data.message||'Nejsou další produkty k hledání.');return}await poll(data.run_id,data.selected_count);b.disabled=false}
+document.addEventListener('click',e=>{const a=e.target.closest('[data-approve]'),r=e.target.closest('[data-reject]');if(a)setStatus(a.dataset.approve,'approved');if(r)setStatus(r.dataset.reject,'rejected')});
+$('loginBtn').onclick=async()=>{const {error}=await db.auth.signInWithPassword({email:$('email').value.trim(),password:$('password').value});if(error){$('loginMsg').className='msg err';$('loginMsg').textContent=error.message}else auth()};$('logout').onclick=async()=>{await db.auth.signOut();location.reload()};$('refresh').onclick=()=>load();$('discover').onclick=discover;$('deleteAllImages').onclick=deleteAll;auth();
 });
 </script>
 </body>
