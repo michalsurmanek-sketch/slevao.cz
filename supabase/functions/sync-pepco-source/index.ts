@@ -71,23 +71,49 @@ function quantity(value: string) {
   return value.match(/\b\d+(?:[,.]\d+)?\s*(?:ml|cl|l|g|kg|ks|bal(?:ení)?|pár|dílů|cm|mm)\b/i)?.[0] || null;
 }
 
+function dateRange(fromDay: number, fromMonth: number, toDay: number, toMonth: number) {
+  const now = new Date();
+  const fromYear = now.getUTCFullYear();
+  const toYear = toMonth < fromMonth ? fromYear + 1 : fromYear;
+  return {
+    from: `${fromYear}-${String(fromMonth).padStart(2, '0')}-${String(fromDay).padStart(2, '0')}`,
+    to: `${toYear}-${String(toMonth).padStart(2, '0')}-${String(toDay).padStart(2, '0')}`,
+  };
+}
+
 function parseDateRange(html: string) {
   const text = clean(html);
-  const match = text.match(/(?:jen\s+)?od\s+(\d{1,2})\.\s*(\d{1,2})\.\s+do\s+(\d{1,2})\.\s*(\d{1,2})\./i)
+  const numeric = text.match(/(?:jen\s+)?od\s+(\d{1,2})\.\s*(\d{1,2})\.\s+do\s+(\d{1,2})\.\s*(\d{1,2})\./i)
     || text.match(/(\d{1,2})\.\s*(\d{1,2})\.\s*[–—-]\s*(\d{1,2})\.\s*(\d{1,2})\./i);
-  if (!match) return null;
+  if (numeric) {
+    return dateRange(Number(numeric[1]), Number(numeric[2]), Number(numeric[3]), Number(numeric[4]));
+  }
 
-  const now = new Date();
-  let fromYear = now.getUTCFullYear();
-  let toYear = fromYear;
-  const fromMonth = Number(match[2]);
-  const toMonth = Number(match[4]);
-  if (toMonth < fromMonth) toYear++;
-
-  return {
-    from: `${fromYear}-${String(fromMonth).padStart(2, '0')}-${String(Number(match[1])).padStart(2, '0')}`,
-    to: `${toYear}-${String(toMonth).padStart(2, '0')}-${String(Number(match[3])).padStart(2, '0')}`,
+  const months: Record<string, number> = {
+    ledna: 1,
+    února: 2,
+    unora: 2,
+    března: 3,
+    brezna: 3,
+    dubna: 4,
+    května: 5,
+    kvetna: 5,
+    června: 6,
+    cervna: 6,
+    července: 7,
+    cervence: 7,
+    srpna: 8,
+    září: 9,
+    zari: 9,
+    října: 10,
+    rijna: 10,
+    listopadu: 11,
+    prosince: 12,
   };
+  const named = text.match(/(?:v\s+nabídce\s+)?od\s+(\d{1,2})\.\s+do\s+(\d{1,2})\.\s+(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)/i);
+  if (!named) return null;
+  const month = months[named[3].toLocaleLowerCase('cs')];
+  return month ? dateRange(Number(named[1]), month, Number(named[2]), month) : null;
 }
 
 function collectionTitle(html: string) {
@@ -219,15 +245,15 @@ Deno.serve(async (request) => {
     if (sourceError || !source) throw sourceError || new Error('Aktivní zdroj Pepco nebyl nalezen.');
 
     const page = await fetchText(SOURCE_URL, 18_000);
-    const dateRange = parseDateRange(page.text);
-    if (!dateRange) throw new Error('Pepco nevrátilo rozpoznatelnou platnost kolekce.');
+    const dateRangeValue = parseDateRange(page.text);
+    if (!dateRangeValue) throw new Error('Pepco nevrátilo rozpoznatelnou platnost kolekce.');
 
     const title = collectionTitle(page.text);
     const parsed = parseProducts(page.text);
     if (parsed.length < 10) throw new Error(`Pepco parser našel jen ${parsed.length} produktů.`);
     const products = await enrichImages(parsed);
 
-    const sourceHash = await sha256(`${source.id}|${title}|${dateRange.from}|${dateRange.to}|${products.length}|pepco-collection-html-v1`);
+    const sourceHash = await sha256(`${source.id}|${title}|${dateRangeValue.from}|${dateRangeValue.to}|${products.length}|pepco-collection-html-v1`);
     const { data: existing, error: existingError } = await db.from('leaflet_imports')
       .select('id,status,product_count')
       .eq('source_hash', sourceHash)
@@ -242,7 +268,7 @@ Deno.serve(async (request) => {
         last_strategy_used: 'structured_html',
         last_strategy_success_at: checkedAt,
       }).eq('id', source.id);
-      return json({ ok: true, existing: true, import_id: existing.id, items: existing.product_count, title, ...dateRange });
+      return json({ ok: true, existing: true, import_id: existing.id, items: existing.product_count, title, ...dateRangeValue });
     }
 
     const { data: imported, error: importError } = await db.from('leaflet_imports').insert({
@@ -253,8 +279,8 @@ Deno.serve(async (request) => {
       status: 'review',
       product_count: products.length,
       confidence: 0.95,
-      detected_valid_from: dateRange.from,
-      detected_valid_to: dateRange.to,
+      detected_valid_from: dateRangeValue.from,
+      detected_valid_to: dateRangeValue.to,
       finished_at: checkedAt,
       metadata: {
         adapter: 'pepco-collection-html-v1',
@@ -302,8 +328,8 @@ Deno.serve(async (request) => {
       title,
       items: products.length,
       items_with_images: products.filter((product) => product.imageUrl).length,
-      valid_from: dateRange.from,
-      valid_to: dateRange.to,
+      valid_from: dateRangeValue.from,
+      valid_to: dateRangeValue.to,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
