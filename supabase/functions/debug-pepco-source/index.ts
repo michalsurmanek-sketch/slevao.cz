@@ -21,12 +21,12 @@ Deno.serve(async () => {
   const html = await response.text();
   const markers = [
     '<h1',
-    'Jen od',
-    '/produkt/',
-    '/product/',
+    'nabídce od',
+    '/products/',
     'product-card',
     'productCard',
-    'woocommerce',
+    'price',
+    'currency',
     '__NEXT_DATA__',
     'application/ld+json',
   ];
@@ -37,21 +37,30 @@ Deno.serve(async () => {
     while (values.length < 6) {
       const index = html.toLocaleLowerCase('cs').indexOf(marker.toLocaleLowerCase('cs'), cursor);
       if (index < 0) break;
-      values.push(compact(html.slice(Math.max(0, index - 900), Math.min(html.length, index + 2400))).slice(0, 5000));
+      values.push(compact(html.slice(Math.max(0, index - 1800), Math.min(html.length, index + 4200))).slice(0, 8000));
       cursor = index + marker.length;
     }
     snippets[marker] = values;
   }
+
   const links = [...new Set(
     [...html.matchAll(/href=["']([^"']+)["']/gi)]
       .map((match) => match[1])
       .filter((url) => /pepco\.cz\/(?:produkt|product|produkty|products)\//i.test(url) || /^\/(?:produkt|product|produkty|products)\//i.test(url)),
   )].slice(0, 100);
+  const productSnippets = links.slice(0, 5).map((link) => {
+    const index = html.indexOf(`href=\\"${link}\\"`) >= 0
+      ? html.indexOf(`href=\\"${link}\\"`)
+      : html.indexOf(`href="${link}"`);
+    return { link, snippet: index >= 0 ? compact(html.slice(Math.max(0, index - 3000), index + 7000)).slice(0, 12_000) : '' };
+  });
+
   return Response.json({
     status: response.status,
     final_url: response.url,
     length: html.length,
     links,
+    productSnippets,
     snippets,
   });
 });
