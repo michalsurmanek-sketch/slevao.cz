@@ -5,9 +5,11 @@
   if (String(config.slug || '').toLowerCase() !== 'jysk') return;
 
   const grid = document.getElementById('leafletCards');
-  if (!grid || !config.supabaseUrl || !config.supabaseAnonKey) return;
+  if (!grid) return;
 
-  const endpoint = `${String(config.supabaseUrl).replace(/\/$/, '')}/functions/v1/store-leaflet-feed?store=jysk&source=official-v1`;
+  const supabaseUrl = String(config.supabaseUrl || 'https://uhampjdqjxmbhaptgitn.supabase.co').replace(/\/$/, '');
+  const supabaseAnonKey = String(config.supabaseAnonKey || 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU');
+  const endpoint = `${supabaseUrl}/functions/v1/store-leaflet-feed?store=jysk&source=official-v1`;
   let leaflets = [];
 
   function enhanceCards() {
@@ -16,7 +18,7 @@
     cards.forEach((card, index) => {
       const leaflet = leaflets[index];
       const button = card.querySelector('button.leaflet-preview-button');
-      if (!leaflet?.url || !button || button.dataset.jyskDirect === '1') return;
+      if (!leaflet?.url || !button) return;
 
       const link = document.createElement('a');
       link.className = button.className;
@@ -35,8 +37,8 @@
 
   fetch(endpoint, {
     headers: {
-      apikey: config.supabaseAnonKey,
-      authorization: `Bearer ${config.supabaseAnonKey}`,
+      apikey: supabaseAnonKey,
+      authorization: `Bearer ${supabaseAnonKey}`,
     },
   })
     .then((response) => {
