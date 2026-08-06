@@ -23,6 +23,7 @@ const SPECIALIZED: Record<string, string> = {
   dm: 'sync-dm-source',
   'dr-max': 'sync-dr-max-source',
   hruska: 'sync-hruska-source',
+  jip: 'sync-jip-source',
   jysk: 'sync-jysk-source',
   kaufland: 'sync-kaufland-source',
   kik: 'sync-kik-source',
