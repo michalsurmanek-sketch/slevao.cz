@@ -21,6 +21,7 @@ const SPECIALIZED: Record<string, string> = {
   dm: 'sync-dm-source',
   hruska: 'sync-hruska-source',
   rossmann: 'sync-rossmann-source',
+  terno: 'sync-terno-source',
   tesco: 'sync-tesco-current',
   teta: 'sync-teta-source',
 };
