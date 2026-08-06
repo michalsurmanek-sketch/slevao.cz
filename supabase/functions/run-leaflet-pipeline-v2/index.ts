@@ -107,6 +107,20 @@ async function runGeneric(stores: string[]) {
   }
 }
 
+async function runJobs(specializedSources: any[], genericSources: any[]) {
+  // Specializované adaptéry nejdřív obnoví last_checked_at. Generický průzkum
+  // pak stejné zdroje nepovažuje za splatné a nevytváří z bannerů duplicitní letáky.
+  const specializedResults = await Promise.allSettled(specializedSources.map(runSpecialized));
+  const results: unknown[] = specializedResults.map((result) => result.status === 'fulfilled'
+    ? result.value
+    : { ok: false, error: String(result.reason) });
+
+  if (genericSources.length) {
+    results.push(await runGeneric(genericSources.map((source: any) => String(source.store_slug || ''))));
+  }
+  return results;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -130,25 +144,13 @@ Deno.serve(async (request) => {
 
     const specializedSources = sources.filter((source: any) => SPECIALIZED[String(source.store_slug || '')]);
     const genericSources = sources.filter((source: any) => !SPECIALIZED[String(source.store_slug || '')]);
-    const jobs: Promise<unknown>[] = specializedSources.map(runSpecialized);
-
-    if (genericSources.length) {
-      jobs.push(runGeneric(genericSources.map((source: any) => String(source.store_slug || ''))));
-    }
 
     if (requestedSlug) {
-      const results = await Promise.allSettled(jobs);
-      return json({
-        ok: true,
-        queued: false,
-        sources: sources.length,
-        results: results.map((result) => result.status === 'fulfilled'
-          ? result.value
-          : { ok: false, error: String(result.reason) }),
-      });
+      const results = await runJobs(specializedSources, genericSources);
+      return json({ ok: true, queued: false, sources: sources.length, results });
     }
 
-    const work = Promise.allSettled(jobs).catch((jobError) => {
+    const work = runJobs(specializedSources, genericSources).catch((jobError) => {
       console.error('Background pipeline error', jobError);
     });
     const runtime = (globalThis as any).EdgeRuntime;
