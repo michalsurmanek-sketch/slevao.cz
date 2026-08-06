@@ -25,8 +25,8 @@
       button.className = 'btn danger';
     }
 
-    button.textContent = 'Smazat vše (obnovitelné)';
-    button.title = 'Přesune všechny nabídky do koše a uloží jejich původní stav. Kompletní kontrola je obnoví pouze u úspěšně ověřených obchodů.';
+    button.textContent = 'Smazat vše';
+    button.title = 'Přesune všechny nabídky do obnovitelného koše a automaticky spustí kompletní kontrolu zdrojů.';
     button.style.background = '#dc2638';
     button.style.borderColor = '#dc2638';
     button.style.color = '#fff';
@@ -44,7 +44,7 @@
     };
 
     button.addEventListener('click', async () => {
-      if (!confirm('Opravdu chceš přesunout VŠECHNY nabídky všech obchodů do koše? Letáky, produkty a fotografie zůstanou zachované. Následující kompletní kontrola obnoví jen nabídky obchodů, které úspěšně ověří.')) return;
+      if (!confirm('Opravdu chceš dočasně přesunout VŠECHNY nabídky do koše? Automatická kontrola zdrojů se spustí ihned a platné nabídky se po ověření samy vrátí.')) return;
 
       const phrase = prompt('Pro potvrzení napiš přesně: SMAZAT VŠECHNY NABÍDKY');
       if (phrase !== 'SMAZAT VŠECHNY NABÍDKY') {
@@ -53,7 +53,7 @@
       }
 
       button.disabled = true;
-      showMessage('Přesouvám všechny nabídky do obnovitelného koše…', 'warning');
+      showMessage('Přesouvám nabídky do koše a spouštím automatickou kontrolu všech zdrojů…', 'warning');
       try {
         const { data, error } = await db.functions.invoke('trash-all-offers', {
           body: { confirmation: 'SMAZAT VŠECHNY NABÍDKY' },
@@ -67,8 +67,14 @@
         } catch {}
 
         const moved = Number(data.moved_to_trash || 0).toLocaleString('cs-CZ');
-        showMessage(`Do koše bylo přesunuto ${moved} nabídek. Pro jejich bezpečné obnovení otevři Automatizaci letáků a spusť kompletní kontrolu všech zdrojů.`, 'ok');
-        setTimeout(() => reloadButton.click(), 400);
+        if (data.automatic_scan_started) {
+          showMessage(`Do koše bylo přesunuto ${moved} nabídek. Automatická kontrola všech zdrojů už běží a platné nabídky se po ověření samy vrátí.`, 'ok');
+        } else {
+          showMessage(`Do koše bylo přesunuto ${moved} nabídek, ale automatickou kontrolu se nepodařilo spustit: ${data.automatic_scan_error || 'neznámá chyba'}`, 'error');
+        }
+        setTimeout(() => reloadButton.click(), 1500);
+        setTimeout(() => reloadButton.click(), 7000);
+        setTimeout(() => reloadButton.click(), 15000);
       } catch (error) {
         console.error('Hromadné smazání nabídek selhalo:', error);
         showMessage(error?.message || 'Hromadné mazání selhalo.', 'error');
