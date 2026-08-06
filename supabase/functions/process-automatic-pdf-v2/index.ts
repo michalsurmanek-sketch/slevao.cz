@@ -9,6 +9,7 @@ const PAGE_PROCESSOR = 'process-manual-leaflet-v2';
 const MAX_PDF_BYTES = 50 * 1024 * 1024;
 const MAX_PAGES = 160;
 const SIGNED_URL_SECONDS = 6 * 60 * 60;
+const SPLIT_VERSION = 'automatic-pdf-v3';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-methods': 'POST, OPTIONS',
@@ -150,22 +151,25 @@ async function splitAndQueue(parentId: string) {
 
     const filename = sourceFilename(response.url || job.source_document_url);
     const baseName = safeBaseName(filename);
-    const batchHash = await sha256(`${job.source_id || ''}|${response.url || job.source_document_url}|automatic-pdf-v2`);
+    const productBatchKey = String(job.metadata?.product_batch_key || job.metadata?.adapter || '').trim();
+    const batchHash = await sha256(`${job.source_id || ''}|${response.url || job.source_document_url}|${SPLIT_VERSION}|${productBatchKey}`);
     const dateRange = dateRangeFromFilename(filename);
     const validFrom = dateRange.from || job.detected_valid_from || null;
     const validTo = dateRange.to || job.detected_valid_to || null;
+    const autoPublish = Boolean(job.metadata?.auto_publish);
+    const trustedAutomaticSource = Boolean(job.metadata?.trusted_automatic_source);
     const childIds: string[] = [];
     let reused = 0;
 
     for (let pageIndex = 0; pageIndex < pageCount; pageIndex++) {
       const pageNumber = pageIndex + 1;
-      const childHash = `automatic-pdf-v2:${batchHash}:${pageNumber}`;
+      const childHash = `${SPLIT_VERSION}:${batchHash}:${pageNumber}`;
       const existing = await db.from('leaflet_imports')
         .select('id,status')
         .eq('source_hash', childHash)
         .maybeSingle();
       if (existing.error) throw existing.error;
-      if (existing.data && ['queued', 'downloading', 'processing', 'review', 'publishing', 'published'].includes(String(existing.data.status))) {
+      if (existing.data && ['queued', 'downloading', 'processing', 'review', 'publishing', 'published', 'ignored'].includes(String(existing.data.status))) {
         childIds.push(existing.data.id);
         reused++;
         continue;
@@ -202,11 +206,14 @@ async function splitAndQueue(parentId: string) {
         metadata: {
           automatic_pdf_split: true,
           automatic_source: true,
+          trusted_automatic_source: trustedAutomaticSource,
           source_parent_import_id: parentId,
           source_original_url: response.url || job.source_document_url,
           source_name: job.leaflet_sources?.name || null,
           source_auto_publish: Boolean(job.leaflet_sources?.auto_publish),
-          auto_publish: false,
+          auto_publish: autoPublish,
+          product_parent_adapter: job.metadata?.adapter || null,
+          product_batch_key: productBatchKey || null,
           page_batch_id: batchHash,
           page_number: pageNumber,
           page_total: pageCount,
@@ -217,7 +224,7 @@ async function splitAndQueue(parentId: string) {
           content_type: 'application/pdf',
           storage_bucket: BUCKET,
           storage_path: path,
-          upload_transport: 'automatic-pdf-split-v2',
+          upload_transport: SPLIT_VERSION,
           created_from_official_source: true,
         },
       };
@@ -244,7 +251,7 @@ async function splitAndQueue(parentId: string) {
         ...(job.metadata || {}),
         automatic_processor_required: false,
         automatic_pdf_split: true,
-        split_processor: 'process-automatic-pdf-v2',
+        split_processor: SPLIT_VERSION,
         page_batch_id: batchHash,
         page_total: pageCount,
         child_import_ids: childIds,
@@ -279,5 +286,5 @@ Deno.serve(async (request) => {
   const importId = String(body.import_id || '').trim();
   if (!/^[0-9a-f-]{36}$/i.test(importId)) return json({ error: 'Missing import_id' }, 400);
   runInBackground(splitAndQueue(importId));
-  return json({ ok: true, accepted: true, import_id: importId, processor: 'process-automatic-pdf-v2' }, 202);
+  return json({ ok: true, accepted: true, import_id: importId, processor: SPLIT_VERSION }, 202);
 });
