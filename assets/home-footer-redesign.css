@@ -18,3 +18,64 @@
 @media(max-width:900px){.footer{margin-top:44px;padding-bottom:92px}.footerShell{width:calc(100% - 20px);border-radius:24px}.footerMain{grid-template-columns:1fr 1fr;padding:38px 26px 28px}.footerIdentity{grid-column:1/-1}.footer .footerBrand{width:270px!important;height:68px!important}.footerLead{max-width:520px}.footerFeatures{grid-template-columns:repeat(3,1fr);gap:10px}.footerFeature{min-height:92px;flex-direction:column;justify-content:center;text-align:center;border:1px solid rgba(145,224,216,.14)!important;border-radius:14px;padding:12px;font-size:13px}.footerWatch{grid-template-columns:1fr;gap:10px}.footerWatchForm{grid-column:auto;grid-row:auto}.footerBottom{margin:0 20px!important}.footerBottomInner{grid-template-columns:1fr;justify-items:center;text-align:center}.footerTrust{justify-self:center}.footerBadges{grid-column:auto;justify-content:center}}
 @media(max-width:620px){.footerMain{grid-template-columns:1fr;padding:32px 20px 24px}.footerIdentity,.footerWatch{grid-column:auto}.footer .footerBrand{width:235px!important;height:60px!important}.footerLead{font-size:14px!important}.footerFeatures{grid-template-columns:1fr}.footerFeature{min-height:62px;flex-direction:row;justify-content:flex-start;text-align:left}.footerColumn h3{margin-top:18px;margin-bottom:30px}.footerWatch{padding:23px 20px}.footerWatch h3{font-size:20px}.footerBottom{margin:0 12px!important;padding:20px 14px!important}.footerBadge{padding:0 9px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.footerLinks a,.footerLinks button,.footerQuickIcons a,.footerWatchForm button{transition:none}.footerLinks a:hover,.footerLinks button:hover,.footerQuickIcons a:hover,.footerWatchForm button:hover{transform:none}}
+
+/* Mobilní redesign úvodní stránky – 06/08/2026 */
+@media(max-width:760px){
+  body{background:#f6fbfa!important}
+  .container{width:calc(100% - 24px)!important}
+  .topbar{position:sticky!important;top:0;z-index:60;background:rgba(255,255,255,.96)!important;backdrop-filter:blur(18px);border-bottom:1px solid #dceceb!important;box-shadow:0 7px 24px rgba(15,83,79,.08)!important}
+  .topbarInner{display:grid!important;grid-template-columns:auto 1fr auto!important;gap:10px!important;padding:10px 0!important}
+  .brand{width:48px!important;height:48px!important;min-width:48px!important;padding:0!important;border-radius:16px!important;overflow:hidden!important}
+  .brand>span:not(.brandMark){display:none!important}
+  .brandMark{width:48px!important;height:48px!important;border-radius:16px!important;font-size:24px!important;box-shadow:0 8px 22px rgba(18,163,151,.25)!important}
+  .mainSearch{height:50px!important;border-radius:18px!important;background:#fff!important;border:1px solid #d8e6e5!important;box-shadow:none!important}
+  .mainSearch input{font-size:16px!important;padding-right:12px!important}
+  .mainSearch input::placeholder{color:transparent!important}
+  .mainSearch input:placeholder-shown:before{content:"Co dnes hledáš?"}
+  .mainSearch button{display:none!important}
+  .savedButton{width:48px!important;height:48px!important;min-width:48px!important;padding:0!important;border-radius:16px!important;background:#fff!important;border:1px solid #d8e6e5!important}
+  .savedLabel{display:none!important}
+  .savedButton>b{position:absolute!important;top:4px!important;right:3px!important;min-width:18px!important;height:18px!important;font-size:10px!important}
+  .hero{padding:14px 0 8px!important}
+  .heroCard{min-height:0!important;display:grid!important;grid-template-columns:1fr!important;overflow:hidden!important;border:1px solid #d9ecea!important;border-radius:26px!important;background:linear-gradient(135deg,#f7ffff 0%,#ecf9f7 58%,#fff6ef 100%)!important;box-shadow:0 16px 36px rgba(14,86,80,.10)!important}
+  .heroCopy{position:relative!important;z-index:3!important;padding:24px 22px 232px!important}
+  .heroCopy .eyebrow{font-size:11px!important;letter-spacing:.12em!important;padding:9px 13px!important;border-radius:999px!important;background:#0fa99e!important;color:#fff!important;box-shadow:0 8px 18px rgba(15,169,158,.22)!important}
+  .heroCopy h1{margin:18px 0 10px!important;font-size:clamp(38px,11vw,52px)!important;line-height:.98!important;letter-spacing:-.055em!important;color:#102238!important}
+  .heroCopy h1{font-size:0!important}
+  .heroCopy h1:after{content:"Najdi dnes\A nejlevnější cenu.";white-space:pre-line;font-size:44px;line-height:.98;letter-spacing:-.055em;font-weight:950;color:#102238}
+  .heroCopy h1:after{background:linear-gradient(90deg,#102238 0 38%,#0ca99e 38%);-webkit-background-clip:text;background-clip:text;color:transparent}
+  .heroCopy>p{margin:12px 0 0!important;font-size:17px!important;line-height:1.45!important;color:#5e6d78!important}
+  .heroCopy>p{font-size:0!important}
+  .heroCopy>p:after{content:"Porovnej nabídky z obchodů ve svém okolí.";font-size:17px}
+  .heroArtwork{position:absolute!important;left:10%!important;right:0!important;bottom:18px!important;width:90%!important;height:245px!important;background-size:contain!important;background-position:center bottom!important;filter:drop-shadow(0 16px 20px rgba(14,78,73,.13))!important}
+  .heroStats{position:absolute!important;left:18px!important;right:18px!important;bottom:16px!important;z-index:5!important;display:grid!important;grid-template-columns:1fr 1fr!important;gap:8px!important;margin:0!important}
+  .heroStats>span{min-height:48px!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:8px 10px!important;border:1px solid rgba(196,222,219,.9)!important;border-radius:16px!important;background:rgba(255,255,255,.92)!important;box-shadow:0 8px 22px rgba(10,80,75,.08)!important;font-size:13px!important}
+  .heroStats .statusPill{grid-column:1/-1!important;min-height:42px!important}
+  .heroLocation{margin:0 14px 14px!important;padding:18px!important;border-radius:20px!important;background:#fff!important;border:1px solid #dcebea!important;box-shadow:0 10px 24px rgba(11,76,72,.07)!important}
+  .heroLocation strong{font-size:20px!important;color:#102238!important}
+  .heroLocation p{font-size:13px!important;margin:6px 0 14px!important}
+  .heroLocation label{font-size:12px!important}
+  .heroLocation select{height:48px!important;border-radius:14px!important}
+  .heroBrowseButton{height:52px!important;border-radius:16px!important;background:linear-gradient(135deg,#10afa3,#07998f)!important;box-shadow:0 10px 22px rgba(9,153,143,.22)!important}
+  .compactSection,.section{padding-top:18px!important;padding-bottom:18px!important}
+  .sectionHead{margin-bottom:14px!important}
+  .sectionHead h2{font-size:24px!important;line-height:1.1!important;letter-spacing:-.035em!important}
+  .sectionHead p{display:none!important}
+  .categoryChips{display:flex!important;overflow-x:auto!important;scroll-snap-type:x mandatory!important;gap:10px!important;padding:2px 1px 8px!important;scrollbar-width:none!important}
+  .categoryChips::-webkit-scrollbar{display:none!important}
+  .categoryChips>*{flex:0 0 98px!important;scroll-snap-align:start!important;border-radius:20px!important;box-shadow:0 8px 20px rgba(13,83,78,.08)!important}
+  .storeGrid,.leafletGrid,.dealGrid{gap:12px!important}
+  .dealGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .quickTabs{overflow-x:auto!important;flex-wrap:nowrap!important;scrollbar-width:none!important;padding-bottom:6px!important}
+  .quickTabs::-webkit-scrollbar{display:none!important}
+  .quickTab{flex:0 0 auto!important;border-radius:999px!important}
+  .dealsLayout{display:block!important}
+  .filterPanel{display:none!important}
+  .toolbar{position:sticky!important;top:70px!important;z-index:20!important;padding:10px!important;border-radius:16px!important;background:rgba(246,251,250,.94)!important;backdrop-filter:blur(14px)!important}
+  .footer{margin-top:30px!important}
+}
+@media(max-width:390px){
+  .heroCopy{padding-left:18px!important;padding-right:18px!important}
+  .heroCopy h1:after{font-size:39px!important}
+  .dealGrid{grid-template-columns:1fr!important}
+}
