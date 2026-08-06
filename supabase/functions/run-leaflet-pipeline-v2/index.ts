@@ -20,6 +20,7 @@ const SPECIALIZED: Record<string, string> = {
   coop: 'sync-coop-source',
   dm: 'sync-dm-source',
   hruska: 'sync-hruska-source',
+  pepco: 'sync-pepco-source',
   rossmann: 'sync-rossmann-source',
   terno: 'sync-terno-source',
   tesco: 'sync-tesco-current',
