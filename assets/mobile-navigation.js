@@ -6,7 +6,7 @@
   const sections = links
     .map((link) => {
       const id = link.getAttribute('href');
-      const section = id ? document.querySelector(id) : null;
+      const section = id === '#top' ? document.querySelector('.hero') : (id ? document.querySelector(id) : null);
       return section ? { link, section } : null;
     })
     .filter(Boolean);
