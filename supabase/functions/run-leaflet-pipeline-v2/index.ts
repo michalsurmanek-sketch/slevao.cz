@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -26,6 +27,13 @@ const SPECIALIZED: Record<string, string> = {
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
+}
+
+function isAuthorized(request: Request) {
+  const authorization = request.headers.get('authorization') || '';
+  const cronHeader = request.headers.get('x-cron-secret') || '';
+  return authorization === `Bearer ${SERVICE_ROLE_KEY}`
+    || (Boolean(CRON_SECRET) && cronHeader === CRON_SECRET);
 }
 
 async function invoke(name: string) {
@@ -97,6 +105,8 @@ async function runGeneric(stores: string[]) {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  if (!CRON_SECRET) return json({ error: 'Automation is not configured' }, 503);
+  if (!isAuthorized(request)) return json({ error: 'Unauthorized' }, 401);
 
   try {
     const body = await request.json().catch(() => ({}));
