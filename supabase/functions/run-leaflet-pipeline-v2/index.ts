@@ -14,6 +14,9 @@ const CORS = {
   'content-type': 'application/json; charset=utf-8',
 };
 
+const ACTIVE_IMPORT_STATUSES = ['published', 'review', 'processing', 'queued', 'downloading', 'publishing'];
+const SPECIALIZED_CONCURRENCY = 4;
+
 const SPECIALIZED: Record<string, string> = {
   action: 'sync-action-source',
   albert: 'sync-albert-source',
@@ -42,6 +45,16 @@ function json(body: unknown, status = 200) {
 type AuthorizationResult =
   | { ok: true; actor: string }
   | { ok: false; status: number; error: string };
+
+type PipelineResult = {
+  store?: string;
+  stores?: string[];
+  adapter: string;
+  ok: boolean;
+  current_imports?: number;
+  result?: unknown;
+  error?: string;
+};
 
 async function authorize(request: Request): Promise<AuthorizationResult> {
   const authorization = request.headers.get('authorization') || '';
@@ -72,7 +85,7 @@ async function authorize(request: Request): Promise<AuthorizationResult> {
 
 async function invoke(name: string) {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 40_000);
+  const timer = setTimeout(() => controller.abort(), 55_000);
   try {
     const response = await fetch(`${SUPABASE_URL}/functions/v1/${name}`, {
       method: 'POST',
@@ -89,62 +102,137 @@ async function invoke(name: string) {
     try {
       return text ? JSON.parse(text) : {};
     } catch {
-      return { text };
+      throw new Error(`${name} nevrátil platný JSON výsledek.`);
     }
   } finally {
     clearTimeout(timer);
   }
 }
 
-async function runSpecialized(source: any) {
+function assertAdapterResult(name: string, result: any) {
+  if (!result || typeof result !== 'object') {
+    throw new Error(`${name} nevrátil ověřitelný výsledek.`);
+  }
+  if (result.ok === false) {
+    throw new Error(String(result.error || `${name} oznámil neúspěšný běh.`));
+  }
+  if (result.error) {
+    throw new Error(String(result.error));
+  }
+}
+
+async function currentImportCount(sourceId: string) {
+  const today = new Date().toISOString().slice(0, 10);
+  const { count, error } = await db.from('leaflet_imports')
+    .select('id', { count: 'exact', head: true })
+    .eq('source_id', sourceId)
+    .in('status', ACTIVE_IMPORT_STATUSES)
+    .or(`detected_valid_to.is.null,detected_valid_to.gte.${today}`);
+  if (error) throw new Error(`Kontrola výsledku importu selhala: ${error.message}`);
+  return Number(count || 0);
+}
+
+async function markSourceSuccess(sourceId: string, strategy: string) {
+  const now = new Date().toISOString();
+  const { error } = await db.from('leaflet_sources').update({
+    last_error: null,
+    last_checked_at: now,
+    last_success_at: now,
+    last_strategy_used: strategy,
+    last_strategy_success_at: now,
+  }).eq('id', sourceId);
+  if (error) throw new Error(`Stav zdroje se nepodařilo uložit: ${error.message}`);
+}
+
+async function markSourceFailure(sourceId: string, message: string) {
+  await db.from('leaflet_sources').update({
+    last_error: message.slice(0, 1000),
+    last_checked_at: new Date().toISOString(),
+  }).eq('id', sourceId);
+}
+
+async function verifySource(source: any) {
+  const count = await currentImportCount(String(source.source_id || ''));
+  if (count < 1) {
+    throw new Error(`Zdroj ${source.store_slug || source.source_id} po kontrole nemá žádný aktuální import.`);
+  }
+  return count;
+}
+
+async function runSpecialized(source: any): Promise<PipelineResult> {
   const slug = String(source.store_slug || '');
   const functionName = SPECIALIZED[slug];
   if (!functionName) throw new Error(`Pro obchod ${slug} není specializovaný adaptér.`);
 
   try {
     const result = await invoke(functionName);
-    const now = new Date().toISOString();
-    await db.from('leaflet_sources').update({
-      last_error: null,
-      last_checked_at: now,
-      last_success_at: now,
-      last_strategy_used: 'specialized',
-      last_strategy_success_at: now,
-    }).eq('id', source.source_id);
-    return { store: slug, adapter: functionName, ok: true, result };
+    assertAdapterResult(functionName, result);
+    const currentImports = await verifySource(source);
+    await markSourceSuccess(String(source.source_id), 'specialized-verified');
+    return { store: slug, adapter: functionName, ok: true, current_imports: currentImports, result };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    await db.from('leaflet_sources').update({
-      last_error: message.slice(0, 1000),
-      last_checked_at: new Date().toISOString(),
-    }).eq('id', source.source_id);
+    await markSourceFailure(String(source.source_id), message);
     return { store: slug, adapter: functionName, ok: false, error: message };
   }
 }
 
-async function runGeneric(stores: string[]) {
+async function runSpecializedInBatches(sources: any[]) {
+  const results: PipelineResult[] = [];
+  for (let index = 0; index < sources.length; index += SPECIALIZED_CONCURRENCY) {
+    const batch = sources.slice(index, index + SPECIALIZED_CONCURRENCY);
+    const settled = await Promise.allSettled(batch.map(runSpecialized));
+    for (const item of settled) {
+      results.push(item.status === 'fulfilled'
+        ? item.value
+        : { adapter: 'unknown', ok: false, error: String(item.reason) });
+    }
+  }
+  return results;
+}
+
+async function runGeneric(sources: any[]): Promise<PipelineResult> {
+  const slugs = sources.map((source: any) => String(source.store_slug || ''));
   try {
     const result = await invoke('discover-leaflets');
-    return { stores, adapter: 'discover-leaflets', ok: true, result };
+    assertAdapterResult('discover-leaflets', result);
+
+    const failed: Array<{ source: any; error: string }> = [];
+    let currentImports = 0;
+    for (const source of sources) {
+      try {
+        const count = await verifySource(source);
+        currentImports += count;
+        await markSourceSuccess(String(source.source_id), 'generic-verified');
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        failed.push({ source, error: message });
+        await markSourceFailure(String(source.source_id), message);
+      }
+    }
+
+    if (failed.length) {
+      return {
+        stores: slugs,
+        adapter: 'discover-leaflets',
+        ok: false,
+        current_imports: currentImports,
+        result,
+        error: failed.map((item) => item.error).join(' | '),
+      };
+    }
+
+    return { stores: slugs, adapter: 'discover-leaflets', ok: true, current_imports: currentImports, result };
   } catch (error) {
-    return {
-      stores,
-      adapter: 'discover-leaflets',
-      ok: false,
-      error: error instanceof Error ? error.message : String(error),
-    };
+    const message = error instanceof Error ? error.message : String(error);
+    for (const source of sources) await markSourceFailure(String(source.source_id), message);
+    return { stores: slugs, adapter: 'discover-leaflets', ok: false, error: message };
   }
 }
 
 async function runJobs(specializedSources: any[], genericSources: any[]) {
-  const specializedResults = await Promise.allSettled(specializedSources.map(runSpecialized));
-  const results: unknown[] = specializedResults.map((result) => result.status === 'fulfilled'
-    ? result.value
-    : { ok: false, error: String(result.reason) });
-
-  if (genericSources.length) {
-    results.push(await runGeneric(genericSources.map((source: any) => String(source.store_slug || ''))));
-  }
+  const results: PipelineResult[] = await runSpecializedInBatches(specializedSources);
+  if (genericSources.length) results.push(await runGeneric(genericSources));
   return results;
 }
 
@@ -181,16 +269,20 @@ Deno.serve(async (request) => {
 
     if (requestedSlug) {
       const results = await runJobs(specializedSources, genericSources);
+      const success = results.every((result) => result.ok);
       return json({
-        ok: true,
+        ok: success,
         queued: false,
         sources: sources.length,
         triggered_by: authorization.actor,
         results,
-      });
+      }, success ? 200 : 502);
     }
 
-    const work = runJobs(specializedSources, genericSources).catch((jobError) => {
+    const work = runJobs(specializedSources, genericSources).then((results) => {
+      const failed = results.filter((result) => !result.ok);
+      if (failed.length) console.error('Pipeline source failures', failed);
+    }).catch((jobError) => {
       console.error('Background pipeline error', jobError);
     });
     const runtime = (globalThis as any).EdgeRuntime;
@@ -204,8 +296,9 @@ Deno.serve(async (request) => {
       stores: sources.map((source: any) => source.store_slug),
       specialized_runs: specializedSources.length,
       generic_runs: genericSources.length ? 1 : 0,
+      concurrency: SPECIALIZED_CONCURRENCY,
       triggered_by: authorization.actor,
-      message: 'Kontroly byly spuštěny odděleně na serveru.',
+      message: 'Kontroly byly spuštěny a každý zdroj bude ověřen podle skutečně vytvořeného importu.',
     });
   } catch (error) {
     return json({
