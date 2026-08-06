@@ -29,6 +29,37 @@ async function requireAdmin(request: Request) {
   return role === 'admin' ? data.user : null;
 }
 
+async function startAutomaticPipeline() {
+  let lastError = '';
+  for (let attempt = 1; attempt <= 2; attempt += 1) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/run-leaflet-pipeline-v2`, {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+          apikey: SERVICE_ROLE_KEY,
+          'content-type': 'application/json',
+        },
+        body: '{}',
+      });
+      const text = await response.text();
+      if (!response.ok) {
+        lastError = `Pipeline HTTP ${response.status}: ${text.slice(0, 400)}`;
+        continue;
+      }
+      const data = text ? JSON.parse(text) : {};
+      if (data?.error) {
+        lastError = String(data.error);
+        continue;
+      }
+      return { started: true, response: data };
+    } catch (error) {
+      lastError = error instanceof Error ? error.message : String(error);
+    }
+  }
+  return { started: false, error: lastError || 'Automatickou kontrolu se nepodařilo spustit.' };
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ ok: false, error: 'Method not allowed' }, 405);
@@ -48,10 +79,13 @@ Deno.serve(async (request) => {
     if (error) throw error;
     if (!data?.ok) throw new Error('Hromadné přesunutí nabídek do koše nebylo potvrzeno databází.');
 
+    const pipeline = await startAutomaticPipeline();
+
     console.log('Recoverable bulk offer reset created by admin', {
       adminId: admin.id,
       batchId: data.reset_batch_id,
       moved: Number(data.moved_to_trash || 0),
+      automaticPipelineStarted: pipeline.started,
     });
 
     return json({
@@ -59,7 +93,12 @@ Deno.serve(async (request) => {
       moved_to_trash: Number(data.moved_to_trash || 0),
       reset_batch_id: data.reset_batch_id,
       recoverable: true,
-      recovery_instruction: 'Spusť kompletní kontrolu zdrojů. Obnoví se pouze nabídky obchodů, které kontrolou úspěšně projdou.',
+      automatic_scan_started: pipeline.started,
+      automatic_scan_error: pipeline.started ? null : pipeline.error,
+      pipeline_response: pipeline.started ? pipeline.response : null,
+      message: pipeline.started
+        ? 'Nabídky byly přesunuty do koše a automatická kontrola všech zdrojů byla ihned spuštěna.'
+        : 'Nabídky byly přesunuty do koše, ale automatická kontrola se nepodařila spustit.',
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
