@@ -7,37 +7,53 @@ const HEADERS = {
 function decode(value: string) {
   return String(value || '').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\\u002F/gi, '/').replace(/\\\//g, '/');
 }
-function compact(value: string) {
-  return decode(value).replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<svg[\s\S]*?<\/svg>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/&nbsp;|&#160;/gi, ' ').replace(/\s+/g, ' ').trim();
-}
+function compact(value: string) { return decode(value).replace(/\s+/g, ' ').trim(); }
 function around(html: string, marker: string, before = 2200, after = 8500) {
   const index = html.toLocaleLowerCase('cs').indexOf(marker.toLocaleLowerCase('cs'));
   return index < 0 ? '' : compact(html.slice(Math.max(0, index - before), Math.min(html.length, index + after))).slice(0, 14000);
 }
-Deno.serve(async () => {
-  const response = await fetch(SOURCE_URL, { headers: HEADERS, redirect: 'follow' });
-  const html = await response.text();
+async function fetchText(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
+    return { status: response.status, url: response.url, text: await response.text() };
+  } finally { clearTimeout(timer); }
+}
+function absoluteLinks(html: string, base: string) {
   const raw = [
     ...[...html.matchAll(/(?:href|src|data-src|data-url|content)=["']([^"']+)["']/gi)].map((match) => decode(match[1])),
     ...[...html.matchAll(/https?:\\?\/\\?\/[^"'<>\s]+/gi)].map((match) => decode(match[0])),
   ];
-  const absolute = [...new Set(raw.map((value) => { try { return new URL(value, response.url).toString(); } catch { return ''; } }).filter(Boolean))];
+  return [...new Set(raw.map((value) => { try { return new URL(value, base).toString(); } catch { return ''; } }).filter(Boolean))];
+}
+Deno.serve(async () => {
+  const listing = await fetchText(SOURCE_URL);
+  const currentUrl = absoluteLinks(listing.text, listing.url).find((url) => /^https:\/\/katalogy\.bauhaus\.cz\/katalog-[^/?#]+\/?$/i.test(url)) || '';
+  if (!currentUrl) return Response.json({ error: 'Current BAUHAUS catalog URL not found', listing_status: listing.status }, { status: 502 });
+  const viewer = await fetchText(currentUrl);
+  const links = absoluteLinks(viewer.text, viewer.url);
+  const scripts = links.filter((url) => /\.js(?:$|\?)/i.test(url)).slice(0, 100);
   return Response.json({
-    status: response.status,
-    final_url: response.url,
-    html_length: html.length,
-    title: compact(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ''),
-    document_links: absolute.filter((url) => /(?:\.pdf(?:$|\?)|katalog|catalog|letak|leaflet|prospekt|flipbook|viewer|issuu)/i.test(url)).slice(0, 250),
-    product_links: absolute.filter((url) => /bauhaus\.cz\/[a-z0-9-]+-\d{6,}/i.test(url)).slice(0, 80),
-    dates: [...new Set([...html.matchAll(/(?:\b\d{1,2}[.]\s*\d{1,2}[.]?(?:\s*20\d{2})?\s*(?:až|[-–])\s*\d{1,2}[.]\s*\d{1,2}[.]?(?:\s*20\d{2})?\b|20\d{2}-\d{2}-\d{2})/gi)].map((match) => match[0]))].slice(0, 100),
+    listing_status: listing.status,
+    listing_url: listing.url,
+    current_url: currentUrl,
+    listing_validity: around(listing.text, 'Platnost katalogu', 1800, 5000),
+    viewer_status: viewer.status,
+    viewer_url: viewer.url,
+    viewer_length: viewer.text.length,
+    viewer_title: viewer.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || null,
+    og_title: viewer.text.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1] || null,
+    og_image: viewer.text.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || null,
+    links: links.filter((url) => /(?:\.pdf(?:$|\?)|complete|download|page|pages|catalog|katalog|json|xml|manifest|config)/i.test(url)).slice(0, 250),
+    scripts,
     snippets: {
-      current: around(html, 'Aktuální katalog'),
-      validity: around(html, 'Platnost katalogu'),
-      pdf: around(html, '.pdf'),
-      flipbook: around(html, 'flipbook'),
-      catalog: around(html, 'catalog'),
-      next_data: around(html, '__NEXT_DATA__'),
-      apollo: around(html, '__APOLLO_STATE__'),
+      pdf: around(viewer.text, '.pdf'),
+      download: around(viewer.text, 'download'),
+      page: around(viewer.text, 'page'),
+      config: around(viewer.text, 'config'),
+      manifest: around(viewer.text, 'manifest'),
+      flipbook: around(viewer.text, 'flipbook'),
     },
   });
 });
