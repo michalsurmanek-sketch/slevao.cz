@@ -20,6 +20,7 @@ const SPECIALIZED: Record<string, string> = {
   benu: 'sync-benu-source',
   coop: 'sync-coop-source',
   dm: 'sync-dm-source',
+  'dr-max': 'sync-dr-max-source',
   hruska: 'sync-hruska-source',
   jysk: 'sync-jysk-source',
   obi: 'sync-obi-source',
