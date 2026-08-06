@@ -60,15 +60,11 @@ async function fetchHtml(url: string, timeoutMs = 20_000) {
   try {
     const response = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
     const html = await response.text();
-    if (!response.ok) throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);
+    if (!response.ok) throw new Error(`${response.url || url} HTTP ${response.status}`);
     return { html, finalUrl: response.url };
   } finally {
     clearTimeout(timer);
   }
-}
-
-function absoluteUrl(value: string, base = SOURCE_URL) {
-  return new URL(decodeHtml(value), base).toString();
 }
 
 function meta(html: string, property: string) {
@@ -108,7 +104,8 @@ function dateFromIssueSlug(slug: string) {
 }
 
 function pageCount(html: string, issueSlug: string) {
-  const numbers = [...html.matchAll(new RegExp(`href=["']/??${issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/strana-(\\d+)["']`, 'gi'))]
+  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const numbers = [...html.matchAll(new RegExp(`href=["']\\/?${escaped}/strana-(\\d+)["']`, 'gi'))]
     .map((match) => Number(match[1]))
     .filter((value) => Number.isInteger(value) && value > 0 && value < 500);
   const count = numbers.length ? Math.max(...numbers) : 0;
@@ -119,7 +116,7 @@ function pageCount(html: string, issueSlug: string) {
 async function loadCurrentIssue(): Promise<Issue> {
   const listing = await fetchHtml(SOURCE_URL);
   const issueSlug = currentIssueSlug(listing.html);
-  const issueUrl = absoluteUrl(`/${issueSlug}`, SOURCE_URL);
+  const issueUrl = `${SOURCE_URL.replace(/\/$/, '')}/${issueSlug}`;
   const issue = await fetchHtml(issueUrl);
   const validity = dateFromIssueSlug(issueSlug);
   const coverUrl = meta(issue.html, 'og:image') || null;
