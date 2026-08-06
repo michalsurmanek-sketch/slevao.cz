@@ -76,22 +76,23 @@ function parseRange(value: string) {
 
 function parseFlyers(html: string): Flyer[] {
   const flyers: Flyer[] = [];
-  const pdfMatches = [...html.matchAll(/<a[^>]+href="([^"]+\.pdf(?:\?[^"#]*)?)"[^>]*>/gi)];
+  const starts = [...html.matchAll(/<div class="flyer">/g)].map((match) => match.index || 0);
 
-  for (const pdfMatch of pdfMatches) {
-    const index = pdfMatch.index || 0;
-    const start = html.lastIndexOf('<div class="flyer">', index);
-    if (start < 0) continue;
-    const rawBlock = html.slice(start, index + pdfMatch[0].length);
-    const block = decode(rawBlock);
+  for (let index = 0; index < starts.length; index++) {
+    const start = starts[index];
+    const end = starts[index + 1] ?? Math.min(html.length, start + 250_000);
+    const block = decode(html.slice(start, end));
     const title = clean(block.match(/<h3[^>]*flyer__title[^>]*>([\s\S]*?)<\/h3>/i)?.[1] || '');
     const range = parseRange(block.match(/<div[^>]*flyer__dates[^>]*>([\s\S]*?)<\/div>/i)?.[1] || '');
-    const pdfUrl = new URL(decode(pdfMatch[1]), SOURCE_URL).toString();
+    const pdfRaw = block.match(/<a[^>]+href="([^"]+\.pdf(?:\?[^"#]*)?)"[^>]*>/i)?.[1] || null;
     const coverRaw = block.match(/lightboxThumbnailUrl":"([^"]+)"/i)?.[1]
       || block.match(/"pages":\[\{"src":"([^"]+)"/i)?.[1]
       || null;
+    if (!title || !range || !pdfRaw) continue;
+
+    const pdfUrl = new URL(decode(pdfRaw), SOURCE_URL).toString();
     const coverUrl = coverRaw ? new URL(decode(coverRaw), SOURCE_URL).toString() : null;
-    if (!title || !range || !pdfUrl.includes('terno.cz/')) continue;
+    if (!pdfUrl.includes('terno.cz/') || /(?:reklamacni-rad|gdpr)\.pdf/i.test(pdfUrl)) continue;
     flyers.push({ title, ...range, pdfUrl, coverUrl });
   }
 
