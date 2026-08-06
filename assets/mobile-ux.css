@@ -11,8 +11,8 @@ body{overflow-x:hidden}
   .mainSearch{min-width:0}
   .mainSearch input{height:46px;padding-left:42px;padding-right:12px;font-size:16px;text-overflow:ellipsis}
   .searchIcon{left:14px;top:10px}
-  .savedButton{width:44px;height:44px;flex:0 0 44px;justify-content:center;padding:0;border-radius:13px}
-  .savedButton b{position:absolute;width:18px;min-width:18px;height:18px;margin:0 0 29px 29px;font-size:10px}
+  .savedButton{position:relative;width:44px;height:44px;flex:0 0 44px;justify-content:center;padding:0;border-radius:13px}
+  .savedButton b{position:absolute;right:-3px;top:-4px;width:18px;min-width:18px;height:18px;margin:0;font-size:10px}
 
   .inlineHead{flex-wrap:wrap;align-items:flex-end}
   .inlineHead>div{min-width:0;flex:1 1 230px}
