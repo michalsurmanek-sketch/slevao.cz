@@ -182,6 +182,13 @@ Deno.serve(async (request) => {
         .maybeSingle();
       if (oldError) throw oldError;
       if (old) {
+        const { error: refreshError } = await db.from('leaflet_imports').update({
+          coverage_scope: 'city',
+          city_name: 'Zlín',
+          detected_valid_from: flyer.validFrom,
+          detected_valid_to: flyer.validTo,
+        }).eq('id', old.id);
+        if (refreshError) throw refreshError;
         existing.push({ id: old.id, title: flyer.title, status: old.status });
         continue;
       }
