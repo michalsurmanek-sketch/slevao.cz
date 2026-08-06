@@ -1,7 +1,7 @@
 -- Replace obsolete BAUHAUS leaflet URLs with the official catalog overview.
 update public.leaflet_sources as source
 set
-  source_name = 'BAUHAUS – aktuální katalog',
+  name = 'BAUHAUS – aktuální katalog',
   source_url = 'https://www.bauhaus.cz/katalogy',
   source_type = 'html',
   is_active = true,
