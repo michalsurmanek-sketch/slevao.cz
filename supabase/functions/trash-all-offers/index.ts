@@ -42,20 +42,25 @@ Deno.serve(async (request) => {
   }
 
   try {
-    const { count, error: countError } = await db
-      .from('offers')
-      .select('id', { count: 'exact', head: true })
-      .neq('status', 'trash');
-    if (countError) throw countError;
+    const { data, error } = await db.rpc('start_offer_bulk_reset', {
+      p_requested_by: admin.id,
+    });
+    if (error) throw error;
+    if (!data?.ok) throw new Error('Hromadné přesunutí nabídek do koše nebylo potvrzeno databází.');
 
-    const { error: updateError } = await db
-      .from('offers')
-      .update({ status: 'trash' })
-      .neq('status', 'trash');
-    if (updateError) throw updateError;
+    console.log('Recoverable bulk offer reset created by admin', {
+      adminId: admin.id,
+      batchId: data.reset_batch_id,
+      moved: Number(data.moved_to_trash || 0),
+    });
 
-    console.log('All offers moved to trash by admin', admin.id, count || 0);
-    return json({ ok: true, moved_to_trash: count || 0 });
+    return json({
+      ok: true,
+      moved_to_trash: Number(data.moved_to_trash || 0),
+      reset_batch_id: data.reset_batch_id,
+      recoverable: true,
+      recovery_instruction: 'Spusť kompletní kontrolu zdrojů. Obnoví se pouze nabídky obchodů, které kontrolou úspěšně projdou.',
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('trash-all-offers failed:', message);
