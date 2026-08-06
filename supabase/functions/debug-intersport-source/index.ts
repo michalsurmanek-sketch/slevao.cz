@@ -6,33 +6,85 @@ const HEADERS = {
 };
 
 function compact(value: string) {
-  return value.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/\s+/g, ' ').trim();
+  return value
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<svg[\s\S]*?<\/svg>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 
-function around(html: string, marker: string) {
+function around(html: string, marker: string, before = 1800, after = 6000) {
   const index = html.toLocaleLowerCase('cs').indexOf(marker.toLocaleLowerCase('cs'));
-  return index < 0 ? '' : compact(html.slice(Math.max(0, index - 1800), Math.min(html.length, index + 6000))).slice(0, 10000);
+  return index < 0 ? '' : compact(html.slice(Math.max(0, index - before), Math.min(html.length, index + after))).slice(0, 10000);
+}
+
+async function fetchPage(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 15000);
+  try {
+    const response = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
+    return { status: response.status, url: response.url, html: await response.text() };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function absolute(value: string, base: string) {
+  try { return new URL(value.replace(/&amp;/gi, '&'), base).toString(); } catch { return null; }
 }
 
 Deno.serve(async () => {
-  const response = await fetch(SOURCE_URL, { headers: HEADERS, redirect: 'follow' });
-  const html = await response.text();
-  const urls = [...new Set([
-    ...html.matchAll(/(?:href|src|data-src)=["']([^"']+)["']/gi),
-  ].map((match) => match[1]).filter((url) => /(?:\.pdf(?:$|\?)|letak|leták|prospekt|katalog|akce|campaign|product)/i.test(url)))].slice(0, 150);
+  const listing = await fetchPage(SOURCE_URL);
+  const campaignUrls = [...new Set(
+    [...listing.html.matchAll(/href=["']([^"']*\/akce\/[^"'?#]+)["']/gi)]
+      .map((match) => absolute(match[1], listing.url))
+      .filter((url): url is string => Boolean(url) && url !== SOURCE_URL),
+  )].slice(0, 16);
+
+  const details = [];
+  for (const campaignUrl of campaignUrls.slice(0, 6)) {
+    try {
+      const page = await fetchPage(campaignUrl);
+      const productUrls = [...new Set(
+        [...page.html.matchAll(/href=["']([^"']+)["']/gi)]
+          .map((match) => absolute(match[1], page.url))
+          .filter((url): url is string => Boolean(url) && /\/p\//i.test(url)),
+      )].slice(0, 30);
+      details.push({
+        url: campaignUrl,
+        status: page.status,
+        final_url: page.url,
+        title: compact(page.html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || '')
+          || page.html.match(/<meta[^>]+property=["']og:title["'][^>]+content=["']([^"']+)["']/i)?.[1]
+          || null,
+        image: page.html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1]
+          || page.html.match(/<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image["']/i)?.[1]
+          || null,
+        product_count: productUrls.length,
+        product_urls: productUrls,
+        prices: [...new Set([...page.html.matchAll(/\b\d{1,5}(?:[ ,.][0-9]{2})?\s*Kč\b/gi)].map((match) => compact(match[0])))].slice(0, 40),
+        dates: [...new Set([...page.html.matchAll(/\d{1,2}[./]\d{1,2}[./](?:20\d{2})?|20\d{2}-\d{2}-\d{2}/g)].map((match) => match[0]))].slice(0, 40),
+        snippets: {
+          platnost: around(page.html, 'platí'),
+          kc: around(page.html, 'Kč'),
+          product: around(page.html, '/p/'),
+          jsonld: around(page.html, 'application/ld+json'),
+        },
+      });
+    } catch (error) {
+      details.push({ url: campaignUrl, error: error instanceof Error ? error.message : String(error) });
+    }
+  }
+
   return Response.json({
-    status: response.status,
-    final_url: response.url,
-    length: html.length,
-    title: html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.trim() || null,
-    urls,
-    dates: [...new Set([...html.matchAll(/\d{1,2}[./]\d{1,2}[./](?:20\d{2})?|20\d{2}-\d{2}-\d{2}/g)].map((match) => match[0]))].slice(0, 80),
-    snippets: {
-      letak: around(html, 'leták'),
-      akce: around(html, 'akce'),
-      product: around(html, 'product'),
-      pdf: around(html, '.pdf'),
-      jsonld: around(html, 'application/ld+json'),
-    },
+    listing_status: listing.status,
+    listing_url: listing.url,
+    campaign_count: campaignUrls.length,
+    campaign_urls: campaignUrls,
+    details,
   });
 });
