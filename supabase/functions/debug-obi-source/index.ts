@@ -4,51 +4,80 @@ const HEADERS = {
   accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
-function decode(value: string) { return String(value || '').replace(/&amp;/gi, '&').replace(/&quot;/gi, '"').replace(/&#39;|&apos;/gi, "'").replace(/\\u002F/gi, '/').replace(/\\\//g, '/'); }
-function compact(value: string) { return decode(value).replace(/\s+/g, ' ').trim(); }
-function around(value: string, marker: string, before = 1000, after = 5000) {
-  const index = value.toLowerCase().indexOf(marker.toLowerCase());
-  return index < 0 ? '' : compact(value.slice(Math.max(0, index - before), Math.min(value.length, index + after))).slice(0, 9000);
-}
-async function fetchText(url: string, timeout = 10000) {
+
+async function fetchResponse(url: string, headers: Record<string, string> = HEADERS, timeout = 15_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
-    return { status: response.status, url: response.url, text: await response.text() };
-  } finally { clearTimeout(timer); }
-}
-Deno.serve(async () => {
-  const page = await fetchText(SOURCE_URL, 15000);
-  const html = page.text;
-  const assetUrls = [...new Set([...html.matchAll(/(?:src|href)=["']([^"']+\.js(?:\?[^"']*)?)["']/gi)].map((match) => {
-    try { return new URL(decode(match[1]), page.url).toString(); } catch { return ''; }
-  }).filter(Boolean))].slice(0, 80);
-  const matches: Array<{url:string;status:number;bonial:string;auth:string;connect:string;urls:string[]}> = [];
-  for (let offset = 0; offset < assetUrls.length; offset += 8) {
-    const batch = await Promise.all(assetUrls.slice(offset, offset + 8).map(async (url) => {
-      try {
-        const asset = await fetchText(url, 12000);
-        if (!/(BonialWidget|bonialconnect|59958d8381990c15dda21230|authKey)/i.test(asset.text)) return null;
-        return {
-          url,
-          status: asset.status,
-          bonial: around(asset.text, 'BonialWidget'),
-          auth: around(asset.text, 'authKey'),
-          connect: around(asset.text, 'bonialconnect'),
-          urls: [...new Set([...asset.text.matchAll(/https?:\\?\/\\?\/[^"'`<>\s)]+/gi)].map((match) => decode(match[0]).replace(/[;,]+$/, '')))].slice(0, 40),
-        };
-      } catch { return null; }
-    }));
-    matches.push(...batch.filter((value): value is NonNullable<typeof value> => Boolean(value)));
+    const response = await fetch(url, { headers, redirect: 'follow', signal: controller.signal });
+    const text = await response.text();
+    return { status: response.status, url: response.url, text };
+  } finally {
+    clearTimeout(timer);
   }
+}
+
+function decodeBase64Json(value: string) {
+  const normalized = value.replace(/-/g, '+').replace(/_/g, '/').padEnd(Math.ceil(value.length / 4) * 4, '=');
+  return JSON.parse(atob(normalized));
+}
+
+Deno.serve(async () => {
+  const page = await fetchResponse(SOURCE_URL);
+  const authKey = page.text.match(/discBonialWidgetId([a-f0-9]{16,64})/i)?.[1]
+    || page.text.match(/"authKey"\s*:\s*"([a-f0-9]{16,64})"/i)?.[1]
+    || '';
+  if (!authKey) return Response.json({ error: 'OBI Bonial auth key not found', page_status: page.status }, { status: 502 });
+
+  const paramsResponse = await fetchResponse(
+    `https://bonialconnect.com/params/connect/v1/keys/${authKey}/encoded.json?_=${Date.now()}`,
+    { ...HEADERS, accept: 'application/json', referer: SOURCE_URL },
+  );
+  const paramsEnvelope = JSON.parse(paramsResponse.text);
+  const params = typeof paramsEnvelope.data === 'string' ? decodeBase64Json(paramsEnvelope.data) : paramsEnvelope.data;
+  const publisherId = /^[A-Z]{2}-/i.test(String(params.publisherId || ''))
+    ? String(params.publisherId)
+    : `${String(params.market || 'de').toUpperCase()}-${String(params.publisherId || '')}`;
+  const apiBase = `${String(params.apiHost || '').replace(/\/$/, '')}/${String(params.market || 'de')}`;
+  const apiHeaders = {
+    ...HEADERS,
+    accept: 'application/json',
+    referer: SOURCE_URL,
+    'Bonial-Api-Consumer': 'Bonial-Connect-Widget',
+    'X-Auth-Key': authKey,
+  };
+
+  const storesResponse = await fetchResponse(
+    `${apiBase}/stores/default/byPublisher?publisherId=${encodeURIComponent(publisherId)}`,
+    apiHeaders,
+  );
+  const stores = JSON.parse(storesResponse.text);
+  const store = Array.isArray(stores) ? stores[0] : stores;
+  if (!store?.id) {
+    return Response.json({ error: 'OBI default store not found', stores_status: storesResponse.status, stores }, { status: 502 });
+  }
+
+  const brochuresResponse = await fetchResponse(
+    `${apiBase}/stores/${encodeURIComponent(store.id)}/brochures?publisherId=${encodeURIComponent(publisherId)}&limit=100`,
+    apiHeaders,
+  );
+  let brochures: unknown = null;
+  try { brochures = JSON.parse(brochuresResponse.text); } catch { brochures = brochuresResponse.text.slice(0, 4000); }
+
   return Response.json({
-    status: page.status,
-    final_url: page.url,
-    html_length: html.length,
-    auth_key_snippet: around(html, '59958d8381990c15dda21230', 2500, 6000),
-    bonial_snippet: around(html, 'BonialWidget', 2500, 6000),
-    asset_count: assetUrls.length,
-    matching_assets: matches,
+    ok: brochuresResponse.status >= 200 && brochuresResponse.status < 300,
+    auth_key: authKey,
+    publisher_id: publisherId,
+    api_base: apiBase,
+    store: { id: store.id, name: store.name, city: store.city, zip: store.zip },
+    params: {
+      language: params.language,
+      location_api_country: params.locationApiCountry,
+      key_active: params.keyActive,
+      brochure_validity_date_enabled: params.brochureValidityDateEnabled,
+      skip_shelf_for_one_brochure: params.skipShelfForOneBrochure,
+    },
+    brochures_status: brochuresResponse.status,
+    brochures,
   });
 });
