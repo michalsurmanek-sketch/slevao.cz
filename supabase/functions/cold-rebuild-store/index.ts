@@ -16,11 +16,25 @@ const CORS = {
 
 const COLD_REBUILD_ADAPTERS: Record<string, string> = {
   pepco: 'sync-pepco-source',
+  kaufland: 'scheduled-kaufland-product-and-document-sync',
 };
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
+
+function formatError(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    const parts = [value.message, value.details, value.hint, value.code].filter(Boolean).map(String);
+    if (parts.length) return parts.join(' | ');
+    try { return JSON.stringify(error); } catch { return String(error); }
+  }
+  return String(error);
+}
+
+const sleep = (milliseconds: number) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 async function authorize(request: Request) {
   const authorization = request.headers.get('authorization') || '';
@@ -50,7 +64,7 @@ async function invoke(functionName: string, body: Record<string, unknown> = {}) 
     const text = await response.text();
     let data: any = {};
     try { data = text ? JSON.parse(text) : {}; } catch { /* handled below */ }
-    if (!response.ok) throw new Error(`${functionName} HTTP ${response.status}: ${text.slice(0, 600)}`);
+    if (!response.ok) throw new Error(`${functionName} HTTP ${response.status}: ${text.slice(0, 800)}`);
     if (data?.error) throw new Error(String(data.error));
     return data;
   } finally {
@@ -75,6 +89,69 @@ async function newestImport(storeSlug: string, startedAt: string) {
   return data;
 }
 
+async function triggerKauflandColdRebuild(startedAt: string) {
+  const { data: store, error: storeError } = await db.from('stores')
+    .select('id').eq('slug', 'kaufland').single();
+  if (storeError || !store) throw storeError || new Error('Kaufland nebyl nalezen.');
+
+  const { data: productRequest, error: productTriggerError } = await db.rpc('trigger_kaufland_product_sync');
+  if (productTriggerError || !productRequest) {
+    throw productTriggerError || new Error('Produktovou synchronizaci Kauflandu se nepodařilo zařadit.');
+  }
+  const { data: documentRequest, error: documentTriggerError } = await db.rpc('trigger_kaufland_documents');
+  if (documentTriggerError || !documentRequest) {
+    throw documentTriggerError || new Error('Synchronizaci PDF Kauflandu se nepodařilo zařadit.');
+  }
+
+  for (let attempt = 0; attempt < 150; attempt += 1) {
+    await sleep(1000);
+
+    const { data: state, error: stateError } = await db.from('store_product_sync_state')
+      .select('is_running,last_run_at,last_success_at,last_error,health_status,health_reason,last_offer_count,last_import_id,last_duration_ms')
+      .eq('store_id', store.id)
+      .maybeSingle();
+    if (stateError) throw stateError;
+
+    const { count: documentCount, error: documentError } = await db.from('leaflet_imports')
+      .select('id', { count: 'exact', head: true })
+      .eq('store_id', store.id)
+      .eq('status', 'published')
+      .gte('created_at', startedAt)
+      .contains('metadata', { adapter: 'kaufland-pdf-v2' });
+    if (documentError) throw documentError;
+
+    const productFinished = Boolean(
+      state?.last_run_at
+      && state.last_run_at >= startedAt
+      && !state.is_running
+      && state.last_success_at
+      && state.last_success_at >= startedAt
+      && state.health_status === 'ok'
+      && !state.last_error
+      && Number(state.last_offer_count || 0) >= 50,
+    );
+
+    if (productFinished && Number(documentCount || 0) >= 1) {
+      const { data: health, error: healthError } = await db.rpc('verify_kaufland_sync_health');
+      if (healthError || !health?.ok) throw healthError || new Error('Kaufland po studeném startu neprošel kontrolou zdraví.');
+      return {
+        ok: true,
+        self_published: true,
+        product_request_id: productRequest,
+        document_request_id: documentRequest,
+        product_state: state,
+        health,
+      };
+    }
+
+    if (state?.last_run_at && state.last_run_at >= startedAt && !state.is_running && state.last_error) {
+      throw new Error(String(state.last_error));
+    }
+  }
+
+  throw new Error('Kaufland nedokončil studený rebuild do 150 sekund.');
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -85,6 +162,7 @@ Deno.serve(async (request) => {
   if (body.confirmation !== 'STUDENY REBUILD') {
     return json({ error: 'Chybí potvrzení STUDENY REBUILD.' }, 400);
   }
+
   const adapter = COLD_REBUILD_ADAPTERS[storeSlug];
   if (!adapter) {
     return json({
@@ -103,35 +181,44 @@ Deno.serve(async (request) => {
 
     const { data: run, error: runError } = await db.from('leaflet_cold_rebuild_runs')
       .select('started_at,before_offer_count,before_import_count,before_item_count')
-      .eq('id', runId).single();
+      .eq('id', runId)
+      .single();
     if (runError || !run) throw runError || new Error('Záznam studeného rebuildu nebyl nalezen.');
 
-    const adapterResult = await invoke(adapter, { cold_rebuild_run_id: runId });
-    const importIdFromAdapter = String(adapterResult?.import_id || '').trim();
-    const imported = importIdFromAdapter
-      ? (await db.from('leaflet_imports')
-          .select('id,status,product_count,created_at,detected_valid_from,detected_valid_to')
-          .eq('id', importIdFromAdapter).single()).data
-      : await newestImport(storeSlug, run.started_at);
+    let adapterResult: any;
+    let publishResult: any = null;
 
-    if (!imported?.id) throw new Error('Adaptér nevytvořil nový import.');
-    const { count: itemCount, error: countError } = await db.from('leaflet_import_items')
-      .select('id', { count: 'exact', head: true })
-      .eq('import_id', imported.id)
-      .in('status', ['review','approved','published']);
-    if (countError) throw countError;
-    if (!itemCount) throw new Error('Nový import neobsahuje žádné znovu nalezené produkty.');
+    if (storeSlug === 'kaufland') {
+      adapterResult = await triggerKauflandColdRebuild(run.started_at);
+    } else {
+      adapterResult = await invoke(adapter, { cold_rebuild_run_id: runId });
+      const importIdFromAdapter = String(adapterResult?.import_id || '').trim();
+      const imported = importIdFromAdapter
+        ? (await db.from('leaflet_imports')
+            .select('id,status,product_count,created_at,detected_valid_from,detected_valid_to')
+            .eq('id', importIdFromAdapter)
+            .single()).data
+        : await newestImport(storeSlug, run.started_at);
 
-    const { error: publishingError } = await db.from('leaflet_imports')
-      .update({ status: 'publishing', error_message: null })
-      .eq('id', imported.id);
-    if (publishingError) throw publishingError;
+      if (!imported?.id) throw new Error('Adaptér nevytvořil nový import.');
+      const { count: itemCount, error: countError } = await db.from('leaflet_import_items')
+        .select('id', { count: 'exact', head: true })
+        .eq('import_id', imported.id)
+        .in('status', ['review', 'approved', 'published']);
+      if (countError) throw countError;
+      if (!itemCount) throw new Error('Nový import neobsahuje žádné znovu nalezené produkty.');
 
-    const published = await invoke('publish-imports', { import_id: imported.id });
-    const publishResult = published?.results?.[0] || {};
-    if (publishResult.error) throw new Error(String(publishResult.error));
-    if (!(Number(publishResult.published || 0) > 0 || Number(publishResult.duplicates || 0) > 0)) {
-      throw new Error('Publikace nevytvořila žádnou nabídku.');
+      const { error: publishingError } = await db.from('leaflet_imports')
+        .update({ status: 'publishing', error_message: null })
+        .eq('id', imported.id);
+      if (publishingError) throw publishingError;
+
+      const published = await invoke('publish-imports', { import_id: imported.id });
+      publishResult = published?.results?.[0] || {};
+      if (publishResult.error) throw new Error(String(publishResult.error));
+      if (!(Number(publishResult.published || 0) > 0 || Number(publishResult.duplicates || 0) > 0)) {
+        throw new Error('Publikace nevytvořila žádnou nabídku.');
+      }
     }
 
     const { data: completed, error: completeError } = await db.rpc('complete_leaflet_cold_rebuild', {
@@ -151,7 +238,7 @@ Deno.serve(async (request) => {
       comparison: completed,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = formatError(error);
     let rollback: unknown = null;
     if (runId) {
       const result = await db.rpc('rollback_leaflet_cold_rebuild', {
