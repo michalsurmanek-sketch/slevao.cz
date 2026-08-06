@@ -245,7 +245,8 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
     });
     documents = completePdf ? [completePdf] : documents.slice(0, 1);
   } else {
-    documents = documents.slice(0, storeSlug === 'terno' ? 6 : 3);
+    // Vrať všechny aktuální publikace, které prošly databázovým filtrem.
+    documents = documents.slice(0, 20);
   }
   return documents.map((row: any, index: number) => ({
     key: `${storeSlug}-${index + 1}`,
