@@ -1,5 +1,14 @@
 const DETAIL_URL = 'https://www.tetadrogerie.cz/akce/detail/ed26140001';
 
+function compact(value: string) {
+  return value
+    .replace(/<svg[\s\S]*?<\/svg>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<!--.*?-->/gs, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 Deno.serve(async () => {
   const response = await fetch(DETAIL_URL, {
     headers: {
@@ -10,23 +19,21 @@ Deno.serve(async () => {
     redirect: 'follow',
   });
   const html = await response.text();
-  const markers = ['/eshop/katalog/', 'product-card', 'productCard', 'data-product', '__NEXT_DATA__', '__NUXT_DATA__'];
-  const snippets: Record<string, string[]> = {};
-  for (const marker of markers) {
-    const values: string[] = [];
-    let cursor = 0;
-    while (values.length < 4) {
-      const index = html.indexOf(marker, cursor);
-      if (index < 0) break;
-      values.push(html.slice(Math.max(0, index - 900), Math.min(html.length, index + 1800)));
-      cursor = index + marker.length;
-    }
-    snippets[marker] = values;
-  }
+  const listStart = html.indexOf('<div class="c-product-list');
+  const listEnd = html.indexOf('c-pagination', listStart);
+  const listHtml = listStart >= 0 ? html.slice(listStart, listEnd > listStart ? listEnd : listStart + 300_000) : '';
+  const cardStarts = [...listHtml.matchAll(/<div class="c-product-card c-product-card--list"/g)].map((match) => match.index || 0);
+  const cards = cardStarts.slice(0, 3).map((start, index) => {
+    const end = cardStarts[index + 1] ?? Math.min(listHtml.length, start + 20_000);
+    return compact(listHtml.slice(start, end)).slice(0, 12_000);
+  });
+  const nuxtMatch = html.match(/<script[^>]+id="__NUXT_DATA__"[^>]*>([\s\S]*?)<\/script>/i);
   return Response.json({
     status: response.status,
     final_url: response.url,
     length: html.length,
-    snippets,
+    card_count: cardStarts.length,
+    cards,
+    nuxt_length: nuxtMatch?.[1]?.length || 0,
   });
 });
