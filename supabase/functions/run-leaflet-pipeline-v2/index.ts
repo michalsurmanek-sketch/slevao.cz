@@ -34,11 +34,35 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
 
-function isAuthorized(request: Request) {
+type AuthorizationResult =
+  | { ok: true; actor: string }
+  | { ok: false; status: number; error: string };
+
+async function authorize(request: Request): Promise<AuthorizationResult> {
   const authorization = request.headers.get('authorization') || '';
   const cronHeader = request.headers.get('x-cron-secret') || '';
-  return authorization === `Bearer ${SERVICE_ROLE_KEY}`
-    || (Boolean(CRON_SECRET) && cronHeader === CRON_SECRET);
+
+  if (authorization === `Bearer ${SERVICE_ROLE_KEY}`) {
+    return { ok: true, actor: 'service-role' };
+  }
+  if (Boolean(CRON_SECRET) && cronHeader === CRON_SECRET) {
+    return { ok: true, actor: 'cron' };
+  }
+
+  const accessToken = authorization.replace(/^Bearer\s+/i, '').trim();
+  if (!accessToken) return { ok: false, status: 401, error: 'Unauthorized' };
+
+  const { data, error } = await db.auth.getUser(accessToken);
+  if (error || !data.user) {
+    return { ok: false, status: 401, error: 'Přihlášení vypršelo. Přihlaste se znovu.' };
+  }
+
+  const role = String(data.user.app_metadata?.role || '').trim().toLowerCase();
+  if (!['admin', 'editor'].includes(role)) {
+    return { ok: false, status: 403, error: 'Účet nemá oprávnění spouštět automatizaci.' };
+  }
+
+  return { ok: true, actor: `${role}:${data.user.id}` };
 }
 
 async function invoke(name: string) {
@@ -124,8 +148,9 @@ async function runJobs(specializedSources: any[], genericSources: any[]) {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!CRON_SECRET) return json({ error: 'Automation is not configured' }, 503);
-  if (!isAuthorized(request)) return json({ error: 'Unauthorized' }, 401);
+
+  const authorization = await authorize(request);
+  if (!authorization.ok) return json({ error: authorization.error }, authorization.status);
 
   try {
     const body = await request.json().catch(() => ({}));
@@ -139,7 +164,13 @@ Deno.serve(async (request) => {
 
     const sources = data || [];
     if (!sources.length) {
-      return json({ ok: true, queued: false, sources: 0, message: 'Nebyly nalezeny aktivní zdroje.' });
+      return json({
+        ok: true,
+        queued: false,
+        sources: 0,
+        triggered_by: authorization.actor,
+        message: 'Nebyly nalezeny aktivní zdroje.',
+      });
     }
 
     const specializedSources = sources.filter((source: any) => SPECIALIZED[String(source.store_slug || '')]);
@@ -147,7 +178,13 @@ Deno.serve(async (request) => {
 
     if (requestedSlug) {
       const results = await runJobs(specializedSources, genericSources);
-      return json({ ok: true, queued: false, sources: sources.length, results });
+      return json({
+        ok: true,
+        queued: false,
+        sources: sources.length,
+        triggered_by: authorization.actor,
+        results,
+      });
     }
 
     const work = runJobs(specializedSources, genericSources).catch((jobError) => {
@@ -164,6 +201,7 @@ Deno.serve(async (request) => {
       stores: sources.map((source: any) => source.store_slug),
       specialized_runs: specializedSources.length,
       generic_runs: genericSources.length ? 1 : 0,
+      triggered_by: authorization.actor,
       message: 'Kontroly byly spuštěny odděleně na serveru.',
     });
   } catch (error) {
