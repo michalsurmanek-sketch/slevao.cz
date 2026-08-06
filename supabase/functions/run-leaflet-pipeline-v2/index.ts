@@ -23,6 +23,7 @@ const SPECIALIZED: Record<string, string> = {
   'dr-max': 'sync-dr-max-source',
   hruska: 'sync-hruska-source',
   jysk: 'sync-jysk-source',
+  kaufland: 'sync-kaufland-source',
   kik: 'sync-kik-source',
   obi: 'sync-obi-source',
   pepco: 'sync-pepco-source',
@@ -134,8 +135,6 @@ async function runGeneric(stores: string[]) {
 }
 
 async function runJobs(specializedSources: any[], genericSources: any[]) {
-  // Specializované adaptéry nejdřív obnoví last_checked_at. Generický průzkum
-  // pak stejné zdroje nepovažuje za splatné a nevytváří z bannerů duplicitní letáky.
   const specializedResults = await Promise.allSettled(specializedSources.map(runSpecialized));
   const results: unknown[] = specializedResults.map((result) => result.status === 'fulfilled'
     ? result.value
