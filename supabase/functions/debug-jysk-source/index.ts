@@ -14,14 +14,6 @@ function compact(value: string) {
     .trim();
 }
 
-function decode(value: string) {
-  return value
-    .replace(/\\u0026/gi, '&')
-    .replace(/\\\//g, '/')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;/gi, '"');
-}
-
 async function fetchHtml(url: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
@@ -33,7 +25,7 @@ async function fetchHtml(url: string) {
   }
 }
 
-function snippetsAround(html: string, markers: string[], limit = 5) {
+function snippetsAround(html: string, markers: string[], limit = 3) {
   const output: Record<string, string[]> = {};
   const lower = html.toLocaleLowerCase('cs');
   for (const marker of markers) {
@@ -42,7 +34,7 @@ function snippetsAround(html: string, markers: string[], limit = 5) {
     while (values.length < limit) {
       const index = lower.indexOf(marker.toLocaleLowerCase('cs'), cursor);
       if (index < 0) break;
-      values.push(compact(html.slice(Math.max(0, index - 2200), Math.min(html.length, index + 5200))).slice(0, 10_000));
+      values.push(compact(html.slice(Math.max(0, index - 1800), Math.min(html.length, index + 4200))).slice(0, 8000));
       cursor = index + marker.length;
     }
     output[marker] = values;
@@ -50,25 +42,64 @@ function snippetsAround(html: string, markers: string[], limit = 5) {
   return output;
 }
 
+function traverse(value: unknown, path: string, products: Map<string, any>, dates: any[], campaignNodes: any[]) {
+  if (!value || typeof value !== 'object') return;
+  if (Array.isArray(value)) {
+    value.forEach((item, index) => traverse(item, `${path}[${index}]`, products, dates, campaignNodes));
+    return;
+  }
+
+  const record = value as Record<string, unknown>;
+  const url = typeof record.url === 'string' ? record.url : null;
+  const title = typeof record.title === 'string' ? record.title : null;
+  const identifier = typeof record.identifier === 'string' || typeof record.identifier === 'number'
+    ? String(record.identifier)
+    : (typeof record.id === 'string' || typeof record.id === 'number' ? String(record.id) : null);
+  if (url?.startsWith('/') && title && identifier && !/(campaign|customer-service|inspiration|stores)/i.test(url)) {
+    products.set(url, {
+      path,
+      id: identifier,
+      title,
+      url,
+      price: record.price ?? null,
+      image: record.image ?? record.images ?? null,
+      keys: Object.keys(record),
+    });
+  }
+
+  const interestingDateKeys = Object.keys(record).filter((key) => /(from|to|start|end|valid|date|expire)/i.test(key));
+  if (interestingDateKeys.length) {
+    dates.push({ path, values: Object.fromEntries(interestingDateKeys.map((key) => [key, record[key]])) });
+  }
+  if (/catalog|campaign|manual/i.test(path) || Object.keys(record).some((key) => /catalog|campaign|manual/i.test(key))) {
+    campaignNodes.push({ path, keys: Object.keys(record), sample: record });
+  }
+
+  for (const [key, child] of Object.entries(record)) {
+    if (typeof child === 'object' && child !== null) traverse(child, path ? `${path}.${key}` : key, products, dates, campaignNodes);
+  }
+}
+
 Deno.serve(async () => {
   const campaign = await fetchHtml(SOURCE_URL);
-  const html = campaign.html;
-  const productMap = new Map<string, { id: string | null; title: string; url: string }>();
+  const scripts = [...campaign.html.matchAll(/<script[^>]+type=["']application\/json["'][^>]*>([\s\S]*?)<\/script>/gi)];
+  const products = new Map<string, any>();
+  const dates: any[] = [];
+  const campaignNodes: any[] = [];
+  const parseErrors: string[] = [];
 
-  for (const match of html.matchAll(/"id":"([^"]+)"[\s\S]{0,500}?"url":"([^"]+)"[\s\S]{0,500}?"title":"([^"]+)"/g)) {
-    const url = decode(match[2]);
-    if (!url.startsWith('/') || /(?:campaign|customer-service|inspiration|stores)/i.test(url)) continue;
-    productMap.set(url, { id: match[1], title: decode(match[3]), url });
-  }
-  for (const match of html.matchAll(/"url":"([^"]+)"[\s\S]{0,500}?"title":"([^"]+)"[\s\S]{0,500}?"identifier":"([^"]+)"/g)) {
-    const url = decode(match[1]);
-    if (!url.startsWith('/') || /(?:campaign|customer-service|inspiration|stores)/i.test(url)) continue;
-    productMap.set(url, { id: match[3], title: decode(match[2]), url });
-  }
+  scripts.forEach((match, index) => {
+    try {
+      const parsed = JSON.parse(match[1].trim());
+      traverse(parsed, `script[${index}]`, products, dates, campaignNodes);
+    } catch (error) {
+      parseErrors.push(`script[${index}]: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  });
 
-  const products = [...productMap.values()].slice(0, 8);
+  const productList = [...products.values()].slice(0, 12);
   const details = [];
-  for (const product of products.slice(0, 4)) {
+  for (const product of productList.slice(0, 4)) {
     try {
       const detail = await fetchHtml(new URL(product.url, SOURCE_URL).toString());
       details.push({
@@ -83,8 +114,7 @@ Deno.serve(async () => {
           'current-price',
           'price__value',
           'data-price',
-          'kr',
-        ], 3),
+        ]),
       });
     } catch (error) {
       details.push({ product, error: error instanceof Error ? error.message : String(error) });
@@ -94,18 +124,17 @@ Deno.serve(async () => {
   return Response.json({
     status: campaign.status,
     final_url: campaign.url,
-    length: html.length,
-    product_count: productMap.size,
-    products,
-    campaign_snippets: snippetsAround(html, [
-      'field_catalog_pages_featured_products',
-      'field_catalog_pages_list_products',
-      'field_catalog_from',
-      'field_catalog_to',
-      'current-manual',
-      'expires=',
-      'senzační nabídky',
-    ]),
+    length: campaign.html.length,
+    json_script_count: scripts.length,
+    parse_errors: parseErrors,
+    product_count: products.size,
+    products: productList,
+    date_nodes: dates.slice(0, 80),
+    campaign_nodes: campaignNodes.slice(-20).map((node) => ({
+      path: node.path,
+      keys: node.keys,
+      sample: JSON.stringify(node.sample).slice(0, 12_000),
+    })),
     details,
   });
 });
