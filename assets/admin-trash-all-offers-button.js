@@ -25,8 +25,8 @@
       button.className = 'btn danger';
     }
 
-    button.textContent = 'Smazat vše';
-    button.title = 'Přesune všechny nabídky do koše. Produkty, fotografie a knihovna zůstanou zachované.';
+    button.textContent = 'Smazat vše (obnovitelné)';
+    button.title = 'Přesune všechny nabídky do koše a uloží jejich původní stav. Kompletní kontrola je obnoví pouze u úspěšně ověřených obchodů.';
     button.style.background = '#dc2638';
     button.style.borderColor = '#dc2638';
     button.style.color = '#fff';
@@ -44,7 +44,7 @@
     };
 
     button.addEventListener('click', async () => {
-      if (!confirm('Opravdu chceš přesunout VŠECHNY nabídky všech obchodů do koše? Produkty, fotografie a knihovna zůstanou zachované.')) return;
+      if (!confirm('Opravdu chceš přesunout VŠECHNY nabídky všech obchodů do koše? Letáky, produkty a fotografie zůstanou zachované. Následující kompletní kontrola obnoví jen nabídky obchodů, které úspěšně ověří.')) return;
 
       const phrase = prompt('Pro potvrzení napiš přesně: SMAZAT VŠECHNY NABÍDKY');
       if (phrase !== 'SMAZAT VŠECHNY NABÍDKY') {
@@ -53,7 +53,7 @@
       }
 
       button.disabled = true;
-      showMessage('Přesouvám všechny nabídky do koše…', 'warning');
+      showMessage('Přesouvám všechny nabídky do obnovitelného koše…', 'warning');
       try {
         const { data, error } = await db.functions.invoke('trash-all-offers', {
           body: { confirmation: 'SMAZAT VŠECHNY NABÍDKY' },
@@ -66,7 +66,8 @@
             .forEach((key) => localStorage.removeItem(key));
         } catch {}
 
-        showMessage(`Hotovo. Do koše bylo přesunuto ${Number(data.moved_to_trash || 0).toLocaleString('cs-CZ')} nabídek.`, 'ok');
+        const moved = Number(data.moved_to_trash || 0).toLocaleString('cs-CZ');
+        showMessage(`Do koše bylo přesunuto ${moved} nabídek. Pro jejich bezpečné obnovení otevři Automatizaci letáků a spusť kompletní kontrolu všech zdrojů.`, 'ok');
         setTimeout(() => reloadButton.click(), 400);
       } catch (error) {
         console.error('Hromadné smazání nabídek selhalo:', error);
