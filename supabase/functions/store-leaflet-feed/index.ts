@@ -213,7 +213,7 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
 
   const today = new Date().toISOString().slice(0, 10);
   const { data, error } = await db.from('leaflet_imports')
-    .select('id,source_document_url,detected_valid_from,detected_valid_to,created_at')
+    .select('id,source_document_url,detected_valid_from,detected_valid_to,created_at,metadata')
     .eq('store_id', store.id)
     .in('status', ['published', 'review', 'publishing'])
     .or(`detected_valid_to.is.null,detected_valid_to.gte.${today}`)
@@ -228,6 +228,11 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
     seen.add(source);
     return true;
   });
+  documents.sort((a: any, b: any) => {
+    const fromOrder = String(b.detected_valid_from || '').localeCompare(String(a.detected_valid_from || ''));
+    if (fromOrder) return fromOrder;
+    return String(a.detected_valid_to || '').localeCompare(String(b.detected_valid_to || ''));
+  });
   // PENNY publikuje jeden vícestránkový FlippingBook. Starší obecný adaptér
   // mylně uložil jednotlivé náhledové stránky jako samostatné letáky.
   if (storeSlug === 'penny') {
@@ -240,11 +245,11 @@ async function storeLeaflets(storeSlug: string): Promise<Leaflet[]> {
     });
     documents = completePdf ? [completePdf] : documents.slice(0, 1);
   } else {
-    documents = documents.slice(0, 3);
+    documents = documents.slice(0, storeSlug === 'terno' ? 6 : 3);
   }
   return documents.map((row: any, index: number) => ({
     key: `${storeSlug}-${index + 1}`,
-    title: index === 0 ? 'Aktuální leták' : 'Další platný leták',
+    title: String(row.metadata?.title || (index === 0 ? 'Aktuální leták' : 'Další platný leták')),
     subtitle: store.name,
     valid_from: row.detected_valid_from,
     valid_to: row.detected_valid_to,
