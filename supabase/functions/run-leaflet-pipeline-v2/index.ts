@@ -16,6 +16,7 @@ const CORS = {
 
 const SPECIALIZED: Record<string, string> = {
   action: 'sync-action-source',
+  bauhaus: 'sync-bauhaus-source',
   benu: 'sync-benu-source',
   coop: 'sync-coop-source',
   dm: 'sync-dm-source',
