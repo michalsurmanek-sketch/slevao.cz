@@ -20,6 +20,7 @@ const SPECIALIZED: Record<string, string> = {
   coop: 'sync-coop-source',
   dm: 'sync-dm-source',
   hruska: 'sync-hruska-source',
+  jysk: 'sync-jysk-source',
   pepco: 'sync-pepco-source',
   rossmann: 'sync-rossmann-source',
   terno: 'sync-terno-source',
@@ -129,8 +130,6 @@ Deno.serve(async (request) => {
     const genericSources = sources.filter((source: any) => !SPECIALIZED[String(source.store_slug || '')]);
     const jobs: Promise<unknown>[] = specializedSources.map(runSpecialized);
 
-    // Generický průzkum sám načítá všechny aktivní a splatné zdroje. Spouštět ho
-    // jednou pro každý obchod vytvářelo souběžné duplicitní importy a zbytečnou zátěž.
     if (genericSources.length) {
       jobs.push(runGeneric(genericSources.map((source: any) => String(source.store_slug || ''))));
     }
