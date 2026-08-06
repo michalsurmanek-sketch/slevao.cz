@@ -150,7 +150,8 @@ Deno.serve(async (request) => {
       is_active: true,
       auto_publish: true,
       check_interval_minutes: 360,
-      coverage_scope: 'regional',
+      coverage_scope: 'city',
+      city_name: 'Zlín',
       last_error: null,
     };
 
@@ -190,7 +191,8 @@ Deno.serve(async (request) => {
         source_document_url: flyer.pdfUrl,
         source_hash: hash,
         status: 'queued',
-        coverage_scope: 'regional',
+        coverage_scope: 'city',
+        city_name: 'Zlín',
         detected_valid_from: flyer.validFrom,
         detected_valid_to: flyer.validTo,
         metadata: {
