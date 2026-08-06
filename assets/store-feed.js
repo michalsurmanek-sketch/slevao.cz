@@ -185,7 +185,8 @@
   function leafletCard(leaflet) {
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
-    const canPreview = previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
+    const canPreview = !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
@@ -195,13 +196,14 @@
       ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
       : `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">`;
     const close = canPreview ? '</button>' : '</a>';
+    const leafletType = /katalog/i.test(String(leaflet.title || '')) || leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták';
     return `${open}
       <div class="leafletCover">
         ${logo ? `<img src="${esc(logo)}" alt="" aria-hidden="true">` : `<strong class="leafletBrand">${esc((config.name || leaflet.subtitle || 'S').slice(0, 3).toUpperCase())}</strong>`}
         <span>${esc(leaflet.subtitle || config.name || 'Obchod')}</span>
       </div>
       <div class="leafletBody">
-        <span class="leafletType">${leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták'}</span>
+        <span class="leafletType">${leafletType}</span>
         <h3>${esc(leaflet.subtitle || leaflet.title || `${config.name || 'Obchod'} leták`)}</h3>
         <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
         <div class="leafletValidity">Platí ${esc(validity)}</div>
@@ -240,9 +242,6 @@
         const detail = await response.text();
         throw new Error(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 180)}` : ''}`);
       }
-      // Některé prohlížeče nebo mezilehlé cache nezpřístupní Content-Type,
-      // i když Edge Function vrátí JSON se signed URL. Zkusíme proto JSON
-      // rozpoznat podle skutečného těla odpovědi, ne podle hlavičky.
       let payload = null;
       try {
         payload = await response.clone().json();
@@ -281,14 +280,14 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v6`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v7`, {
         headers: { apikey: KEY },
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (!Array.isArray(result.leaflets) || !result.leaflets.length) throw new Error('Bez aktuálních letáků');
-      const currentLeaflets = result.leaflets.slice(0, 3);
+      const currentLeaflets = result.leaflets.slice(0, 20);
       target.dataset.count = String(currentLeaflets.length);
       target.innerHTML = currentLeaflets.map(leafletCard).join('');
       target.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.addEventListener('click', () => {
