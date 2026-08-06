@@ -33,24 +33,40 @@ async function fetchPage(url: string) {
   }
 }
 
+function decodePath(value: string) {
+  return value
+    .replace(/\\u002f/gi, '/')
+    .replace(/\\\//g, '/')
+    .replace(/&amp;/gi, '&');
+}
+
 function absolute(value: string, base: string) {
-  try { return new URL(value.replace(/&amp;/gi, '&'), base).toString(); } catch { return null; }
+  try { return new URL(decodePath(value), base).toString(); } catch { return null; }
+}
+
+function campaignPaths(html: string) {
+  const normalized = decodePath(html);
+  return [...new Set(
+    [...normalized.matchAll(/\/akce\/([a-z0-9_-]{3,100})\/?/gi)]
+      .map((match) => `/akce/${match[1]}`)
+      .filter((path) => !/\/(?:akce|page)$/i.test(path)),
+  )];
 }
 
 Deno.serve(async () => {
   const listing = await fetchPage(SOURCE_URL);
-  const campaignUrls = [...new Set(
-    [...listing.html.matchAll(/href=["']([^"']*\/akce\/[^"'?#]+)["']/gi)]
-      .map((match) => absolute(match[1], listing.url))
-      .filter((url): url is string => Boolean(url) && url !== SOURCE_URL),
-  )].slice(0, 16);
+  const campaignUrls = campaignPaths(listing.html)
+    .map((path) => absolute(path, listing.url))
+    .filter((url): url is string => Boolean(url) && url !== SOURCE_URL)
+    .slice(0, 16);
 
   const details = [];
   for (const campaignUrl of campaignUrls.slice(0, 6)) {
     try {
       const page = await fetchPage(campaignUrl);
+      const normalized = decodePath(page.html);
       const productUrls = [...new Set(
-        [...page.html.matchAll(/href=["']([^"']+)["']/gi)]
+        [...normalized.matchAll(/(?:href=["']|"url"\s*:\s*")([^"']+)["']/gi)]
           .map((match) => absolute(match[1], page.url))
           .filter((url): url is string => Boolean(url) && /\/p\//i.test(url)),
       )].slice(0, 30);
@@ -66,12 +82,12 @@ Deno.serve(async () => {
           || null,
         product_count: productUrls.length,
         product_urls: productUrls,
-        prices: [...new Set([...page.html.matchAll(/\b\d{1,5}(?:[ ,.][0-9]{2})?\s*Kč\b/gi)].map((match) => compact(match[0])))].slice(0, 40),
-        dates: [...new Set([...page.html.matchAll(/\d{1,2}[./]\d{1,2}[./](?:20\d{2})?|20\d{2}-\d{2}-\d{2}/g)].map((match) => match[0]))].slice(0, 40),
+        prices: [...new Set([...normalized.matchAll(/\b\d{1,5}(?:[ ,.][0-9]{2})?\s*Kč\b/gi)].map((match) => compact(match[0])))].slice(0, 40),
+        dates: [...new Set([...normalized.matchAll(/\d{1,2}[./]\d{1,2}[./](?:20\d{2})?|20\d{2}-\d{2}-\d{2}/g)].map((match) => match[0]))].slice(0, 40),
         snippets: {
           platnost: around(page.html, 'platí'),
-          kc: around(page.html, 'Kč'),
-          product: around(page.html, '/p/'),
+          kc: around(normalized, 'Kč'),
+          product: around(normalized, '/p/'),
           jsonld: around(page.html, 'application/ld+json'),
         },
       });
