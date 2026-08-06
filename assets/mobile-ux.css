@@ -1,0 +1,59 @@
+/* Slevao.cz – doplňková mobilní UX vrstva */
+html{scroll-padding-top:96px}
+body{overflow-x:hidden}
+#categoriesSection,#storesSection,#leafletsSection,#dealsSection{scroll-margin-top:92px}
+
+@media(max-width:800px){
+  .topbar{padding-top:env(safe-area-inset-top)}
+  .topbarInner{min-height:64px;gap:8px}
+  .brand{flex:0 0 auto}
+  .brandMark{width:40px;height:40px;border-radius:13px}
+  .mainSearch{min-width:0}
+  .mainSearch input{height:46px;padding-left:42px;padding-right:12px;font-size:16px;text-overflow:ellipsis}
+  .searchIcon{left:14px;top:10px}
+  .savedButton{width:44px;height:44px;flex:0 0 44px;justify-content:center;padding:0;border-radius:13px}
+  .savedButton b{position:absolute;width:18px;min-width:18px;height:18px;margin:0 0 29px 29px;font-size:10px}
+
+  .inlineHead{flex-wrap:wrap;align-items:flex-end}
+  .inlineHead>div{min-width:0;flex:1 1 230px}
+  .inlineHead>.textButton{margin-left:auto;min-height:44px;display:inline-flex;align-items:center}
+
+  .categoryChips,.quickTabs{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior-inline:contain;scroll-snap-type:x proximity}
+  .categoryChips::-webkit-scrollbar,.quickTabs::-webkit-scrollbar{display:none}
+  .categoryChips{flex-wrap:nowrap;overflow-x:auto;padding:3px 2px 8px}
+  .categoryChip,.quickTab{flex:0 0 auto;min-height:44px;scroll-snap-align:start}
+  .quickTabs{padding-right:12px}
+
+  .heroBrowseButton,.filterToggle,.resetFilters,.loadMoreWrap button{min-height:48px}
+  .filterPanel{padding-bottom:max(17px,env(safe-area-inset-bottom))}
+  .filterPanel input,.filterPanel select,.heroLocation select{font-size:16px}
+
+  .mobileNav{min-height:66px;gap:2px;padding-left:6px;padding-right:6px}
+  .mobileNav a,.mobileNav button{min-width:0;min-height:52px;padding:5px 2px;border-radius:12px;align-content:center;touch-action:manipulation}
+  .mobileNav a[aria-current="page"],.mobileNav button[aria-current="page"]{background:#e7faf7;color:#087e75}
+  .mobileNav a:focus-visible,.mobileNav button:focus-visible{outline:3px solid rgba(6,157,146,.28);outline-offset:1px}
+}
+
+@media(max-width:560px){
+  .sectionHead.inlineHead{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 10px}
+  .sectionHead.inlineHead>div{grid-column:1;min-width:0}
+  .sectionHead.inlineHead>.textButton{grid-column:2;align-self:end;margin:0 0 2px;padding-inline:6px;white-space:nowrap}
+  .sectionHead h2{overflow-wrap:anywhere}
+  .categoryChips,.quickTabs{margin-right:-11px;padding-right:11px}
+  .storeCard,.leafletCard,.dealCard{touch-action:manipulation}
+}
+
+@media(max-width:390px){
+  .dealGrid{grid-template-columns:1fr;gap:14px}
+  .dealCard{min-height:0}
+  .dealMedia{height:190px}
+  .dealBody h3{font-size:16px}
+  .price{font-size:23px}
+  .dealActions{grid-template-columns:1fr 1fr}
+  .storeButton{display:grid!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  html{scroll-behavior:auto}
+  .filterPanel,.dealCard,.storeCard,.heroBrowseButton{transition:none!important}
+}
