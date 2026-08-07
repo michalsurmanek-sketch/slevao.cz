@@ -97,6 +97,18 @@
     inStoreSafeScript.defer = true;
     document.head.appendChild(inStoreSafeScript);
   }
+  if (!document.querySelector('link[href*="home-in-store-actions.css"]')) {
+    const inStoreActionsStyle = document.createElement('link');
+    inStoreActionsStyle.rel = 'stylesheet';
+    inStoreActionsStyle.href = 'assets/home-in-store-actions.css?v=20260807-1';
+    document.head.appendChild(inStoreActionsStyle);
+  }
+  if (!document.querySelector('script[src*="home-in-store-actions.js"]')) {
+    const inStoreActionsScript = document.createElement('script');
+    inStoreActionsScript.src = 'assets/home-in-store-actions.js?v=20260807-1';
+    inStoreActionsScript.defer = true;
+    document.head.appendChild(inStoreActionsScript);
+  }
 
   const hideInStore = () => {
     const node = document.getElementById('slInStore');
