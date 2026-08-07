@@ -70,6 +70,66 @@ function fold(value: unknown) {
     .trim();
 }
 
+function markerContexts(html: string) {
+  const markers = ['latitude', 'longitude', 'lat', 'lng', 'lon', 'coordinates', 'geo', 'googleMaps', 'maps', 'storeLocation', 'Města Mayen'];
+  const contexts: Array<{ marker: string; context: string }> = [];
+  const lower = html.toLowerCase();
+  for (const marker of markers) {
+    const needle = marker.toLowerCase();
+    let from = 0;
+    while (contexts.length < 80) {
+      const index = lower.indexOf(needle, from);
+      if (index < 0) break;
+      contexts.push({ marker, context: html.slice(Math.max(0, index - 280), Math.min(html.length, index + 620)).replace(/\s+/g, ' ') });
+      from = index + needle.length;
+    }
+    if (contexts.length >= 80) break;
+  }
+  return contexts;
+}
+
+function scriptUrls(html: string, base: string) {
+  const urls = new Set<string>();
+  for (const match of html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|mjs)(?:\?[^"']*)?)["']/gi)) {
+    try { urls.add(new URL(match[1], base).toString()); } catch { /* ignore malformed */ }
+  }
+  return [...urls].slice(0, 100);
+}
+
+async function diagnoseKauflandDetail(rawUrl: unknown) {
+  const url = new URL(String(rawUrl || ''));
+  if (url.protocol !== 'https:' || url.hostname !== 'prodejny.kaufland.cz') throw new Error('Diagnostika dovoluje pouze oficiální doménu prodejny.kaufland.cz.');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 18_000);
+  try {
+    const response = await fetch(url, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        'cache-control': 'no-cache',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    const html = await response.text();
+    if (!response.ok) throw new Error(`Kaufland detail HTTP ${response.status}`);
+    return {
+      ok: true,
+      dry_run: true,
+      mode: 'kaufland_detail_diagnostic',
+      url: response.url,
+      status: response.status,
+      bytes: html.length,
+      title: html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1]?.replace(/\s+/g, ' ').trim() || null,
+      marker_contexts: markerContexts(html),
+      script_urls: scriptUrls(html, response.url),
+    };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function buildChainQuery(search: string) {
   return `[out:json][timeout:18][bbox:48.45,12.0,51.2,19.1];
 (
@@ -183,6 +243,11 @@ Deno.serve(async (request) => {
 
   try {
     const body = await request.json().catch(() => ({}));
+    if (body.discover === 'kaufland_detail') {
+      if (body.dry_run !== true) return json({ error: 'Diagnostika je povolená pouze v dry_run režimu.' }, 409);
+      return json(await diagnoseKauflandDetail(body.url));
+    }
+
     const dryRun = body.dry_run === true;
     const requested = Array.isArray(body.chains) ? body.chains.map(String) : DEFAULT_CHAIN_SLUGS;
     const selected = CHAINS.filter((chain) => requested.includes(chain.slug));
