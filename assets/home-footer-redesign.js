@@ -55,6 +55,24 @@
     saveTodayScript.defer = true;
     document.head.appendChild(saveTodayScript);
   }
+  if (!document.querySelector('script[src*="location-service.js"]')) {
+    const locationScript = document.createElement('script');
+    locationScript.src = 'assets/location-service.js?v=20260807-1';
+    locationScript.defer = true;
+    document.head.appendChild(locationScript);
+  }
+  if (!document.querySelector('link[href*="home-live.css"]')) {
+    const liveStyle = document.createElement('link');
+    liveStyle.rel = 'stylesheet';
+    liveStyle.href = 'assets/home-live.css?v=20260807-1';
+    document.head.appendChild(liveStyle);
+  }
+  if (!document.querySelector('script[src*="home-live.js"]')) {
+    const liveScript = document.createElement('script');
+    liveScript.src = 'assets/home-live.js?v=20260807-1';
+    liveScript.defer = true;
+    document.head.appendChild(liveScript);
+  }
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
