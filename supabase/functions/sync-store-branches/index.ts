@@ -14,6 +14,8 @@ const CORS = {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36';
 const KAUFLAND_LIST = 'https://prodejny.kaufland.cz/aktualne/servis/seznam-prodejen.html';
 const PENNY_LOCATOR = 'https://www.penny.cz/prodejny';
+const ALBERT_GRAPHQL = 'https://www.albert.cz/api/v1/';
+const ALBERT_STORE_QUERY = 'query GetStoreSearch($lang:String!,$query:String,$latitude:Float,$longitude:Float,$radius:Float,$pageSize:Int,$currentPage:Int,$sort:String,$collectionFlow:Boolean,$options:String){storeSearchJSON(lang:$lang,query:$query,latitude:$latitude,longitude:$longitude,radius:$radius,pageSize:$pageSize,currentPage:$currentPage,sort:$sort,collectionFlow:$collectionFlow,options:$options)}';
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
@@ -329,6 +331,103 @@ async function syncPennyOfficial(body: any) {
   });
 }
 
+// ---------- Albert: official public GraphQL store search used by albert.cz ----------
+
+async function fetchAlbertStoreSearch() {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 20_000);
+  try {
+    const response = await fetch(ALBERT_GRAPHQL, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        accept: 'application/json',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        'user-agent': UA,
+      },
+      body: JSON.stringify({
+        operationName: 'GetStoreSearch',
+        query: ALBERT_STORE_QUERY,
+        variables: { lang: 'cs', query: '', pageSize: 9999, currentPage: 0 },
+      }),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(`Albert GraphQL HTTP ${response.status}`);
+    if (payload?.errors?.length) throw new Error(`Albert GraphQL: ${payload.errors.map((error: any) => error?.message).filter(Boolean).join('; ')}`);
+    const result = payload?.data?.storeSearchJSON;
+    if (!result || !Array.isArray(result.items)) throw new Error('Albert GraphQL nevrátil očekávaný storeSearchJSON.items.');
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function parseAlbertStores(result: any) {
+  const rows = new Map<string, any>();
+  for (const item of result.items || []) {
+    const warehouseCode = String(item?.warehouseCode ?? item?.id ?? '').trim();
+    const address = item?.address || {};
+    const point = item?.geoPoint || {};
+    const latitude = Number(point.latitude);
+    const longitude = Number(point.longitude);
+    const city = String(address.town || '').trim();
+    if (!warehouseCode || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
+
+    const services = Array.isArray(item.services)
+      ? item.services.map((service: any) => ({ id: service?.id ?? null, label: service?.label || null, description: service?.description || null })).filter((service: any) => service.label || service.id)
+      : [];
+    const detailUrl = item.url ? new URL(String(item.url), 'https://www.albert.cz').toString() : null;
+    rows.set(warehouseCode, {
+      external_id: `albert:${warehouseCode}`,
+      name: String(item.name || `Albert ${city}`).trim(),
+      street: String(address.line1 || '').trim() || null,
+      city,
+      postal_code: String(address.postalCode || '').trim() || null,
+      region: null,
+      latitude,
+      longitude,
+      is_active: true,
+      opening_hours: {
+        source: 'albert.cz',
+        warehouse_code: warehouseCode,
+        type: item.type || null,
+        detail_url: detailUrl,
+        grocery: Array.isArray(item?.openingHours?.groceryOpeningList) ? item.openingHours.groceryOpeningList : [],
+        shopping_sunday: item?.openingHours?.shoppingSunday?.description || null,
+        extra_info: item?.openingHours?.extraInfo?.description || null,
+        services,
+      },
+    });
+  }
+  return [...rows.values()];
+}
+
+async function syncAlbertOfficial(body: any) {
+  const dryRun = body.dry_run === true;
+  const result = await fetchAlbertStoreSearch();
+  const rows = parseAlbertStores(result);
+  const declaredTotal = Number(result.totalItems || rows.length);
+  if (declaredTotal < 330 || rows.length < 330) return json({
+    error: `Oficiální Albert GraphQL vrátil jen ${rows.length} validních GPS prodejen z ${declaredTotal}; zápis byl zastaven.`,
+    code: 'ALBERT_LIST_TOO_SMALL',
+    dry_run: dryRun,
+  }, 409);
+
+  const storeId = await storeIdForSlug('albert');
+  const payload = rows.map((row) => ({ ...row, store_id: storeId }));
+  const written = dryRun ? 0 : await upsertBranches(payload);
+  return json({
+    ok: true,
+    dry_run: dryRun,
+    source: 'albert_official',
+    total: declaredTotal,
+    parsed: rows.length,
+    written,
+    samples: payload.slice(0, 8).map(({ store_id: _storeId, ...row }) => row),
+  });
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -341,6 +440,7 @@ Deno.serve(async (request) => {
       return json(await diagnoseKauflandDetail(body.url));
     }
     if (body.source === 'penny_official') return await syncPennyOfficial(body);
+    if (body.source === 'albert_official') return await syncAlbertOfficial(body);
     return await syncKauflandOfficial(body);
   } catch (error) {
     console.error('sync-store-branches failed', error);
