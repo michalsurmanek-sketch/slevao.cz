@@ -1,0 +1,157 @@
+create or replace function public.parse_pepco_branches_from_response(p_request_id bigint)
+returns table (
+  external_id text,
+  name text,
+  street text,
+  city text,
+  postal_code text,
+  region text,
+  latitude double precision,
+  longitude double precision,
+  is_active boolean,
+  opening_hours jsonb
+)
+language sql
+stable
+security definer
+set search_path = public, net, pg_catalog
+as $fn$
+with src as (
+  select r.content::jsonb as j
+  from net._http_response r
+  where r.id=p_request_id
+    and r.status_code=200
+    and coalesce(r.timed_out,false)=false
+    and r.error_msg is null
+), features as (
+  select value as f
+  from src, jsonb_array_elements(j->'globalStoreDataSet'->'stores'->'features')
+)
+select
+  'pepco:' || (f->'properties'->>'id') as external_id,
+  coalesce(nullif(f->'properties'->>'name',''),'Pepco ' || (f->'properties'->>'city')) as name,
+  trim(concat_ws(' ',nullif(f->'properties'->>'street',''),nullif(f->'properties'->>'street_number',''))) as street,
+  f->'properties'->>'city' as city,
+  f->'properties'->>'zip' as postal_code,
+  null::text as region,
+  (f->'geometry'->'coordinates'->>1)::double precision as latitude,
+  (f->'geometry'->'coordinates'->>0)::double precision as longitude,
+  coalesce((f->'properties'->>'is_active')::boolean,false) as is_active,
+  jsonb_build_object(
+    'source','pepco.cz/api/stores?market=CZ',
+    'pepco_uuid',f->'properties'->>'id',
+    'slm_id',f->'properties'->'slm_id',
+    'store_type',f->'properties'->>'type',
+    'phone',f->'properties'->'phone_number',
+    'official_opening_hours',coalesce(f->'properties'->'opening_hours','[]'::jsonb)
+  ) as opening_hours
+from features
+where f->>'type'='Feature'
+  and f->'geometry'->>'type'='Point'
+  and f->'properties'->>'id' is not null
+  and f->'properties'->>'city' is not null
+  and f->'properties'->>'street' is not null
+  and f->'properties'->>'zip' is not null
+  and (f->'geometry'->'coordinates'->>1)::double precision between 48.45 and 51.2
+  and (f->'geometry'->'coordinates'->>0)::double precision between 12 and 19.1;
+$fn$;
+
+revoke all on function public.parse_pepco_branches_from_response(bigint) from public, anon, authenticated;
+grant execute on function public.parse_pepco_branches_from_response(bigint) to service_role;
+
+create or replace function public.sync_pepco_branches_from_response(p_request_id bigint,p_dry_run boolean default true)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, net, pg_catalog
+as $fn$
+declare
+  v_status integer;
+  v_timed_out boolean;
+  v_error text;
+  v_raw_count integer;
+  v_parsed_count integer;
+  v_unique_count integer;
+  v_store_id uuid;
+  v_written integer:=0;
+begin
+  select status_code,coalesce(timed_out,false),error_msg
+  into v_status,v_timed_out,v_error
+  from net._http_response where id=p_request_id;
+  if v_status is null then raise exception 'Pepco HTTP response % ještě není dostupný',p_request_id; end if;
+  if v_status<>200 or v_timed_out or v_error is not null then
+    raise exception 'Pepco HTTP response % není validní: status %, timeout %, error %',p_request_id,v_status,v_timed_out,v_error;
+  end if;
+
+  select jsonb_array_length((content::jsonb)->'globalStoreDataSet'->'stores'->'features')
+  into v_raw_count from net._http_response where id=p_request_id;
+  select count(*),count(distinct external_id)
+  into v_parsed_count,v_unique_count
+  from public.parse_pepco_branches_from_response(p_request_id);
+
+  if v_raw_count<300 or v_raw_count>370 then raise exception 'Pepco API obsahuje neočekávaných % features',v_raw_count; end if;
+  if v_parsed_count<>v_raw_count or v_unique_count<>v_parsed_count then
+    raise exception 'Pepco parser není kompletní: raw %, parsed %, unique %',v_raw_count,v_parsed_count,v_unique_count;
+  end if;
+
+  if p_dry_run then
+    return jsonb_build_object('ok',true,'dry_run',true,'source','pepco_official_api','request_id',p_request_id,'raw',v_raw_count,'parsed',v_parsed_count,'written',0);
+  end if;
+
+  select id into v_store_id from public.stores where slug='pepco' and is_active=true limit 1;
+  if v_store_id is null then raise exception 'Aktivní obchod pepco nebyl nalezen'; end if;
+
+  insert into public.branches(store_id,external_id,name,street,city,postal_code,region,latitude,longitude,is_active,opening_hours)
+  select v_store_id,p.external_id,p.name,p.street,p.city,p.postal_code,p.region,p.latitude,p.longitude,p.is_active,p.opening_hours
+  from public.parse_pepco_branches_from_response(p_request_id) p
+  on conflict (store_id,external_id) do update set
+    name=excluded.name,street=excluded.street,city=excluded.city,postal_code=excluded.postal_code,region=excluded.region,
+    latitude=excluded.latitude,longitude=excluded.longitude,is_active=excluded.is_active,opening_hours=excluded.opening_hours,updated_at=now();
+  get diagnostics v_written=row_count;
+  return jsonb_build_object('ok',true,'dry_run',false,'source','pepco_official_api','request_id',p_request_id,'raw',v_raw_count,'parsed',v_parsed_count,'written',v_written);
+end;
+$fn$;
+
+revoke all on function public.sync_pepco_branches_from_response(bigint,boolean) from public, anon, authenticated;
+grant execute on function public.sync_pepco_branches_from_response(bigint,boolean) to service_role;
+
+create or replace function public.request_pepco_branch_source()
+returns bigint
+language plpgsql
+security definer
+set search_path = public, net, pg_catalog
+as $fn$
+declare v_request_id bigint;
+begin
+  select net.http_get(
+    url:='https://pepco.cz/api/stores?market=CZ',
+    headers:='{"User-Agent":"Mozilla/5.0","Accept":"application/json"}'::jsonb,
+    timeout_milliseconds:=30000
+  ) into v_request_id;
+  insert into public.branch_sync_http_state(source,request_id,requested_at)
+  values('pepco',v_request_id,now())
+  on conflict(source) do update set request_id=excluded.request_id,requested_at=excluded.requested_at;
+  return v_request_id;
+end;
+$fn$;
+
+revoke all on function public.request_pepco_branch_source() from public, anon, authenticated;
+grant execute on function public.request_pepco_branch_source() to service_role;
+
+create or replace function public.apply_latest_pepco_branch_source(p_dry_run boolean default false)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public, pg_catalog
+as $fn$
+declare v_request_id bigint; v_requested_at timestamptz;
+begin
+  select request_id,requested_at into v_request_id,v_requested_at from public.branch_sync_http_state where source='pepco';
+  if v_request_id is null then raise exception 'Pepco source request nebyl spuštěn'; end if;
+  if v_requested_at<now()-interval '20 minutes' then raise exception 'Pepco source request % je příliš starý (%)',v_request_id,v_requested_at; end if;
+  return public.sync_pepco_branches_from_response(v_request_id,p_dry_run);
+end;
+$fn$;
+
+revoke all on function public.apply_latest_pepco_branch_source(boolean) from public, anon, authenticated;
+grant execute on function public.apply_latest_pepco_branch_source(boolean) to service_role;
