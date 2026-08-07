@@ -67,6 +67,12 @@
     locationScript.defer = true;
     document.head.appendChild(locationScript);
   }
+  if (!document.querySelector('script[src*="location-equivalence.js"]')) {
+    const locationEquivalenceScript = document.createElement('script');
+    locationEquivalenceScript.src = 'assets/location-equivalence.js?v=20260807-1';
+    locationEquivalenceScript.defer = true;
+    document.head.appendChild(locationEquivalenceScript);
+  }
   if (!document.querySelector('link[href*="home-live.css"]')) {
     const liveStyle = document.createElement('link');
     liveStyle.rel = 'stylesheet';
