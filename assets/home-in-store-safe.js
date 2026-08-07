@@ -12,10 +12,46 @@
   function meaningfulTitle(value) {
     const text = fold(value);
     if (text.length < 4) return false;
-    const blocked = new Set(['cena', 'akce', 'sleva', 'vybrane druhy', 's klubem', 'club', 'original', 'mini']);
+    const blocked = new Set(['cena', 'akce', 'sleva', 'vybrane druhy', 's klubem', 'club', 'original', 'mini', 'selection', 'cool', 'dobry vyber', 'bez kosti', 'proteinova tycinka']);
     if (blocked.has(text)) return false;
     if (/^\d+$/.test(text)) return false;
     return true;
+  }
+
+  function productOf(offer) {
+    return Array.isArray(offer?.products) ? offer.products[0] : offer?.products;
+  }
+
+  function quantitySignature(value) {
+    const text = fold(value);
+    const multi = text.match(/\b(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|ml|cl|ks)\b/i);
+    const match = multi || text.match(/\b(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|ml|cl|ks)\b/i);
+    if (!match) return null;
+
+    let amount;
+    let unit;
+    if (multi) {
+      amount = Number(multi[1]) * Number(String(multi[2]).replace(',', '.'));
+      unit = multi[3].toLowerCase();
+    } else {
+      amount = Number(String(match[1]).replace(',', '.'));
+      unit = match[2].toLowerCase();
+    }
+    if (!(amount > 0)) return null;
+
+    if (unit === 'kg') return { family: 'mass', amount: amount * 1000 };
+    if (unit === 'g') return { family: 'mass', amount };
+    if (unit === 'mg') return { family: 'mass', amount: amount / 1000 };
+    if (unit === 'l') return { family: 'volume', amount: amount * 1000 };
+    if (unit === 'cl') return { family: 'volume', amount: amount * 10 };
+    if (unit === 'ml') return { family: 'volume', amount };
+    if (unit === 'ks') return { family: 'count', amount };
+    return null;
+  }
+
+  function quantitiesEqual(a, b) {
+    if (!a || !b || a.family !== b.family) return false;
+    return Math.abs(a.amount - b.amount) <= Math.max(a.amount, b.amount) * .02;
   }
 
   function packageMatches(a, b) {
@@ -27,14 +63,42 @@
     return Math.abs(aAmount - bAmount) <= Math.max(aAmount, bAmount) * .02;
   }
 
+  function trustedStatus(offer) {
+    return ['matched', 'retained'].includes(String(offer?.catalog_match_status || ''));
+  }
+
+  function canonicalQuantityMatches(a, b) {
+    const product = productOf(a) || productOf(b);
+    const canonical = quantitySignature(product?.quantity_text || product?.name);
+    if (!canonical) return false;
+    const left = quantitySignature(a?.title);
+    const right = quantitySignature(b?.title);
+    return quantitiesEqual(left, canonical) && quantitiesEqual(right, canonical);
+  }
+
+  function canonicalBrandMatches(a, b) {
+    const product = productOf(a) || productOf(b);
+    const brand = fold(product?.brand);
+    if (!brand || brand.length < 3) return false;
+    const left = fold(a?.title);
+    const right = fold(b?.title);
+    return left.includes(brand) && right.includes(brand);
+  }
+
   function strongSameProduct(a, b) {
     if (!a?.product_id || String(a.product_id) !== String(b?.product_id)) return false;
     if (a.is_verified !== true || b.is_verified !== true) return false;
-    if (String(a.catalog_match_status || '') !== 'matched' || String(b.catalog_match_status || '') !== 'matched') return false;
+    if (!trustedStatus(a) || !trustedStatus(b)) return false;
+
     const aTitle = fold(a.normalized_title || a.title);
     const bTitle = fold(b.normalized_title || b.title);
-    const sameTitle = Boolean(aTitle && aTitle === bTitle && meaningfulTitle(aTitle));
-    return sameTitle || packageMatches(a, b);
+    const sameSpecificTitle = Boolean(aTitle && aTitle === bTitle && meaningfulTitle(aTitle));
+    const samePackage = packageMatches(a, b) || canonicalQuantityMatches(a, b);
+    const sameBrand = canonicalBrandMatches(a, b);
+
+    // Product_id ani stejný text nestačí. Pro cenové tvrzení vyžadujeme další
+    // nezávislý signál identity: balení/gramáž, nebo kanonickou značku v obou názvech.
+    return samePackage || (sameSpecificTitle && sameBrand);
   }
 
   function preciseBranch(branches, position) {
@@ -53,13 +117,13 @@
     const now = Date.now();
     if (safeCache && safeCache.key === cacheKey && now - safeCache.at < CACHE_MS) return safeCache.promise;
     const promise = a.rest('offers', {
-      select: 'id,product_id,store_id,branch_id,title,normalized_title,price,old_price,package_amount,package_unit,valid_from,valid_to,coverage_scope,region_code,city_name,is_verified,catalog_match_status,stores(id,name,slug)',
+      select: 'id,product_id,store_id,branch_id,title,normalized_title,price,old_price,package_amount,package_unit,valid_from,valid_to,coverage_scope,region_code,city_name,is_verified,catalog_match_status,stores(id,name,slug),products(id,name,brand,quantity_text)',
       store_id: `in.(${storeIds.join(',')})`,
       status: 'eq.published',
       valid_from: `lte.${a.TODAY}`,
       valid_to: `gte.${a.TODAY}`,
       is_verified: 'eq.true',
-      catalog_match_status: 'eq.matched',
+      catalog_match_status: 'in.(matched,retained)',
       limit: '5000',
     }).then((rows) => (rows || []).filter((offer) => a.coverageMatches(offer, branches)));
     safeCache = { key: cacheKey, at: now, promise };
@@ -146,8 +210,8 @@
       }).join('');
 
       safe.innerHTML = comparisons.length
-        ? `<div class="slInStoreSafeHead"><strong>Pozor: ověřeně levněji poblíž</strong><span>verified + catalog matched</span></div><div class="slInStoreSafeRows">${rows}</div>${listSummary(comparisons)}`
-        : '<div class="slInStoreSafeHead"><strong>Porovnání stejného produktu mezi řetězci</strong><span>bez odhadu</span></div><p class="slInStoreSafeNote">Dnes tu nemáme dost <strong>ověřených katalogových shod stejného produktu nebo balení</strong> pro bezpečné tvrzení „jinde levněji“. TOP akce obchodu zobrazujeme dál, ale cenu napříč řetězci si nevymýšlíme.</p>';
+        ? `<div class="slInStoreSafeHead"><strong>Pozor: ověřeně levněji poblíž</strong><span>ověřeno + identita balení</span></div><div class="slInStoreSafeRows">${rows}</div>${listSummary(comparisons)}`
+        : '<div class="slInStoreSafeHead"><strong>Porovnání stejného produktu mezi řetězci</strong><span>bez odhadu</span></div><p class="slInStoreSafeNote">Dnes tu nemáme dost <strong>ověřených shod stejného produktu se samostatně potvrzenou značkou nebo gramáží</strong> pro bezpečné tvrzení „jinde levněji“. TOP akce obchodu zobrazujeme dál, ale cenu napříč řetězci si nevymýšlíme.</p>';
 
       const grid = card.querySelector('.slInStoreGrid');
       if (grid) grid.before(safe); else card.querySelector('footer')?.before(safe);
