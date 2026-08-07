@@ -97,6 +97,12 @@
     inStoreSafeScript.defer = true;
     document.head.appendChild(inStoreSafeScript);
   }
+  if (!document.querySelector('script[src*="home-in-store-equivalence.js"]')) {
+    const inStoreEquivalenceScript = document.createElement('script');
+    inStoreEquivalenceScript.src = 'assets/home-in-store-equivalence.js?v=20260807-1';
+    inStoreEquivalenceScript.defer = true;
+    document.head.appendChild(inStoreEquivalenceScript);
+  }
   if (!document.querySelector('link[href*="home-in-store-actions.css"]')) {
     const inStoreActionsStyle = document.createElement('link');
     inStoreActionsStyle.rel = 'stylesheet';
