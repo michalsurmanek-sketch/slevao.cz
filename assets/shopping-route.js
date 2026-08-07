@@ -2,6 +2,9 @@
   'use strict';
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+  const sharedParams = new URLSearchParams(location.search);
+  const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
 
   function api() { return window.SlevaoLocation || null; }
 
@@ -26,7 +29,13 @@
       <div id="srStatus" class="srRouteStatus">Výpočet se spustí až po kliknutí a vyžádá si polohu. Vzdálenost je konzervativní orientační výpočet vzdušnou čarou, ne navigační čas.</div>
       <div id="srResults"></div>`;
     layout.parentNode.insertBefore(section, layout);
-    document.getElementById('srCalculate').addEventListener('click', calculate);
+    const button = document.getElementById('srCalculate');
+    if (sharedMode) {
+      button.disabled = true;
+      document.getElementById('srStatus').textContent = 'GPS trasa je zatím dostupná jen pro vlastní nákupní seznam. U sdíleného seznamu se záměrně nepoužívá localStorage, aby nevznikl výpočet z cizích nebo starých položek.';
+    } else {
+      button.addEventListener('click', calculate);
+    }
     return true;
   }
 
@@ -140,7 +149,7 @@
             <div class="srRouteCompareRow"><span>Nejlepší nalezená varianta</span><strong>${a.money(best.effectiveCost)} Kč</strong></div>
             ${single ? `<div class="srRouteCompareRow"><span>Nejlevnější 1 obchod</span><strong>${a.money(single.effectiveCost)} Kč</strong></div>` : ''}
             ${singleDiff != null && singleDiff > .01 ? `<div class="srRouteCompareRow"><span>Výhoda proti 1 obchodu</span><strong>${a.money(singleDiff)} Kč</strong></div>` : ''}
-            ${absolute ? `<div class="srRouteCompareRow"><span>Čistě nejnižší ceny bez cesty</span><strong>${a.money(absolute.basketTotal)} Kč</strong></div>` : ''}
+            ${absolute ? `<div class="srRouteCompareRow"><span>Nejnižší košík v povoleném počtu obchodů</span><strong>${a.money(absolute.basketTotal)} Kč</strong></div>` : ''}
             ${absoluteDiff != null && absoluteDiff > .01 ? `<div class="srRouteCompareRow"><span>Cena pohodlí/cesty v rozhodnutí</span><strong>${a.money(absoluteDiff)} Kč</strong></div>` : ''}
           </div>
         </aside>
