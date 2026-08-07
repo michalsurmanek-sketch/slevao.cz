@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { syncFlopOfficial } from './flop.ts';
 
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -18,10 +19,7 @@ const BILLA_LOCATOR = 'https://www.billa.cz/prodejny';
 const ALBERT_GRAPHQL = 'https://www.albert.cz/api/v1/';
 const ALBERT_STORE_QUERY = 'query GetStoreSearch($lang:String!,$query:String,$latitude:Float,$longitude:Float,$radius:Float,$pageSize:Int,$currentPage:Int,$sort:String,$collectionFlow:Boolean,$options:String){storeSearchJSON(lang:$lang,query:$query,latitude:$latitude,longitude:$longitude,radius:$radius,pageSize:$pageSize,currentPage:$currentPage,sort:$sort,collectionFlow:$collectionFlow,options:$options)}';
 
-function json(body: unknown, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: CORS });
-}
-
+function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
 function errorText(error: unknown) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === 'object') {
@@ -30,7 +28,6 @@ function errorText(error: unknown) {
   }
   return String(error);
 }
-
 async function allowed(request: Request) {
   const raw = request.headers.get('authorization') || '';
   const token = raw.replace(/^Bearer\s+/i, '').trim();
@@ -40,56 +37,31 @@ async function allowed(request: Request) {
   const { data, error } = await db.auth.getUser(token);
   return !error && !!data.user && ['admin', 'editor'].includes(String(data.user.app_metadata?.role || '').toLowerCase());
 }
-
 function decodeHtml(value: string) {
   return String(value || '')
-    .replace(/&nbsp;|&#160;/gi, ' ')
-    .replace(/&amp;/gi, '&')
-    .replace(/&quot;|&#34;|&#x22;/gi, '"')
-    .replace(/&#39;|&apos;|&#x27;/gi, "'")
-    .replace(/&ndash;|&#8211;/gi, '–')
-    .replace(/&mdash;|&#8212;/gi, '—')
-    .replace(/&aacute;/gi, 'á').replace(/&Aacute;/g, 'Á')
-    .replace(/&eacute;/gi, 'é').replace(/&Eacute;/g, 'É')
-    .replace(/&iacute;/gi, 'í').replace(/&Iacute;/g, 'Í')
-    .replace(/&oacute;/gi, 'ó').replace(/&Oacute;/g, 'Ó')
-    .replace(/&uacute;/gi, 'ú').replace(/&Uacute;/g, 'Ú')
-    .replace(/&yacute;/gi, 'ý').replace(/&Yacute;/g, 'Ý');
+    .replace(/&nbsp;|&#160;/gi, ' ').replace(/&amp;/gi, '&').replace(/&quot;|&#34;|&#x22;/gi, '"')
+    .replace(/&#39;|&apos;|&#x27;/gi, "'").replace(/&ndash;|&#8211;/gi, '–').replace(/&mdash;|&#8212;/gi, '—')
+    .replace(/&aacute;/gi, 'á').replace(/&Aacute;/g, 'Á').replace(/&eacute;/gi, 'é').replace(/&Eacute;/g, 'É')
+    .replace(/&iacute;/gi, 'í').replace(/&Iacute;/g, 'Í').replace(/&oacute;/gi, 'ó').replace(/&Oacute;/g, 'Ó')
+    .replace(/&uacute;/gi, 'ú').replace(/&Uacute;/g, 'Ú').replace(/&yacute;/gi, 'ý').replace(/&Yacute;/g, 'Ý');
 }
-
-function cleanText(value: string) {
-  return decodeHtml(String(value || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
-}
-
+function cleanText(value: string) { return decodeHtml(String(value || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim(); }
 async function fetchText(url: string, timeout = 25_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
-    const response = await fetch(url, {
-      headers: {
-        'user-agent': UA,
-        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
-        'cache-control': 'no-cache',
-      },
-      redirect: 'follow',
-      signal: controller.signal,
-    });
+    const response = await fetch(url, { headers: { 'user-agent': UA, accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8', 'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7', 'cache-control': 'no-cache' }, redirect: 'follow', signal: controller.signal });
     const text = await response.text();
     if (!response.ok) throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);
     return { text, url: response.url, status: response.status };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
-
 async function storeIdForSlug(slug: string) {
   const { data, error } = await db.from('stores').select('id,name,slug').eq('slug', slug).eq('is_active', true).maybeSingle();
   if (error) throw error;
   if (!data) throw new Error(`Aktivní obchod ${slug} nebyl nalezen v tabulce stores.`);
   return data.id as string;
 }
-
 async function upsertBranches(rows: any[]) {
   let written = 0;
   for (let from = 0; from < rows.length; from += 250) {
@@ -99,9 +71,6 @@ async function upsertBranches(rows: any[]) {
   }
   return written;
 }
-
-// ---------- Kaufland: official Czech store list + official detail pages ----------
-
 function markerContexts(html: string) {
   const markers = ['latitude', 'longitude', 'data-lat', 'data-lng', 'coordinates', 'geo', 'maps', 'storeLocation'];
   const contexts: Array<{ marker: string; context: string }> = [];
@@ -118,34 +87,22 @@ function markerContexts(html: string) {
   }
   return contexts;
 }
-
 async function diagnoseKauflandDetail(rawUrl: unknown) {
   const url = new URL(String(rawUrl || ''));
   if (url.protocol !== 'https:' || url.hostname !== 'prodejny.kaufland.cz') throw new Error('Diagnostika dovoluje pouze oficiální doménu prodejny.kaufland.cz.');
   const page = await fetchText(url.toString());
-  return {
-    ok: true,
-    dry_run: true,
-    mode: 'kaufland_detail_diagnostic',
-    url: page.url,
-    status: page.status,
-    bytes: page.text.length,
-    title: cleanText(page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ''),
-    marker_contexts: markerContexts(page.text),
-  };
+  return { ok: true, dry_run: true, mode: 'kaufland_detail_diagnostic', url: page.url, status: page.status, bytes: page.text.length, title: cleanText(page.text.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || ''), marker_contexts: markerContexts(page.text) };
 }
-
 function kauflandLinks(html: string) {
   const links = new Set<string>();
   for (const match of html.matchAll(/href=["']([^"']*\/aktualne\/servis\/prodejna\/[^"'#?]+\.html)["']/gi)) {
     try {
       const url = new URL(decodeHtml(match[1]), KAUFLAND_LIST);
       if (url.hostname === 'prodejny.kaufland.cz' && !url.pathname.includes('%7BfriendlyUrl%7D') && !url.pathname.includes('{friendlyUrl}')) links.add(url.toString());
-    } catch { /* ignore malformed links */ }
+    } catch { }
   }
   return [...links].sort();
 }
-
 function itempropText(html: string, prop: string) {
   const inside = html.match(new RegExp(`<[^>]+itemprop=["']${prop}["'][^>]*>([\\s\\S]*?)<\\/[^>]+>`, 'i'))?.[1];
   if (inside) return cleanText(inside);
@@ -154,13 +111,11 @@ function itempropText(html: string, prop: string) {
   const contentBefore = html.match(new RegExp(`<[^>]+content=["']([^"']+)["'][^>]+itemprop=["']${prop}["']`, 'i'))?.[1];
   return contentBefore ? cleanText(contentBefore) : '';
 }
-
 function parseKauflandDetail(html: string, detailUrl: string) {
   const storeCode = html.match(/data-force-store-change=["'](CZ\d+)["']/i)?.[1] || '';
   const latitude = Number(html.match(/data-lat=["']([0-9.\-]+)["']/i)?.[1]);
   const longitude = Number(html.match(/data-lng=["']([0-9.\-]+)["']/i)?.[1]);
   if (!storeCode || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) return null;
-
   const title = cleanText(html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '');
   let locationName = title.replace(/^Kaufland\s+/i, '').replace(/\s+[–—-]\s+.*$/, '').trim();
   if (!locationName) locationName = itempropText(html, 'name').replace(/^Kaufland\s+/i, '').trim();
@@ -170,36 +125,12 @@ function parseKauflandDetail(html: string, detailUrl: string) {
   if (!city && locationName) city = locationName.replace(/\s+-\s+.*$/, '').trim();
   const opens = [...html.matchAll(/itemprop=["']opens["'][^>]+content=["']([^"']+)["']/gi)].map((m) => m[1]);
   const closes = [...html.matchAll(/itemprop=["']closes["'][^>]+content=["']([^"']+)["']/gi)].map((m) => m[1]);
-
-  return {
-    external_id: `kaufland:${storeCode}`,
-    name: `Kaufland ${locationName}`.trim(),
-    street,
-    city,
-    postal_code: postalCode,
-    region: null,
-    latitude,
-    longitude,
-    is_active: true,
-    opening_hours: {
-      source: 'kaufland.cz',
-      store_code: storeCode,
-      detail_url: detailUrl,
-      opens: [...new Set(opens)],
-      closes: [...new Set(closes)],
-    },
-  };
+  return { external_id: `kaufland:${storeCode}`, name: `Kaufland ${locationName}`.trim(), street, city, postal_code: postalCode, region: null, latitude, longitude, is_active: true, opening_hours: { source: 'kaufland.cz', store_code: storeCode, detail_url: detailUrl, opens: [...new Set(opens)], closes: [...new Set(closes)] } };
 }
-
 async function fetchKauflandDetail(url: string) {
-  try {
-    const page = await fetchText(url);
-    return { url: page.url, row: parseKauflandDetail(page.text, page.url), error: null };
-  } catch (error) {
-    return { url, row: null, error: errorText(error) };
-  }
+  try { const page = await fetchText(url); return { url: page.url, row: parseKauflandDetail(page.text, page.url), error: null }; }
+  catch (error) { return { url, row: null, error: errorText(error) }; }
 }
-
 async function syncKauflandOfficial(body: any) {
   const dryRun = body.dry_run === true;
   const offset = Math.max(0, Math.floor(Number(body.offset || 0)));
@@ -207,37 +138,18 @@ async function syncKauflandOfficial(body: any) {
   const listPage = await fetchText(KAUFLAND_LIST);
   const links = kauflandLinks(listPage.text);
   if (links.length < 100) return json({ error: `Oficiální seznam Kauflandu obsahuje jen ${links.length} detailů; synchronizace byla zastavena.`, code: 'KAUFLAND_LIST_TOO_SMALL', dry_run: dryRun }, 409);
-
   const selected = links.slice(offset, offset + limit);
   if (!selected.length) return json({ ok: true, dry_run: dryRun, source: 'kaufland_official', total: links.length, offset, parsed: 0, done: true });
-
   const results: Array<{ url: string; row: any; error: string | null }> = [];
   for (let from = 0; from < selected.length; from += 5) results.push(...await Promise.all(selected.slice(from, from + 5).map(fetchKauflandDetail)));
   const rows = results.filter((result) => result.row).map((result) => result.row);
   const failures = results.filter((result) => !result.row).map((result) => ({ url: result.url, error: result.error || 'detail neobsahuje očekávané GPS/ID' }));
   if (rows.length < Math.ceil(selected.length * .8)) return json({ error: `Kaufland parser zpracoval jen ${rows.length}/${selected.length} detailů; zápis byl zastaven.`, code: 'KAUFLAND_BATCH_INCOMPLETE', dry_run: dryRun, total: links.length, offset, failures }, 409);
-
   const storeId = await storeIdForSlug('kaufland');
   const payload = rows.map((row) => ({ ...row, store_id: storeId }));
   const written = dryRun ? 0 : await upsertBranches(payload);
-  return json({
-    ok: true,
-    dry_run: dryRun,
-    source: 'kaufland_official',
-    total: links.length,
-    offset,
-    requested: selected.length,
-    parsed: rows.length,
-    written,
-    next_offset: offset + selected.length,
-    done: offset + selected.length >= links.length,
-    failures,
-    samples: payload.slice(0, 5).map(({ store_id: _storeId, ...row }) => row),
-  });
+  return json({ ok: true, dry_run: dryRun, source: 'kaufland_official', total: links.length, offset, requested: selected.length, parsed: rows.length, written, next_offset: offset + selected.length, done: offset + selected.length >= links.length, failures, samples: payload.slice(0, 5).map(({ store_id: _storeId, ...row }) => row) });
 }
-
-// ---------- PENNY + BILLA: official Nuxt SSR storefinder payload ----------
-
 function nuxtData(html: string, label: string) {
   const raw = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
   if (!raw) throw new Error(`${label} stránka neobsahuje očekávaný __NUXT_DATA__ payload.`);
@@ -245,7 +157,6 @@ function nuxtData(html: string, label: string) {
   if (!Array.isArray(parsed) || parsed.length < 1000) throw new Error(`${label} __NUXT_DATA__ má neočekávaný formát.`);
   return parsed as any[];
 }
-
 function resolveNuxt(data: any[], value: any, depth = 0, dereferenced = false): any {
   if (depth > 12) return null;
   if (typeof value === 'number' && Number.isInteger(value)) {
@@ -265,20 +176,12 @@ function resolveNuxt(data: any[], value: any, depth = 0, dereferenced = false): 
   }
   return value;
 }
-
-type NuxtChainConfig = {
-  slug: 'penny' | 'billa';
-  label: 'PENNY' | 'BILLA';
-  locator: string;
-  minimum: number;
-};
-
+type NuxtChainConfig = { slug: 'penny' | 'billa'; label: 'PENNY' | 'BILLA'; locator: string; minimum: number; };
 function parseNuxtStores(data: any[], config: NuxtChainConfig) {
   const rows = new Map<string, any>();
   for (const item of data) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     if (!('storeId' in item) || !('city' in item) || !('position' in item) || !('street' in item) || !('zip' in item)) continue;
-
     const externalStoreId = String(resolveNuxt(data, item.storeId) || '').trim();
     const city = String(resolveNuxt(data, item.city) || '').trim();
     const street = String(resolveNuxt(data, item.street) || '').trim();
@@ -291,108 +194,45 @@ function parseNuxtStores(data: any[], config: NuxtChainConfig) {
     const latitude = Number(position.lat);
     const longitude = Number(position.lng);
     if (!externalStoreId || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
-
     const openingTimeString = resolveNuxt(data, item.openingTimeString);
     const openingTimes = resolveNuxt(data, item.openingTimes);
     const underRenovation = Boolean(resolveNuxt(data, item.underRenovation));
     const features = resolveNuxt(data, item.features);
     const parking = resolveNuxt(data, item.parking);
     const placeLabel = displayName || city;
-
-    rows.set(externalStoreId, {
-      external_id: `${config.slug}:${externalStoreId}`,
-      name: `${config.label} ${placeLabel}`.trim(),
-      street: street || null,
-      city,
-      postal_code: postalCode || null,
-      region: province || null,
-      latitude,
-      longitude,
-      is_active: !underRenovation,
-      opening_hours: {
-        source: new URL(config.locator).hostname,
-        store_id: externalStoreId,
-        locator_url: config.locator,
-        brand: brand || config.label,
-        phone: phone || null,
-        summary: typeof openingTimeString === 'string' ? openingTimeString : null,
-        weekly: Array.isArray(openingTimes) ? openingTimes : [],
-        features: Array.isArray(features) ? features : [],
-        parking: parking && typeof parking === 'object' ? parking : null,
-        under_renovation: underRenovation,
-      },
-    });
+    rows.set(externalStoreId, { external_id: `${config.slug}:${externalStoreId}`, name: `${config.label} ${placeLabel}`.trim(), street: street || null, city, postal_code: postalCode || null, region: province || null, latitude, longitude, is_active: !underRenovation, opening_hours: { source: new URL(config.locator).hostname, store_id: externalStoreId, locator_url: config.locator, brand: brand || config.label, phone: phone || null, summary: typeof openingTimeString === 'string' ? openingTimeString : null, weekly: Array.isArray(openingTimes) ? openingTimes : [], features: Array.isArray(features) ? features : [], parking: parking && typeof parking === 'object' ? parking : null, under_renovation: underRenovation } });
   }
   return [...rows.values()];
 }
-
 async function syncNuxtOfficial(body: any, config: NuxtChainConfig) {
   const dryRun = body.dry_run === true;
   const page = await fetchText(config.locator, 30_000);
   const data = nuxtData(page.text, config.label);
   const rows = parseNuxtStores(data, config);
-  if (rows.length < config.minimum) return json({
-    error: `Oficiální ${config.label} locator vrátil jen ${rows.length} validních GPS prodejen; zápis byl zastaven.`,
-    code: `${config.label}_LIST_TOO_SMALL`,
-    dry_run: dryRun,
-  }, 409);
-
+  if (rows.length < config.minimum) return json({ error: `Oficiální ${config.label} locator vrátil jen ${rows.length} validních GPS prodejen; zápis byl zastaven.`, code: `${config.label}_LIST_TOO_SMALL`, dry_run: dryRun }, 409);
   const storeId = await storeIdForSlug(config.slug);
   const payload = rows.map((row) => ({ ...row, store_id: storeId }));
   const written = dryRun ? 0 : await upsertBranches(payload);
-  return json({
-    ok: true,
-    dry_run: dryRun,
-    source: `${config.slug}_official`,
-    source_bytes: page.text.length,
-    total: rows.length,
-    active: rows.filter((row) => row.is_active).length,
-    temporarily_inactive: rows.filter((row) => !row.is_active).length,
-    written,
-    samples: payload.slice(0, 8).map(({ store_id: _storeId, ...row }) => row),
-  });
+  return json({ ok: true, dry_run: dryRun, source: `${config.slug}_official`, source_bytes: page.text.length, total: rows.length, active: rows.filter((row) => row.is_active).length, temporarily_inactive: rows.filter((row) => !row.is_active).length, written, samples: payload.slice(0, 8).map(({ store_id: _storeId, ...row }) => row) });
 }
-
-// ---------- Albert: official public GraphQL store search used by albert.cz ----------
-
 async function fetchAlbertStoreSearch() {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 25_000);
   try {
-    const response = await fetch(ALBERT_GRAPHQL, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        accept: 'application/json',
-        'accept-encoding': 'identity',
-        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
-        'user-agent': UA,
-      },
-      body: JSON.stringify({
-        operationName: 'GetStoreSearch',
-        query: ALBERT_STORE_QUERY,
-        variables: { lang: 'cs', query: '', pageSize: 9999, currentPage: 0 },
-      }),
-      signal: controller.signal,
-    });
+    const response = await fetch(ALBERT_GRAPHQL, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json', 'accept-encoding': 'identity', 'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7', 'user-agent': UA }, body: JSON.stringify({ operationName: 'GetStoreSearch', query: ALBERT_STORE_QUERY, variables: { lang: 'cs', query: '', pageSize: 9999, currentPage: 0 } }), signal: controller.signal });
     const text = await response.text();
     let payload: any = null;
-    try { payload = JSON.parse(text); } catch { /* handled below */ }
+    try { payload = JSON.parse(text); } catch { }
     if (!response.ok) throw new Error(`Albert GraphQL HTTP ${response.status}: ${text.slice(0, 180)}`);
     if (!payload) throw new Error(`Albert GraphQL nevrátil JSON (${response.headers.get('content-type') || 'unknown'}).`);
     if (payload?.errors?.length) throw new Error(`Albert GraphQL: ${payload.errors.map((error: any) => error?.message).filter(Boolean).join('; ')}`);
     let result = payload?.data?.storeSearchJSON;
-    if (typeof result === 'string') {
-      try { result = JSON.parse(result); } catch { /* validated below */ }
-    }
+    if (typeof result === 'string') { try { result = JSON.parse(result); } catch { } }
     const stores = Array.isArray(result?.stores) ? result.stores : Array.isArray(result?.items) ? result.items : null;
     if (!result || !stores) throw new Error(`Albert GraphQL nevrátil očekávané storeSearchJSON.stores (typ ${typeof result}).`);
     return { ...result, stores };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
-
 function parseAlbertStores(result: any) {
   const rows = new Map<string, any>();
   const sourceStores = Array.isArray(result?.stores) ? result.stores : Array.isArray(result?.items) ? result.items : [];
@@ -404,72 +244,29 @@ function parseAlbertStores(result: any) {
     const longitude = Number(point.longitude);
     const city = String(address.town || '').trim();
     if (!warehouseCode || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
-
     const rawServices = Array.isArray(item.storeServices) ? item.storeServices : Array.isArray(item.services) ? item.services : [];
-    const services = rawServices.map((service: any) => ({
-      code: service?.code ?? service?.id ?? null,
-      name: service?.name ?? service?.label ?? null,
-      special_service: service?.specialService ?? null,
-    })).filter((service: any) => service.code || service.name);
-    const detailUrl = item.urlName
-      ? new URL(`/nase-prodejny/${String(item.urlName).replace(/^\/+/, '')}`, 'https://www.albert.cz').toString()
-      : item.url ? new URL(String(item.url), 'https://www.albert.cz').toString() : null;
+    const services = rawServices.map((service: any) => ({ code: service?.code ?? service?.id ?? null, name: service?.name ?? service?.label ?? null, special_service: service?.specialService ?? null })).filter((service: any) => service.code || service.name);
+    const detailUrl = item.urlName ? new URL(`/nase-prodejny/${String(item.urlName).replace(/^\/+/, '')}`, 'https://www.albert.cz').toString() : item.url ? new URL(String(item.url), 'https://www.albert.cz').toString() : null;
     const displayName = String(item.localizedName || item.description || '').trim();
-
-    rows.set(warehouseCode, {
-      external_id: `albert:${warehouseCode}`,
-      name: displayName ? `Albert ${displayName}` : `Albert ${city}`,
-      street: String(address.line1 || '').trim() || null,
-      city,
-      postal_code: String(address.postalCode || '').trim() || null,
-      region: null,
-      latitude,
-      longitude,
-      is_active: true,
-      opening_hours: {
-        source: 'albert.cz',
-        warehouse_code: warehouseCode,
-        type: item.groceryStoreType ?? item.type ?? null,
-        detail_url: detailUrl,
-        grocery: Array.isArray(item?.openingHours?.groceryOpeningList) ? item.openingHours.groceryOpeningList : [],
-        next_opening_day: item?.nextOpeningDay || null,
-        services,
-      },
-    });
+    rows.set(warehouseCode, { external_id: `albert:${warehouseCode}`, name: displayName ? `Albert ${displayName}` : `Albert ${city}`, street: String(address.line1 || '').trim() || null, city, postal_code: String(address.postalCode || '').trim() || null, region: null, latitude, longitude, is_active: true, opening_hours: { source: 'albert.cz', warehouse_code: warehouseCode, type: item.groceryStoreType ?? item.type ?? null, detail_url: detailUrl, grocery: Array.isArray(item?.openingHours?.groceryOpeningList) ? item.openingHours.groceryOpeningList : [], next_opening_day: item?.nextOpeningDay || null, services } });
   }
   return [...rows.values()];
 }
-
 async function syncAlbertOfficial(body: any) {
   const dryRun = body.dry_run === true;
   const result = await fetchAlbertStoreSearch();
   const rows = parseAlbertStores(result);
   const declaredTotal = Number(result?.pagination?.totalResults ?? result?.totalItems ?? rows.length);
-  if (declaredTotal < 330 || rows.length < 330) return json({
-    error: `Oficiální Albert GraphQL vrátil jen ${rows.length} validních GPS prodejen z ${declaredTotal}; zápis byl zastaven.`,
-    code: 'ALBERT_LIST_TOO_SMALL',
-    dry_run: dryRun,
-  }, 409);
-
+  if (declaredTotal < 330 || rows.length < 330) return json({ error: `Oficiální Albert GraphQL vrátil jen ${rows.length} validních GPS prodejen z ${declaredTotal}; zápis byl zastaven.`, code: 'ALBERT_LIST_TOO_SMALL', dry_run: dryRun }, 409);
   const storeId = await storeIdForSlug('albert');
   const payload = rows.map((row) => ({ ...row, store_id: storeId }));
   const written = dryRun ? 0 : await upsertBranches(payload);
-  return json({
-    ok: true,
-    dry_run: dryRun,
-    source: 'albert_official',
-    total: declaredTotal,
-    parsed: rows.length,
-    written,
-    samples: payload.slice(0, 8).map(({ store_id: _storeId, ...row }) => row),
-  });
+  return json({ ok: true, dry_run: dryRun, source: 'albert_official', total: declaredTotal, parsed: rows.length, written, samples: payload.slice(0, 8).map(({ store_id: _storeId, ...row }) => row) });
 }
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
-
   try {
     const body = await request.json().catch(() => ({}));
     if (body.discover === 'kaufland_detail') {
@@ -479,6 +276,7 @@ Deno.serve(async (request) => {
     if (body.source === 'penny_official') return await syncNuxtOfficial(body, { slug: 'penny', label: 'PENNY', locator: PENNY_LOCATOR, minimum: 400 });
     if (body.source === 'billa_official') return await syncNuxtOfficial(body, { slug: 'billa', label: 'BILLA', locator: BILLA_LOCATOR, minimum: 270 });
     if (body.source === 'albert_official') return await syncAlbertOfficial(body);
+    if (body.source === 'flop_official') return await syncFlopOfficial(body);
     return await syncKauflandOfficial(body);
   } catch (error) {
     console.error('sync-store-branches failed', error);
