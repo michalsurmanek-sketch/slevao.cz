@@ -9,7 +9,6 @@ function json(body:unknown,status=200){return new Response(JSON.stringify(body),
 function formatError(error:unknown){if(error instanceof Error)return error.message;if(error&&typeof error==='object'){const v=error as Record<string,unknown>;return [v.message,v.details,v.hint,v.code].filter(Boolean).map(String).join(' | ')||JSON.stringify(error);}return String(error);}
 async function allowed(request:Request){const auth=request.headers.get('authorization')||'';const token=auth.replace(/^Bearer\s+/i,'').trim();if(token===SERVICE_ROLE_KEY)return true;if(CRON_SECRET&&request.headers.get('x-cron-secret')===CRON_SECRET)return true;if(!token)return false;const{data}=await db.auth.getUser(token);return['admin','editor'].includes(String(data.user?.app_metadata?.role||'').toLowerCase());}
 async function sha256(value:string){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');}
-async function invokeProcessor(importId:string){const response=await fetch(`${SUPABASE_URL}/functions/v1/process-automatic-pdf-v2`,{method:'POST',headers:{authorization:`Bearer ${SERVICE_ROLE_KEY}`,apikey:SERVICE_ROLE_KEY,'content-type':'application/json'},body:JSON.stringify({import_id:importId})});const text=await response.text();if(!response.ok)throw new Error(`process-automatic-pdf-v2 HTTP ${response.status}: ${text.slice(0,500)}`);}
 
 Deno.serve(async(request)=>{
   if(request.method==='OPTIONS')return new Response('ok',{headers:CORS});
@@ -55,13 +54,12 @@ Deno.serve(async(request)=>{
         parentIds.push(parent.id);
       }
       await db.from('albert_product_sync_runs').update({parent_import_ids:parentIds}).eq('id',runId);
-      await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:startedAt,last_source_signature:signature,source_fingerprint:signature,parser_version:'albert-pdf-ai-v2',adapter_name:'sync-albert-products',adapter_version:'albert-pdf-ai-v2',source_type:'official-pdf-ai',source_category:'current-leaflets',is_running:true,run_started_at:startedAt,health_status:'running',health_reason:'Albert PDF stránky se automaticky zpracovávají.',last_error:null,last_parser_error:null,updated_at:startedAt},{onConflict:'store_id'});
-      await Promise.all(parentIds.map(invokeProcessor));
-      return json({ok:true,accepted:true,run_id:runId,documents:documents.length,parent_imports:parentIds.length,signature},202);
+      await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:startedAt,last_source_signature:signature,source_fingerprint:signature,parser_version:'albert-pdf-ai-v2',adapter_name:'sync-albert-products',adapter_version:'albert-pdf-ai-v2',source_type:'official-pdf-ai',source_category:'current-leaflets',is_running:true,run_started_at:startedAt,health_status:'running',health_reason:'Albert dávka čeká ve frontě na řízené rozdělení PDF a AI zpracování.',last_error:null,last_parser_error:null,updated_at:startedAt},{onConflict:'store_id'});
+      return json({ok:true,accepted:true,queued:true,run_id:runId,documents:documents.length,parent_imports:parentIds.length,signature,message:'Albert dávka byla založena. PDF a stránky převezmou omezené serverové fronty.'},202);
     }catch(error){
       const message=formatError(error);
       await db.from('albert_product_sync_runs').update({status:'failed',error_message:message.slice(0,2000),finished_at:new Date().toISOString(),parent_import_ids:parentIds}).eq('id',runId);
-      await db.from('store_product_sync_state').update({is_running:false,last_error:message.slice(0,2000),last_parser_error:message.slice(0,2000),health_status:'error',health_reason:'Albert dávku se nepodařilo spustit; veřejná data nebyla změněna.',updated_at:new Date().toISOString()}).eq('store_id',store.id);
+      await db.from('store_product_sync_state').update({is_running:false,last_error:message.slice(0,2000),last_parser_error:message.slice(0,2000),health_status:'error',health_reason:'Albert dávku se nepodařilo založit; veřejná data nebyla změněna.',updated_at:new Date().toISOString()}).eq('store_id',store.id);
       throw error;
     }
   }catch(error){return json({error:formatError(error)},500);}
