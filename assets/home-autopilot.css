@@ -1,0 +1,43 @@
+/* Slevao.cz – lehký přehled Nákupního autopilota na homepage. */
+.sqAutopilotSection{padding:12px 0 8px}
+.sqAutopilotCard{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);gap:22px;align-items:center;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
+.sqAutopilotCard:after{content:"";position:absolute;right:-60px;top:-80px;width:220px;height:220px;border-radius:50%;background:rgba(52,214,199,.12);pointer-events:none}
+.sqAutopilotCopy,.sqAutopilotResult{position:relative;z-index:1}
+.sqAutopilotEyebrow{display:inline-flex;align-items:center;gap:7px;margin-bottom:5px;color:#0b776f;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.sqAutopilotEyebrow:before{content:"✦";width:23px;height:23px;border-radius:9px;display:grid;place-items:center;background:#dff8f4;color:#0b776f;font-size:12px}
+.sqAutopilotCard h2{margin:3px 0 7px;font-size:clamp(24px,3vw,34px);line-height:1.05;letter-spacing:-1.2px}
+.sqAutopilotCard p{margin:0;max-width:690px;color:#667373;line-height:1.5}
+.sqAutopilotActions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+.sqAutopilotRun,.sqAutopilotOpen{min-height:44px;border-radius:14px;padding:0 16px;font-weight:900;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}
+.sqAutopilotRun{border:0;background:#159e94;color:#fff;box-shadow:0 9px 20px rgba(21,158,148,.18)}
+.sqAutopilotRun:hover{background:#0f8c83}
+.sqAutopilotRun:disabled{cursor:wait;opacity:.65}
+.sqAutopilotOpen{border:1px solid #cfe3e0;background:#fff;color:#0b776f}
+.sqAutopilotResult{min-height:132px;padding:16px;border:1px solid #d7ebe8;border-radius:20px;background:rgba(255,255,255,.9)}
+.sqAutopilotEmpty{height:100%;min-height:98px;display:grid;align-content:center;gap:4px;color:#667373}
+.sqAutopilotEmpty strong{color:#172222;font-size:16px}
+.sqAutopilotStats{display:grid;grid-template-columns:1.25fr 1fr;gap:9px}
+.sqAutopilotStat{padding:11px 12px;border-radius:15px;background:#f5faf9}
+.sqAutopilotStat.primary{grid-row:span 2;display:grid;align-content:center;background:linear-gradient(145deg,#dff8f4,#eefcf9)}
+.sqAutopilotStat small{display:block;margin-bottom:3px;color:#667373;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.04em}
+.sqAutopilotStat strong{font-size:18px;line-height:1.1}
+.sqAutopilotStat.primary strong{font-size:26px;color:#0b776f}
+.sqAutopilotNote{margin-top:9px!important;font-size:11px;line-height:1.4!important;color:#71807e!important}
+.sqAutopilotGood{color:#13734f}
+.sqAutopilotWarn{color:#a15e00}
+
+@media(max-width:900px){
+  .sqAutopilotSection{padding:7px 0 5px}
+  .sqAutopilotCard{grid-template-columns:1fr;padding:20px;border-radius:23px;gap:16px}
+  .sqAutopilotResult{min-height:0}
+}
+
+@media(max-width:560px){
+  .sqAutopilotCard{padding:17px 16px;border-radius:21px}
+  .sqAutopilotActions{display:grid;grid-template-columns:1fr 1fr;width:100%}
+  .sqAutopilotRun,.sqAutopilotOpen{width:100%;min-height:48px;padding:0 10px;font-size:13px}
+  .sqAutopilotStats{grid-template-columns:1fr 1fr}
+  .sqAutopilotStat.primary{grid-column:1/-1;grid-row:auto}
+}
+
+@media(prefers-reduced-motion:reduce){.sqAutopilotRun{transition:none!important}}
