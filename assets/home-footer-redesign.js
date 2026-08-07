@@ -55,6 +55,12 @@
     saveTodayScript.defer = true;
     document.head.appendChild(saveTodayScript);
   }
+  if (!document.querySelector('script[src*="home-save-text-helper.js"]')) {
+    const saveTextHelper = document.createElement('script');
+    saveTextHelper.src = 'assets/home-save-text-helper.js?v=20260807-1';
+    saveTextHelper.defer = true;
+    document.head.appendChild(saveTextHelper);
+  }
   if (!document.querySelector('script[src*="location-service.js"]')) {
     const locationScript = document.createElement('script');
     locationScript.src = 'assets/location-service.js?v=20260807-3';
