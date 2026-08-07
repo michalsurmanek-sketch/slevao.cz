@@ -60,15 +60,30 @@ async function fetchText(url: string, timeout = 30_000) {
   }
 }
 
+function formatPostal(raw: string) {
+  const digits = raw.replace(/\s+/g, '');
+  return /^\d{5}$/.test(digits) ? `${digits.slice(0, 3)} ${digits.slice(3)}` : null;
+}
+
 function parseAddress(raw: string) {
   const value = cleanText(raw);
-  const match = value.match(/^(.*),\s*(\d{5})\s+(.+)$/u);
-  if (!match) return { street: value || null, postal_code: null, city: null };
-  return {
-    street: match[1].trim() || null,
-    postal_code: `${match[2].slice(0, 3)} ${match[2].slice(3)}`,
-    city: match[3].trim() || null,
-  };
+  const trailing = value.match(/^(.*),\s*(\d{5})\s+(.+)$/u);
+  if (trailing) {
+    return {
+      street: trailing[1].trim() || null,
+      postal_code: formatPostal(trailing[2]),
+      city: trailing[3].trim() || null,
+    };
+  }
+  const leading = value.match(/^(\d{5})\s+([^,]+),\s*(.+)$/u);
+  if (leading) {
+    return {
+      street: leading[3].trim() || null,
+      postal_code: formatPostal(leading[1]),
+      city: leading[2].trim() || null,
+    };
+  }
+  return { street: value || null, postal_code: null, city: null };
 }
 
 function parseHours(block: string) {
@@ -90,8 +105,9 @@ function parseStores(html: string) {
     const longitude = Number(match[3]);
     const block = match[4];
     const title = cleanText(block.match(/class="page-store--store-title"[^>]*>([\s\S]*?)<\/div>/i)?.[1] || slug);
-    const rawAddress = cleanText(block.match(/class="page-store--store-address-value"[^>]*>([\s\S]*?)<\/span>/i)?.[1] || '');
-    const address = parseAddress(rawAddress);
+    const analyticsAddress = cleanText(block.match(/data-ga-address="([^"]+)"/i)?.[1] || '');
+    const visibleAddress = cleanText(block.match(/class="page-store--store-address-value"[^>]*>([\s\S]*?)<\/span>/i)?.[1] || '');
+    const address = parseAddress(analyticsAddress || visibleAddress);
     const weekly = parseHours(block);
     if (!slug || !address.city || !address.street) continue;
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) continue;
