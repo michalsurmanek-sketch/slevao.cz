@@ -51,12 +51,30 @@ function safeSegment(value: unknown, fallback = 'produkt'): string {
 }
 function cleanEan(value: unknown): string { return String(value || '').replace(/\D/g, ''); }
 const BRAND_GUARD = /\b(coca[ -]?cola|nutella|nescafe|nescafé|kinder|madeta)\b/i;
+const GENERIC_FOOD_HINT = /(banan|jabl|hrusk|pomeranc|mandar|citron|rajcat|paprik|cibul|brambor|okurk|cuketa|kedlub|brokolic|kukuric|meloun|nektar|hrozn|jahod|malin|boruv|avokad|kiwi|kvetak|redkv|mrkev|cesnek|zeli|spenat|celer|petrzel|broskv|svestk|merunk|ananas|mango|grep|limet|vejce|kureci|veprov|hovez|krkovic|kyta|steh|prsa|kridl|losos|tresk|makrel|filet|rohlik|chleb|housk)/i;
+const PREPARED_FOOD_HINT = /(debrec|kebab|hamburger|klobas|majonez|hotov|sendvic|toast|pizza|baget.*sunk|koblihov|spiz|salat|pomazank|parek|parky|salam)/i;
+const NOISE_HINT = /(vybrane druhy|v nabidce|dalsi druhy|od .* do)/i;
 function deterministicBlock(product: any) {
   if (String(product.brand || '').trim()) return { classification:'branded', status:'skipped_branded', reason:'Produkt má vyplněnou značku.' };
   if (BRAND_GUARD.test(String(product.name || ''))) return { classification:'branded', status:'skipped_branded', reason:'Název obsahuje známou značku.' };
   const ean = cleanEan(product.ean);
   if (ean.length >= 8 && ean.length <= 14) return { classification:'specific_packaged', status:'needs_manual_review', reason:'Produkt má EAN a může jít o konkrétní balený výrobek.' };
   return null;
+}
+function genericPriority(product: any): number {
+  const rawName=String(product.name || '');
+  const name=normalize(rawName);
+  const offers=Math.max(0,Number(product.active_offer_count||0));
+  let score=offers*250;
+  if(String(product.brand||'').trim()) return -100000+score;
+  if(BRAND_GUARD.test(rawName)) return -100000+score;
+  const ean=cleanEan(product.ean);
+  if(ean.length>=8&&ean.length<=14) return -80000+score;
+  if(GENERIC_FOOD_HINT.test(name)) score+=10000;
+  if(PREPARED_FOOD_HINT.test(name)) score-=12000;
+  if(NOISE_HINT.test(name)||name.length<3) score-=5000;
+  if(String(product.quantity_text||'').trim()) score+=100;
+  return score;
 }
 
 function responseText(payload: any): string {
@@ -137,10 +155,10 @@ async function saveJob(product:any,runId:string,patch:any){ const {error}=await 
 async function runCounts(runId:string){const result=await db.from('product_image_generation_jobs').select('status').eq('run_id',runId);if(result.error)throw result.error;const jobs=result.data||[];const count=(status:string)=>jobs.filter((x:any)=>x.status===status).length;return{processed_count:jobs.length,assigned_count:count('assigned'),manual_count:count('needs_manual_review'),skipped_branded_count:count('skipped_branded'),failed_count:count('failed')}}
 
 async function selectEligibleProducts(limit:number){
-  const selected:any[]=[];
+  const candidates:any[]=[];
   const pageSize=100;
-  const maxScan=2000;
-  for(let offset=0;offset<maxScan&&selected.length<limit;offset+=pageSize){
+  const maxScan=800;
+  for(let offset=0;offset<maxScan;offset+=pageSize){
     const missing=await db.from('products_missing_verified_images').select('id,name,brand,ean,quantity_text,active_offer_count,active_store_count,last_offer_at').gt('active_offer_count',0).order('active_offer_count',{ascending:false}).order('id',{ascending:true}).range(offset,offset+pageSize-1);
     if(missing.error) throw missing.error;
     const rows=missing.data||[];
@@ -151,12 +169,11 @@ async function selectEligibleProducts(limit:number){
     const existingById=new Map((existing.data||[]).map((x:any)=>[String(x.product_id),x]));
     for(const product of rows){
       const job:any=existingById.get(String(product.id));
-      if(!job||(job.status==='failed'&&Number(job.attempt_count||0)<2)) selected.push(product);
-      if(selected.length>=limit) break;
+      if(!job||(job.status==='failed'&&Number(job.attempt_count||0)<2)) candidates.push(product);
     }
     if(rows.length<pageSize) break;
   }
-  return selected.slice(0,limit);
+  return candidates.sort((a:any,b:any)=>genericPriority(b)-genericPriority(a)||Number(b.active_offer_count||0)-Number(a.active_offer_count||0)||String(a.id).localeCompare(String(b.id))).slice(0,limit);
 }
 
 async function seedRun(requestedBy:string|null,requestedLimit:unknown){
