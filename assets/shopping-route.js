@@ -81,9 +81,29 @@
         distance += api().distanceKm(lat, lon, branch.latitude, branch.longitude);
         lat = Number(branch.latitude); lon = Number(branch.longitude);
       }
-      if (!best || distance < best.distanceKm) best = { distanceKm: distance, order };
+      if (!best || distance < best.distanceKm) {
+        best = {
+          distanceKm: distance,
+          order,
+          start: { latitude: Number(position.latitude), longitude: Number(position.longitude) },
+        };
+      }
     }
     return best;
+  }
+
+  function navigationUrl(route) {
+    if (!route?.order?.length || !Number.isFinite(route.start?.latitude) || !Number.isFinite(route.start?.longitude)) return '';
+    const url = new URL('https://www.google.com/maps/dir/');
+    url.searchParams.set('api', '1');
+    url.searchParams.set('origin', `${route.start.latitude},${route.start.longitude}`);
+    const destination = route.order[route.order.length - 1];
+    url.searchParams.set('destination', `${destination.latitude},${destination.longitude}`);
+    if (route.order.length > 1) {
+      url.searchParams.set('waypoints', route.order.slice(0, -1).map((branch) => `${branch.latitude},${branch.longitude}`).join('|'));
+    }
+    url.searchParams.set('travelmode', 'driving');
+    return url.toString();
   }
 
   function planFor(combo, rows, offers, branchByStore, position, kmCost, stopCost) {
@@ -123,8 +143,12 @@
       status('Pro zvolený okruh a počet obchodů chybí úplná kombinace cen pro všechny propojené položky.', 'bad');
       return;
     }
-    const names = best.route.order.map((branch) => branch.stores?.name || branch.name || 'Obchod');
-    const stops = names.map((name, index) => `${index ? '<span class="srRouteArrow">→</span>' : ''}<span class="srRouteStop">${esc(name)}</span>`).join('');
+    const stops = best.route.order.map((branch, index) => {
+      const name = branch.stores?.name || branch.name || 'Obchod';
+      const place = [branch.street, branch.city].filter(Boolean).join(', ');
+      return `${index ? '<span class="srRouteArrow">→</span>' : ''}<span class="srRouteStop"><b>${esc(name)}</b>${place ? `<small>${esc(place)}</small>` : ''}</span>`;
+    }).join('');
+    const mapUrl = navigationUrl(best.route);
     const singleDiff = single ? single.effectiveCost - best.effectiveCost : null;
     const absoluteDiff = absolute ? best.effectiveCost - absolute.basketTotal : null;
     results.innerHTML = `
@@ -134,6 +158,7 @@
           <div class="srRoutePrice">${a.money(best.basketTotal)} Kč</div>
           <div class="srRouteEffective">Cena samotného nákupu. Rozhodovací náklad po započtení cesty a zastávek: <strong>${a.money(best.effectiveCost)} Kč</strong>.</div>
           <div class="srRouteStops">${stops}</div>
+          ${mapUrl ? `<a class="srRouteMapLink" href="${esc(mapUrl)}" target="_blank" rel="noopener">Otevřít skutečnou trasu v Google Maps →</a>` : ''}
           <div class="srRouteFacts">
             <div class="srRouteFact"><small>Obchody</small><strong>${best.usedStores.length}</strong></div>
             <div class="srRouteFact"><small>Odhad cesty</small><strong>${best.route.distanceKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km</strong></div>
@@ -141,7 +166,7 @@
             <div class="srRouteFact"><small>Zastávky navíc</small><strong>${a.money(best.stopWeight)} Kč</strong></div>
             <div class="srRouteFact"><small>Položky</small><strong>${rows.length}</strong></div>
           </div>
-          <p class="srRouteNote">Vzdálenost je součet přímých vzdáleností GPS → pobočky v nejkratším pořadí. Není to silniční navigace ani odhad času; díky tomu Slevao nepředstírá přesnost, kterou zatím nemá.</p>
+          <p class="srRouteNote">Slevao optimalizuje pořadí pomocí přímých GPS vzdáleností, nikoli silniční navigace. Odkaz do Google Maps proto slouží až pro skutečnou silniční trasu a navigaci.</p>
         </article>
         <aside class="srRouteCompare">
           <h3>Proč tato varianta</h3>
