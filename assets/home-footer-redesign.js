@@ -79,6 +79,31 @@
     liveScript.defer = true;
     document.head.appendChild(liveScript);
   }
+  if (!document.querySelector('link[href*="home-in-store.css"]')) {
+    const inStoreStyle = document.createElement('link');
+    inStoreStyle.rel = 'stylesheet';
+    inStoreStyle.href = 'assets/home-in-store.css?v=20260807-1';
+    document.head.appendChild(inStoreStyle);
+  }
+  if (!document.querySelector('script[src*="home-in-store.js"]')) {
+    const inStoreScript = document.createElement('script');
+    inStoreScript.src = 'assets/home-in-store.js?v=20260807-1';
+    inStoreScript.defer = true;
+    document.head.appendChild(inStoreScript);
+  }
+
+  const hideInStore = () => {
+    const node = document.getElementById('slInStore');
+    if (!node) return;
+    node.hidden = true;
+    node.innerHTML = '';
+  };
+  document.addEventListener('submit', (event) => {
+    if (event.target?.id === 'slLiveManual') hideInStore();
+  });
+  document.addEventListener('change', (event) => {
+    if (event.target?.id === 'slLiveRadius') hideInStore();
+  });
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
