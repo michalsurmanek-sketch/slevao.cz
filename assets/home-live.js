@@ -131,7 +131,7 @@
     }
 
     const storeIds = unique.map((branch) => branch.store_id);
-    const offers = await api.fetchOffersForList(linked, storeIds);
+    const offers = await api.fetchOffersForList(linked, storeIds, branches);
     const metrics = api.basketMetrics(linked, offers);
     document.getElementById('slLiveSaving').textContent = metrics.matchedCount ? `${api.money(metrics.savings)} Kč` : '—';
     lines.push(`Cenu se podařilo najít pro ${metrics.matchedCount} z ${metrics.itemCount} propojených položek.`);
