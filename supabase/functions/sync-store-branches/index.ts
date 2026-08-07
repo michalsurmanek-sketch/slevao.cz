@@ -342,6 +342,7 @@ async function fetchAlbertStoreSearch() {
       headers: {
         'content-type': 'application/json',
         accept: 'application/json',
+        'accept-encoding': 'identity',
         'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
         'user-agent': UA,
       },
@@ -352,11 +353,17 @@ async function fetchAlbertStoreSearch() {
       }),
       signal: controller.signal,
     });
-    const payload = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(`Albert GraphQL HTTP ${response.status}`);
+    const text = await response.text();
+    let payload: any = null;
+    try { payload = JSON.parse(text); } catch { /* handled below */ }
+    if (!response.ok) throw new Error(`Albert GraphQL HTTP ${response.status}: ${text.slice(0, 180)}`);
+    if (!payload) throw new Error(`Albert GraphQL nevrátil JSON (${response.headers.get('content-type') || 'unknown'}).`);
     if (payload?.errors?.length) throw new Error(`Albert GraphQL: ${payload.errors.map((error: any) => error?.message).filter(Boolean).join('; ')}`);
-    const result = payload?.data?.storeSearchJSON;
-    if (!result || !Array.isArray(result.items)) throw new Error('Albert GraphQL nevrátil očekávaný storeSearchJSON.items.');
+    let result = payload?.data?.storeSearchJSON;
+    if (typeof result === 'string') {
+      try { result = JSON.parse(result); } catch { /* validated below */ }
+    }
+    if (!result || !Array.isArray(result.items)) throw new Error(`Albert GraphQL nevrátil očekávaný storeSearchJSON.items (typ ${typeof result}).`);
     return result;
   } finally {
     clearTimeout(timer);
