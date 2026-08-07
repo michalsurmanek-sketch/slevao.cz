@@ -20,6 +20,8 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
 const now = () => new Date().toISOString();
 const errorMessage = (error: unknown) => error instanceof Error ? error.message : String(error || 'Neznámá chyba');
+const OPENAI_BILLING_ERROR = /no credits remaining|insufficient[_ -]?quota|billing[_ -]?(?:hard[_ -]?limit)?|quota exceeded/i;
+const isOpenAiBillingError = (error: unknown) => OPENAI_BILLING_ERROR.test(errorMessage(error));
 
 function runInBackground(task: Promise<unknown>) {
   const edgeRuntime = (globalThis as any).EdgeRuntime;
@@ -132,6 +134,7 @@ async function scheduleWorker(runId:string){
   if(!response.ok) console.error('Nepodařilo se naplánovat další worker',response.status,await response.text().catch(()=>''));
 }
 async function saveJob(product:any,runId:string,patch:any){ const {error}=await db.from('product_image_generation_jobs').upsert({run_id:runId,product_id:product.id,normalized_name:patch.normalized_name||normalize(product.name),quantity_text:patch.quantity_text||product.quantity_text||null,...patch},{onConflict:'product_id'}); if(error) throw error; }
+async function runCounts(runId:string){const result=await db.from('product_image_generation_jobs').select('status').eq('run_id',runId);if(result.error)throw result.error;const jobs=result.data||[];const count=(status:string)=>jobs.filter((x:any)=>x.status===status).length;return{processed_count:jobs.length,assigned_count:count('assigned'),manual_count:count('needs_manual_review'),skipped_branded_count:count('skipped_branded'),failed_count:count('failed')}}
 
 async function seedRun(requestedBy:string|null,requestedLimit:unknown){
   if(!OPENAI_API_KEY) throw new Error('V Supabase chybí OPENAI_API_KEY.');
@@ -153,14 +156,24 @@ async function seedRun(requestedBy:string|null,requestedLimit:unknown){
   const aiInput:any[]=[];
   for(const product of selected){const blocked=deterministicBlock(product);if(blocked) await saveJob(product,runId,{status:blocked.status,classification:blocked.classification,reason:blocked.reason,metadata:{generation_workflow:'unbranded_v1',deterministic_block:true}});else aiInput.push(product)}
   let classified=new Map<string,any>();
-  try{classified=await classify(aiInput)}catch(error){const reason=`Klasifikace selhala bezpečně: ${errorMessage(error)}`;for(const product of aiInput) await saveJob(product,runId,{status:'needs_manual_review',classification:'ambiguous',reason,metadata:{generation_workflow:'unbranded_v1',classifier_error:true}})}
+  try{classified=await classify(aiInput)}catch(error){
+    if(isOpenAiBillingError(error)){
+      const message=errorMessage(error).slice(0,1000);
+      for(const product of aiInput) await saveJob(product,runId,{status:'failed',classification:'ambiguous',attempt_count:0,last_error:message,reason:'OpenAI API nemá dostupný kredit; produkt zůstává připravený k automatickému opakování.',metadata:{generation_workflow:'unbranded_v1',provider_blocked:'openai_billing'}});
+      const counts=await runCounts(runId);
+      await db.from('product_image_generation_runs').update({status:'failed',...counts,message:'OpenAI API nemá dostupný kredit. Žádné generování nebylo provedeno a produkty zůstávají připravené k opakování.',finished_at:now()}).eq('id',runId);
+      return {accepted:false,blocked_reason:'openai_billing',run_id:runId,selected_count:selected.length,queued_count:0,message:'OpenAI API nemá dostupný kredit. Produkty nebyly ztraceny a lze je později automaticky zopakovat.'};
+    }
+    const reason=`Klasifikace selhala bezpečně: ${errorMessage(error)}`;
+    for(const product of aiInput) await saveJob(product,runId,{status:'needs_manual_review',classification:'ambiguous',reason,metadata:{generation_workflow:'unbranded_v1',classifier_error:true}})
+  }
   if(classified.size) for(const product of aiInput){const item=classified.get(String(product.id));if(!item){await saveJob(product,runId,{status:'needs_manual_review',classification:'ambiguous',reason:'Klasifikátor nevrátil tento produkt.',metadata:{generation_workflow:'unbranded_v1'}});continue}const status=item.generate&&item.classification==='unbranded_generic'?'queued_for_generation':item.classification==='branded'?'skipped_branded':'needs_manual_review';await saveJob(product,runId,{status,classification:item.classification,normalized_name:item.normalized_name||normalize(product.name),product_type:item.product_type||product.name,variant:item.variant||null,quantity_text:item.quantity_text||product.quantity_text||null,reason:item.reason||null,metadata:{generation_workflow:'unbranded_v1',classifier_model:CLASSIFIER_MODEL}})}
   const queued=await db.from('product_image_generation_jobs').select('id',{count:'exact',head:true}).eq('run_id',runId).eq('status','queued_for_generation'); if(queued.error) throw queued.error;
   if((queued.count||0)>0) runInBackground(scheduleWorker(runId)); else runInBackground(finalizeRun(runId));
   return {accepted:true,run_id:runId,selected_count:selected.length,queued_count:queued.count||0};
 }
 
-async function processJob(job:any){
+async function processJob(job:any):Promise<'openai_billing'|void>{
   const attempt=Number(job.attempt_count||0)+1;
   const start=await db.from('product_image_generation_jobs').update({status:'generating',attempt_count:attempt,started_at:now(),last_error:null}).eq('id',job.id).eq('status','queued_for_generation'); if(start.error) throw start.error;
   try{
@@ -183,7 +196,15 @@ async function processJob(job:any){
     const assigned=verification.data.image_url===stored.url&&verification.data.image_verified&&Number(verification.data.image_quality||0)>=70; if(!assigned) throw new Error('Schválený obrázek se nepropsal do hlavního produktu.');
     await db.from('product_image_library').update({image_hash:hash}).eq('product_id',product.id).eq('image_url',stored.url).eq('is_active',true);
     await db.from('product_image_generation_jobs').update({status:'assigned',assigned_at:now(),reason:'Automaticky přiřazeno po dvojité kontrole.',metadata:{...(job.metadata||{}),storage_path:stored.path,image_model:IMAGE_MODEL,qc,assignment_verified:true}}).eq('id',job.id);
-  }catch(error){const message=errorMessage(error).slice(0,1000);const retry=attempt<2;await db.from('product_image_generation_jobs').update({status:retry?'queued_for_generation':'failed',last_error:message,reason:retry?'Dočasná chyba, worker provede jeden automatický opakovaný pokus.':'Generování selhalo po opakovaném pokusu.'}).eq('id',job.id)}
+  }catch(error){
+    const message=errorMessage(error).slice(0,1000);
+    if(isOpenAiBillingError(error)){
+      await db.from('product_image_generation_jobs').update({status:'failed',attempt_count:0,last_error:message,reason:'OpenAI API nemá dostupný kredit; produkt zůstává připravený k automatickému opakování.'}).eq('id',job.id);
+      return 'openai_billing';
+    }
+    const retry=attempt<2;
+    await db.from('product_image_generation_jobs').update({status:retry?'queued_for_generation':'failed',last_error:message,reason:retry?'Dočasná chyba, worker provede jeden automatický opakovaný pokus.':'Generování selhalo po opakovaném pokusu.'}).eq('id',job.id)
+  }
 }
 
 async function finalizeRun(runId:string){
@@ -197,7 +218,19 @@ async function finalizeRun(runId:string){
 }
 
 async function processWorker(runId:string){
-  try{const run=await db.from('product_image_generation_runs').select('id,status').eq('id',runId).maybeSingle();if(run.error||!run.data||run.data.status!=='processing') return;const queued=await db.from('product_image_generation_jobs').select('*').eq('run_id',runId).eq('status','queued_for_generation').order('updated_at',{ascending:true}).limit(WORKER_SIZE);if(queued.error) throw queued.error;if(!(queued.data||[]).length){await finalizeRun(runId);return}await Promise.all((queued.data||[]).map(processJob));const remaining=await db.from('product_image_generation_jobs').select('id',{count:'exact',head:true}).eq('run_id',runId).eq('status','queued_for_generation');if(remaining.error) throw remaining.error;if((remaining.count||0)>0) await scheduleWorker(runId);else await finalizeRun(runId)}catch(error){console.error('worker failed',error);await db.from('product_image_generation_runs').update({status:'failed',message:`Worker selhal: ${errorMessage(error).slice(0,1000)}`,finished_at:now()}).eq('id',runId)}
+  try{
+    const run=await db.from('product_image_generation_runs').select('id,status').eq('id',runId).maybeSingle();if(run.error||!run.data||run.data.status!=='processing') return;
+    const queued=await db.from('product_image_generation_jobs').select('*').eq('run_id',runId).eq('status','queued_for_generation').order('updated_at',{ascending:true}).limit(WORKER_SIZE);if(queued.error) throw queued.error;
+    if(!(queued.data||[]).length){await finalizeRun(runId);return}
+    const outcomes=await Promise.all((queued.data||[]).map(processJob));
+    if(outcomes.includes('openai_billing')){
+      await db.from('product_image_generation_jobs').update({status:'failed',attempt_count:0,last_error:'OpenAI API nemá dostupný kredit.',reason:'OpenAI API nemá dostupný kredit; produkt zůstává připravený k automatickému opakování.'}).eq('run_id',runId).eq('status','queued_for_generation');
+      const counts=await runCounts(runId);
+      await db.from('product_image_generation_runs').update({status:'failed',...counts,message:'OpenAI API nemá dostupný kredit. Worker byl zastaven bez dalších pokusů a produkty zůstávají připravené k opakování.',finished_at:now()}).eq('id',runId);
+      return;
+    }
+    const remaining=await db.from('product_image_generation_jobs').select('id',{count:'exact',head:true}).eq('run_id',runId).eq('status','queued_for_generation');if(remaining.error) throw remaining.error;if((remaining.count||0)>0) await scheduleWorker(runId);else await finalizeRun(runId)
+  }catch(error){console.error('worker failed',error);await db.from('product_image_generation_runs').update({status:'failed',message:`Worker selhal: ${errorMessage(error).slice(0,1000)}`,finished_at:now()}).eq('id',runId)}
 }
 
 Deno.serve(async(request)=>{
