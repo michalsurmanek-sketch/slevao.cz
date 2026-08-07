@@ -19,6 +19,18 @@
     navScript.defer = true;
     document.head.appendChild(navScript);
   }
+  if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
+    const quickFoodStyle = document.createElement('link');
+    quickFoodStyle.rel = 'stylesheet';
+    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260807-1';
+    document.head.appendChild(quickFoodStyle);
+  }
+  if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
+    const quickFoodScript = document.createElement('script');
+    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260807-1';
+    quickFoodScript.defer = true;
+    document.head.appendChild(quickFoodScript);
+  }
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
