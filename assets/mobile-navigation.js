@@ -9,6 +9,7 @@
     const mobileStatus = (value) => {
       const text = String(value || '').trim();
       if (text === '✓ Aktualizováno dnes') return 'Aktualizováno';
+      if (text === 'Obnovuji aktuální data…') return 'Obnovuji';
       return text.startsWith('✓ ') ? text.slice(2) : text;
     };
 
