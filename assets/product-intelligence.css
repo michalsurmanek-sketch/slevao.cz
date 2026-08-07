@@ -1,0 +1,13 @@
+/* Slevao.cz – datové hodnocení výhodnosti na detailu produktu. */
+.sqIntelSummary{margin:18px 0 4px;padding:18px;border:1px solid #d6e9e6;border-radius:22px;background:linear-gradient(135deg,#fff,#eefaf8);display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:16px;align-items:center}
+.sqIntelScore{width:76px;height:76px;border-radius:23px;display:grid;place-items:center;align-content:center;background:#0b776f;color:#fff;box-shadow:0 12px 28px rgba(11,119,111,.2)}
+.sqIntelScore strong{font-size:25px;line-height:1}.sqIntelScore small{font-size:10px;font-weight:900;opacity:.84;margin-top:3px;text-transform:uppercase;letter-spacing:.04em}
+.sqIntelSummary h3{margin:0 0 4px;font-size:18px}.sqIntelSummary p{margin:0;color:#667774;line-height:1.45;font-size:13px}
+.sqIntelDecision{min-width:118px;padding:10px 12px;border-radius:13px;text-align:center;font-size:12px;font-weight:950;letter-spacing:.03em;background:#eef4f3;color:#526360;border:1px solid #d9e5e3}
+.sqIntelDecision.buy{background:#e5f7ee;color:#11704c;border-color:#bfe6d2}.sqIntelDecision.wait{background:#fff8e8;color:#8b5b00;border-color:#f0dfb3}.sqIntelDecision.skip{background:#fff0f1;color:#a92c34;border-color:#f0c5c8}
+.sqIntelBadges{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 9px}
+.sqIntelBadge{display:inline-flex;align-items:center;gap:4px;padding:5px 7px;border-radius:9px;background:#e9f8f5;color:#0b7068;border:1px solid #c6e9e4;font-size:10px;font-weight:950}
+.sqIntelBadge.buy{background:#e7f7ef;color:#13734f;border-color:#c3e6d3}.sqIntelBadge.wait{background:#fff8e9;color:#895b04;border-color:#ecdcb5}.sqIntelBadge.skip{background:#fff0f1;color:#a32d34;border-color:#efc7ca}.sqIntelBadge.neutral{background:#f2f5f4;color:#64716f;border-color:#dfe6e5}
+.sqIntelMethod{margin-top:8px;font-size:10px!important;color:#87918f!important}
+
+@media(max-width:700px){.sqIntelSummary{grid-template-columns:auto 1fr;padding:15px;gap:12px}.sqIntelDecision{grid-column:1/-1;width:100%}.sqIntelScore{width:68px;height:68px;border-radius:20px}.sqIntelScore strong{font-size:22px}}
