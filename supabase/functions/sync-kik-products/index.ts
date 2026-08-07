@@ -43,6 +43,18 @@ async function fetchText(url: string, timeout = 25_000) {
   }
 }
 
+async function fetchOptionalJson(url: string) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 12_000);
+  try {
+    const response = await fetch(url, { headers: FETCH_HEADERS, redirect: 'follow', signal: controller.signal });
+    if (!response.ok) return null;
+    return await response.json().catch(() => null);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 function dataFromHtml(html: string) {
   const marker = 'var data =';
   const start = html.indexOf(marker);
@@ -54,9 +66,28 @@ function dataFromHtml(html: string) {
   return JSON.parse((semi >= 0 ? block.slice(0, semi) : block).trim());
 }
 
-function isPriceLike(line: string) {
-  const text = line.replace(/\u00a0/g, ' ').trim();
-  return /(?:\b\d{1,4}(?:[,.]\d{1,2})?\s*Kč\b|\b\d{1,4}[,.]-\b|\bKč\s*\d{1,4}(?:[,.]\d{1,2})?\b)/iu.test(text);
+function hasNumber(line: string) {
+  return /\d/u.test(line);
+}
+
+function collectHotspots(value: unknown, output: unknown[]) {
+  if (value == null) return;
+  if (Array.isArray(value)) {
+    for (const item of value) collectHotspots(item, output);
+    return;
+  }
+  if (typeof value !== 'object') return;
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj);
+  const looksLikeHotspot = keys.some((k) => /(?:hotspot|product|link|type|target|url)/i.test(k));
+  if (looksLikeHotspot && output.length < 100) {
+    const compact: Record<string, unknown> = {};
+    for (const key of keys) {
+      if (/^(?:id|type|kind|productId|product_id|title|name|price|currency|url|href|target|action)$/i.test(key)) compact[key] = obj[key];
+    }
+    if (Object.keys(compact).length) output.push(compact);
+  }
+  for (const child of Object.values(obj)) collectHotspots(child, output);
 }
 
 Deno.serve(async (request) => {
@@ -92,25 +123,39 @@ Deno.serve(async (request) => {
     const spreads = JSON.parse(await fetchText(`${viewer}/spreads.json?version=${encodeURIComponent(cacheToken)}`));
     if (!Array.isArray(spreads) || !spreads.length) throw new Error('KiK Publitas nevrátil stránky.');
 
-    const samples: unknown[] = [];
+    const numericSamples: unknown[] = [];
+    const hotspotSamples: unknown[] = [];
     let pages = 0;
     let textLines = 0;
-    let priceLines = 0;
+    let numericLines = 0;
+    let hotspotFiles = 0;
+
     for (const spread of spreads) {
-      for (const page of Array.isArray(spread?.pages) ? spread.pages : []) {
+      const spreadPages = Array.isArray(spread?.pages) ? spread.pages : [];
+      const pageNumbers = spreadPages.map((page: any) => Number(page?.number || 0)).filter((n: number) => n > 0);
+      if (pageNumbers.length) {
+        const label = pageNumbers.join('-');
+        const hotspotData = await fetchOptionalJson(`${viewer}/page/${label}/hotspots_data.json?version=${encodeURIComponent(cacheToken)}`);
+        if (hotspotData) {
+          hotspotFiles++;
+          collectHotspots(hotspotData, hotspotSamples);
+        }
+      }
+
+      for (const page of spreadPages) {
         pages++;
         const pageNo = Number(page?.number || pages);
         const lines = String(page?.text || '').split(/\r?\n/u).map((x: string) => x.replace(/\u00a0/g,' ').trim()).filter(Boolean);
         textLines += lines.length;
-        for (let i=0; i<lines.length; i++) {
-          if (!isPriceLike(lines[i])) continue;
-          priceLines++;
-          if (samples.length < 120) {
-            samples.push({
+        for (let i = 0; i < lines.length; i++) {
+          if (!hasNumber(lines[i])) continue;
+          numericLines++;
+          if (numericSamples.length < 180) {
+            numericSamples.push({
               page: pageNo,
-              price_line: lines[i],
-              before: lines.slice(Math.max(0, i - 6), i),
-              after: lines.slice(i + 1, Math.min(lines.length, i + 4)),
+              line: lines[i],
+              before: lines.slice(Math.max(0, i - 5), i),
+              after: lines.slice(i + 1, Math.min(lines.length, i + 3)),
             });
           }
         }
@@ -125,9 +170,10 @@ Deno.serve(async (request) => {
       publication_id: document.metadata?.publication_id || null,
       pages,
       text_lines: textLines,
-      price_lines: priceLines,
-      cache_token_present: true,
-      samples,
+      numeric_lines: numericLines,
+      hotspot_files: hotspotFiles,
+      hotspot_samples: hotspotSamples,
+      numeric_samples: numericSamples,
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
