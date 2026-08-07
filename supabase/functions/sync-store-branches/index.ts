@@ -69,12 +69,16 @@ function fold(value: unknown) {
 }
 
 function buildQuery() {
-  const names = 'Albert|BILLA|Kaufland|Lidl|Penny|Tesco|Globus|COOP|Hruška|Hruska|MAKRO|Makro|Norma|Terno|Enapo|Flop|JIP|Žabka|Zabka';
-  return `[out:json][timeout:55];
-area["ISO3166-1"="CZ"][admin_level=2]->.cz;
+  const groupA = 'Albert|BILLA|Kaufland|Lidl|Penny|Tesco|Globus|COOP';
+  const groupB = 'Hruška|Hruska|MAKRO|Makro|Norma|Terno|Enapo|Flop|JIP|Žabka|Zabka';
+  return `[out:json][timeout:35][bbox:48.45,12.0,51.2,19.1];
 (
-  nwr["shop"="supermarket"][~"^(name|brand|operator)$"~"${names}",i](area.cz);
-  nwr["shop"="convenience"][~"^(name|brand|operator)$"~"${names}",i](area.cz);
+  nwr["shop"~"^(supermarket|convenience)$"]["brand"~"${groupA}",i];
+  nwr["shop"~"^(supermarket|convenience)$"]["name"~"${groupA}",i];
+  nwr["shop"~"^(supermarket|convenience)$"]["operator"~"${groupA}",i];
+  nwr["shop"~"^(supermarket|convenience)$"]["brand"~"${groupB}",i];
+  nwr["shop"~"^(supermarket|convenience)$"]["name"~"${groupB}",i];
+  nwr["shop"~"^(supermarket|convenience)$"]["operator"~"${groupB}",i];
 );
 out center tags;`;
 }
@@ -84,7 +88,7 @@ async function fetchOverpass() {
   const query = buildQuery();
   for (const endpoint of OVERPASS_ENDPOINTS) {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 65_000);
+    const timer = setTimeout(() => controller.abort(), 40_000);
     try {
       const response = await fetch(endpoint, {
         method: 'POST',
