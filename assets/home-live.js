@@ -23,9 +23,9 @@
           <div class="slLiveMain">
             <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>SLEVAO LIVE</span></div>
             <h2>Co se vyplatí právě kolem vás</h2>
-            <p class="slLiveLead">Spojí váš nákupní seznam s reálně evidovanými pobočkami a dnešními cenami. Bez polohy funguje i ruční město nebo PSČ.</p>
+            <p class="slLiveLead">Skutečné pobočky, jejich vzdálenost a dnešní akce. U celostátní nabídky vždy jasně říkáme, že jde o akci řetězce, ne konkrétní pobočky.</p>
             <div class="slLiveMetric"><small>TEĎ KOLEM VÁS UŠETŘÍTE AŽ</small><strong id="slLiveSaving">—</strong></div>
-            <div id="slLiveContext" class="slLiveContext"><span>Povolte polohu nebo zadejte město. Dokud nejsou nalezené skutečné pobočky, Slevao žádnou částku nevymýšlí.</span></div>
+            <div id="slLiveContext" class="slLiveContext"><span>Povolte polohu nebo zadejte město. Dokud nejsou nalezené skutečné pobočky, Slevao žádnou částku ani lokální dostupnost nevymýšlí.</span></div>
             <div id="slLiveStores" class="slLiveStores"></div>
           </div>
           <aside class="slLivePanel">
@@ -41,6 +41,7 @@
             <a class="slLiveLink" href="seznam.html">Otevřít nákupní seznam →</a>
           </aside>
         </div>
+        <div id="slLiveDeals" class="slLiveDeals" hidden></div>
       </div>`;
     categories.parentNode.insertBefore(section, categories);
     bind();
@@ -102,6 +103,60 @@
     return `${count} ${count === 1 ? 'položka je' : count < 5 ? 'položky jsou' : 'položek je'} dnes levnější v jiném blízkém řetězci.${distance}`;
   }
 
+  function scopeLabel(offer) {
+    const scope = String(offer?.coverage_scope || 'national').toLowerCase();
+    if (scope === 'store') return 'Akce této pobočky';
+    if (scope === 'city') return offer.city_name ? `Akce pro ${offer.city_name}` : 'Městská akce';
+    if (scope === 'region') return 'Regionální akce';
+    return 'Akce řetězce';
+  }
+
+  function offerHtml(offer) {
+    const api = loc();
+    const discount = api.documentedDiscount(offer);
+    const oldPrice = Number(offer.old_price || 0) > Number(offer.price || 0) ? Number(offer.old_price) : 0;
+    const href = offer.product_id ? `produkt.html?id=${encodeURIComponent(offer.product_id)}` : '#';
+    const image = offer.image_url
+      ? `<img class="slLiveOfferImage" loading="lazy" src="${esc(offer.image_url)}" alt="">`
+      : `<span class="slLiveOfferImage slLiveOfferImageFallback" aria-hidden="true">%</span>`;
+    return `<a class="slLiveOffer" href="${href}">
+      ${image}
+      <span class="slLiveOfferBody">
+        <span class="slLiveOfferScope">${esc(scopeLabel(offer))}</span>
+        <strong>${esc(offer.title || 'Akční nabídka')}</strong>
+        <span class="slLiveOfferPrice"><b>${api.money(offer.price)} Kč</b>${oldPrice ? `<s>${api.money(oldPrice)} Kč</s>` : ''}${discount ? `<em>−${discount} %</em>` : ''}</span>
+      </span>
+    </a>`;
+  }
+
+  function renderLiveDeals(branches, offers, hasDistances) {
+    const api = loc();
+    const node = document.getElementById('slLiveDeals');
+    const nearest = api.uniqueStores(branches).slice(0, 12);
+    const offerCount = (branch) => offers.filter((offer) => String(offer.store_id) === String(branch.store_id)).length;
+    const chosen = [
+      ...nearest.filter((branch) => offerCount(branch) > 0),
+      ...nearest.filter((branch) => offerCount(branch) === 0),
+    ].slice(0, 6);
+
+    node.hidden = false;
+    node.innerHTML = chosen.map((branch) => {
+      const storeOffers = api.rankOffers(offers.filter((offer) => String(offer.store_id) === String(branch.store_id)), 2);
+      const storeName = branch.stores?.name || branch.name || 'Obchod';
+      const distance = hasDistances && Number.isFinite(Number(branch.distance_km))
+        ? `${Number(branch.distance_km).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km`
+        : 'v zadané lokalitě';
+      const address = [branch.street, branch.city].filter(Boolean).join(', ');
+      const content = storeOffers.length
+        ? storeOffers.map(offerHtml).join('')
+        : '<div class="slLiveNoOffer">Pobočku evidujeme, ale pro tento řetězec teď nemáme načtenou dnešní nabídku.</div>';
+      return `<article class="slLiveStoreCard">
+        <header><div><span class="slLiveStoreDistance">${esc(distance)}</span><h3>${esc(storeName)}</h3><p>${esc(address)}</p></div><span class="slLiveStoreCount">${offerCount(branch)} akcí</span></header>
+        <div class="slLiveStoreOffers">${content}</div>
+      </article>`;
+    }).join('');
+  }
+
   async function evaluate(branches, context = {}) {
     const api = loc();
     const unique = api.uniqueStores(branches);
@@ -111,6 +166,7 @@
     if (!unique.length) {
       document.getElementById('slLiveSaving').textContent = '—';
       document.getElementById('slLiveContext').innerHTML = '<span>V této oblasti zatím nemáme žádnou spolehlivě evidovanou pobočku.</span>';
+      document.getElementById('slLiveDeals').hidden = true;
       setStatus('Pobočky pro tuto oblast zatím chybí. Zkuste větší okruh nebo jiné město.', 'bad');
       return;
     }
@@ -122,21 +178,36 @@
     if (current?.text) lines.push(`<strong>${esc(current.text)}</strong>`);
     lines.push(`${unique.length} ${unique.length === 1 ? 'řetězec' : unique.length < 5 ? 'řetězce' : 'řetězců'} v zadaném okolí.`);
 
+    const dealsNode = document.getElementById('slLiveDeals');
+    dealsNode.hidden = false;
+    dealsNode.innerHTML = '<div class="slLiveDealsLoading">Načítám dnešní akce okolních obchodů…</div>';
+    setStatus('Pobočky nalezeny. Načítám jejich dnešní nabídky…');
+
+    let offers = [];
+    try {
+      offers = await api.fetchOffersForStores(unique.map((branch) => branch.store_id), branches);
+      renderLiveDeals(branches, offers, Boolean(context.position));
+      lines.push(`${offers.length} dnešních nabídek odpovídá nalezeným řetězcům a jejich územní platnosti.`);
+    } catch (error) {
+      dealsNode.innerHTML = '<div class="slLiveDealsLoading">Pobočky jsme našli, ale dnešní nabídky se právě nepodařilo načíst.</div>';
+      lines.push('Pobočky jsou ověřené, dnešní nabídky se ale právě nepodařilo načíst.');
+    }
+
     if (!linked.length) {
       document.getElementById('slLiveSaving').textContent = '—';
-      lines.push('V nákupním seznamu zatím nejsou propojené produkty, takže úsporu nelze korektně spočítat.');
+      lines.push('Pro osobní výpočet úspory přidejte produkty do nákupního seznamu.');
       document.getElementById('slLiveContext').innerHTML = lines.map((line) => `<span>${line}</span>`).join('');
-      setStatus(`Nalezeno ${unique.length} obchodních řetězců. Přidejte produkty do seznamu pro výpočet úspory.`, 'good');
+      setStatus(offers.length ? 'Zobrazuji skutečné dnešní akce nejbližších evidovaných řetězců.' : 'Nalezené pobočky jsou připravené; konkrétní dnešní akce teď nejsou dostupné.', offers.length ? 'good' : '');
       return;
     }
 
-    const storeIds = unique.map((branch) => branch.store_id);
-    const offers = await api.fetchOffersForList(linked, storeIds, branches);
-    const metrics = api.basketMetrics(linked, offers);
+    const productIds = new Set(linked.map((row) => String(row.product_id)));
+    const listOffers = offers.filter((offer) => productIds.has(String(offer.product_id)));
+    const metrics = api.basketMetrics(linked, listOffers);
     document.getElementById('slLiveSaving').textContent = metrics.matchedCount ? `${api.money(metrics.savings)} Kč` : '—';
     lines.push(`Cenu se podařilo najít pro ${metrics.matchedCount} z ${metrics.itemCount} propojených položek.`);
     if (metrics.bestSingleStore) lines.push(`Nejvýhodnější jeden obchod pro celý porovnatelný nákup: <strong>${esc(metrics.bestSingleStore.store_name)} · ${api.money(metrics.bestSingleStore.total)} Kč</strong>.`);
-    const cheaper = cheaperElsewhereText(current?.branch, branches, metrics, offers);
+    const cheaper = cheaperElsewhereText(current?.branch, branches, metrics, listOffers);
     if (cheaper) lines.push(esc(cheaper));
     document.getElementById('slLiveContext').innerHTML = lines.map((line) => `<span>${line}</span>`).join('');
     setStatus(metrics.matchedCount ? 'SLEVAO LIVE počítá z dnešních cen a skutečně evidovaných poboček.' : 'V okolních řetězcích nejsou pro položky ze seznamu dohledané dnešní ceny.', metrics.matchedCount ? 'good' : '');
