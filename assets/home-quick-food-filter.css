@@ -1,0 +1,43 @@
+/* Slevao.cz – rychlý filtr základních potravin. Izolovaná vrstva nad stávajícím filtrováním. */
+.sqFoodDock{position:fixed;z-index:58;right:max(14px,calc((100vw - 1240px)/2 - 118px));top:112px;width:92px;padding:10px 8px 9px;border:1px solid rgba(21,158,148,.18);border-radius:24px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(23,34,34,.12);backdrop-filter:blur(18px);transition:width .2s ease,transform .2s ease,opacity .2s ease}
+.sqFoodDockHead{display:flex;align-items:center;justify-content:space-between;gap:4px;margin-bottom:8px;padding:0 2px}
+.sqFoodDockTitle{font-size:10px;line-height:1.15;font-weight:950;letter-spacing:.06em;text-transform:uppercase;color:#0c786f;text-align:center;flex:1}
+.sqFoodDockToggle{width:28px;height:28px;display:grid;place-items:center;border:0;border-radius:10px;background:#e7faf7;color:#087e75;font-weight:950;padding:0}
+.sqFoodDockItems{display:grid;gap:7px}
+.sqFoodQuick{width:100%;min-height:66px;border:1px solid #e0ecea;border-radius:18px;background:#fff;color:#172222;padding:6px 3px 7px;display:grid;justify-items:center;align-content:center;gap:3px;font-size:10px;font-weight:900;line-height:1.05;box-shadow:0 5px 14px rgba(23,34,34,.045);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.sqFoodQuick:hover{transform:translateY(-2px);border-color:#8fe3da;box-shadow:0 10px 24px rgba(21,158,148,.12)}
+.sqFoodQuick:focus-visible,.sqFoodDockToggle:focus-visible,.sqFoodClear:focus-visible{outline:3px solid rgba(21,158,148,.23);outline-offset:2px}
+.sqFoodQuick.active{border-color:#159e94;background:linear-gradient(180deg,#effcf9,#ddf8f4);color:#0b7169;box-shadow:0 8px 22px rgba(21,158,148,.13)}
+.sqFoodIcon{width:38px;height:38px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f2fbf9,#fff);border:1px solid #dcecea;font-size:20px;box-shadow:inset 0 1px 0 #fff}
+.sqFoodQuick.active .sqFoodIcon{background:#fff;border-color:#9fe5de}
+.sqFoodClear{width:100%;height:34px;margin-top:8px;border:0;border-radius:12px;background:#f3f7f6;color:#58706d;font-size:10px;font-weight:900}
+.sqFoodDock.collapsed{width:48px;padding:8px 6px}
+.sqFoodDock.collapsed .sqFoodDockTitle,.sqFoodDock.collapsed .sqFoodDockItems,.sqFoodDock.collapsed .sqFoodClear{display:none}
+.sqFoodDock.collapsed .sqFoodDockHead{margin:0;padding:0;justify-content:center}
+.sqFoodDock.collapsed .sqFoodDockToggle{width:34px;height:34px;border-radius:13px}
+
+@media(max-width:1460px) and (min-width:901px){
+  .sqFoodDock{right:10px;top:104px;width:80px}
+  .sqFoodQuick{min-height:60px}
+  .sqFoodIcon{width:34px;height:34px;font-size:18px}
+}
+
+@media(max-width:900px){
+  .sqFoodDock{position:relative;z-index:4;right:auto;top:auto;width:auto;margin:0 auto 16px;padding:0;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;transition:none}
+  .sqFoodDockHead{display:none}
+  .sqFoodDockItems{display:flex;gap:9px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none;padding:3px max(16px,calc((100vw - 1240px)/2)) 8px}
+  .sqFoodDockItems::-webkit-scrollbar{display:none}
+  .sqFoodQuick{flex:0 0 72px;width:72px;min-height:68px;scroll-snap-align:start;border-radius:18px;padding:6px 4px}
+  .sqFoodIcon{width:36px;height:36px;font-size:19px}
+  .sqFoodClear{display:none}
+  .sqFoodDock.collapsed{width:auto;padding:0}
+  .sqFoodDock.collapsed .sqFoodDockItems{display:flex}
+}
+
+@media(max-width:560px){
+  .sqFoodDock{margin-top:-5px;margin-bottom:11px}
+  .sqFoodDockItems{padding-left:16px;padding-right:16px}
+  .sqFoodQuick{flex-basis:69px;width:69px;min-height:65px}
+}
+
+@media(prefers-reduced-motion:reduce){.sqFoodDock,.sqFoodQuick{transition:none!important}}
