@@ -1,5 +1,6 @@
 name: Hledání kvalitních produktových fotografií
 
+# Generování neznačkových fotografií je záměrně navázané na stávající image workflow.
 on:
   workflow_dispatch:
     inputs:
