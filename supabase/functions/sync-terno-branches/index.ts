@@ -17,22 +17,24 @@ const CORS = {
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
-
 function errorText(error: unknown) {
-  if (error instanceof Error) return error.message;
-  return String(error);
+  return error instanceof Error ? error.message : String(error);
 }
-
 function allowed(request: Request) {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (token && token === SERVICE) return true;
   return !!CRON && request.headers.get('x-cron-secret') === CRON;
 }
-
 function cleanText(value: string) {
   return String(value || '')
     .replace(/<br\s*\/?>/gi, ' ')
     .replace(/<[^>]+>/g, ' ')
+    .replace(/&#x([0-9a-f]+);/gi, (_match, hex) => {
+      try { return String.fromCodePoint(Number.parseInt(hex, 16)); } catch { return ''; }
+    })
+    .replace(/&#(\d+);/g, (_match, dec) => {
+      try { return String.fromCodePoint(Number.parseInt(dec, 10)); } catch { return ''; }
+    })
     .replace(/&nbsp;|&#160;/gi, ' ')
     .replace(/&amp;/gi, '&')
     .replace(/&quot;/gi, '"')
@@ -40,7 +42,6 @@ function cleanText(value: string) {
     .replace(/\s+/g, ' ')
     .trim();
 }
-
 async function fetchText(url: string, timeout = 20_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
@@ -58,11 +59,8 @@ async function fetchText(url: string, timeout = 20_000) {
     const text = await response.text();
     if (!response.ok) throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);
     return { text, url: response.url };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
-
 function detailLinks(html: string) {
   const values = new Set<string>();
   for (const match of html.matchAll(/https:\/\/www[.]terno[.]cz\/prodejny\/[^"'<>\s]+\//gi)) {
@@ -73,7 +71,6 @@ function detailLinks(html: string) {
   }
   return [...values].sort();
 }
-
 function coordinatesFromUrl(value: string) {
   const exact = value.match(/!3d(-?[0-9]+(?:\.[0-9]+)?)!4d(-?[0-9]+(?:\.[0-9]+)?)/i);
   const viewport = value.match(/@(-?[0-9]+(?:\.[0-9]+)?),(-?[0-9]+(?:\.[0-9]+)?)/i);
@@ -83,7 +80,6 @@ function coordinatesFromUrl(value: string) {
   if (latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) return null;
   return { latitude, longitude };
 }
-
 async function resolveMapCoordinates(shortUrl: string) {
   let current = shortUrl;
   for (let hop = 0; hop < 6; hop += 1) {
@@ -105,14 +101,11 @@ async function resolveMapCoordinates(shortUrl: string) {
       }
       const found = coordinatesFromUrl(response.url || current);
       return found ? { ...found, resolved_url: response.url || current } : null;
-    } finally {
-      clearTimeout(timer);
-    }
+    } finally { clearTimeout(timer); }
   }
   const final = coordinatesFromUrl(current);
   return final ? { ...final, resolved_url: current } : null;
 }
-
 function parseAddress(raw: string) {
   const value = cleanText(raw);
   const match = value.match(/^(.*?),\s*(\d{3}\s?\d{2})\s+(.+)$/u);
@@ -123,7 +116,6 @@ function parseAddress(raw: string) {
     city: match[3].trim() || null,
   };
 }
-
 function openingHours(html: string) {
   const rows: Array<{ day: string; hours: string }> = [];
   for (const match of html.matchAll(/<tr>\s*<td>\s*<strong>([^<]+)<\/strong>:\s*<\/td>\s*<td>([^<]+)<\/td>\s*<\/tr>/gi)) {
@@ -131,7 +123,6 @@ function openingHours(html: string) {
   }
   return rows.slice(0, 7);
 }
-
 async function parseStore(url: string) {
   try {
     const page = await fetchText(url);
@@ -146,7 +137,6 @@ async function parseStore(url: string) {
     const address = parseAddress(mapMatch[2]);
     if (!address.city) return { row: null, error: 'Oficiální adresa neobsahuje rozpoznatelné město.', url };
     const phone = cleanText(html.match(/Tel\.:?\s*<[^>]*>([^<]+)</i)?.[1] || html.match(/Tel\.:?\s*([^<\n]+)/i)?.[1] || '');
-
     return {
       row: {
         external_id: `terno:${postId}`,
@@ -170,29 +160,23 @@ async function parseStore(url: string) {
       error: null,
       url,
     };
-  } catch (error) {
-    return { row: null, error: errorText(error), url };
-  }
+  } catch (error) { return { row: null, error: errorText(error), url }; }
 }
-
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!allowed(request)) return json({ error: 'Unauthorized' }, 401);
-
   try {
     const body = await request.json().catch(() => ({}));
     const dryRun = body.dry_run === true;
     const listing = await fetchText(LIST_URL, 25_000);
     const links = detailLinks(listing.text);
     if (links.length < 14) return json({ error: `Oficiální Terno seznam obsahuje jen ${links.length} detailů; synchronizace byla zastavena.`, code: 'TERNO_LIST_TOO_SMALL', dry_run: dryRun }, 409);
-
     const results: Array<Awaited<ReturnType<typeof parseStore>>> = [];
     for (let from = 0; from < links.length; from += 4) results.push(...await Promise.all(links.slice(from, from + 4).map(parseStore)));
     const rows = results.filter((result) => result.row).map((result) => result.row);
     const failures = results.filter((result) => !result.row).map((result) => ({ url: result.url, error: result.error }));
     if (rows.length < 13) return json({ error: `Terno parser zpracoval jen ${rows.length}/${links.length} poboček; zápis byl zastaven.`, code: 'TERNO_PARSE_INCOMPLETE', dry_run: dryRun, failures }, 409);
-
     let written = 0;
     if (!dryRun) {
       const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'terno').eq('is_active', true).maybeSingle();
@@ -203,9 +187,6 @@ Deno.serve(async (request) => {
       if (error) throw error;
       written = payload.length;
     }
-
     return json({ ok: true, dry_run: dryRun, source: 'terno_official', total: links.length, parsed: rows.length, written, failures, samples: rows.slice(0, 5) });
-  } catch (error) {
-    return json({ error: errorText(error), code: 'TERNO_BRANCH_SYNC_FAILED' }, 500);
-  }
+  } catch (error) { return json({ error: errorText(error), code: 'TERNO_BRANCH_SYNC_FAILED' }, 500); }
 });
