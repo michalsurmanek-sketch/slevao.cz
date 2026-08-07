@@ -22,6 +22,9 @@ create table if not exists public.product_image_generation_runs (
 
 create index if not exists product_image_generation_runs_created_idx
   on public.product_image_generation_runs(created_at desc);
+create index if not exists product_image_generation_runs_requested_by_idx
+  on public.product_image_generation_runs(requested_by)
+  where requested_by is not null;
 
 create table if not exists public.product_image_generation_jobs (
   id uuid primary key default gen_random_uuid(),
@@ -60,6 +63,9 @@ create index if not exists product_image_generation_jobs_status_idx
   on public.product_image_generation_jobs(status, updated_at desc);
 create index if not exists product_image_generation_jobs_run_idx
   on public.product_image_generation_jobs(run_id, status);
+create index if not exists product_image_generation_jobs_candidate_idx
+  on public.product_image_generation_jobs(candidate_id)
+  where candidate_id is not null;
 create index if not exists product_image_generation_jobs_hash_idx
   on public.product_image_generation_jobs(image_hash)
   where image_hash is not null and image_hash <> '';
@@ -154,3 +160,6 @@ begin
   return new;
 end;
 $$;
+
+-- Funkce je triggerová interní logika, ne veřejné RPC.
+revoke execute on function public.require_manual_product_image_review() from public, anon, authenticated;
