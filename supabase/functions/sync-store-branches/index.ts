@@ -246,20 +246,21 @@ function nuxtData(html: string, label: string) {
   return parsed as any[];
 }
 
-function resolveNuxt(data: any[], value: any, depth = 0): any {
+function resolveNuxt(data: any[], value: any, depth = 0, dereferenced = false): any {
   if (depth > 12) return null;
   if (typeof value === 'number' && Number.isInteger(value)) {
+    if (dereferenced) return value;
     if (value < 0) return null;
-    if (value < data.length) return resolveNuxt(data, data[value], depth + 1);
+    if (value < data.length) return resolveNuxt(data, data[value], depth + 1, true);
     return value;
   }
   if (Array.isArray(value)) {
-    if (value.length === 2 && ['ShallowReactive', 'Reactive', 'Ref', 'Readonly', 'ShallowReadonly'].includes(String(value[0]))) return resolveNuxt(data, value[1], depth + 1);
-    return value.map((item) => resolveNuxt(data, item, depth + 1));
+    if (value.length === 2 && ['ShallowReactive', 'Reactive', 'Ref', 'Readonly', 'ShallowReadonly'].includes(String(value[0]))) return resolveNuxt(data, value[1], depth + 1, false);
+    return value.map((item) => resolveNuxt(data, item, depth + 1, false));
   }
   if (value && typeof value === 'object') {
     const output: Record<string, any> = {};
-    for (const [key, item] of Object.entries(value)) output[key] = resolveNuxt(data, item, depth + 1);
+    for (const [key, item] of Object.entries(value)) output[key] = resolveNuxt(data, item, depth + 1, false);
     return output;
   }
   return value;
@@ -476,7 +477,7 @@ Deno.serve(async (request) => {
       return json(await diagnoseKauflandDetail(body.url));
     }
     if (body.source === 'penny_official') return await syncNuxtOfficial(body, { slug: 'penny', label: 'PENNY', locator: PENNY_LOCATOR, minimum: 400 });
-    if (body.source === 'billa_official') return await syncNuxtOfficial(body, { slug: 'billa', label: 'BILLA', locator: BILLA_LOCATOR, minimum: 220 });
+    if (body.source === 'billa_official') return await syncNuxtOfficial(body, { slug: 'billa', label: 'BILLA', locator: BILLA_LOCATOR, minimum: 270 });
     if (body.source === 'albert_official') return await syncAlbertOfficial(body);
     return await syncKauflandOfficial(body);
   } catch (error) {
