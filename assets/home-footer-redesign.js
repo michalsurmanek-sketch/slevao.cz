@@ -31,6 +31,18 @@
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }
+  if (!document.querySelector('link[href*="home-autopilot.css"]')) {
+    const autopilotStyle = document.createElement('link');
+    autopilotStyle.rel = 'stylesheet';
+    autopilotStyle.href = 'assets/home-autopilot.css?v=20260807-1';
+    document.head.appendChild(autopilotStyle);
+  }
+  if (!document.querySelector('script[src*="home-autopilot.js"]')) {
+    const autopilotScript = document.createElement('script');
+    autopilotScript.src = 'assets/home-autopilot.js?v=20260807-1';
+    autopilotScript.defer = true;
+    document.head.appendChild(autopilotScript);
+  }
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
