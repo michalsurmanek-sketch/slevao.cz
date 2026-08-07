@@ -1,213 +1,34 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const CRON = Deno.env.get('CRON_SECRET') || '';
-const db = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
-
-const CORS = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
-  'access-control-allow-methods': 'POST,OPTIONS',
-  'content-type': 'application/json; charset=utf-8',
-};
-const FETCH_HEADERS = {
-  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
-  accept: 'text/html,application/json,*/*;q=0.8',
-  'accept-language': 'cs-CZ,cs;q=0.9',
-};
-const MIN_SAFE = 300;
-const MAX_SAFE = 900;
-
-function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
-function errorText(error: unknown) { if (error instanceof Error) return error.message; if (error && typeof error === 'object') { const e = error as Record<string, unknown>; return [e.message, e.details, e.hint, e.code].filter(Boolean).map(String).join(' | ') || JSON.stringify(error); } return String(error); }
-async function authorized(request: Request) { const raw = request.headers.get('authorization') || ''; const token = raw.replace(/^Bearer\s+/i, '').trim(); if (token === SERVICE) return true; if (CRON && request.headers.get('x-cron-secret') === CRON) return true; if (!token) return false; const { data, error } = await db.auth.getUser(token); return !error && !!data.user && ['admin', 'editor'].includes(String(data.user.app_metadata?.role || '').toLowerCase()); }
-async function hash(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join(''); }
-function norm(value: string) { return String(value || '').toLocaleLowerCase('cs').replace(/[^a-z0-9áčďéěíňóřšťúůýž]+/giu, ' ').trim().replace(/\s+/g, ' '); }
-
-const PRICE = /^[•▼]\s*(\d{1,4}(?:[,.]\d{1,2})?|\d{1,4},-)\s*Kč(?:\s|$)/iu;
-const BAD = /(?:AKČNÍ NABÍDKA|Z BĚŽNÝCH CEN|BĚŽNÁ CENA|NEPORAZITELNÉ|APLIKACE|PŘI KOUPI|POSLEDNÍ ŠANCE|SOUTĚŽ|KREDITY|CO KUPUJETE|NAVÍC|VÍCE AKCÍ|EXTRA LETÁK|AKCE PLATÍ|informací|www\.|Galerie|Arkády|Forum|neplatí pro hypermarket|vybrané druhy)/iu;
-const START_BAD = /^(?:BEZ|CENA|BOD|NOVINKA|VÝBĚRU|PŘI|POUZE|DĚLÍ|SOUTĚŽ|AKČNÍ|EXTRA|VÍCE|NAVÍC|APLIKACE|PLATÍ|Od\b|www\.)/iu;
-const DESC = /^(?:ochucen[áé]|přírodní|instantní|světl[ýé]|tmav[ýé]|dětský|funkční|masný|chlazen[áé]|zrnková|prostředek|odmašťovač|vermut|Itálie|Francie|Chile|Španělsko|skládané|z podestýlky|druhy)$/iu;
-const QTY = /^(?:\d+[×x]?\s*)?(?:\d+(?:[,.]\d+)?(?:\s*[–-]\s*\d+(?:[,.]\d+)?)?\s*)?(?:g|kg|ml|l|ks|dávek|rolí|bal\.?|%|vel\.)\b/iu;
-const ONLY_NUM = /^(?:-?\d+\s*%|\d+(?:[,.]\d+)?(?:\s*,-)?|\d+\s*[a-z]{1,3})$/iu;
-
-function clean(value: string) {
-  return String(value || '')
-    .replace(/\s+/g, ' ')
-    .replace(/^[•▼]\s*/u, '')
-    .replace(/^\d{1,4}[,.]?\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])/u, '')
-    .replace(/^(?:EXTRA LETÁK|VÍCE AKCÍ|CO KUPUJETE NEJRADĚJI)\s+/iu, '')
-    .trim();
-}
-
-function goodTitle(line: string) {
-  if (!line || line.length < 3 || line.length > 72) return false;
-  if (BAD.test(line) || START_BAD.test(line) || DESC.test(line) || QTY.test(line) || ONLY_NUM.test(line)) return false;
-  if (/[•▼]/u.test(line) || /Kč(?:\s|$)/iu.test(line) || /^[-–%]/u.test(line)) return false;
-  if (/^[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ0-9\s&+./-]{18,}$/u.test(line)) return false;
-  if (/[,:;]\s*$/u.test(line)) return false;
-  const words = norm(line).split(' ').filter(Boolean);
-  if (words.length < 1 || words.length > 8) return false;
-  const first = line.charAt(0);
-  return first === first.toLocaleUpperCase('cs') && /[A-Za-zÁ-ž]/u.test(first);
-}
-
-function dataFromHtml(html: string) {
-  const marker = 'var data =';
-  const start = html.indexOf(marker);
-  const jsonStart = html.indexOf('{', start + marker.length);
-  const end = html.indexOf('Reader.Bootstrap.init', jsonStart);
-  if (start < 0 || jsonStart < 0 || end < 0) throw new Error('Publitas data mají neočekávaný formát.');
-  const block = html.slice(jsonStart, end);
-  const semicolon = block.lastIndexOf(';');
-  return JSON.parse((semicolon >= 0 ? block.slice(0, semicolon) : block).trim());
-}
-
-async function fetchText(url: string, timeout = 25000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { headers: FETCH_HEADERS, redirect: 'follow', signal: controller.signal });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);
-    return text;
-  } finally { clearTimeout(timer); }
-}
-
-function parsePage(text: string, page: number, document: any) {
-  const lines = String(text || '').split(/\r?\n/u).map((x) => x.trim()).filter(Boolean);
-  const rows: any[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const match = lines[i].match(PRICE);
-    if (!match) continue;
-    const price = Number(match[1].replace(',-', '').replace(',', '.'));
-    if (!Number.isFinite(price) || price < 2 || price > 9999) continue;
-
-    let title = '';
-    let titleIndex = -1;
-    for (let offset = 1; offset <= 10 && i - offset >= 0; offset++) {
-      const candidate = clean(lines[i - offset]);
-      if (goodTitle(candidate)) { title = candidate; titleIndex = i - offset; break; }
-    }
-    if (!title || titleIndex < 0) continue;
-
-    // Pokud je mezi názvem a cenou další silný produktový název, jde pravděpodobně o jiný sousední box.
-    let competing = false;
-    for (let k = titleIndex + 1; k < i; k++) {
-      const candidate = clean(lines[k]);
-      if (candidate !== title && goodTitle(candidate)) { competing = true; break; }
-    }
-    if (competing) continue;
-
-    const viewer = String(document.metadata?.viewer_url || '').replace(/\/+$/u, '');
-    const locationType = String(document.metadata?.location_type || 'ALL').toUpperCase();
-    rows.push({
-      title,
-      normalized_title: norm(title),
-      quantity_text: null,
-      price,
-      valid_from: String(document.detected_valid_from || ''),
-      valid_to: String(document.detected_valid_to || ''),
-      source_url: `${viewer}/page/${page}`,
-      source_page: page,
-      product_id: null,
-      image_url: null,
-      confidence: 0.91,
-      location_type: locationType,
-      metadata: {
-        parser: 'albert-publitas-text-v2',
-        location_type: locationType,
-        document_type: document.metadata?.document_type || null,
-        publication_id: document.metadata?.publication_id || null,
-        source_document_id: document.id,
-      },
-    });
-  }
-  return rows;
-}
-
-async function buildRows(documents: any[]) {
-  const candidates: any[] = [];
-  const tokens: string[] = [];
-  for (const document of documents) {
-    const viewer = String(document.metadata?.viewer_url || '').replace(/\/+$/u, '');
-    if (!/^https:\/\/letaky\.albert\.cz\//iu.test(viewer)) throw new Error('Albert dokument nemá bezpečnou Publitas adresu.');
-    const html = await fetchText(`${viewer}/`);
-    const data = dataFromHtml(html);
-    const cacheToken = String(data.cacheToken || '');
-    if (!cacheToken) throw new Error(`Publitas ${viewer} nevrátil cache token.`);
-    tokens.push(`${document.id}:${cacheToken}`);
-    const spreads = JSON.parse(await fetchText(`${viewer}/spreads.json?version=${encodeURIComponent(cacheToken)}`));
-    if (!Array.isArray(spreads) || !spreads.length) throw new Error(`Publitas ${viewer} nevrátil stránky.`);
-    for (const spread of spreads) for (const page of Array.isArray(spread?.pages) ? spread.pages : []) candidates.push(...parsePage(String(page?.text || ''), Number(page?.number || 0), document));
-  }
-
-  // Jeden produkt / období / formát = nejnižší skutečná akční cena. Tím zahodíme běžné/mezilehlé ceny ze stejného boxu.
-  const best = new Map<string, any>();
-  for (const row of candidates) {
-    const key = `${row.location_type}|${row.normalized_title}|${row.valid_from}|${row.valid_to}`;
-    const previous = best.get(key);
-    if (!previous || row.price < previous.price) best.set(key, row);
-  }
-
-  const rows: any[] = [];
-  for (const row of best.values()) {
-    const id = await hash(`albert|${row.location_type}|${row.normalized_title}|${row.valid_from}|${row.valid_to}`);
-    rows.push({ ...row, external_id: `albert:text:v2:${id.slice(0, 38)}` });
-  }
-  rows.sort((a, b) => a.title.localeCompare(b.title, 'cs') || a.price - b.price);
-  return { rows, raw: candidates.length, tokens };
-}
-
-async function failure(storeId: string | null, sourceId: string | null, message: string) {
-  const now = new Date().toISOString();
-  if (storeId) await db.from('store_product_sync_state').upsert({ store_id: storeId, last_run_at: now, is_running: false, last_error: message.slice(0, 2000), last_parser_error: message.slice(0, 2000), health_status: 'error', health_reason: 'Nová Albert sada nebyla publikována; předchozí veřejná data zůstala beze změny.', updated_at: now }, { onConflict: 'store_id' });
-  if (sourceId) await db.from('leaflet_sources').update({ last_checked_at: now, last_error: message.slice(0, 1000) }).eq('id', sourceId);
-}
-
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!(await authorized(request))) return json({ error: 'Unauthorized' }, 401);
-  const body = await request.json().catch(() => ({}));
-  const dryRun = body.dry_run === true;
-  const force = body.force === true;
-  let storeId: string | null = null;
-  let sourceId: string | null = null;
-  try {
-    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'albert').single();
-    if (storeError || !store) throw storeError || new Error('Albert nebyl nalezen.');
-    storeId = store.id;
-    const { data: source, error: sourceError } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).eq('is_active', true).limit(1).single();
-    if (sourceError || !source) throw sourceError || new Error('Aktivní zdroj Albert nebyl nalezen.');
-    sourceId = source.id;
-    const today = new Date().toISOString().slice(0, 10);
-    const { data: documents, error: documentsError } = await db.from('leaflet_imports').select('id,source_hash,detected_valid_from,detected_valid_to,metadata').eq('store_id', store.id).eq('status', 'published').contains('metadata', { adapter: 'albert-publitas-v1' }).gte('detected_valid_to', today).order('detected_valid_to');
-    if (documentsError) throw documentsError;
-    if (!documents || documents.length < 2) throw new Error(`Albert má jen ${documents?.length || 0} aktuálních oficiálních publikací.`);
-
-    const built = await buildRows(documents);
-    if (built.rows.length < MIN_SAFE || built.rows.length > MAX_SAFE) throw new Error(`Albert parser vytvořil ${built.rows.length} nabídek; bezpečný rozsah je ${MIN_SAFE}–${MAX_SAFE}.`);
-    const signature = await hash([...documents.map((d: any) => `${d.source_hash}|${d.detected_valid_from}|${d.detected_valid_to}`), ...built.tokens, 'albert-publitas-text-v2'].sort().join('\n'));
-
-    if (dryRun) return json({ ok: true, dry_run: true, store: 'Albert', documents: documents.length, raw_candidates: built.raw, publishable: built.rows.length, signature, samples: built.rows.slice(0, 80).map((r) => ({ title: r.title, price: r.price, location_type: r.location_type, valid_from: r.valid_from, valid_to: r.valid_to })) });
-
-    const { data: state } = await db.from('store_product_sync_state').select('last_source_signature,health_status,last_offer_count').eq('store_id', store.id).maybeSingle();
-    const { count: currentOffers, error: countError } = await db.from('offers').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('status', 'published').lte('valid_from', today).gte('valid_to', today);
-    if (countError) throw countError;
-    if (!force && state?.last_source_signature === signature && state?.health_status === 'ok' && Number(currentOffers || 0) >= MIN_SAFE) return json({ ok: true, no_changes: true, store: 'Albert', current_offers: Number(currentOffers || 0), signature });
-
-    const { data: published, error: publishError } = await db.rpc('publish_albert_publitas_text_offers', { p_signature: signature, p_rows: built.rows });
-    if (publishError) throw publishError;
-    if (!published?.ok || Number(published?.published || 0) < MIN_SAFE) throw new Error('Albert databáze nepotvrdila bezpečné publikování nové sady.');
-
-    await db.from('leaflet_imports').update({ status: 'ignored', error_message: 'Zrušeno: Albert používá od verze v2 přímý Publitas textový import.', finished_at: new Date().toISOString(), updated_at: new Date().toISOString() }).eq('store_id', store.id).eq('status', 'queued').eq('metadata->>adapter', 'albert-product-parent-v2');
-
-    return json({ ok: true, self_published: true, store: 'Albert', documents: documents.length, raw_candidates: built.raw, publishable: built.rows.length, signature, result: published });
-  } catch (error) {
-    const message = errorText(error);
-    await failure(storeId, sourceId, message);
-    return json({ error: message, code: 'ALBERT_PRODUCT_SYNC_FAILED' }, 500);
-  }
-});
+const URL=Deno.env.get('SUPABASE_URL')!;
+const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const CRON=Deno.env.get('CRON_SECRET')||'';
+const db=createClient(URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
+const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,apikey,content-type,x-cron-secret','access-control-allow-methods':'POST,OPTIONS','content-type':'application/json; charset=utf-8'};
+const FETCH_HEADERS={'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',accept:'text/html,application/json,*/*;q=0.8','accept-language':'cs-CZ,cs;q=0.9'};
+const MIN_SAFE=220,MAX_SAFE=900;
+function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:CORS});}
+function errorText(error:unknown){if(error instanceof Error)return error.message;if(error&&typeof error==='object'){const e=error as Record<string,unknown>;return[e.message,e.details,e.hint,e.code].filter(Boolean).map(String).join(' | ')||JSON.stringify(error)}return String(error)}
+async function authorized(request:Request){const raw=request.headers.get('authorization')||'',token=raw.replace(/^Bearer\s+/i,'').trim();if(token===SERVICE)return true;if(CRON&&request.headers.get('x-cron-secret')===CRON)return true;if(!token)return false;const{data,error}=await db.auth.getUser(token);return!error&&!!data.user&&['admin','editor'].includes(String(data.user.app_metadata?.role||'').toLowerCase())}
+async function hash(value:string){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('')}
+function norm(value:string){return String(value||'').toLocaleLowerCase('cs').replace(/[^a-z0-9áčďéěíňóřšťúůýž]+/giu,' ').trim().replace(/\s+/g,' ')}
+const PRICE=/^[•▼]\s*(\d{1,4}(?:[,.]\d{1,2})?|\d{1,4},-)\s*Kč(?:\s|$)/iu;
+const BAD=/(?:AKČNÍ NABÍDKA|Z BĚŽNÝCH CEN|BĚŽNÁ CENA|NEPORAZITELNÉ|APLIKACE|PŘI KOUPI|POSLEDNÍ ŠANCE|SOUTĚŽ|KREDITY|CO KUPUJETE|NAVÍC|VÍCE AKCÍ|EXTRA LETÁK|AKCE PLATÍ|informací|www\.|Galerie|Arkády|Forum|neplatí pro hypermarket|vybrané druhy)/iu;
+const START_BAD=/^(?:BEZ|CENA|CENY|BOD|NOVINKA|VÝBĚRU|PŘI|POUZE|DĚLÍ|SOUTĚŽ|AKČNÍ|EXTRA|VÍCE|NAVÍC|APLIKACE|PLATÍ|Od\b|www\.)/iu;
+const DESC=/^(?:ochucen[áé]|přírodní|instantní|světl[ýé]|tmav[ýé]|dětský|funkční|masný|chlazen[áé]|zrnková|prostředek|odmašťovač|vermut|Itálie|Francie|Chile|Španělsko|Austrálie|skládané|z podestýlky|druhy)$/iu;
+const QTY=/^(?:\d+[×x]?\s*)?(?:\d+(?:[,.]\d+)?(?:\s*[–-]\s*\d+(?:[,.]\d+)?)?\s*)?(?:g|kg|ml|l|ks|dávek|rolí|bal\.?|%|vel\.)\b/iu;
+const ONLY_NUM=/^(?:-?\d+\s*%|\d+(?:[,.]\d+)?(?:\s*,-)?|\d+\s*[a-z]{1,3})$/iu;
+const GENERIC=/^(?:A NATURE.?S PROMISE|Active PRO|Bag in Box|Barva|BARVY|Aviváž|Austrálie|Care Pánský|CENY|BĚŽNÁ CENA|Aplikace|Výběru|Při koupi)$/iu;
+const PRODUCT_WORD=/(?:mléko|krém|vodka|gin|rum|whisk|pivo|ležák|oplat|chips|káva|čaj|olej|omáčk|sýr|jogurt|zmrzlin|prací|kapsl|tablet|papír|kapesník|ubrousk|plenk|nápoj|sirup|bonbon|čokolád|těstovin|rýž|mouka|cukr|máslo|maso|kuř|burger|brokolic|rajč|banán|jabl|mandl|kukuřic|nudl|steliv|krmiv|pochout|deodorant|šampon|zubní|sprchov|aviváž|prostředek|mýdlo|pastelk|pánev|mop|houbičk|džus|voda|minerální|sekt|víno|prosecco|aperitivo|likér|tyčink|kaše|müsli|krekry|grissini|kořen|paprika|bujón|paštik|granule|toaletní|gel|barva na vlasy|sprej|sérum|šunka|salám|klobás|pečivo|chléb|rohlík|vejce|smetan|tvaroh|pomazán|majon|tatarsk|tuňák|losos|sardin|šprot|hranol|brambor|fazol|hrášek|kečup|hořčic|med|džem|cereál|sušenk|piškot|čistič|wc blok|kartáček|pasta|stelivo)/iu;
+function clean(value:string){return String(value||'').replace(/\s+/g,' ').replace(/^[•▼]\s*/u,'').replace(/^\d{1,4}[,.]?\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])/u,'').replace(/^(?:EXTRA LETÁK|VÍCE AKCÍ|CO KUPUJETE NEJRADĚJI)\s+/iu,'').trim()}
+function allCaps(line:string){const letters=line.replace(/[^A-Za-zÁ-ž]/gu,'');return letters.length>=5&&letters===letters.toLocaleUpperCase('cs')}
+function goodTitle(line:string){if(!line||line.length<3||line.length>72)return false;if(BAD.test(line)||START_BAD.test(line)||DESC.test(line)||QTY.test(line)||ONLY_NUM.test(line)||GENERIC.test(line))return false;if(/[•▼]/u.test(line)||/Kč(?:\s|$)/iu.test(line)||/^[-–%]/u.test(line)||allCaps(line))return false;if(/[,:;]\s*$/u.test(line))return false;const words=norm(line).split(' ').filter(Boolean);if(words.length<1||words.length>8)return false;const first=line.charAt(0);return first===first.toLocaleUpperCase('cs')&&/[A-Za-zÁ-ž]/u.test(first)}
+function dataFromHtml(html:string){const marker='var data =',start=html.indexOf(marker),jsonStart=html.indexOf('{',start+marker.length),end=html.indexOf('Reader.Bootstrap.init',jsonStart);if(start<0||jsonStart<0||end<0)throw new Error('Publitas data mají neočekávaný formát.');const block=html.slice(jsonStart,end),semi=block.lastIndexOf(';');return JSON.parse((semi>=0?block.slice(0,semi):block).trim())}
+async function fetchText(url:string,timeout=25000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);try{const response=await fetch(url,{headers:FETCH_HEADERS,redirect:'follow',signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);return text}finally{clearTimeout(timer)}}
+function parsePage(text:string,page:number,document:any){const lines=String(text||'').split(/\r?\n/u).map(x=>x.trim()).filter(Boolean),rows:any[]=[];for(let i=0;i<lines.length;i++){const match=lines[i].match(PRICE);if(!match)continue;const price=Number(match[1].replace(',-','').replace(',','.'));if(!Number.isFinite(price)||price<2||price>9999)continue;let title='',titleIndex=-1;for(let offset=1;offset<=10&&i-offset>=0;offset++){const candidate=clean(lines[i-offset]);if(goodTitle(candidate)){title=candidate;titleIndex=i-offset;break}}if(!title||titleIndex<0)continue;let competing=false;for(let k=titleIndex+1;k<i;k++){const candidate=clean(lines[k]);if(candidate!==title&&goodTitle(candidate)){competing=true;break}}if(competing)continue;const viewer=String(document.metadata?.viewer_url||'').replace(/\/+$/u,''),locationType=String(document.metadata?.location_type||'ALL').toUpperCase();rows.push({title,normalized_title:norm(title),quantity_text:null,price,valid_from:String(document.detected_valid_from||''),valid_to:String(document.detected_valid_to||''),source_url:`${viewer}/page/${page}`,source_page:page,product_id:null,image_url:null,confidence:0.9,location_type:locationType,metadata:{parser:'albert-publitas-text-v3',location_type:locationType,document_type:document.metadata?.document_type||null,publication_id:document.metadata?.publication_id||null,source_document_id:document.id}})}return rows}
+async function resolveCatalog(rows:any[],albertStoreId:string){const names=[...new Set(rows.map(r=>r.normalized_title))],map=new Map<string,{id:string,image_url:string|null}>();for(let i=0;i<names.length;i+=100){const chunk=names.slice(i,i+100);const{data:products,error:pError}=await db.from('products').select('id,normalized_name,image_url').in('normalized_name',chunk);if(pError)throw pError;for(const p of products||[])if(p.normalized_name&&!map.has(p.normalized_name))map.set(p.normalized_name,{id:p.id,image_url:p.image_url});const{data:aliases,error:aError}=await db.from('product_aliases').select('product_id,normalized_alias,source_store_id,products(image_url)').in('normalized_alias',chunk);if(aError)throw aError;for(const a of aliases||[]){if(!a.normalized_alias||String(a.source_store_id||'')===albertStoreId)continue;if(!map.has(a.normalized_alias))map.set(a.normalized_alias,{id:a.product_id,image_url:(a as any).products?.image_url||null})}}
+ const kept:any[]=[];let matched=0,withImages=0,newStrict=0;for(const row of rows){const hit=map.get(row.normalized_title);if(hit){row.product_id=hit.id;row.image_url=hit.image_url;row.confidence=0.98;matched++;if(hit.image_url)withImages++;kept.push(row);continue}const words=row.normalized_title.split(' ').filter(Boolean);if(words.length<2||GENERIC.test(row.title)||!PRODUCT_WORD.test(row.title))continue;row.confidence=0.88;newStrict++;kept.push(row)}return{rows:kept,matched,withImages,newStrict}}
+async function buildRows(documents:any[],storeId:string){const candidates:any[]=[],tokens:string[]=[];for(const document of documents){const viewer=String(document.metadata?.viewer_url||'').replace(/\/+$/u,'');if(!/^https:\/\/letaky\.albert\.cz\//iu.test(viewer))throw new Error('Albert dokument nemá bezpečnou Publitas adresu.');const html=await fetchText(`${viewer}/`),data=dataFromHtml(html),cacheToken=String(data.cacheToken||'');if(!cacheToken)throw new Error(`Publitas ${viewer} nevrátil cache token.`);tokens.push(`${document.id}:${cacheToken}`);const spreads=JSON.parse(await fetchText(`${viewer}/spreads.json?version=${encodeURIComponent(cacheToken)}`));if(!Array.isArray(spreads)||!spreads.length)throw new Error(`Publitas ${viewer} nevrátil stránky.`);for(const spread of spreads)for(const page of Array.isArray(spread?.pages)?spread.pages:[])candidates.push(...parsePage(String(page?.text||''),Number(page?.number||0),document))}
+ const best=new Map<string,any>();for(const row of candidates){const key=`${row.location_type}|${row.normalized_title}|${row.valid_from}|${row.valid_to}`,previous=best.get(key);if(!previous||row.price<previous.price)best.set(key,row)}const resolved=await resolveCatalog([...best.values()],storeId),final:any[]=[];for(const row of resolved.rows){const id=await hash(`albert|${row.location_type}|${row.normalized_title}|${row.valid_from}|${row.valid_to}`);final.push({...row,external_id:`albert:text:v3:${id.slice(0,38)}`})}final.sort((a,b)=>a.title.localeCompare(b.title,'cs')||a.price-b.price);return{rows:final,raw:candidates.length,tokens,matched:resolved.matched,withImages:resolved.withImages,newStrict:resolved.newStrict}}
+async function failure(storeId:string|null,sourceId:string|null,message:string){const now=new Date().toISOString();if(storeId)await db.from('store_product_sync_state').upsert({store_id:storeId,last_run_at:now,is_running:false,last_error:message.slice(0,2000),last_parser_error:message.slice(0,2000),health_status:'error',health_reason:'Nová Albert sada nebyla publikována; předchozí veřejná data zůstala beze změny.',updated_at:now},{onConflict:'store_id'});if(sourceId)await db.from('leaflet_sources').update({last_checked_at:now,last_error:message.slice(0,1000)}).eq('id',sourceId)}
+Deno.serve(async request=>{if(request.method==='OPTIONS')return new Response('ok',{headers:CORS});if(request.method!=='POST')return json({error:'Method not allowed'},405);if(!(await authorized(request)))return json({error:'Unauthorized'},401);const body=await request.json().catch(()=>({})),dryRun=body.dry_run===true,force=body.force===true;let storeId:string|null=null,sourceId:string|null=null;try{const{data:store,error:storeError}=await db.from('stores').select('id,name').eq('slug','albert').single();if(storeError||!store)throw storeError||new Error('Albert nebyl nalezen.');storeId=store.id;const{data:source,error:sourceError}=await db.from('leaflet_sources').select('id').eq('store_id',store.id).eq('is_active',true).limit(1).single();if(sourceError||!source)throw sourceError||new Error('Aktivní zdroj Albert nebyl nalezen.');sourceId=source.id;const today=new Date().toISOString().slice(0,10);const{data:documents,error:documentsError}=await db.from('leaflet_imports').select('id,source_hash,detected_valid_from,detected_valid_to,metadata').eq('store_id',store.id).eq('status','published').contains('metadata',{adapter:'albert-publitas-v1'}).gte('detected_valid_to',today).order('detected_valid_to');if(documentsError)throw documentsError;if(!documents||documents.length<2)throw new Error(`Albert má jen ${documents?.length||0} aktuálních oficiálních publikací.`);const built=await buildRows(documents,store.id);if(built.rows.length<MIN_SAFE||built.rows.length>MAX_SAFE)throw new Error(`Albert parser vytvořil ${built.rows.length} nabídek; bezpečný rozsah je ${MIN_SAFE}–${MAX_SAFE}.`);const signature=await hash([...documents.map((d:any)=>`${d.source_hash}|${d.detected_valid_from}|${d.detected_valid_to}`),...built.tokens,'albert-publitas-text-v3'].sort().join('\n'));if(dryRun)return json({ok:true,dry_run:true,store:'Albert',documents:documents.length,raw_candidates:built.raw,publishable:built.rows.length,catalog_matches:built.matched,strict_new:built.newStrict,with_images:built.withImages,signature,samples:built.rows.slice(0,100).map(r=>({title:r.title,price:r.price,matched:Boolean(r.product_id),has_image:Boolean(r.image_url),location_type:r.location_type,valid_from:r.valid_from,valid_to:r.valid_to}))});const{data:state}=await db.from('store_product_sync_state').select('last_source_signature,health_status,last_offer_count').eq('store_id',store.id).maybeSingle();const{count:currentOffers,error:countError}=await db.from('offers').select('id',{count:'exact',head:true}).eq('store_id',store.id).eq('status','published').lte('valid_from',today).gte('valid_to',today);if(countError)throw countError;if(!force&&state?.last_source_signature===signature&&state?.health_status==='ok'&&Number(currentOffers||0)>=MIN_SAFE)return json({ok:true,no_changes:true,store:'Albert',current_offers:Number(currentOffers||0),signature});const{data:published,error:publishError}=await db.rpc('publish_albert_publitas_text_offers',{p_signature:signature,p_rows:built.rows});if(publishError)throw publishError;if(!published?.ok||Number(published?.published||0)<MIN_SAFE)throw new Error('Albert databáze nepotvrdila bezpečné publikování nové sady.');return json({ok:true,self_published:true,store:'Albert',documents:documents.length,raw_candidates:built.raw,publishable:built.rows.length,catalog_matches:built.matched,strict_new:built.newStrict,with_images:built.withImages,signature,result:published})}catch(error){const message=errorText(error);await failure(storeId,sourceId,message);return json({error:message,code:'ALBERT_PRODUCT_SYNC_FAILED'},500)}});
