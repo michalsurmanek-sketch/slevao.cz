@@ -13,8 +13,8 @@ const CORS = {
 };
 
 const OVERPASS_ENDPOINTS = [
+  'https://overpass.private.coffee/api/interpreter',
   'https://overpass-api.de/api/interpreter',
-  'https://overpass.kumi.systems/api/interpreter',
 ];
 
 const CHAIN_PATTERNS: Array<[string, RegExp]> = [
