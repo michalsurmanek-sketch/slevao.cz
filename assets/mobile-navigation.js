@@ -1,4 +1,40 @@
 (() => {
+  const mobileViewport = window.matchMedia('(max-width: 800px)');
+  const statusPill = document.getElementById('statusPill');
+
+  if (statusPill) {
+    let canonicalStatus = statusPill.textContent.trim();
+    let renderedStatus = canonicalStatus;
+
+    const mobileStatus = (value) => {
+      const text = String(value || '').trim();
+      if (text === '✓ Aktualizováno dnes') return 'Aktualizováno';
+      return text.startsWith('✓ ') ? text.slice(2) : text;
+    };
+
+    const syncStatus = () => {
+      const current = statusPill.textContent.trim();
+      if (current !== renderedStatus) canonicalStatus = current;
+      const next = mobileViewport.matches ? mobileStatus(canonicalStatus) : canonicalStatus;
+      renderedStatus = next;
+      if (current !== next) statusPill.textContent = next;
+    };
+
+    new MutationObserver(syncStatus).observe(statusPill, {
+      childList: true,
+      characterData: true,
+      subtree: true
+    });
+
+    if (typeof mobileViewport.addEventListener === 'function') {
+      mobileViewport.addEventListener('change', syncStatus);
+    } else if (typeof mobileViewport.addListener === 'function') {
+      mobileViewport.addListener(syncStatus);
+    }
+
+    syncStatus();
+  }
+
   const navigation = document.querySelector('.mobileNav');
   if (!navigation) return;
 
