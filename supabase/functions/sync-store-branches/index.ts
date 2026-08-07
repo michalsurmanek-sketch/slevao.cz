@@ -14,6 +14,7 @@ const CORS = {
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36';
 const KAUFLAND_LIST = 'https://prodejny.kaufland.cz/aktualne/servis/seznam-prodejen.html';
 const PENNY_LOCATOR = 'https://www.penny.cz/prodejny';
+const BILLA_LOCATOR = 'https://www.billa.cz/prodejny';
 const ALBERT_GRAPHQL = 'https://www.albert.cz/api/v1/';
 const ALBERT_STORE_QUERY = 'query GetStoreSearch($lang:String!,$query:String,$latitude:Float,$longitude:Float,$radius:Float,$pageSize:Int,$currentPage:Int,$sort:String,$collectionFlow:Boolean,$options:String){storeSearchJSON(lang:$lang,query:$query,latitude:$latitude,longitude:$longitude,radius:$radius,pageSize:$pageSize,currentPage:$currentPage,sort:$sort,collectionFlow:$collectionFlow,options:$options)}';
 
@@ -60,7 +61,7 @@ function cleanText(value: string) {
   return decodeHtml(String(value || '').replace(/<[^>]+>/g, ' ')).replace(/\s+/g, ' ').trim();
 }
 
-async function fetchText(url: string, timeout = 20_000) {
+async function fetchText(url: string, timeout = 25_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeout);
   try {
@@ -235,13 +236,13 @@ async function syncKauflandOfficial(body: any) {
   });
 }
 
-// ---------- PENNY: official Nuxt SSR storefinder payload ----------
+// ---------- PENNY + BILLA: official Nuxt SSR storefinder payload ----------
 
-function pennyNuxtData(html: string) {
+function nuxtData(html: string, label: string) {
   const raw = html.match(/<script[^>]+id=["']__NUXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
-  if (!raw) throw new Error('PENNY stránka neobsahuje očekávaný __NUXT_DATA__ payload.');
+  if (!raw) throw new Error(`${label} stránka neobsahuje očekávaný __NUXT_DATA__ payload.`);
   const parsed = JSON.parse(raw);
-  if (!Array.isArray(parsed) || parsed.length < 1000) throw new Error('PENNY __NUXT_DATA__ má neočekávaný formát.');
+  if (!Array.isArray(parsed) || parsed.length < 1000) throw new Error(`${label} __NUXT_DATA__ má neočekávaný formát.`);
   return parsed as any[];
 }
 
@@ -264,29 +265,42 @@ function resolveNuxt(data: any[], value: any, depth = 0): any {
   return value;
 }
 
-function parsePennyStores(data: any[]) {
+type NuxtChainConfig = {
+  slug: 'penny' | 'billa';
+  label: 'PENNY' | 'BILLA';
+  locator: string;
+  minimum: number;
+};
+
+function parseNuxtStores(data: any[], config: NuxtChainConfig) {
   const rows = new Map<string, any>();
   for (const item of data) {
     if (!item || typeof item !== 'object' || Array.isArray(item)) continue;
     if (!('storeId' in item) || !('city' in item) || !('position' in item) || !('street' in item) || !('zip' in item)) continue;
 
-    const storeId = String(resolveNuxt(data, item.storeId) || '').trim();
+    const externalStoreId = String(resolveNuxt(data, item.storeId) || '').trim();
     const city = String(resolveNuxt(data, item.city) || '').trim();
     const street = String(resolveNuxt(data, item.street) || '').trim();
     const postalCode = String(resolveNuxt(data, item.zip) || '').trim();
     const province = String(resolveNuxt(data, item.province) || '').trim();
+    const displayName = String(resolveNuxt(data, item.displayName) || '').replace(/^BILLA\s*,?\s*/i, '').trim();
+    const brand = String(resolveNuxt(data, item.brand) || '').trim();
+    const phone = String(resolveNuxt(data, item.phone) || '').trim();
     const position = resolveNuxt(data, item.position) || {};
     const latitude = Number(position.lat);
     const longitude = Number(position.lng);
-    if (!storeId || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
+    if (!externalStoreId || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
 
     const openingTimeString = resolveNuxt(data, item.openingTimeString);
     const openingTimes = resolveNuxt(data, item.openingTimes);
     const underRenovation = Boolean(resolveNuxt(data, item.underRenovation));
     const features = resolveNuxt(data, item.features);
-    rows.set(storeId, {
-      external_id: `penny:${storeId}`,
-      name: `PENNY ${city}`,
+    const parking = resolveNuxt(data, item.parking);
+    const placeLabel = displayName || city;
+
+    rows.set(externalStoreId, {
+      external_id: `${config.slug}:${externalStoreId}`,
+      name: `${config.label} ${placeLabel}`.trim(),
       street: street || null,
       city,
       postal_code: postalCode || null,
@@ -295,12 +309,15 @@ function parsePennyStores(data: any[]) {
       longitude,
       is_active: !underRenovation,
       opening_hours: {
-        source: 'penny.cz',
-        store_id: storeId,
-        locator_url: PENNY_LOCATOR,
+        source: new URL(config.locator).hostname,
+        store_id: externalStoreId,
+        locator_url: config.locator,
+        brand: brand || config.label,
+        phone: phone || null,
         summary: typeof openingTimeString === 'string' ? openingTimeString : null,
         weekly: Array.isArray(openingTimes) ? openingTimes : [],
         features: Array.isArray(features) ? features : [],
+        parking: parking && typeof parking === 'object' ? parking : null,
         under_renovation: underRenovation,
       },
     });
@@ -308,20 +325,24 @@ function parsePennyStores(data: any[]) {
   return [...rows.values()];
 }
 
-async function syncPennyOfficial(body: any) {
+async function syncNuxtOfficial(body: any, config: NuxtChainConfig) {
   const dryRun = body.dry_run === true;
-  const page = await fetchText(PENNY_LOCATOR, 25_000);
-  const data = pennyNuxtData(page.text);
-  const rows = parsePennyStores(data);
-  if (rows.length < 400) return json({ error: `Oficiální PENNY locator vrátil jen ${rows.length} validních prodejen; zápis byl zastaven.`, code: 'PENNY_LIST_TOO_SMALL', dry_run: dryRun }, 409);
+  const page = await fetchText(config.locator, 30_000);
+  const data = nuxtData(page.text, config.label);
+  const rows = parseNuxtStores(data, config);
+  if (rows.length < config.minimum) return json({
+    error: `Oficiální ${config.label} locator vrátil jen ${rows.length} validních GPS prodejen; zápis byl zastaven.`,
+    code: `${config.label}_LIST_TOO_SMALL`,
+    dry_run: dryRun,
+  }, 409);
 
-  const storeId = await storeIdForSlug('penny');
+  const storeId = await storeIdForSlug(config.slug);
   const payload = rows.map((row) => ({ ...row, store_id: storeId }));
   const written = dryRun ? 0 : await upsertBranches(payload);
   return json({
     ok: true,
     dry_run: dryRun,
-    source: 'penny_official',
+    source: `${config.slug}_official`,
     source_bytes: page.text.length,
     total: rows.length,
     active: rows.filter((row) => row.is_active).length,
@@ -335,7 +356,7 @@ async function syncPennyOfficial(body: any) {
 
 async function fetchAlbertStoreSearch() {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 20_000);
+  const timer = setTimeout(() => controller.abort(), 25_000);
   try {
     const response = await fetch(ALBERT_GRAPHQL, {
       method: 'POST',
@@ -363,8 +384,9 @@ async function fetchAlbertStoreSearch() {
     if (typeof result === 'string') {
       try { result = JSON.parse(result); } catch { /* validated below */ }
     }
-    if (!result || !Array.isArray(result.items)) throw new Error(`Albert GraphQL nevrátil očekávaný storeSearchJSON.items (typ ${typeof result}).`);
-    return result;
+    const stores = Array.isArray(result?.stores) ? result.stores : Array.isArray(result?.items) ? result.items : null;
+    if (!result || !stores) throw new Error(`Albert GraphQL nevrátil očekávané storeSearchJSON.stores (typ ${typeof result}).`);
+    return { ...result, stores };
   } finally {
     clearTimeout(timer);
   }
@@ -372,7 +394,8 @@ async function fetchAlbertStoreSearch() {
 
 function parseAlbertStores(result: any) {
   const rows = new Map<string, any>();
-  for (const item of result.items || []) {
+  const sourceStores = Array.isArray(result?.stores) ? result.stores : Array.isArray(result?.items) ? result.items : [];
+  for (const item of sourceStores) {
     const warehouseCode = String(item?.warehouseCode ?? item?.id ?? '').trim();
     const address = item?.address || {};
     const point = item?.geoPoint || {};
@@ -381,13 +404,20 @@ function parseAlbertStores(result: any) {
     const city = String(address.town || '').trim();
     if (!warehouseCode || !city || !Number.isFinite(latitude) || !Number.isFinite(longitude) || latitude < 48.45 || latitude > 51.2 || longitude < 12 || longitude > 19.1) continue;
 
-    const services = Array.isArray(item.services)
-      ? item.services.map((service: any) => ({ id: service?.id ?? null, label: service?.label || null, description: service?.description || null })).filter((service: any) => service.label || service.id)
-      : [];
-    const detailUrl = item.url ? new URL(String(item.url), 'https://www.albert.cz').toString() : null;
+    const rawServices = Array.isArray(item.storeServices) ? item.storeServices : Array.isArray(item.services) ? item.services : [];
+    const services = rawServices.map((service: any) => ({
+      code: service?.code ?? service?.id ?? null,
+      name: service?.name ?? service?.label ?? null,
+      special_service: service?.specialService ?? null,
+    })).filter((service: any) => service.code || service.name);
+    const detailUrl = item.urlName
+      ? new URL(`/nase-prodejny/${String(item.urlName).replace(/^\/+/, '')}`, 'https://www.albert.cz').toString()
+      : item.url ? new URL(String(item.url), 'https://www.albert.cz').toString() : null;
+    const displayName = String(item.localizedName || item.description || '').trim();
+
     rows.set(warehouseCode, {
       external_id: `albert:${warehouseCode}`,
-      name: String(item.name || `Albert ${city}`).trim(),
+      name: displayName ? `Albert ${displayName}` : `Albert ${city}`,
       street: String(address.line1 || '').trim() || null,
       city,
       postal_code: String(address.postalCode || '').trim() || null,
@@ -398,11 +428,10 @@ function parseAlbertStores(result: any) {
       opening_hours: {
         source: 'albert.cz',
         warehouse_code: warehouseCode,
-        type: item.type || null,
+        type: item.groceryStoreType ?? item.type ?? null,
         detail_url: detailUrl,
         grocery: Array.isArray(item?.openingHours?.groceryOpeningList) ? item.openingHours.groceryOpeningList : [],
-        shopping_sunday: item?.openingHours?.shoppingSunday?.description || null,
-        extra_info: item?.openingHours?.extraInfo?.description || null,
+        next_opening_day: item?.nextOpeningDay || null,
         services,
       },
     });
@@ -414,7 +443,7 @@ async function syncAlbertOfficial(body: any) {
   const dryRun = body.dry_run === true;
   const result = await fetchAlbertStoreSearch();
   const rows = parseAlbertStores(result);
-  const declaredTotal = Number(result.totalItems || rows.length);
+  const declaredTotal = Number(result?.pagination?.totalResults ?? result?.totalItems ?? rows.length);
   if (declaredTotal < 330 || rows.length < 330) return json({
     error: `Oficiální Albert GraphQL vrátil jen ${rows.length} validních GPS prodejen z ${declaredTotal}; zápis byl zastaven.`,
     code: 'ALBERT_LIST_TOO_SMALL',
@@ -446,7 +475,8 @@ Deno.serve(async (request) => {
       if (body.dry_run !== true) return json({ error: 'Diagnostika je povolená pouze v dry_run režimu.' }, 409);
       return json(await diagnoseKauflandDetail(body.url));
     }
-    if (body.source === 'penny_official') return await syncPennyOfficial(body);
+    if (body.source === 'penny_official') return await syncNuxtOfficial(body, { slug: 'penny', label: 'PENNY', locator: PENNY_LOCATOR, minimum: 400 });
+    if (body.source === 'billa_official') return await syncNuxtOfficial(body, { slug: 'billa', label: 'BILLA', locator: BILLA_LOCATOR, minimum: 220 });
     if (body.source === 'albert_official') return await syncAlbertOfficial(body);
     return await syncKauflandOfficial(body);
   } catch (error) {
