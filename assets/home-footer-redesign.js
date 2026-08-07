@@ -82,7 +82,7 @@
   if (!document.querySelector('link[href*="home-in-store.css"]')) {
     const inStoreStyle = document.createElement('link');
     inStoreStyle.rel = 'stylesheet';
-    inStoreStyle.href = 'assets/home-in-store.css?v=20260807-1';
+    inStoreStyle.href = 'assets/home-in-store.css?v=20260807-2';
     document.head.appendChild(inStoreStyle);
   }
   if (!document.querySelector('script[src*="home-in-store.js"]')) {
@@ -90,6 +90,12 @@
     inStoreScript.src = 'assets/home-in-store.js?v=20260807-1';
     inStoreScript.defer = true;
     document.head.appendChild(inStoreScript);
+  }
+  if (!document.querySelector('script[src*="home-in-store-safe.js"]')) {
+    const inStoreSafeScript = document.createElement('script');
+    inStoreSafeScript.src = 'assets/home-in-store-safe.js?v=20260807-1';
+    inStoreSafeScript.defer = true;
+    document.head.appendChild(inStoreSafeScript);
   }
 
   const hideInStore = () => {
