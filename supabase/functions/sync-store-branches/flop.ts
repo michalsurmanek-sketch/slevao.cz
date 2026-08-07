@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
-const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36';
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64 x64) AppleWebKit/537.36 Chrome/150 Safari/537.36';
 const FLOP_LIST = 'https://www.flop-potraviny.cz/prodejny/';
 const FLOP_WP_API = 'https://www.flop-potraviny.cz/wp-json/wp/v2/project';
 const CORS = {
@@ -123,6 +123,8 @@ function textBlocks(html: string) {
 
 function parseAddress(html: string) {
   const blocks = textBlocks(html);
+
+  // Běžná šablona: název → ulice → PSČ město → telefon.
   for (let index = 0; index < blocks.length; index += 1) {
     const match = blocks[index].match(/^(\d{3}\s?\d{2})\s+(.{2,80})$/u);
     if (!match) continue;
@@ -136,6 +138,21 @@ function parseAddress(html: string) {
       phone: phoneBlock.replace(/^(?:tel\.?|telefon)\s*:\s*/i, '').trim() || null,
     };
   }
+
+  // Druhá oficiální FLOP šablona PSČ neuvádí: název → ulice → město → telefon.
+  for (let index = 0; index < blocks.length; index += 1) {
+    if (!/^(?:tel\.?|telefon)\s*:/i.test(blocks[index])) continue;
+    const city = (blocks[index - 1] || '').trim();
+    const street = (blocks[index - 2] || '').trim();
+    if (!city || !street || /otevírací doba/i.test(city) || /otevírací doba/i.test(street)) continue;
+    return {
+      street,
+      postal_code: null,
+      city,
+      phone: blocks[index].replace(/^(?:tel\.?|telefon)\s*:\s*/i, '').trim() || null,
+    };
+  }
+
   return { street: null, postal_code: null, city: null, phone: null };
 }
 
@@ -198,6 +215,7 @@ async function fetchStore(project: FlopProject) {
     const coordinates = await resolveMapCoordinates(mapUrl);
     if (!coordinates) return { row: null, error: 'Oficiální mapový odkaz nevrátil validní GPS v ČR.', project };
     const address = parseAddress(page.text);
+    if (!address.city) return { row: null, error: 'Detail neobsahuje město v některé z podporovaných oficiálních adresních šablon.', project };
     const fallback = cleanText(project.title?.rendered || project.slug || `FLOP ${project.id}`);
     const name = storeName(page.text, fallback);
 
