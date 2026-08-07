@@ -136,6 +136,29 @@ async function scheduleWorker(runId:string){
 async function saveJob(product:any,runId:string,patch:any){ const {error}=await db.from('product_image_generation_jobs').upsert({run_id:runId,product_id:product.id,normalized_name:patch.normalized_name||normalize(product.name),quantity_text:patch.quantity_text||product.quantity_text||null,...patch},{onConflict:'product_id'}); if(error) throw error; }
 async function runCounts(runId:string){const result=await db.from('product_image_generation_jobs').select('status').eq('run_id',runId);if(result.error)throw result.error;const jobs=result.data||[];const count=(status:string)=>jobs.filter((x:any)=>x.status===status).length;return{processed_count:jobs.length,assigned_count:count('assigned'),manual_count:count('needs_manual_review'),skipped_branded_count:count('skipped_branded'),failed_count:count('failed')}}
 
+async function selectEligibleProducts(limit:number){
+  const selected:any[]=[];
+  const pageSize=100;
+  const maxScan=2000;
+  for(let offset=0;offset<maxScan&&selected.length<limit;offset+=pageSize){
+    const missing=await db.from('products_missing_verified_images').select('id,name,brand,ean,quantity_text,active_offer_count,active_store_count,last_offer_at').gt('active_offer_count',0).order('active_offer_count',{ascending:false}).order('id',{ascending:true}).range(offset,offset+pageSize-1);
+    if(missing.error) throw missing.error;
+    const rows=missing.data||[];
+    if(!rows.length) break;
+    const ids=rows.map((x:any)=>x.id);
+    const existing=await db.from('product_image_generation_jobs').select('product_id,status,attempt_count').in('product_id',ids);
+    if(existing.error) throw existing.error;
+    const existingById=new Map((existing.data||[]).map((x:any)=>[String(x.product_id),x]));
+    for(const product of rows){
+      const job:any=existingById.get(String(product.id));
+      if(!job||(job.status==='failed'&&Number(job.attempt_count||0)<2)) selected.push(product);
+      if(selected.length>=limit) break;
+    }
+    if(rows.length<pageSize) break;
+  }
+  return selected.slice(0,limit);
+}
+
 async function seedRun(requestedBy:string|null,requestedLimit:unknown){
   if(!OPENAI_API_KEY) throw new Error('V Supabase chybí OPENAI_API_KEY.');
   const limit=Math.max(1,Math.min(Number(requestedLimit)||20,50));
@@ -143,13 +166,7 @@ async function seedRun(requestedBy:string|null,requestedLimit:unknown){
   const active=await db.from('product_image_generation_runs').select('id',{count:'exact',head:true}).in('status',['queued','processing']).gte('created_at',since);
   if(active.error) throw active.error;
   if((active.count||0)>0) return {accepted:false,message:'Předchozí dávka generování ještě běží.'};
-  const missing=await db.from('products_missing_verified_images').select('id,name,brand,ean,quantity_text,active_offer_count,active_store_count,last_offer_at').gt('active_offer_count',0).order('active_offer_count',{ascending:false}).limit(500);
-  if(missing.error) throw missing.error;
-  const rows=missing.data||[]; if(!rows.length) return {accepted:false,message:'Nejsou produkty bez kvalitní fotografie.'};
-  const ids=rows.map((x:any)=>x.id);
-  const existing=await db.from('product_image_generation_jobs').select('product_id,status,attempt_count').in('product_id',ids); if(existing.error) throw existing.error;
-  const existingById=new Map((existing.data||[]).map((x:any)=>[String(x.product_id),x]));
-  const selected=rows.filter((p:any)=>{const job:any=existingById.get(String(p.id));return !job||(job.status==='failed'&&Number(job.attempt_count||0)<2)}).slice(0,limit);
+  const selected=await selectEligibleProducts(limit);
   if(!selected.length) return {accepted:false,message:'Všechny chybějící produkty už mají stav v generovací frontě.'};
   const runInsert=await db.from('product_image_generation_runs').insert({requested_by:requestedBy,status:'processing',requested_count:selected.length,started_at:now(),message:'Klasifikuji produkty a připravuji bezpečnou frontu.'}).select('id').single();
   if(runInsert.error) throw runInsert.error; const runId=String(runInsert.data.id);
@@ -236,5 +253,5 @@ async function processWorker(runId:string){
 Deno.serve(async(request)=>{
   if(request.method==='OPTIONS') return new Response('ok',{headers:CORS});
   if(request.method!=='POST') return json({ok:false,error:'Method not allowed'},405);
-  try{const requestedBy=await authorize(request);const body=await request.json().catch(()=>({}));if(body.mode==='worker'){if(!body.run_id) return json({ok:false,error:'Chybí run_id.'},400);runInBackground(processWorker(String(body.run_id)));return json({ok:true,accepted:true,worker:true},202)}const result=await seedRun(requestedBy,body.limit);return json({ok:true,...result},result.accepted?202:200)}catch(error){const message=errorMessage(error);return json({ok:false,error:message},message==='Unauthorized'?401:500)}
+  try{const requestedBy=await authorize(request);const body=await request.json().catch(()=>({}));if(body.mode==='worker'){if(!body.run_id) return json({ok:false,error:'Chybí run_id.'},400);runInBackground(processWorker(String(body.run_id)));return json({ok:true,accepted:true,worker:true},202)}const result=await seedRun(requestedBy,body.limit);return json({ok:true,...result},result.accepted?202:200)}catch(error){const message=errorMessage(error);console.error('generic product image request failed',message);return json({ok:false,error:message},message==='Unauthorized'?401:500)}
 });
