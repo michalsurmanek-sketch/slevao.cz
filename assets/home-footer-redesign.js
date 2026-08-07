@@ -57,7 +57,7 @@
   }
   if (!document.querySelector('script[src*="location-service.js"]')) {
     const locationScript = document.createElement('script');
-    locationScript.src = 'assets/location-service.js?v=20260807-1';
+    locationScript.src = 'assets/location-service.js?v=20260807-2';
     locationScript.defer = true;
     document.head.appendChild(locationScript);
   }
@@ -69,7 +69,7 @@
   }
   if (!document.querySelector('script[src*="home-live.js"]')) {
     const liveScript = document.createElement('script');
-    liveScript.src = 'assets/home-live.js?v=20260807-1';
+    liveScript.src = 'assets/home-live.js?v=20260807-2';
     liveScript.defer = true;
     document.head.appendChild(liveScript);
   }
