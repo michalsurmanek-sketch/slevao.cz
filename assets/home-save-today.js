@@ -40,6 +40,7 @@
   };
 
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const localDate = () => {
     const now = new Date();
@@ -84,7 +85,10 @@
       max_stores: Math.max(1, Math.min(3, Number(modal.querySelector('#sqSaveMaxStores').value || 2))),
       created_at: new Date().toISOString()
     };
-    try { localStorage.setItem(BRIEF_KEY, JSON.stringify(brief)); } catch {}
+    try {
+      localStorage.setItem(BRIEF_KEY, JSON.stringify(brief));
+      if (locationMode === 'manual' && place) localStorage.setItem(LIVE_PLACE_KEY, place);
+    } catch {}
     return brief;
   }
 
@@ -118,7 +122,7 @@
     const geo = await getLocationApi();
     let branches = [];
     let position = null;
-    const place = brief.place;
+    let place = brief.place;
 
     if (mode === 'manual') {
       if (!place) throw new Error('Zadejte město nebo PSČ.');
@@ -268,7 +272,7 @@
     const stops = plan.route.order.map((branch) => `${branch.latitude},${branch.longitude}`);
     const destination = stops.at(-1);
     const waypoints = stops.slice(0, -1);
-    const params = new URLSearchParams({ api: '1', origin, destination });
+    const params = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
     if (waypoints.length) params.set('waypoints', waypoints.join('|'));
     return `https://www.google.com/maps/dir/?${params.toString()}`;
   }
@@ -280,6 +284,7 @@
 
   function storeSummary(plan, context) {
     if (!plan?.usedStores?.length) return '';
+    const geo = window.SlevaoLocation;
     const branchByStore = new Map((context.uniqueBranches || []).map((branch) => [String(branch.store_id), branch]));
     const names = plan.route?.order?.length
       ? plan.route.order.map((branch) => branch.stores?.name || branch.name || 'Obchod')
@@ -288,6 +293,13 @@
           return branch?.stores?.name || branch?.name || plan.selectedRows.find((row) => String(row.offer.store_id) === String(id))?.offer?.stores?.name || 'Obchod';
         });
     return names.join(' → ');
+  }
+
+  function basketRowsHtml(plan) {
+    return `<div class="sqSaveBasket">${plan.selectedRows.map(({ label, offer }) => {
+      const store = offer.stores?.name || 'Obchod';
+      return `<div class="sqSaveBasketRow"><span><small>${esc(label)}</small><b>${esc(offer.title || label)}</b></span><span><small>${esc(store)}</small><strong>${money(offer.price)} Kč</strong></span></div>`;
+    }).join('')}</div>`;
   }
 
   async function runTemplate(modal, brief) {
@@ -332,19 +344,21 @@
         ? ` Odhad přímé GPS trasy je ${plan.route.distanceKm.toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km; rozhodovací náklad se započtením ${TRAVEL_KM_COST} Kč/km a ${EXTRA_STOP_COST} Kč za další zastávku je ${money(plan.effectiveCost)} Kč.`
         : '';
       const routeLink = route
-        ? `<a href="${route}" target="_blank" rel="noopener">Otevřít trasu v Google Maps →</a><br>`
+        ? `<a href="${esc(route)}" target="_blank" rel="noopener">Otevřít trasu v Google Maps →</a><br>`
         : '';
       const missingText = plan.missing.length ? ` Nenalezeno: ${plan.missing.join(', ')}.` : '';
+      const basketHtml = basketRowsHtml(plan);
 
       result.className = `sqSaveResult ${resultClass(plan.total, brief.budget)}`;
-      result.innerHTML = `<strong>${template.title}: ${money(plan.total)} Kč · ${plan.usedStores.length} ${plan.usedStores.length === 1 ? 'obchod' : plan.usedStores.length < 5 ? 'obchody' : 'obchodů'}</strong>
-        Doložená úspora z původních cen: ${money(plan.savings)} Kč.${budgetText}${routeText}<br>
-        <b>Obchody:</b> ${stores || 'podle nalezených nabídek'}. Přidáno ${added} nových položek${already ? `, ${already} už v seznamu` : ''}.${missingText}<br>
-        <small>${modeText} Jde o transparentní šablonu po 1 balení nalezeného produktu, ne AI odhad množství pro ${brief.people} osob. Množství uprav podle konkrétní gramáže.</small><br>
+      result.innerHTML = `<strong>${esc(template.title)}: ${money(plan.total)} Kč · ${plan.usedStores.length} ${plan.usedStores.length === 1 ? 'obchod' : plan.usedStores.length < 5 ? 'obchody' : 'obchodů'}</strong>
+        Doložená úspora z původních cen: ${money(plan.savings)} Kč.${esc(budgetText)}${esc(routeText)}
+        ${basketHtml}
+        <b>Obchody:</b> ${esc(stores || 'podle nalezených nabídek')}. Přidáno ${added} nových položek${already ? `, ${already} už v seznamu` : ''}.${esc(missingText)}<br>
+        <small>${esc(modeText)} Jde o transparentní šablonu po 1 balení nalezeného produktu, ne AI odhad množství pro ${brief.people} osob. Množství uprav podle konkrétní gramáže.</small><br>
         ${routeLink}<a href="seznam.html?route=1">Otevřít seznam a dopočítat nejlevnější trasu →</a>`;
     } catch (error) {
       result.className = 'sqSaveResult bad';
-      result.innerHTML = `<strong>Košík se nepodařilo sestavit</strong>${String(error?.message || 'Zkus to znovu.')}`;
+      result.innerHTML = `<strong>Košík se nepodařilo sestavit</strong>${esc(error?.message || 'Zkus to znovu.')}`;
     } finally {
       action.disabled = false;
       action.textContent = 'Najít nejlevnější lokální nákup';
@@ -399,7 +413,7 @@
           <label class="sqSaveField">Rozpočet v Kč<input id="sqSaveBudget" type="number" min="0" step="50" placeholder="Např. 1200"></label>
           <label class="sqSaveField">Lokalita<select id="sqSaveLocationMode"><option value="gps" selected>Moje poloha (GPS)</option><option value="manual">Město nebo PSČ</option><option value="all">Celá ČR</option></select></label>
           <label id="sqSaveRadiusField" class="sqSaveField">Okruh<select id="sqSaveRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
-          <label id="sqSavePlaceField" class="sqSaveField full" hidden>Město nebo PSČ<input id="sqSavePlace" type="text" value="${savedPlace.replace(/"/g, '&quot;')}" placeholder="Např. Uherské Hradiště nebo 686 01"></label>
+          <label id="sqSavePlaceField" class="sqSaveField full" hidden>Město nebo PSČ<input id="sqSavePlace" type="text" value="${esc(savedPlace)}" placeholder="Např. Uherské Hradiště nebo 686 01"></label>
           <label class="sqSaveField">Max. obchodů<select id="sqSaveMaxStores"><option value="1">1 obchod</option><option value="2" selected>2 obchody</option><option value="3">3 obchody</option></select></label>
         </div>
         <div class="sqSaveActions"><button class="sqSaveAction" type="button" data-sq-cancel>Zrušit</button><button id="sqSaveAction" class="sqSaveAction primary" type="button">Najít nejlevnější lokální nákup</button></div>
