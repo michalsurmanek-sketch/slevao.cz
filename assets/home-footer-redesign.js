@@ -109,6 +109,18 @@
     inStoreActionsScript.defer = true;
     document.head.appendChild(inStoreActionsScript);
   }
+  if (!document.querySelector('link[href*="home-in-store-list.css"]')) {
+    const inStoreListStyle = document.createElement('link');
+    inStoreListStyle.rel = 'stylesheet';
+    inStoreListStyle.href = 'assets/home-in-store-list.css?v=20260807-1';
+    document.head.appendChild(inStoreListStyle);
+  }
+  if (!document.querySelector('script[src*="home-in-store-list.js"]')) {
+    const inStoreListScript = document.createElement('script');
+    inStoreListScript.src = 'assets/home-in-store-list.js?v=20260807-1';
+    inStoreListScript.defer = true;
+    document.head.appendChild(inStoreListScript);
+  }
 
   const hideInStore = () => {
     const node = document.getElementById('slInStore');
