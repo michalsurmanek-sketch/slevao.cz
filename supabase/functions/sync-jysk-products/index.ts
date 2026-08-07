@@ -1,17 +1,100 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const URL=Deno.env.get('SUPABASE_URL')!;
-const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const CRON=Deno.env.get('CRON_SECRET')||'';
-const db=createClient(URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
-const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,apikey,content-type,x-cron-secret','access-control-allow-methods':'POST,OPTIONS','content-type':'application/json; charset=utf-8'};
-const HEADERS={'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',accept:'text/html,application/json,*/*;q=0.8','accept-language':'cs-CZ,cs;q=0.9'};
-const DEALS='https://jysk.cz/akce';
-function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:CORS});}
-async function allowed(request:Request){const raw=request.headers.get('authorization')||'',token=raw.replace(/^Bearer\s+/i,'').trim();if(token===SERVICE)return true;if(CRON&&request.headers.get('x-cron-secret')===CRON)return true;if(!token)return false;const{data,error}=await db.auth.getUser(token);return!error&&!!data.user&&['admin','editor'].includes(String(data.user.app_metadata?.role||'').toLowerCase());}
-async function fetchText(url:string,timeout=25000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);try{const r=await fetch(url,{headers:HEADERS,redirect:'follow',signal:controller.signal});const text=await r.text();if(!r.ok)throw new Error(`${new URL(url).hostname} HTTP ${r.status}`);return{text,url:r.url}}finally{clearTimeout(timer)}}
-function decode(value:string){let out=value;for(let i=0;i<4;i++){const next=out.replace(/&amp;/gi,'&').replace(/&quot;|&#34;|&#x22;/gi,'"').replace(/&#39;|&apos;|&#x27;/gi,"'").replace(/&nbsp;|&#160;/gi,' ').replace(/\\u0022/gi,'"').replace(/\\u002F/gi,'/').replace(/\\u003A/gi,':').replace(/\\u0026/gi,'&');if(next===out)break;out=next;}return out;}
-function componentProps(html:string){const out:any[]=[];for(const m of html.matchAll(/data-jysk-react-component=["']([^"']+)["'][^>]*data-jysk-react-properties=["']([^"']*)["']/gi)){out.push({component:m[1],properties:decode(m[2]).slice(0,18000)});}for(const m of html.matchAll(/data-jysk-react-properties=["']([^"']*)["'][^>]*data-jysk-react-component=["']([^"']+)["']/gi)){out.push({component:m[2],properties:decode(m[1]).slice(0,18000)});}return out.slice(0,80);}
-function markerContexts(html:string){const text=decode(html),patterns=[/ajax-solr-page/gi,/product-teasers-pagination/gi,/products\/json\/main_cz/gi,/online_search_application_url/gi,/service\/search/gi,/queryString/gi,/searchQuery/gi,/facet/gi,/campaign/gi,/productOverview/gi,/ProductOverview/gi,/ProductList/gi,/pagination/gi,/pageSize/gi,/rows/gi],out:any[]=[];for(const re of patterns){for(const m of text.matchAll(re)){if(out.length>=100)break;const i=m.index||0;out.push({marker:m[0],context:text.slice(Math.max(0,i-350),Math.min(text.length,i+900)).replace(/\s+/g,' ')});}if(out.length>=100)break;}return out;}
-function scriptUrls(html:string){const set=new Set<string>();for(const m of html.matchAll(/(?:src|href)=["']([^"']+\.(?:js|mjs)(?:\?[^"']*)?)["']/gi)){try{set.add(new URL(decode(m[1]),DEALS).toString())}catch{}}return[...set].slice(0,120);}
-Deno.serve(async request=>{if(request.method==='OPTIONS')return new Response('ok',{headers:CORS});if(request.method!=='POST')return json({error:'Method not allowed'},405);if(!(await allowed(request)))return json({error:'Unauthorized'},401);try{const body=await request.json().catch(()=>({}));if(body.dry_run!==true)return json({error:'JYSK produktová publikace zatím není povolena; použij dry_run.'},409);const page=await fetchText(DEALS);return json({ok:true,dry_run:true,url:page.url,html_bytes:page.text.length,react_components:componentProps(page.text),marker_contexts:markerContexts(page.text),script_urls:scriptUrls(page.text)});}catch(error){return json({error:error instanceof Error?error.message:String(error),code:'JYSK_PRODUCT_DRY_RUN_FAILED'},500)}});
+const URL = Deno.env.get('SUPABASE_URL')!;
+const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const CRON = Deno.env.get('CRON_SECRET') || '';
+const db = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
+  'access-control-allow-methods': 'POST,OPTIONS',
+  'content-type': 'application/json; charset=utf-8',
+};
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36';
+const PAGE_URL = 'https://jysk.cz/akce';
+const PRODUCT_JSON_URL = 'https://jysk.cz/products/json/main_cz/';
+
+function json(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), { status, headers: CORS });
+}
+
+async function allowed(request: Request) {
+  const raw = request.headers.get('authorization') || '';
+  const token = raw.replace(/^Bearer\s+/i, '').trim();
+  if (token === SERVICE) return true;
+  if (CRON && request.headers.get('x-cron-secret') === CRON) return true;
+  if (!token) return false;
+  const { data, error } = await db.auth.getUser(token);
+  return !error && !!data.user && ['admin', 'editor'].includes(String(data.user.app_metadata?.role || '').toLowerCase());
+}
+
+function cookiesFrom(response: Response) {
+  const raw = typeof response.headers.getSetCookie === 'function'
+    ? response.headers.getSetCookie()
+    : [response.headers.get('set-cookie') || ''];
+  return raw.filter(Boolean).map((value) => value.split(';', 1)[0]).filter(Boolean).join('; ');
+}
+
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
+  if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
+
+  try {
+    const body = await request.json().catch(() => ({}));
+    if (body.dry_run !== true) return json({ error: 'JYSK produktová publikace zatím není povolena; použij dry_run.' }, 409);
+
+    const landing = await fetch(PAGE_URL, {
+      headers: {
+        'user-agent': UA,
+        accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        'cache-control': 'no-cache',
+      },
+      redirect: 'follow',
+    });
+    const landingText = await landing.text();
+    if (!landing.ok) throw new Error(`JYSK vstupní stránka HTTP ${landing.status}`);
+    const cookie = cookiesFrom(landing);
+
+    const productResponse = await fetch(PRODUCT_JSON_URL, {
+      headers: {
+        'user-agent': UA,
+        accept: 'application/json,text/plain,*/*',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        referer: PAGE_URL,
+        origin: 'https://jysk.cz',
+        'x-requested-with': 'XMLHttpRequest',
+        ...(cookie ? { cookie } : {}),
+      },
+      redirect: 'follow',
+    });
+    const text = await productResponse.text();
+    let parsed: any = null;
+    try { parsed = JSON.parse(text); } catch { /* diagnostic response below */ }
+
+    const rootType = Array.isArray(parsed) ? 'array' : parsed && typeof parsed === 'object' ? 'object' : typeof parsed;
+    const rootKeys = parsed && !Array.isArray(parsed) && typeof parsed === 'object' ? Object.keys(parsed).slice(0, 80) : [];
+    const rootLength = Array.isArray(parsed) ? parsed.length : null;
+    const first = Array.isArray(parsed) ? parsed[0] : null;
+
+    return json({
+      ok: productResponse.ok,
+      dry_run: true,
+      landing_status: landing.status,
+      landing_bytes: landingText.length,
+      cookie_names: cookie.split('; ').filter(Boolean).map((x) => x.split('=', 1)[0]),
+      product_status: productResponse.status,
+      content_type: productResponse.headers.get('content-type'),
+      bytes: text.length,
+      root_type: rootType,
+      root_keys: rootKeys,
+      root_length: rootLength,
+      first_item_keys: first && typeof first === 'object' ? Object.keys(first).slice(0, 80) : [],
+      first_item: first,
+      prefix: parsed ? null : text.slice(0, 1000),
+    }, productResponse.ok ? 200 : 502);
+  } catch (error) {
+    return json({ error: error instanceof Error ? error.message : String(error), code: 'JYSK_PRODUCT_DRY_RUN_FAILED' }, 500);
+  }
+});
