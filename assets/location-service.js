@@ -107,7 +107,21 @@
     return [...map.values()].sort((a, b) => Number(a.distance_km ?? Infinity) - Number(b.distance_km ?? Infinity));
   }
 
-  async function fetchOffersForList(rows, storeIds) {
+  function coverageMatches(offer, branches) {
+    const scope = String(offer?.coverage_scope || 'national');
+    if (!scope || scope === 'national') return true;
+    const storeBranches = (branches || []).filter((branch) => String(branch.store_id) === String(offer.store_id));
+    if (!storeBranches.length) return false;
+    if (scope === 'city') {
+      const city = fold(offer.city_name);
+      return Boolean(city) && storeBranches.some((branch) => fold(branch.city) === city);
+    }
+    if (scope === 'store') return false;
+    if (scope === 'region') return false;
+    return false;
+  }
+
+  async function fetchOffersForList(rows, storeIds, branches = []) {
     const productIds = [...new Set((rows || []).filter((row) => !row.completed && row.product_id).map((row) => String(row.product_id)))];
     const stores = [...new Set((storeIds || []).filter(Boolean).map(String))];
     if (!productIds.length || !stores.length) return [];
@@ -125,7 +139,7 @@
       });
       output.push(...batch);
     }
-    return output;
+    return output.filter((offer) => coverageMatches(offer, branches));
   }
 
   function basketMetrics(rows, offers) {
@@ -191,6 +205,7 @@
     fetchNearbyBranches,
     searchBranchesByPlace,
     uniqueStores,
+    coverageMatches,
     fetchOffersForList,
     basketMetrics,
     branchLabel,
