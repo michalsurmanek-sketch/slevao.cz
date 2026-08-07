@@ -4,6 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const MAX_RUN_MS = 85_000;
+const AUTO_MATCH_THRESHOLD = 0.92;
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -36,7 +37,25 @@ type Offer = {
   products: Product | null;
 };
 
-type Alias = { product_id: string; alias: string; normalized_alias: string };
+type Alias = {
+  product_id: string;
+  alias: string;
+  normalized_alias: string;
+  brand: string | null;
+  quantity_text: string | null;
+  source_store_id: string | null;
+  confidence: number | null;
+};
+
+type Evaluation = {
+  product: Product;
+  score: number;
+  autoSafe: boolean;
+  sourceText: string;
+  quantityState: 'same' | 'mismatch' | 'missing' | 'none';
+  brandMatch: boolean;
+  reasons: string[];
+};
 
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
@@ -56,14 +75,29 @@ function normalize(value: unknown): string {
     .trim();
 }
 
-function extractQuantity(value: unknown): string {
-  const text = normalize(value);
-  const matches = [...text.matchAll(/\b(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|ml|cl|ks)\b/g)];
-  return matches.map((match) => `${String(match[1]).replace(',', '.')}${match[2]}`).join(' ');
-}
-
 function tokenArray(value: unknown): string[] {
   return [...new Set(normalize(value).split(' ').filter((token) => token.length >= 2))];
+}
+
+function isSpecificTitle(value: unknown): boolean {
+  const text = normalize(value);
+  if (!text || text.length < 3 || /^\d+$/.test(text)) return false;
+  const blocked = new Set([
+    'cena', 'akce', 'sleva', 'vybrane druhy', 'dle nabidky', 's klubem',
+    'club', 'original', 'mini', 'selection', 'cool',
+  ]);
+  if (blocked.has(text)) return false;
+  return tokenArray(text).some((token) => /[a-z]/.test(token) && token.length >= 3);
+}
+
+function extractQuantity(value: unknown): string {
+  const text = normalize(value);
+  const multipacks = [...text.matchAll(/\b(\d+)\s*x\s*(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|ml|cl|ks)\b/g)]
+    .map((match) => `${match[1]}x${String(match[2]).replace(',', '.')}${match[3]}`);
+  const singles = [...text.matchAll(/\b(\d+(?:[.,]\d+)?)\s*(kg|g|mg|l|ml|cl|ks)\b/g)]
+    .map((match) => `${String(match[1]).replace(',', '.')}${match[2]}`)
+    .filter((value) => !multipacks.some((multi) => multi.endsWith(`x${value}`)));
+  return [...new Set([...multipacks, ...singles])].join(' ');
 }
 
 function titleSimilarity(leftValue: unknown, rightValue: unknown): number {
@@ -78,20 +112,76 @@ function titleSimilarity(leftValue: unknown, rightValue: unknown): number {
   return coverage * 0.72 + jaccard * 0.28;
 }
 
-function scoreCandidate(offerTitle: string, product: Product, alias?: string): number {
-  let score = titleSimilarity(offerTitle, alias || product.name);
+function quantityState(offerTitle: string, candidateQuantity: string | null, candidateName: string): Evaluation['quantityState'] {
   const offerQuantity = extractQuantity(offerTitle);
-  const productQuantity = extractQuantity(product.quantity_text || product.name);
-  if (offerQuantity && productQuantity) score += offerQuantity === productQuantity ? 0.12 : -0.2;
-  const brand = normalize(product.brand);
-  if (brand) score += normalize(offerTitle).includes(brand) ? 0.08 : -0.04;
-  return Math.max(0, Math.min(score, 1));
+  const productQuantity = extractQuantity(candidateQuantity || candidateName);
+  if (offerQuantity && productQuantity) return offerQuantity === productQuantity ? 'same' : 'mismatch';
+  if (offerQuantity || productQuantity) return 'missing';
+  return 'none';
+}
+
+function aliasIsUsable(alias: Alias): boolean {
+  if (Number(alias.confidence || 0) < 0.9 || !isSpecificTitle(alias.alias)) return false;
+  const tokens = tokenArray(alias.alias);
+  return Boolean(alias.quantity_text || alias.brand || tokens.length >= 2);
+}
+
+function evaluateText(offerTitle: string, product: Product, sourceText: string, sourceBrand: string | null, sourceQuantity: string | null): Omit<Evaluation, 'product'> {
+  const similarity = titleSimilarity(offerTitle, sourceText);
+  const qState = quantityState(offerTitle, sourceQuantity || product.quantity_text, sourceText || product.name);
+  const brand = normalize(sourceBrand || product.brand);
+  const brandMatch = Boolean(brand && normalize(offerTitle).includes(brand));
+  const exact = normalize(offerTitle) === normalize(sourceText);
+  const exactMultiToken = exact && tokenArray(sourceText).length >= 2;
+  const specific = isSpecificTitle(offerTitle) && isSpecificTitle(sourceText);
+
+  let score = similarity;
+  if (qState === 'same') score += 0.15;
+  else if (qState === 'mismatch') score -= 0.4;
+  else if (qState === 'missing') score -= 0.22;
+  if (brand) score += brandMatch ? 0.1 : -0.1;
+  score = Math.max(0, Math.min(score, 1));
+
+  let evidence = 0;
+  if (similarity >= 0.94) evidence++;
+  if (qState === 'same') evidence++;
+  if (brandMatch) evidence++;
+  if (exactMultiToken) evidence++;
+
+  const reasons: string[] = [];
+  if (!specific) reasons.push('generic_title');
+  if (qState === 'mismatch') reasons.push('quantity_mismatch');
+  if (qState === 'missing') reasons.push('quantity_missing_on_one_side');
+  if (brand && !brandMatch) reasons.push('brand_missing');
+  if (evidence < 2) reasons.push('insufficient_independent_signals');
+
+  const autoSafe = specific
+    && qState !== 'mismatch'
+    && qState !== 'missing'
+    && (!brand || brandMatch)
+    && evidence >= 2
+    && score >= AUTO_MATCH_THRESHOLD;
+
+  return { score, autoSafe, sourceText, quantityState: qState, brandMatch, reasons };
+}
+
+function evaluateCandidate(offerTitle: string, product: Product, aliases: Alias[]): Evaluation {
+  const candidates: Array<{ text: string; brand: string | null; quantity: string | null }> = [
+    { text: product.name, brand: product.brand, quantity: product.quantity_text },
+    ...aliases.filter(aliasIsUsable).map((alias) => ({ text: alias.alias, brand: alias.brand || product.brand, quantity: alias.quantity_text || product.quantity_text })),
+  ];
+
+  let best: Omit<Evaluation, 'product'> | null = null;
+  for (const candidate of candidates) {
+    const evaluation = evaluateText(offerTitle, product, candidate.text, candidate.brand, candidate.quantity);
+    if (!best || evaluation.score > best.score || (evaluation.score === best.score && evaluation.autoSafe && !best.autoSafe)) best = evaluation;
+  }
+
+  return { product, ...(best || evaluateText(offerTitle, product, product.name, product.brand, product.quantity_text)) };
 }
 
 function isApprovedImage(product: Product | null): boolean {
-  return Boolean(
-    product?.image_url && product.image_verified && Number(product.image_quality || 0) >= 70
-  );
+  return Boolean(product?.image_url && product.image_verified && Number(product.image_quality || 0) >= 70);
 }
 
 async function authorize(request: Request): Promise<boolean> {
@@ -114,7 +204,8 @@ async function loadProducts(): Promise<Product[]> {
 
 async function loadAliases(): Promise<Alias[]> {
   const { data, error } = await db.from('product_aliases')
-    .select('product_id,alias,normalized_alias')
+    .select('product_id,alias,normalized_alias,brand,quantity_text,source_store_id,confidence')
+    .gte('confidence', 0.9)
     .limit(20_000);
   if (error) throw error;
   return (data || []) as Alias[];
@@ -133,15 +224,18 @@ async function loadOffers(limit: number, offerId?: string): Promise<Offer[]> {
   return (data || []) as unknown as Offer[];
 }
 
-async function upsertAlias(productId: string, offer: Offer, confidence: number) {
+async function upsertAlias(productId: string, offer: Offer, product: Product, confidence: number) {
   const normalizedAlias = normalize(offer.title);
-  if (!normalizedAlias) return;
+  if (!normalizedAlias || !isSpecificTitle(offer.title) || confidence < AUTO_MATCH_THRESHOLD) return;
+  const quantity = extractQuantity(offer.title) || product.quantity_text || null;
   const { error } = await db.from('product_aliases').upsert({
     product_id: productId,
     alias: offer.title,
     normalized_alias: normalizedAlias,
+    brand: product.brand || null,
+    quantity_text: quantity,
     source_store_id: offer.store_id,
-    confidence,
+    confidence: Number(Math.max(0, Math.min(1, confidence)).toFixed(5)),
   }, { onConflict: 'product_id,normalized_alias', ignoreDuplicates: false });
   if (error) throw error;
 }
@@ -156,14 +250,14 @@ async function markOffer(offerId: string, status: 'matched' | 'retained' | 'need
   if (error) throw error;
 }
 
-async function updateCurrentProductMetadata(offer: Offer) {
-  if (!offer.product_id || !offer.products) return;
+async function updateTrustedCurrentProductMetadata(offer: Offer, product: Product, confidence: number) {
+  if (!offer.product_id) return;
   const quantity = extractQuantity(offer.title) || null;
-  const update: Record<string, unknown> = { normalized_name: normalize(offer.products.name || offer.title) };
-  if (!offer.products.quantity_text && quantity) update.quantity_text = quantity;
+  const update: Record<string, unknown> = { normalized_name: normalize(product.name || offer.title) };
+  if (!product.quantity_text && quantity) update.quantity_text = quantity;
   const { error } = await db.from('products').update(update).eq('id', offer.product_id);
   if (error) throw error;
-  await upsertAlias(offer.product_id, offer, 1);
+  await upsertAlias(offer.product_id, offer, product, confidence);
 }
 
 async function mergeOffer(offer: Offer, master: Product, score: number) {
@@ -178,7 +272,7 @@ async function mergeOffer(offer: Offer, master: Product, score: number) {
     .eq('product_id', offer.product_id)
     .eq('title', offer.title);
   if (itemError) throw itemError;
-  await upsertAlias(master.id, offer, score);
+  await upsertAlias(master.id, offer, master, score);
 
   if (offer.product_id && offer.product_id !== master.id) {
     const [{ count: offerCount }, { count: itemCount }] = await Promise.all([
@@ -201,21 +295,24 @@ function addToIndex(index: Map<string, Set<string>>, key: string, productId: str
 function buildIndexes(products: Product[], aliases: Alias[]) {
   const exact = new Map<string, Set<string>>();
   const tokenIndex = new Map<string, Set<string>>();
+  const aliasesByProduct = new Map<string, Alias[]>();
+
   for (const product of products) {
     const key = normalize(product.normalized_name || product.name);
     addToIndex(exact, key, product.id);
-    for (const token of tokenArray(`${product.name} ${product.brand || ''}`).filter((value) => value.length >= 4)) {
-      addToIndex(tokenIndex, token, product.id);
-    }
+    for (const token of tokenArray(`${product.name} ${product.brand || ''}`).filter((value) => value.length >= 4)) addToIndex(tokenIndex, token, product.id);
   }
-  for (const alias of aliases) {
+
+  for (const alias of aliases.filter(aliasIsUsable)) {
     const key = normalize(alias.normalized_alias || alias.alias);
     addToIndex(exact, key, alias.product_id);
-    for (const token of tokenArray(alias.alias).filter((value) => value.length >= 4)) {
-      addToIndex(tokenIndex, token, alias.product_id);
-    }
+    for (const token of tokenArray(`${alias.alias} ${alias.brand || ''}`).filter((value) => value.length >= 4)) addToIndex(tokenIndex, token, alias.product_id);
+    const rows = aliasesByProduct.get(alias.product_id) || [];
+    rows.push(alias);
+    aliasesByProduct.set(alias.product_id, rows);
   }
-  return { exact, tokenIndex };
+
+  return { exact, tokenIndex, aliasesByProduct };
 }
 
 function candidateIdsFor(title: string, exact: Map<string, Set<string>>, tokenIndex: Map<string, Set<string>>): string[] {
@@ -243,7 +340,7 @@ async function processCatalog(limit: number, offerId?: string) {
   const startedAt = Date.now();
   const [products, aliases, offers] = await Promise.all([loadProducts(), loadAliases(), loadOffers(limit, offerId)]);
   const productById = new Map(products.map((product) => [product.id, product]));
-  const { exact, tokenIndex } = buildIndexes(products, aliases);
+  const { exact, tokenIndex, aliasesByProduct } = buildIndexes(products, aliases);
 
   let checked = 0;
   let matched = 0;
@@ -260,32 +357,37 @@ async function processCatalog(limit: number, offerId?: string) {
     }
     checked++;
     try {
-      let best: { product: Product; score: number } | null = null;
+      let best: Evaluation | null = null;
       for (const productId of candidateIdsFor(offer.title, exact, tokenIndex)) {
         const product = productById.get(productId);
         if (!product) continue;
-        const score = scoreCandidate(offer.title, product);
-        if (!best || score > best.score || (score === best.score && isApprovedImage(product))) best = { product, score };
+        const evaluation = evaluateCandidate(offer.title, product, aliasesByProduct.get(productId) || []);
+        if (!best || evaluation.score > best.score || (evaluation.score === best.score && evaluation.autoSafe && !best.autoSafe)) best = evaluation;
       }
 
-      if (best && best.score >= 0.9) {
+      if (best && best.autoSafe && best.score >= AUTO_MATCH_THRESHOLD) {
         if (best.product.id !== offer.product_id) {
           await mergeOffer(offer, best.product, best.score);
           matched++;
-          results.push({ offer_id: offer.id, status: 'matched', product_id: best.product.id, score: Number(best.score.toFixed(3)) });
+          results.push({ offer_id: offer.id, status: 'matched', product_id: best.product.id, score: Number(best.score.toFixed(3)), source: best.sourceText, quantity_state: best.quantityState });
         } else {
-          await updateCurrentProductMetadata(offer);
+          await updateTrustedCurrentProductMetadata(offer, best.product, best.score);
           await markOffer(offer.id, 'retained', best.score, isApprovedImage(best.product) && offer.image_url !== best.product.image_url
             ? { image_url: best.product.image_url }
             : {});
           retained++;
-          results.push({ offer_id: offer.id, status: 'retained', score: Number(best.score.toFixed(3)) });
+          results.push({ offer_id: offer.id, status: 'retained', score: Number(best.score.toFixed(3)), source: best.sourceText, quantity_state: best.quantityState });
         }
       } else {
-        await updateCurrentProductMetadata(offer);
         await markOffer(offer.id, 'needs_review', best?.score || 0);
         needsReview++;
-        results.push({ offer_id: offer.id, status: 'needs_review', best_score: Number((best?.score || 0).toFixed(3)) });
+        results.push({
+          offer_id: offer.id,
+          status: 'needs_review',
+          best_score: Number((best?.score || 0).toFixed(3)),
+          reasons: best?.reasons || ['no_candidate'],
+          quantity_state: best?.quantityState || null,
+        });
       }
     } catch (error) {
       failed++;
