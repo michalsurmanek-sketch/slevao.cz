@@ -1,9 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
-const db = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const CORS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
@@ -136,7 +136,7 @@ function toRow(product: any, today: string) {
     quantity_text: String(product?.price?.formatted?.unit || '').replace(/^\//u, '').trim() || null,
     valid_from: validFrom,
     valid_to: validTo,
-    source_url: new URL(String(product?.url || `/search?q=${encodeURIComponent(title)}`), 'https://jysk.cz').toString(),
+    source_url: new globalThis.URL(String(product?.url || `/search?q=${encodeURIComponent(title)}`), 'https://jysk.cz').toString(),
     source_page: null,
     product_id: null,
     image_url: firstImage(product),
