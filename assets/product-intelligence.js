@@ -49,14 +49,20 @@
 
   function buildContext(offers, history) {
     const now = Date.now();
+    const today = localDate();
     const history90 = history.filter((row) => new Date(row.recorded_at).getTime() >= now - 90 * 86400000 && Number(row.price) > 0);
     const history30 = history.filter((row) => new Date(row.recorded_at).getTime() >= now - 30 * 86400000 && Number(row.price) > 0);
     const typical = median(history90.map((row) => row.price));
     const min30 = history30.length ? Math.min(...history30.map((row) => Number(row.price))) : null;
     const marketPrices = offers.map((offer) => Number(offer.price)).filter((price) => price > 0);
+    const currentMarketPrices = offers
+      .filter((offer) => String(offer.valid_from || '') <= today)
+      .map((offer) => Number(offer.price))
+      .filter((price) => price > 0);
     const marketMin = marketPrices.length ? Math.min(...marketPrices) : null;
     const marketMax = marketPrices.length ? Math.max(...marketPrices) : null;
-    return { history90, history30, typical, min30, marketMin, marketMax };
+    const marketMinCurrent = currentMarketPrices.length ? Math.min(...currentMarketPrices) : null;
+    return { history90, history30, typical, min30, marketMin, marketMax, marketMinCurrent };
   }
 
   function intelligenceFor(offer, context, offers) {
@@ -86,16 +92,17 @@
 
     const weight = signals.reduce((sum, signal) => sum + signal.weight, 0);
     const score = Math.round(signals.reduce((sum, signal) => sum + signal.value * signal.weight, 0) / weight);
-    const cheaperElsewhere = context.marketMin != null && price > context.marketMin * 1.10;
+    const availableToday = String(offer.valid_from || '') <= localDate();
+    const cheaperElsewhereToday = availableToday && context.marketMinCurrent != null && price > context.marketMinCurrent * 1.10;
     const strongHistoricalPrice = (context.typical && price <= context.typical * .92) || (context.min30 && price <= context.min30 * 1.03);
     const strongDiscount = discount != null && discount >= 25;
 
     let decision = 'POČKEJ';
     let decisionClass = 'wait';
-    if (cheaperElsewhere) {
+    if (cheaperElsewhereToday) {
       decision = 'NEVYPLATÍ SE';
       decisionClass = 'skip';
-    } else if (score >= 85 && (strongHistoricalPrice || strongDiscount)) {
+    } else if (availableToday && score >= 85 && (strongHistoricalPrice || strongDiscount)) {
       decision = 'KUP TEĎ';
       decisionClass = 'buy';
     }
@@ -105,6 +112,7 @@
     if (context.min30) reasons.push(`30denní minimum ${money(context.min30)} Kč`);
     if (offers.length >= 2) reasons.push(`porovnáno ${offers.length} nabídek`);
     if (discount != null) reasons.push(`sleva ${Math.round(discount)} %`);
+    if (!availableToday) reasons.push('nabídka ještě nezačala');
 
     return { sufficient: true, score, label: scoreLabel(score), decision, decisionClass, reasons };
   }
