@@ -138,9 +138,9 @@ async function parseStore(url: string) {
     const html = page.text;
     const postId = Number(html.match(/"post_id"\s*:\s*(\d+)/i)?.[1]);
     const name = cleanText(html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '');
-    const mapMatch = html.match(/<a[^>]+href=["'](https:\/\/maps[.]app[.]goo[.]gl\/[^"']+)["'][^>]*>([^<]+)<\/a>/i);
+    const mapMatch = html.match(/<a[^>]+href=["'](https:\/\/(?:maps[.]app[.]goo[.]gl\/[^"']+|goo[.]gl\/maps\/[^"']+))["'][^>]*>([^<]+)<\/a>/i);
     if (!Number.isInteger(postId) || postId <= 0) return { row: null, error: 'Detail neobsahuje stabilní WordPress post_id.', url };
-    if (!mapMatch) return { row: null, error: 'Detail neobsahuje oficiální Google Maps adresní odkaz.', url };
+    if (!mapMatch) return { row: null, error: 'Detail neobsahuje podporovaný oficiální Google Maps adresní odkaz.', url };
     const coordinates = await resolveMapCoordinates(mapMatch[1]);
     if (!coordinates) return { row: null, error: 'Oficiální mapový odkaz nevrátil validní GPS v ČR.', url };
     const address = parseAddress(mapMatch[2]);
