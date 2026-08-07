@@ -33,6 +33,15 @@ function snippets(html: string, needle: string, max = 3) {
   return out;
 }
 
+function cookieHeader(setCookie: string | null) {
+  if (!setCookie) return '';
+  return setCookie
+    .split(/,(?=[^;,]+=)/)
+    .map((part) => part.trim().split(';')[0])
+    .filter(Boolean)
+    .join('; ');
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -46,7 +55,7 @@ Deno.serve(async (request) => {
 
     const params = new URLSearchParams();
     params.set('filialfinder[suche][land]', 'Tschechien');
-    params.set('filialfinder[suche][radius]', String(input.radius || '500000'));
+    params.set('filialfinder[suche][radius]', String(input.radius || '10000'));
     params.set('filialfinder[suche][plz]', String(input.postal_code || ''));
     params.set('filialfinder[suche][stadt]', String(input.city || 'Praha'));
     params.set('filialfinder[suche][strasse]', String(input.street || ''));
@@ -54,31 +63,56 @@ Deno.serve(async (request) => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 30_000);
     try {
-      const response = await fetch(LOCATOR_URL, {
+      const baseHeaders: Record<string, string> = {
+        'user-agent': UA,
+        accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+        'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
+        'cache-control': 'no-cache',
+      };
+      const first = await fetch(LOCATOR_URL, {
         method: 'POST',
-        headers: {
-          'user-agent': UA,
-          accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
-          'accept-language': 'cs-CZ,cs;q=0.9,en;q=0.7',
-          'content-type': 'application/x-www-form-urlencoded',
-          'cache-control': 'no-cache',
-        },
+        headers: { ...baseHeaders, 'content-type': 'application/x-www-form-urlencoded' },
         body: params.toString(),
-        redirect: 'follow',
+        redirect: 'manual',
         signal: controller.signal,
       });
-      const html = await response.text();
+
+      let cookie = cookieHeader(first.headers.get('set-cookie'));
+      const chain: Array<{ status: number; url: string; location: string | null; cookie_set: boolean }> = [{
+        status: first.status,
+        url: first.url,
+        location: first.headers.get('location'),
+        cookie_set: !!cookie,
+      }];
+      let current = first;
+      let html = '';
+      for (let hop = 0; hop < 5; hop += 1) {
+        const location = current.headers.get('location');
+        if (!location || ![301, 302, 303, 307, 308].includes(current.status)) {
+          html = await current.text();
+          break;
+        }
+        const target = new URL(location, current.url || LOCATOR_URL).toString();
+        const headers = { ...baseHeaders, ...(cookie ? { cookie } : {}) };
+        current = await fetch(target, { method: 'GET', headers, redirect: 'manual', signal: controller.signal });
+        const nextCookie = cookieHeader(current.headers.get('set-cookie'));
+        if (nextCookie) cookie = [cookie, nextCookie].filter(Boolean).join('; ');
+        chain.push({ status: current.status, url: current.url, location: current.headers.get('location'), cookie_set: !!nextCookie });
+      }
+      if (!html) html = await current.text();
+
       const lower = html.toLowerCase();
-      const markerNames = ['latitude', 'longitude', 'data-lat', 'data-lng', 'maps.google', 'maps.app', 'openstreetmap', 'leaflet', 'filiale', 'entfernung'];
+      const markerNames = ['latitude', 'longitude', 'data-lat', 'data-lng', 'maps.google', 'maps.app', 'openstreetmap', 'leaflet', 'filiale', 'entfernung', 'öffnungszeiten'];
       const markers = Object.fromEntries(markerNames.map((name) => [name, lower.split(name.toLowerCase()).length - 1]));
-      const coordinateMatches = [...html.matchAll(/(?:48|49|50|51)[.,][0-9]{3,}[^0-9-]{0,80}(?:12|13|14|15|16|17|18|19)[.,][0-9]{3,}/g)].slice(0, 20).map((m) => m[0]);
+      const coordinateMatches = [...html.matchAll(/(?:48|49|50|51)[.,][0-9]{3,}[^0-9-]{0,80}(?:12|13|14|15|16|17|18|19)[.,][0-9]{3,}/g)].slice(0, 30).map((m) => m[0]);
       return json({
-        ok: response.ok,
+        ok: current.ok,
         dry_run: true,
         mode: 'diagnose',
-        status: response.status,
-        final_url: response.url,
+        status: current.status,
+        final_url: current.url,
         bytes: html.length,
+        redirect_chain: chain,
         markers,
         coordinate_matches: coordinateMatches,
         samples: {
@@ -86,9 +120,10 @@ Deno.serve(async (request) => {
           longitude: snippets(html, 'longitude'),
           maps: snippets(html, 'maps'),
           result: snippets(html, 'entfernung'),
+          hours: snippets(html, 'Öffnungszeiten'),
           praha: snippets(html, 'Praha'),
         },
-      }, response.ok ? 200 : 502);
+      }, current.ok ? 200 : 502);
     } finally {
       clearTimeout(timer);
     }
