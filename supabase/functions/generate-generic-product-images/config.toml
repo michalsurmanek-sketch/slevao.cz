@@ -1,1 +1,2 @@
+# Trigger the image workflow after production function deployment.
 verify_jwt = false
