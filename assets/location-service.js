@@ -62,12 +62,14 @@
     });
   }
 
+  const branchSelect = 'id,store_id,external_id,name,street,city,postal_code,region,latitude,longitude,opening_hours,stores(id,name,slug,logo_url,primary_color)';
+
   async function fetchNearbyBranches(latitude, longitude, radiusKm = 15) {
     const lat = Number(latitude), lon = Number(longitude), radius = Math.max(1, Math.min(50, Number(radiusKm) || 15));
     const latDelta = radius / 111;
     const lonDelta = radius / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
     const rows = await rest('branches', {
-      select: 'id,store_id,name,street,city,postal_code,latitude,longitude,opening_hours,stores(id,name,slug,logo_url,primary_color)',
+      select: branchSelect,
       is_active: 'eq.true',
       latitude: `gte.${lat - latDelta}`,
       longitude: `gte.${lon - lonDelta}`,
@@ -85,9 +87,9 @@
     if (!term) return [];
     const digits = term.replace(/\D/g, '');
     const params = {
-      select: 'id,store_id,name,street,city,postal_code,latitude,longitude,opening_hours,stores(id,name,slug,logo_url,primary_color)',
+      select: branchSelect,
       is_active: 'eq.true',
-      limit: '800',
+      limit: '1000',
     };
     if (digits.length === 5) {
       params.or = `(postal_code.ilike.*${digits}*,postal_code.ilike.*${digits.slice(0, 3)} ${digits.slice(3)}*)`;
@@ -108,7 +110,7 @@
   }
 
   function coverageMatches(offer, branches) {
-    const scope = String(offer?.coverage_scope || 'national');
+    const scope = String(offer?.coverage_scope || 'national').toLowerCase();
     if (!scope || scope === 'national') return true;
     const storeBranches = (branches || []).filter((branch) => String(branch.store_id) === String(offer.store_id));
     if (!storeBranches.length) return false;
@@ -116,9 +118,37 @@
       const city = fold(offer.city_name);
       return Boolean(city) && storeBranches.some((branch) => fold(branch.city) === city);
     }
-    if (scope === 'store') return false;
-    if (scope === 'region') return false;
+    if (scope === 'store') {
+      if (!offer.branch_id) return false;
+      return storeBranches.some((branch) => String(branch.id) === String(offer.branch_id));
+    }
+    if (scope === 'region') {
+      const region = fold(offer.region_code);
+      return Boolean(region) && storeBranches.some((branch) => fold(branch.region) === region);
+    }
     return false;
+  }
+
+  const offerSelect = 'id,product_id,store_id,branch_id,title,image_url,price,old_price,discount_percent,valid_from,valid_to,coverage_scope,region_code,city_name,is_verified,confidence_score,stores(id,name,slug,logo_url,primary_color)';
+
+  async function fetchOffersForStores(storeIds, branches = []) {
+    const stores = [...new Set((storeIds || []).filter(Boolean).map(String))];
+    if (!stores.length) return [];
+    const output = [];
+    for (let from = 0; from < stores.length; from += 20) {
+      const ids = stores.slice(from, from + 20);
+      const batch = await rest('offers', {
+        select: offerSelect,
+        store_id: `in.(${ids.join(',')})`,
+        status: 'eq.published',
+        valid_from: `lte.${TODAY}`,
+        valid_to: `gte.${TODAY}`,
+        order: 'price.asc',
+        limit: '5000',
+      });
+      output.push(...batch);
+    }
+    return output.filter((offer) => coverageMatches(offer, branches));
   }
 
   async function fetchOffersForList(rows, storeIds, branches = []) {
@@ -129,7 +159,7 @@
     for (let from = 0; from < productIds.length; from += 35) {
       const ids = productIds.slice(from, from + 35);
       const batch = await rest('offers', {
-        select: 'id,product_id,store_id,title,price,old_price,valid_from,valid_to,coverage_scope,region_code,city_name,stores(id,name,slug)',
+        select: offerSelect,
         product_id: `in.(${ids.join(',')})`,
         store_id: `in.(${stores.join(',')})`,
         status: 'eq.published',
@@ -140,6 +170,38 @@
       output.push(...batch);
     }
     return output.filter((offer) => coverageMatches(offer, branches));
+  }
+
+  function documentedDiscount(offer) {
+    const explicit = Number(offer?.discount_percent);
+    if (Number.isFinite(explicit) && explicit > 0 && explicit < 100) return Math.round(explicit);
+    const price = Number(offer?.price);
+    const oldPrice = Number(offer?.old_price);
+    if (!(price > 0) || !(oldPrice > price)) return 0;
+    return Math.max(1, Math.min(99, Math.round((oldPrice - price) / oldPrice * 100)));
+  }
+
+  function rankOffers(offers, limit = 3) {
+    const seen = new Set();
+    return (offers || [])
+      .filter((offer) => Number(offer?.price) > 0)
+      .slice()
+      .sort((a, b) => {
+        const discountDiff = documentedDiscount(b) - documentedDiscount(a);
+        if (discountDiff) return discountDiff;
+        const verifiedDiff = Number(Boolean(b.is_verified)) - Number(Boolean(a.is_verified));
+        if (verifiedDiff) return verifiedDiff;
+        const confidenceDiff = Number(b.confidence_score || 0) - Number(a.confidence_score || 0);
+        if (confidenceDiff) return confidenceDiff;
+        return Number(a.price || 0) - Number(b.price || 0);
+      })
+      .filter((offer) => {
+        const key = String(offer.product_id || fold(offer.title));
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, Math.max(1, Number(limit) || 3));
   }
 
   function basketMetrics(rows, offers) {
@@ -206,7 +268,10 @@
     searchBranchesByPlace,
     uniqueStores,
     coverageMatches,
+    fetchOffersForStores,
     fetchOffersForList,
+    documentedDiscount,
+    rankOffers,
     basketMetrics,
     branchLabel,
   };
