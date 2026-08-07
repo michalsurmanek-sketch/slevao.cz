@@ -1,2 +1,2 @@
-# Trigger the image workflow after production function deployment.
+# Trigger the image workflow against the deployed generic-food priority worker.
 verify_jwt = false
