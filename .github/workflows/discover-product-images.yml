@@ -4,15 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: Maximální počet produktů
+        description: Maximální počet produktů pro hledání existujících fotografií
         required: false
         default: '30'
+      generic_limit:
+        description: Maximální počet neznačkových produktů pro generování
+        required: false
+        default: '20'
   schedule:
     - cron: '41 */6 * * *'
   push:
     branches: [main]
     paths:
       - 'supabase/functions/discover-product-images/**'
+      - 'supabase/functions/generate-generic-product-images/**'
       - '.github/workflows/discover-product-images.yml'
 
 concurrency:
@@ -33,7 +38,7 @@ jobs:
           test -n "$SUPABASE_URL" || (echo 'Chybí GitHub secret SUPABASE_URL' && exit 1)
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo 'Chybí GitHub secret SUPABASE_SERVICE_ROLE_KEY' && exit 1)
 
-      - name: Naplnit frontu kandidátů
+      - name: Naplnit frontu kandidátů z existujících zdrojů
         shell: bash
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -47,3 +52,18 @@ jobs:
             --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             --header "Content-Type: application/json" \
             --data "{\"limit\":$LIMIT}"
+
+      - name: Zpracovat bezpečnou dávku neznačkových produktů
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          GENERIC_LIMIT: ${{ github.event.inputs.generic_limit || '20' }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "$SUPABASE_URL/functions/v1/generate-generic-product-images" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"limit\":$GENERIC_LIMIT}"
