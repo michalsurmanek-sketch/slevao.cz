@@ -93,7 +93,7 @@
   }
   if (!document.querySelector('script[src*="home-in-store-safe.js"]')) {
     const inStoreSafeScript = document.createElement('script');
-    inStoreSafeScript.src = 'assets/home-in-store-safe.js?v=20260807-1';
+    inStoreSafeScript.src = 'assets/home-in-store-safe.js?v=20260807-2';
     inStoreSafeScript.defer = true;
     document.head.appendChild(inStoreSafeScript);
   }
