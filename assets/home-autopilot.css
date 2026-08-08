@@ -1,5 +1,6 @@
 /* Slevao.cz – lehký přehled Nákupního autopilota na homepage. */
 .sqAutopilotSection{padding:12px 0 8px}
+.sqAutopilotSection>.container{width:min(1450px,calc(100% - 48px))}
 .sqAutopilotCard{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);gap:22px;align-items:center;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
 .sqAutopilotCard:after{content:"";position:absolute;right:-60px;top:-80px;width:220px;height:220px;border-radius:50%;background:rgba(52,214,199,.12);pointer-events:none}
 .sqAutopilotCopy,.sqAutopilotResult{position:relative;z-index:1}
@@ -28,11 +29,13 @@
 
 @media(max-width:900px){
   .sqAutopilotSection{padding:7px 0 5px}
+  .sqAutopilotSection>.container{width:calc(100% - 32px)}
   .sqAutopilotCard{grid-template-columns:1fr;padding:20px;border-radius:23px;gap:16px}
   .sqAutopilotResult{min-height:0}
 }
 
 @media(max-width:560px){
+  .sqAutopilotSection>.container{width:calc(100% - 20px)}
   .sqAutopilotCard{padding:17px 16px;border-radius:21px}
   .sqAutopilotActions{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .sqAutopilotRun,.sqAutopilotOpen{width:100%;min-height:48px;padding:0 10px;font-size:13px}
