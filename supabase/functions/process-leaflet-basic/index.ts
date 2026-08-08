@@ -9,11 +9,18 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession
 const CORS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization, apikey, content-type, x-cron-secret' };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
 
+type PdfToken = { text:string; x:number; y:number; width:number; height:number };
+type PdfPage = { page:number; lines:string[]; tokens:PdfToken[] };
+
 function allowed(req: Request) {
   const auth = req.headers.get('authorization') || '';
   return auth === `Bearer ${SERVICE_ROLE_KEY}` || (CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET);
 }
 function clean(s: string) { return s.replace(/\s+/g, ' ').trim(); }
+function round1(n: unknown) {
+  const value = Number(n || 0);
+  return Math.round(value * 10) / 10;
+}
 function num(s: string): number | null {
   const m = s.replace(/\s/g, '').replace(',', '.').match(/(?:^|[^\d])(\d{1,5}(?:[.,]\d{1,2})?)(?:\s*(?:Kč|,-|Kc))?(?:$|[^\d])/i);
   if (!m) return null;
@@ -39,7 +46,7 @@ function extractDates(text: string) {
 
 async function parsePdf(bytes: Uint8Array) {
   const doc = await pdfjs.getDocument({ data: bytes, disableWorker: true, useSystemFonts: true }).promise;
-  const pages: { page:number; lines:string[] }[] = [];
+  const pages: PdfPage[] = [];
   let allText = '';
   for (let p = 1; p <= Math.min(doc.numPages, 80); p++) {
     const page = await doc.getPage(p);
@@ -49,20 +56,27 @@ async function parsePdf(bytes: Uint8Array) {
       const ay = Math.round(a.transform?.[5] || 0), by = Math.round(b.transform?.[5] || 0);
       return Math.abs(by-ay) > 3 ? by-ay : (a.transform?.[4] || 0)-(b.transform?.[4] || 0);
     });
+    const tokens: PdfToken[] = items.map((it:any) => ({
+      text: clean(it.str),
+      x: round1(it.transform?.[4]),
+      y: round1(it.transform?.[5]),
+      width: round1(it.width),
+      height: round1(Math.abs(it.height || it.transform?.[3] || it.transform?.[0] || 0)),
+    }));
     const rows = new Map<number,string[]>();
-    for (const it of items) {
-      const y = Math.round((it.transform?.[5] || 0)/4)*4;
+    for (const token of tokens) {
+      const y = Math.round(token.y / 4) * 4;
       if (!rows.has(y)) rows.set(y, []);
-      rows.get(y)!.push(clean(it.str));
+      rows.get(y)!.push(token.text);
     }
     const lines = [...rows.entries()].sort((a,b)=>b[0]-a[0]).map(([,parts])=>clean(parts.join(' '))).filter(Boolean);
-    pages.push({ page:p, lines });
+    pages.push({ page:p, lines, tokens });
     allText += '\n' + lines.join('\n');
   }
   return { pageCount: doc.numPages, pages, allText: allText.trim() };
 }
 
-function extractItems(pages:{page:number;lines:string[]}[]) {
+function extractItems(pages:PdfPage[]) {
   const out:any[] = [];
   const seen = new Set<string>();
   for (const pg of pages) {
@@ -87,18 +101,18 @@ function extractItems(pages:{page:number;lines:string[]}[]) {
       const key = `${title.toLocaleLowerCase('cs')}|${price}|${pg.page}`;
       if (seen.has(key)) continue;
       seen.add(key);
-      out.push({ title, price, quantity_text: quantity, source_page: pg.page, confidence: 0.58, raw_data: { parser:'pdf-text-v2', price_line:lines[i] } });
+      out.push({ title, price, quantity_text: quantity, source_page: pg.page, confidence: 0.58, raw_data: { parser:'pdf-text-v3', price_line:lines[i] } });
       if (out.length >= 400) return out;
     }
   }
   return out;
 }
 
-async function persistExtractedText(importId: string, parsed: { pageCount:number; pages:{page:number;lines:string[]}[]; allText:string }) {
+async function persistExtractedText(importId: string, parsed: { pageCount:number; pages:PdfPage[]; allText:string }) {
   const now = new Date().toISOString();
   const { error } = await db.from('leaflet_extracted_text').upsert({
     import_id: importId,
-    parser: 'pdf-text-v2',
+    parser: 'pdf-text-v3',
     page_count: parsed.pageCount,
     text_content: parsed.allText,
     pages: parsed.pages,
@@ -136,7 +150,7 @@ async function processImport(importId:string) {
       detected_valid_from:dates.from, detected_valid_to:dates.to, page_count:parsed.pageCount,
       error_message:items.length ? null : 'PDF neobsahuje použitelnou textovou vrstvu. Použij ruční import nebo OCR.',
       finished_at:new Date().toISOString(),
-      metadata:{ ...(job.metadata||{}), processor:'process-leaflet-basic', parser:'pdf-text-v2', ai_used:false, ai_unavailable:false, extracted_text_chars:parsed.allText.length, extracted_text_persisted:true }
+      metadata:{ ...(job.metadata||{}), processor:'process-leaflet-basic', parser:'pdf-text-v3', ai_used:false, ai_unavailable:false, extracted_text_chars:parsed.allText.length, extracted_text_persisted:true, extracted_token_coordinates:true }
     }).eq('id', importId);
     if (runId) await db.from('leaflet_basic_parser_runs').update({ status:'completed', items_found:items.length, finished_at:new Date().toISOString() }).eq('id',runId);
     return { ok:true, import_id:importId, items:items.length, pages:parsed.pageCount, text_chars:parsed.allText.length, dates };
