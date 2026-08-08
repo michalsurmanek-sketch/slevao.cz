@@ -281,7 +281,7 @@ Deno.serve(async (req) => {
       candidate_count: candidates.length,
       candidates: candidates.slice(0, 80),
     });
-    if (candidates.length < 8) throw new Error(`Bezpečný Terno parser našel jen ${candidates.length} položek; publikace zastavena.`);
+    if (candidates.length < 1) throw new Error('Bezpečný Terno parser nenašel žádnou deterministicky ověřenou položku; publikace zastavena.');
 
     const hash = `terno-ocr-safe-v2-${sourceImport.id}`;
     const existing = await db.from('leaflet_imports').select('id,status').eq('source_hash', hash).maybeSingle();
