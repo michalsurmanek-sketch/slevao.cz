@@ -1,7 +1,7 @@
 /* Slevao.cz redesign – krok 2: hlavní hero kontejner */
 .hero{padding:18px 0 14px}
 .hero>.container{width:min(1450px,calc(100% - 48px))}
-.heroCard{position:relative;min-height:430px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.14fr) minmax(290px,.72fr) minmax(310px,.72fr) 72px;align-items:center;gap:20px;padding:30px 34px 30px 42px;border:1px solid rgba(214,231,229,.9);border-radius:32px;background:#f5fbfa url('/assets/hero-banner.webp?v=20260803-3') center center/cover no-repeat;box-shadow:0 18px 48px rgba(20,44,43,.08)}
+.heroCard{position:relative;min-height:430px;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.14fr) minmax(290px,.72fr) minmax(310px,.72fr) 116px;align-items:center;gap:20px;padding:30px 34px 30px 42px;border:1px solid rgba(214,231,229,.9);border-radius:32px;background:#f5fbfa url('/assets/hero-banner.webp?v=20260803-3') center center/cover no-repeat;box-shadow:0 18px 48px rgba(20,44,43,.08)}
 .heroCopy,.heroArtwork,.heroLocation{position:relative;z-index:1}
 .heroCopy{max-width:690px;align-self:center}
 .hero .eyebrow{display:inline-flex;align-items:center;justify-content:center;min-height:39px;padding:0 17px;border:1px solid rgba(6,157,146,.92);border-radius:999px;background:#069D92;color:#fff;box-shadow:0 7px 18px rgba(6,157,146,.22);font-size:12px;font-weight:950;letter-spacing:.1em}
@@ -13,7 +13,7 @@
 .heroStats>span:before{width:25px;height:25px;display:grid;place-items:center;flex:0 0 25px;border-radius:50%;background:#e5f9f6;color:#0a978c;font-size:13px;font-weight:950}
 .heroStats>span:nth-child(1):before{content:"✓"}.heroStats>span:nth-child(2):before{content:"▤"}.heroStats>span:nth-child(3):before{content:"%"}.heroStats b{font-weight:950}.statusPill{color:#145e58}
 .heroArtwork{min-height:330px;pointer-events:none}
-.heroLocation{align-self:stretch;display:flex;flex-direction:column;justify-content:center;padding:24px;border:1px solid rgba(218,229,230,.96);border-radius:23px;background:rgba(255,255,255,.94);box-shadow:0 15px 36px rgba(26,49,48,.09);backdrop-filter:blur(13px)}
+.heroLocation{grid-column:3;align-self:stretch;display:flex;flex-direction:column;justify-content:center;padding:24px;border:1px solid rgba(218,229,230,.96);border-radius:23px;background:rgba(255,255,255,.94);box-shadow:0 15px 36px rgba(26,49,48,.09);backdrop-filter:blur(13px)}
 .heroLocation>strong{color:#132131;font-size:20px;font-weight:950;letter-spacing:-.02em}
 .heroLocation>p{margin:8px 0 4px;color:#697683;font-size:13px;line-height:1.5}
 .heroLocation label{gap:7px;margin-top:13px;color:#26333f;font-size:13px;font-weight:900}
@@ -21,7 +21,7 @@
 .heroLocation select:focus{outline:0;border-color:#33cbbf;box-shadow:0 0 0 4px rgba(51,203,191,.13)}
 .heroBrowseButton{min-height:49px;margin-top:16px;display:inline-flex;align-items:center;justify-content:center;gap:10px;border-radius:13px;color:#fff;background:linear-gradient(135deg,#16b7ab,#079c91);box-shadow:0 10px 22px rgba(7,156,145,.21);text-decoration:none;font-size:14px;font-weight:950;transition:transform .16s ease,box-shadow .16s ease}
 .heroBrowseButton:hover{transform:translateY(-1px);box-shadow:0 14px 28px rgba(7,156,145,.27)}.heroBrowseButton span{font-size:19px;line-height:1}
-@media(max-width:1240px){.heroCard{grid-template-columns:minmax(0,1.15fr) minmax(230px,.55fr) minmax(290px,.72fr);padding-left:32px}.hero h1{font-size:clamp(43px,5vw,65px)}.heroArtwork{min-height:300px}}
+@media(max-width:1240px){.heroCard{grid-template-columns:minmax(0,1.15fr) minmax(230px,.55fr) minmax(290px,.72fr);padding-left:32px}.heroLocation{grid-column:auto}.hero h1{font-size:clamp(43px,5vw,65px)}.heroArtwork{min-height:300px}}
 @media(max-width:1050px){.heroCard{min-height:0;grid-template-columns:minmax(0,1fr) minmax(290px,.72fr)}.heroArtwork{display:none}}
 @media(max-width:800px){
   .hero{padding-top:10px}
