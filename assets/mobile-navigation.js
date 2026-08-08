@@ -1,4 +1,30 @@
 (() => {
+  if (!document.querySelector('link[data-top-tip-style]')) {
+    const styleLink = document.createElement('link');
+    styleLink.rel = 'stylesheet';
+    styleLink.href = 'assets/top-tip-button.css?v=20260808-1';
+    styleLink.dataset.topTipStyle = 'true';
+    document.head.appendChild(styleLink);
+  }
+
+  const savedButton = document.getElementById('savedButton');
+  if (savedButton && !document.getElementById('topbarTipButton')) {
+    const tipButton = document.createElement('a');
+    tipButton.id = 'topbarTipButton';
+    tipButton.className = 'topbarTipButton';
+    tipButton.href = '#dealsSection';
+    tipButton.setAttribute('aria-label', 'Největší slevy');
+    tipButton.title = 'Největší slevy';
+    tipButton.innerHTML = '<img src="assets/top-tip-icon.svg?v=20260808-1" alt="" aria-hidden="true">';
+    savedButton.before(tipButton);
+
+    tipButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      document.querySelector('.quickTab[data-mode="discount"]')?.click();
+      document.getElementById('dealsSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    });
+  }
+
   const mobileViewport = window.matchMedia('(max-width: 800px)');
   const statusPill = document.getElementById('statusPill');
 
