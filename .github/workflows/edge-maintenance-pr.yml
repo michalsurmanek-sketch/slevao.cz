@@ -14,6 +14,8 @@ jobs:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, '[edge-maintenance]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || secrets.SUPABASE_TOKEN || secrets.SUPABASE_PERSONAL_ACCESS_TOKEN || secrets.SUPABASE_PAT || secrets.SUPABASE_CLI_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -24,17 +26,13 @@ jobs:
           version: latest
 
       - name: Ověřit přístupový token
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
+            echo 'Není dostupný žádný podporovaný GitHub secret s Supabase management tokenem.'
             exit 1
           }
 
       - name: Odstranit nepoužívané diagnostické Edge Functions
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         shell: bash
         run: |
           set -euo pipefail
@@ -77,23 +75,17 @@ jobs:
           echo 'debug-kaufland-source zůstává zachován.'
 
       - name: Nasadit strukturovaný retail parser
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy sync-structured-retail-products \
             --project-ref uhampjdqjxmbhaptgitn \
             --use-api
 
       - name: Nasadit úplný BENU parser
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy sync-benu-source \
             --project-ref uhampjdqjxmbhaptgitn \
             --use-api
 
       - name: Ověřit výslednou kapacitu
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions list --project-ref uhampjdqjxmbhaptgitn
