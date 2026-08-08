@@ -70,6 +70,28 @@
       return;
     }
 
+    if (control.closest('.footer') && (href === '#storesSection' || href.endsWith('#storesSection'))) {
+      event.preventDefault();
+      document.body.classList.add('showOriginalStores');
+
+      const expandAndScroll = () => {
+        const toggle = document.getElementById('showAllStores');
+        if (toggle && fold(toggle.textContent) !== 'zobrazit mene') {
+          toggle.click();
+        }
+
+        window.setTimeout(() => {
+          scrollWithHeaderOffset(
+            document.querySelector('#storesSection .sectionHead') || document.getElementById('storesSection'),
+            '#storesSection'
+          );
+        }, 90);
+      };
+
+      window.requestAnimationFrame(() => window.requestAnimationFrame(expandAndScroll));
+      return;
+    }
+
     const text = fold(`${control.textContent || ''} ${control.getAttribute('aria-label') || ''} ${control.getAttribute('title') || ''}`);
     const isCurrentDeals = text.includes('aktualni slev') || text.includes('aktualni nabid');
     if (!isCurrentDeals) return;
