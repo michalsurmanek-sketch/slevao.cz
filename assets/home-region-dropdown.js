@@ -12,12 +12,16 @@
   native.parentNode.insertBefore(field, native);
   field.appendChild(native);
 
+  const sourceLabel = document.querySelector('label[for="regionSelect"]');
+  if (sourceLabel && !sourceLabel.id) sourceLabel.id = 'slevaoRegionLabel';
+
   const button = document.createElement('button');
   button.type = 'button';
   button.className = 'slevaoRegionButton';
   button.setAttribute('aria-haspopup', 'listbox');
   button.setAttribute('aria-expanded', 'false');
-  button.innerHTML = `<span class="slevaoRegionPin">${pinSvg}</span><span class="slevaoRegionValue"></span><span class="slevaoRegionChevron" aria-hidden="true">⌄</span>`;
+  if (sourceLabel?.id) button.setAttribute('aria-labelledby', `${sourceLabel.id} slevaoRegionValue`);
+  button.innerHTML = `<span class="slevaoRegionPin">${pinSvg}</span><span id="slevaoRegionValue" class="slevaoRegionValue"></span><span class="slevaoRegionChevron" aria-hidden="true">⌄</span>`;
   field.appendChild(button);
 
   const menu = document.createElement('div');
@@ -81,7 +85,7 @@
     const below = window.innerHeight - rect.bottom - viewportPad;
     const above = rect.top - viewportPad;
     const desired = Math.min(menu.scrollHeight, 520);
-    const useTop = below < Math.min(desired, 310) && above > below;
+    const useTop = desired > below && above > below;
     menu.dataset.placement = useTop ? 'top' : 'bottom';
     if (useTop) {
       const height = Math.min(desired, Math.max(180, above - 6));
@@ -131,6 +135,11 @@
   }
 
   button.addEventListener('click', () => open ? closeMenu() : openMenu());
+  sourceLabel?.addEventListener('click', (event) => {
+    event.preventDefault();
+    button.focus();
+    openMenu();
+  });
   button.addEventListener('keydown', (event) => {
     if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
       event.preventDefault();
