@@ -1,0 +1,30 @@
+.topbarTipButton{
+  width:48px;
+  height:48px;
+  flex:0 0 48px;
+  display:grid;
+  place-items:center;
+  border:1px solid var(--line);
+  border-radius:15px;
+  background:#fff;
+  box-shadow:0 8px 22px rgba(23,34,34,.06);
+  text-decoration:none;
+  transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
+}
+.topbarTipButton img{
+  width:34px;
+  height:34px;
+  display:block;
+}
+.topbarTipButton:hover{
+  transform:translateY(-1px);
+  border-color:#9be7e1;
+  box-shadow:0 11px 26px rgba(21,158,148,.12);
+}
+.topbarTipButton:focus-visible{
+  outline:3px solid rgba(52,214,199,.22);
+  outline-offset:2px;
+}
+@media(max-width:800px){
+  .topbarTipButton{display:none}
+}
