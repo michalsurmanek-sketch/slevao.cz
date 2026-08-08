@@ -23,7 +23,7 @@
     if (!target) return;
     const topbar = document.querySelector('.topbar');
     const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
-    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - 14;
+    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - 8;
 
     window.scrollTo({
       top: Math.max(0, targetTop),
@@ -87,6 +87,14 @@
     if (!control || control.id === 'topbarTipButton' || control.closest('.sqFoodDock')) return;
 
     const href = control.getAttribute('href') || '';
+
+    if (href === '#categoriesSection' || href.endsWith('#categoriesSection')) {
+      event.preventDefault();
+      window.requestAnimationFrame(() => {
+        scrollWithHeaderOffset(document.getElementById('categoriesSection'), '#categoriesSection');
+      });
+      return;
+    }
 
     if (control.closest('.footer') && (href === '#leafletsSection' || href.endsWith('#leafletsSection'))) {
       event.preventDefault();
