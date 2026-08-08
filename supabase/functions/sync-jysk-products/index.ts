@@ -51,6 +51,9 @@ function numberValue(value: unknown) {
   const n = Number(value);
   return Number.isFinite(n) ? n : null;
 }
+function normalizeTitle(value: string) {
+  return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLocaleLowerCase('cs').replace(/[^a-z0-9]+/g, ' ').trim();
+}
 function firstImage(product: any) {
   const images = Array.isArray(product?.media?.images) ? product.media.images : [];
   const preferred = images.find((x: any) => x?.url && String(x.typeGroup || '').toLowerCase() === 'cutout') || images.find((x: any) => x?.url);
@@ -131,6 +134,7 @@ function toRow(product: any, today: string) {
   return {
     external_id: `jysk:${id}:${validFrom}:${validTo}`,
     title,
+    normalized_title: normalizeTitle(title),
     price,
     old_price: oldPrice,
     quantity_text: String(product?.price?.formatted?.unit || '').replace(/^\//u, '').trim() || null,
