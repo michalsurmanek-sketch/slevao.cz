@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || secrets.SUPABASE_TOKEN || secrets.SUPABASE_PERSONAL_ACCESS_TOKEN || secrets.SUPABASE_PAT || secrets.SUPABASE_CLI_TOKEN }}
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN || secrets.SUPABASE_TOKEN || secrets.SUPABASE_PERSONAL_ACCESS_TOKEN || secrets.SUPABASE_PAT || secrets.SUPABASE_CLI_TOKEN || vars.SUPABASE_ACCESS_TOKEN || vars.SUPABASE_TOKEN || vars.SUPABASE_PAT || vars.SUPABASE_CLI_TOKEN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -28,7 +28,7 @@ jobs:
       - name: Ověřit přístupový token
         run: |
           test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo 'Není dostupný žádný podporovaný GitHub secret s Supabase management tokenem.'
+            echo 'Není dostupný žádný podporovaný GitHub secret ani variable s Supabase management tokenem.'
             exit 1
           }
 
