@@ -1,5 +1,8 @@
 /* Slevao.cz – SLEVAO LIVE v hero sekci. Formulář je v pravém panelu, výsledek je skrytý do vyhledání. */
-.heroNearbyPanel{position:relative;grid-column:3;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:11px;padding:24px;border:1px solid rgba(18,154,143,.20);border-radius:23px;overflow:hidden;background:#fff url("nearby-panel-bg.svg?v=20260808-2") center/100% 100% no-repeat;box-shadow:0 14px 34px rgba(13,108,100,.09);backdrop-filter:none;z-index:1}
+.heroNearbyPanel{position:relative;grid-column:3;align-self:stretch;display:flex;flex-direction:column;justify-content:center;gap:11px;padding:24px;border:1px solid rgba(18,154,143,.20);border-radius:23px;overflow:hidden;background:#fbfffe;box-shadow:0 14px 34px rgba(13,108,100,.09);backdrop-filter:none;isolation:isolate;z-index:1}
+.heroNearbyPanel::before{content:"";position:absolute;inset:-24%;z-index:-2;background:url("nearby-panel-bg.svg?v=20260808-2") center/cover no-repeat;transform:scale(1.06);pointer-events:none}
+.heroNearbyPanel::after{content:"";position:absolute;inset:0;z-index:-1;background:rgba(255,255,255,.10);pointer-events:none}
+.heroNearbyPanel>*{position:relative;z-index:1}
 .heroNearbyPanel .slLiveTopline{margin-bottom:1px}
 .heroNearbyPanel .slLiveBadge{background:#e8faf7;border-color:#c9eee9;color:#0a776f}
 .heroNearbyPanel .slLiveDot{background:#17b9ad;box-shadow:0 0 0 5px rgba(23,185,173,.12)}
