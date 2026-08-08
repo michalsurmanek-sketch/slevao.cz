@@ -19,7 +19,7 @@
     savedButton.after(tipButton);
   }
 
-  const scrollWithHeaderOffset = (target) => {
+  const scrollWithHeaderOffset = (target, hash = '#dealsSection') => {
     if (!target) return;
     const topbar = document.querySelector('.topbar');
     const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
@@ -30,8 +30,8 @@
       behavior: 'smooth'
     });
 
-    if (window.location.hash !== '#dealsSection') {
-      history.replaceState(null, '', '#dealsSection');
+    if (hash && window.location.hash !== hash) {
+      history.replaceState(null, '', hash);
     }
   };
 
@@ -56,11 +56,24 @@
     const control = event.target.closest('a,button');
     if (!control || control.id === 'topbarTipButton' || control.closest('.sqFoodDock')) return;
 
+    const href = control.getAttribute('href') || '';
+
+    if (control.closest('.footer') && (href === '#leafletsSection' || href.endsWith('#leafletsSection'))) {
+      event.preventDefault();
+      document.body.classList.add('showOriginalLeaflets');
+      window.requestAnimationFrame(() => {
+        scrollWithHeaderOffset(
+          document.querySelector('#leafletsSection .sectionHead') || document.getElementById('leafletsSection'),
+          '#leafletsSection'
+        );
+      });
+      return;
+    }
+
     const text = fold(`${control.textContent || ''} ${control.getAttribute('aria-label') || ''} ${control.getAttribute('title') || ''}`);
     const isCurrentDeals = text.includes('aktualni slev') || text.includes('aktualni nabid');
     if (!isCurrentDeals) return;
 
-    const href = control.getAttribute('href') || '';
     if (control.tagName === 'A' && href !== '#dealsSection' && !href.endsWith('#dealsSection')) return;
 
     event.preventDefault();
