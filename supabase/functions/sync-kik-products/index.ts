@@ -1,9 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const URL=Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_URL=Deno.env.get('SUPABASE_URL')!;
 const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON=Deno.env.get('CRON_SECRET')||'';
-const db=createClient(URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
+const db=createClient(SUPABASE_URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
 const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,apikey,content-type,x-cron-secret','access-control-allow-methods':'POST,OPTIONS','content-type':'application/json; charset=utf-8'};
 const FETCH_HEADERS={'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',accept:'text/html,application/json,*/*;q=0.8','accept-language':'cs-CZ,cs;q=0.9'};
 const ADAPTER='kik-publitas-text-v1',PARSER='kik-publitas-text-v1',MIN_SAFE=30,MAX_SAFE=120;
@@ -11,7 +11,7 @@ const ADAPTER='kik-publitas-text-v1',PARSER='kik-publitas-text-v1',MIN_SAFE=30,M
 function json(body:unknown,status=200){return new Response(JSON.stringify(body),{status,headers:CORS});}
 function errorText(error:unknown){if(error instanceof Error)return error.message;if(error&&typeof error==='object'){const e=error as Record<string,unknown>;return[e.message,e.details,e.hint,e.code].filter(Boolean).map(String).join(' | ')||JSON.stringify(error)}return String(error)}
 async function allowed(request:Request){const raw=request.headers.get('authorization')||'',token=raw.replace(/^Bearer\s+/i,'').trim();if(token===SERVICE)return true;if(CRON&&request.headers.get('x-cron-secret')===CRON)return true;if(!token)return false;const{data,error}=await db.auth.getUser(token);return!error&&!!data.user&&['admin','editor'].includes(String(data.user.app_metadata?.role||'').toLowerCase());}
-async function fetchText(url:string,timeout=25000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);try{const response=await fetch(url,{headers:FETCH_HEADERS,redirect:'follow',signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);return text}finally{clearTimeout(timer)}}
+async function fetchText(url:string,timeout=25000){const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),timeout);try{const response=await fetch(url,{headers:FETCH_HEADERS,redirect:'follow',signal:controller.signal});const text=await response.text();if(!response.ok)throw new Error(`${new globalThis.URL(url).hostname} HTTP ${response.status}`);return text}finally{clearTimeout(timer)}}
 function dataFromHtml(html:string){const marker='var data =',start=html.indexOf(marker),jsonStart=html.indexOf('{',start+marker.length),end=html.indexOf('Reader.Bootstrap.init',jsonStart);if(start<0||jsonStart<0||end<0)throw new Error('Publitas data mají neočekávaný formát.');const block=html.slice(jsonStart,end),semi=block.lastIndexOf(';');return JSON.parse((semi>=0?block.slice(0,semi):block).trim())}
 async function sha256(value:string){const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));return[...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('')}
 function norm(value:string){return value.toLocaleLowerCase('cs').replace(/[^a-z0-9áčďéěíňóřšťúůýž]+/giu,' ').trim().replace(/\s+/g,' ')}
