@@ -1,0 +1,39 @@
+/* Generated Slevao.cz footer artwork override */
+.footerShell{
+  background-color:#02282d!important;
+  background-image:
+    linear-gradient(135deg,rgba(1,27,30,.28),rgba(1,31,34,.16) 48%,rgba(1,24,28,.34)),
+    url('footer-bg-generated.svg?v=20260808-1')!important;
+  background-position:center center,center center!important;
+  background-size:cover,cover!important;
+  background-repeat:no-repeat,no-repeat!important;
+}
+
+.footerShell::before,
+.footerShell::after{
+  content:none!important;
+  display:none!important;
+}
+
+.footerMain,
+.footerBottom{
+  position:relative;
+  z-index:2;
+}
+
+.footerWatch{
+  background:linear-gradient(145deg,rgba(3,48,51,.72),rgba(3,39,43,.46))!important;
+  backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+}
+
+@media(max-width:900px){
+  .footerShell{
+    background-image:
+      linear-gradient(180deg,rgba(1,27,30,.22),rgba(1,31,34,.28) 38%,#02282d 72%),
+      url('footer-bg-generated.svg?v=20260808-1')!important;
+    background-position:center top,center top!important;
+    background-size:cover,auto 620px!important;
+    background-repeat:no-repeat,no-repeat!important;
+  }
+}
