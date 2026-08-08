@@ -24,11 +24,6 @@
       'data-admin-offers-full-list',
       'Kompletní seznam nabídek se nepodařilo načíst.',
     );
-    loadScriptOnce(
-      'assets/admin-equivalence-nav.js?v=20260807-1',
-      'data-admin-equivalence-nav',
-      'Odkaz na kontrolu ekvivalencí produktů se nepodařilo načíst.',
-    );
   }
 
   function createLink(href, label, icon = '▤') {
