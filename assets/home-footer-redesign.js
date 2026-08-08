@@ -81,7 +81,7 @@
   }
   if (!document.querySelector('script[src*="home-live.js"]')) {
     const liveScript = document.createElement('script');
-    liveScript.src = 'assets/home-live.js?v=20260808-1';
+    liveScript.src = 'assets/home-live.js?v=20260808-2';
     liveScript.defer = true;
     document.head.appendChild(liveScript);
   }
