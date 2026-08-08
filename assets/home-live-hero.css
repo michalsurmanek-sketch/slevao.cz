@@ -1,5 +1,5 @@
 /* Slevao.cz – SLEVAO LIVE v hero sekci. Formulář je v pravém panelu, výsledek je skrytý do vyhledání. */
-.heroNearbyPanel{justify-content:center;gap:11px}
+.heroNearbyPanel{position:relative;justify-content:center;gap:11px;overflow:hidden;background:linear-gradient(rgba(255,255,255,.84),rgba(255,255,255,.91)),url("nearby-panel-bg.svg?v=20260808-1") center/cover no-repeat;border-color:rgba(18,154,143,.18);box-shadow:0 14px 34px rgba(13,108,100,.08)}
 .heroNearbyPanel .slLiveTopline{margin-bottom:1px}
 .heroNearbyPanel .slLiveBadge{background:#e8faf7;border-color:#c9eee9;color:#0a776f}
 .heroNearbyPanel .slLiveDot{background:#17b9ad;box-shadow:0 0 0 5px rgba(23,185,173,.12)}
@@ -20,7 +20,10 @@
 .heroCard.slLiveHasResult{grid-template-columns:minmax(430px,.9fr) minmax(540px,1.12fr) minmax(320px,.68fr);gap:18px}
 .slLiveHeroResult{position:relative;grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
 .slLiveHeroResult[hidden]{display:none!important}
-.slLiveClose{position:absolute;top:12px;right:12px;z-index:5;width:34px;height:34px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.32);border-radius:50%;background:rgba(4,74,69,.3);color:#fff;font-size:24px;line-height:1;font-weight:500;cursor:pointer;backdrop-filter:blur(8px);transition:background .15s ease,transform .15s ease}
+.slLiveClose{position:absolute;top:12px;right:12px;z-index:5;width:34px;height:34px;display:block;padding:0;border:1px solid rgba(255,255,255,.32);border-radius:50%;background:rgba(4,74,69,.3);color:transparent;font-size:0;line-height:0;cursor:pointer;backdrop-filter:blur(8px);transition:background .15s ease,transform .15s ease}
+.slLiveClose::before,.slLiveClose::after{content:"";position:absolute;left:50%;top:50%;width:14px;height:2px;border-radius:2px;background:#fff;transform-origin:center}
+.slLiveClose::before{transform:translate(-50%,-50%) rotate(45deg)}
+.slLiveClose::after{transform:translate(-50%,-50%) rotate(-45deg)}
 .slLiveClose:hover{background:rgba(255,255,255,.2);transform:scale(1.04)}
 .slLiveClose:focus-visible{outline:3px solid rgba(255,255,255,.5);outline-offset:2px}
 .slLiveHeroResult .slLiveTopline{margin-bottom:0;padding-right:42px}
