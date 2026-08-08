@@ -34,12 +34,12 @@
   if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
     const quickFoodStyle = document.createElement('link');
     quickFoodStyle.rel = 'stylesheet';
-    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260808-6';
+    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260808-7';
     document.head.appendChild(quickFoodStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
     const quickFoodScript = document.createElement('script');
-    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260808-1';
+    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260808-2';
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }
