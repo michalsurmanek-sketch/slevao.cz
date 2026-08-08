@@ -1,8 +1,8 @@
 (() => {
-  if (!document.querySelector('link[data-top-tip-style]')) {
+  if (!document.querySelector('link[href*="top-tip-button.css"]')) {
     const styleLink = document.createElement('link');
     styleLink.rel = 'stylesheet';
-    styleLink.href = 'assets/top-tip-button.css?v=20260808-1';
+    styleLink.href = 'assets/top-tip-button.css?v=20260808-4';
     styleLink.dataset.topTipStyle = 'true';
     document.head.appendChild(styleLink);
   }
@@ -13,15 +13,35 @@
     tipButton.id = 'topbarTipButton';
     tipButton.className = 'topbarTipButton';
     tipButton.href = '#dealsSection';
-    tipButton.setAttribute('aria-label', 'Největší slevy');
-    tipButton.title = 'Největší slevy';
+    tipButton.setAttribute('aria-label', 'Tip dne');
+    tipButton.title = 'Tip dne';
     tipButton.innerHTML = '<img src="assets/top-tip-icon.svg?v=20260808-1" alt="" aria-hidden="true">';
-    savedButton.before(tipButton);
+    savedButton.after(tipButton);
+  }
+
+  const tipButton = document.getElementById('topbarTipButton');
+  if (tipButton) {
+    tipButton.setAttribute('aria-label', 'Tip dne');
+    tipButton.title = 'Tip dne';
 
     tipButton.addEventListener('click', (event) => {
       event.preventDefault();
-      document.querySelector('.quickTab[data-mode="discount"]')?.click();
-      document.getElementById('dealsSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+
+      const quickTabs = document.getElementById('quickTabs');
+      if (!quickTabs) return;
+
+      const topbar = document.querySelector('.topbar');
+      const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+      const targetTop = window.scrollY + quickTabs.getBoundingClientRect().top - headerHeight - 14;
+
+      window.scrollTo({
+        top: Math.max(0, targetTop),
+        behavior: 'smooth'
+      });
+
+      if (window.location.hash !== '#dealsSection') {
+        history.replaceState(null, '', '#dealsSection');
+      }
     });
   }
 
