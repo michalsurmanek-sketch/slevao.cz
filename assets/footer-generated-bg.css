@@ -1,6 +1,6 @@
-/* Slevao.cz footer – obrázek dodaný uživatelem jako hlavní pozadí patičky. */
+/* Slevao.cz footer – opravené pozadí z dodaného obrázku bez poškozeného JPEG přenosu. */
 .footerShell{
-  background:#032f33 url('footer-bg-20260808.jpg') center center/cover no-repeat!important;
+  background:#032f33 url('footer-bg-fixed-20260808.svg?v=20260808-3') center center/cover no-repeat!important;
 }
 
 @media(max-width:620px){
