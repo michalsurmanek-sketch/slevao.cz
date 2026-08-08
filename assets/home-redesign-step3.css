@@ -48,25 +48,28 @@
   background:#e6f8f5;
 }
 
+/* Desktop: všech 10 hlavních kategorií v jednom čistém řádku. */
 #categoryChips{
-  display:flex;
+  display:grid;
+  grid-template-columns:repeat(10,minmax(0,1fr));
   align-items:center;
-  gap:10px;
-  flex-wrap:wrap;
+  gap:6px;
 }
 
 #categoryChips .categoryChip{
-  min-height:42px;
+  width:100%;
+  min-width:0;
+  min-height:38px;
   display:inline-flex;
   align-items:center;
   justify-content:center;
-  gap:7px;
-  padding:0 15px;
+  gap:5px;
+  padding:0 8px;
   border:1px solid #dfe9e8;
   border-radius:999px;
   background:#fff;
   color:#3d4a49;
-  font-size:13px;
+  font-size:12px;
   font-weight:800;
   line-height:1;
   box-shadow:0 3px 10px rgba(24,49,47,.025);
@@ -75,22 +78,23 @@
 }
 
 #categoryChips .categoryChip>span{
-  width:23px;
-  height:23px;
+  width:20px;
+  height:20px;
+  flex:0 0 20px;
   display:inline-grid;
   place-items:center;
   margin:0;
-  border-radius:8px;
+  border-radius:7px;
   background:#f2f7f6;
-  font-size:15px;
+  font-size:13px;
   line-height:1;
 }
 
 #categoryChips .categoryChip small{
-  min-width:22px;
-  padding-left:2px;
+  min-width:0;
+  padding-left:0;
   color:#75817f;
-  font-size:11px;
+  font-size:9px;
   font-weight:800;
 }
 
@@ -122,6 +126,29 @@
   box-shadow:0 0 0 4px rgba(52,214,199,.18);
 }
 
+/* Užší desktop/tablet: stále jeden řádek, bez zalamování. */
+@media(max-width:1180px){
+  #categoryChips{
+    display:flex;
+    flex-wrap:nowrap;
+    gap:6px;
+    overflow-x:auto;
+    overscroll-behavior-inline:contain;
+    scrollbar-width:none;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  #categoryChips::-webkit-scrollbar{
+    display:none;
+  }
+
+  #categoryChips .categoryChip{
+    width:auto;
+    flex:0 0 auto;
+    padding:0 10px;
+  }
+}
+
 @media(max-width:1000px){
   #categoriesSection>.container{
     padding:17px 20px 19px;
@@ -150,28 +177,19 @@
   #categoryChips{
     margin:0 -14px;
     padding:2px 14px 5px;
-    flex-wrap:nowrap;
-    overflow-x:auto;
     scroll-snap-type:x proximity;
-    scrollbar-width:none;
-    -webkit-overflow-scrolling:touch;
-  }
-
-  #categoryChips::-webkit-scrollbar{
-    display:none;
   }
 
   #categoryChips .categoryChip{
-    min-height:40px;
-    flex:0 0 auto;
-    padding:0 13px;
+    min-height:38px;
+    padding:0 11px;
     font-size:12px;
     scroll-snap-align:start;
   }
 
   #categoryChips .categoryChip>span{
-    width:22px;
-    height:22px;
-    font-size:14px;
+    width:20px;
+    height:20px;
+    font-size:13px;
   }
 }
