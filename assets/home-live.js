@@ -68,6 +68,7 @@
       result.hidden = true;
       result.setAttribute('aria-label', 'Výsledek hledání obchodů v okolí');
       result.innerHTML = `
+        <button id="slLiveClose" class="slLiveClose" type="button" aria-label="Skrýt výsledek">×</button>
         <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>SLEVAO LIVE</span></div>
         <h2>Obchody v okolí</h2>
         <div class="slLiveMetric" hidden><small>NA NÁKUPU MŮŽETE UŠETŘIT AŽ</small><strong id="slLiveSaving">—</strong></div>
@@ -275,6 +276,10 @@
     panel.dataset.liveBound = '1';
     document.getElementById('slLiveLocate')?.addEventListener('click', usePosition);
     document.getElementById('slLiveManual')?.addEventListener('submit', useManual);
+    document.getElementById('slLiveClose')?.addEventListener('click', () => {
+      showResult(false);
+      setStatus('Výsledek je skrytý. Nové hledání ho znovu zobrazí.');
+    });
     document.getElementById('slLiveRadius')?.addEventListener('change', () => {
       if (lastContext?.position) usePosition();
     });
