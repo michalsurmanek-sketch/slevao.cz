@@ -47,3 +47,6 @@
   .heroStats>span:first-child{width:100%;justify-content:center}
 }
 @media(prefers-reduced-motion:reduce){.heroBrowseButton{transition:none}.heroBrowseButton:hover{transform:none}}
+
+/* Poblíž vás: pozadí je součástí prvního CSS paintu a pozdější JS/CSS ho nesmí přepsat. */
+.heroLocation.heroNearbyPanel{background-color:#fff!important;background-image:url('/assets/nearby-panel-bg.svg?v=20260808-2')!important;background-repeat:no-repeat!important;background-position:center!important;background-size:100% 100%!important;border-color:rgba(18,154,143,.20)!important;box-shadow:0 14px 34px rgba(13,108,100,.09)!important}
