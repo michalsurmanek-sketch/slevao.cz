@@ -1,6 +1,6 @@
 .topbarTipButton{
   position:fixed;
-  z-index:60;
+  z-index:90;
   right:20px;
   top:14px;
   width:80px;
@@ -12,6 +12,7 @@
   background:rgba(255,255,255,.96);
   box-shadow:0 12px 34px rgba(23,34,34,.10);
   backdrop-filter:blur(18px);
+  -webkit-backdrop-filter:blur(18px);
   text-decoration:none;
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
 }
