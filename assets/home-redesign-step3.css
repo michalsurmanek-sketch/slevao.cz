@@ -15,7 +15,15 @@
 #categoriesSection .sectionHead{
   min-height:28px;
   align-items:center;
+  justify-content:flex-start;
   margin:0 0 12px;
+}
+
+#categoriesSection .sectionHead>div{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  min-width:0;
 }
 
 #categoriesSection .sectionHead .eyebrow{
@@ -31,21 +39,40 @@
   letter-spacing:-.35px;
 }
 
-#clearCategory{
-  min-height:32px;
-  padding:5px 10px;
+#categoryAllHeader{
+  min-height:30px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  flex:0 0 auto;
+  padding:0 12px;
   border:1px solid #cce8e5;
-  border-radius:10px;
+  border-radius:999px;
   background:#f2fbfa;
   color:#087f76;
   font-size:12px;
-  transition:background .16s ease,border-color .16s ease,transform .16s ease;
+  font-weight:900;
+  line-height:1;
+  cursor:pointer;
+  transition:background .16s ease,border-color .16s ease,transform .16s ease,color .16s ease,box-shadow .16s ease;
 }
 
-#clearCategory:hover{
+#categoryAllHeader:hover{
   transform:translateY(-1px);
   border-color:#8edbd4;
   background:#e6f8f5;
+}
+
+#categoriesSection>.container:has(#categoryChips .categoryChip[data-category="all"].active) #categoryAllHeader{
+  border-color:#0fa79c;
+  background:linear-gradient(135deg,#24bbae,#0b9d93);
+  color:#fff;
+  box-shadow:0 6px 14px rgba(11,157,147,.18);
+}
+
+/* Původní reset zůstává pro logiku JS, ale vizuálně jej nahrazuje tlačítko Vše u nadpisu. */
+#clearCategory{
+  display:none!important;
 }
 
 /* Desktop: všech 10 hlavních kategorií v jednom čistém řádku. */
@@ -54,6 +81,11 @@
   grid-template-columns:repeat(10,minmax(0,1fr));
   align-items:center;
   gap:6px;
+}
+
+/* Vše je nyní v hlavičce sekce; původní dynamické tlačítko zůstává skryté jako funkční proxy. */
+#categoryChips .categoryChip[data-category="all"]{
+  display:none;
 }
 
 #categoryChips .categoryChip{
@@ -121,7 +153,7 @@
 }
 
 #categoryChips .categoryChip:focus-visible,
-#clearCategory:focus-visible{
+#categoryAllHeader:focus-visible{
   outline:0;
   box-shadow:0 0 0 4px rgba(52,214,199,.18);
 }
@@ -170,8 +202,18 @@
     margin-bottom:10px;
   }
 
+  #categoriesSection .sectionHead>div{
+    gap:7px;
+  }
+
   #categoriesSection .sectionHead h2{
     font-size:16px;
+  }
+
+  #categoryAllHeader{
+    min-height:28px;
+    padding:0 10px;
+    font-size:11px;
   }
 
   #categoryChips{
