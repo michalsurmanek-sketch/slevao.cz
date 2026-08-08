@@ -43,11 +43,20 @@
 
   function syncActive(dock) {
     const current = fold(document.getElementById('sideSearch')?.value || document.getElementById('q')?.value || '');
+    let anyActive = false;
+
     dock.querySelectorAll('[data-sq-food]').forEach((button) => {
       const active = current === fold(button.dataset.sqFood);
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
+      if (active) anyActive = true;
     });
+
+    const clearButton = dock.querySelector('.sqFoodClear');
+    if (clearButton) {
+      clearButton.classList.toggle('active', anyActive);
+      clearButton.setAttribute('aria-pressed', String(anyActive));
+    }
   }
 
   function createDock() {
@@ -66,7 +75,7 @@
       <div class="sqFoodDockItems">
         ${ITEMS.map(([term, icon, label]) => `<button class="sqFoodQuick" type="button" data-sq-food="${term}" aria-pressed="false" title="Filtrovat: ${label}"><span class="sqFoodIcon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('')}
       </div>
-      <button class="sqFoodClear" type="button">Zrušit rychlý filtr</button>`;
+      <button class="sqFoodClear" type="button" aria-pressed="false">Zrušit rychlý filtr</button>`;
 
     if (localStorage.getItem(STORAGE_KEY) === '1') dock.classList.add('collapsed');
     const toggle = dock.querySelector('.sqFoodDockToggle');
