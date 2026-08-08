@@ -22,7 +22,7 @@
   if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
     const quickFoodStyle = document.createElement('link');
     quickFoodStyle.rel = 'stylesheet';
-    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260808-1';
+    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260808-2';
     document.head.appendChild(quickFoodStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
@@ -100,7 +100,6 @@
   if (!document.querySelector('script[src*="home-in-store-equivalence.js"]')) {
     const inStoreEquivalenceScript = document.createElement('script');
     inStoreEquivalenceScript.src = 'assets/home-in-store-equivalence.js?v=20260807-1';
-    inStoreEquivalenceScript.defer = true;
     document.head.appendChild(inStoreEquivalenceScript);
   }
   if (!document.querySelector('link[href*="home-in-store-actions.css"]')) {
