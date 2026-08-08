@@ -1,31 +1,39 @@
+/* Slevao.cz – pravé tlačítko v rozšířené horní liště */
+@media(min-width:901px){
+  body .topbar .container{
+    width:calc(100vw - 48px)!important;
+    max-width:none!important;
+    margin-left:24px!important;
+    margin-right:24px!important;
+  }
+}
+
 .topbarTipButton{
   position:fixed;
   z-index:90;
-  right:20px;
-  top:14px;
-  width:80px;
-  height:80px;
+  right:42px;
+  top:27px;
+  width:56px;
+  height:56px;
   display:grid;
   place-items:center;
-  border:1px solid rgba(21,158,148,.18);
-  border-radius:24px;
-  background:rgba(255,255,255,.96);
-  box-shadow:0 12px 34px rgba(23,34,34,.10);
-  backdrop-filter:blur(18px);
-  -webkit-backdrop-filter:blur(18px);
+  border:1px solid #dbe7e7;
+  border-radius:18px;
+  background:#fff;
+  box-shadow:0 5px 16px rgba(22,42,41,.045);
   text-decoration:none;
   transition:transform .18s ease,border-color .18s ease,box-shadow .18s ease;
 }
 .topbarTipButton img{
-  width:56px;
-  height:56px;
+  width:40px;
+  height:40px;
   display:block;
   object-fit:contain;
 }
 .topbarTipButton:hover{
-  transform:translateY(-2px);
+  transform:translateY(-1px);
   border-color:#8fe3da;
-  box-shadow:0 16px 38px rgba(21,158,148,.14);
+  box-shadow:0 10px 24px rgba(21,158,148,.12);
 }
 .topbarTipButton:focus-visible{
   outline:3px solid rgba(52,214,199,.22);
@@ -34,15 +42,15 @@
 
 @media(max-width:1460px) and (min-width:901px){
   .topbarTipButton{
-    right:16px;
-    top:16px;
-    width:68px;
-    height:68px;
-    border-radius:20px;
+    right:34px;
+    top:27px;
+    width:56px;
+    height:56px;
+    border-radius:18px;
   }
   .topbarTipButton img{
-    width:48px;
-    height:48px;
+    width:40px;
+    height:40px;
   }
 }
 
