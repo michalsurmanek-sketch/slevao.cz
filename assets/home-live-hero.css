@@ -18,9 +18,12 @@
 
 /* Po vyhledání dostane prostřední výsledkový panel více šířky. */
 .heroCard.slLiveHasResult{grid-template-columns:minmax(430px,.9fr) minmax(540px,1.12fr) minmax(320px,.68fr);gap:18px}
-.slLiveHeroResult{grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
+.slLiveHeroResult{position:relative;grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
 .slLiveHeroResult[hidden]{display:none!important}
-.slLiveHeroResult .slLiveTopline{margin-bottom:0}
+.slLiveClose{position:absolute;top:12px;right:12px;z-index:5;width:34px;height:34px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.32);border-radius:50%;background:rgba(4,74,69,.3);color:#fff;font-size:24px;line-height:1;font-weight:500;cursor:pointer;backdrop-filter:blur(8px);transition:background .15s ease,transform .15s ease}
+.slLiveClose:hover{background:rgba(255,255,255,.2);transform:scale(1.04)}
+.slLiveClose:focus-visible{outline:3px solid rgba(255,255,255,.5);outline-offset:2px}
+.slLiveHeroResult .slLiveTopline{margin-bottom:0;padding-right:42px}
 .slLiveHeroResult .slLiveBadge{padding:5px 8px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;font-size:9px}
 .slLiveHeroResult h2{margin:0;color:#fff;font-size:24px;line-height:1.04;letter-spacing:-.7px}
 .slLiveHeroResult .slLiveMetric{margin:0;min-width:0;width:max-content;max-width:100%;padding:9px 11px;border-radius:13px}
