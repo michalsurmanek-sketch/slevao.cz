@@ -1,4 +1,4 @@
-name: Deploy Hruska parser PR
+name: Deploy verified retail parsers PR
 
 on:
   pull_request:
@@ -9,8 +9,8 @@ permissions:
   contents: read
 
 jobs:
-  deploy-hruska:
-    name: Nasadit overeny Hruska parser
+  deploy-retail:
+    name: Nasadit overene retail parsery
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, '[deploy-hruska]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -39,6 +39,9 @@ jobs:
       - name: Nasadit sync-hruska-source
         run: supabase functions deploy sync-hruska-source --project-ref uhampjdqjxmbhaptgitn --use-api
 
+      - name: Nasadit sync-terno-ocr-products
+        run: supabase functions deploy sync-terno-ocr-products --project-ref uhampjdqjxmbhaptgitn --use-api
+
       - name: Overit nasazeni
         run: |
-          supabase functions list --project-ref uhampjdqjxmbhaptgitn | grep -E 'process-leaflet-basic|sync-hruska-products|sync-hruska-source'
+          supabase functions list --project-ref uhampjdqjxmbhaptgitn | grep -E 'process-leaflet-basic|sync-hruska-products|sync-hruska-source|sync-terno-ocr-products'
