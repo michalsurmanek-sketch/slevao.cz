@@ -15,7 +15,7 @@
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260804-2"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260804-3"></script>
-  <script defer src="assets/product-search.js?v=20260804-2"></script>
+  <script defer src="assets/product-search.js?v=20260808-1"></script>
   <script defer src="assets/product-personalization.js?v=20260804-2"></script>
 </head>
 <body class="sfPage">
@@ -34,11 +34,11 @@
         <button class="sfButton primary" type="submit">Vyhledat</button>
       </form>
     </div>
-    <aside class="sfCard sfHeroSide"><strong id="catalogCount">1 508 produktů</strong><span class="sfMuted">Výsledky vycházejí z databáze Slevao.cz, nikoli z placeného pořadí obchodů.</span></aside>
+    <aside class="sfCard sfHeroSide"><strong id="catalogCount">Načítám katalog…</strong><span class="sfMuted">Výsledky vycházejí z databáze Slevao.cz, nikoli z placeného pořadí obchodů.</span></aside>
   </section>
 
   <section class="sfSection">
-    <div class="sfSearchSummary"><div><span class="sfEyebrow">Výsledky</span><h2 id="resultTitle" style="margin:4px 0 0">Nejzajímavější aktuální produkty</h2></div><select id="sort" class="sfSearchSelect" aria-label="Řazení"><option value="relevance">Nejrelevantnější</option><option value="price">Od nejnižší ceny</option><option value="stores">Nejvíce obchodů</option><option value="name">Podle názvu</option></select></div>
+    <div class="sfSearchSummary"><div><span class="sfEyebrow">Výsledky</span><h2 id="resultTitle" style="margin:4px 0 0">Aktuální produkty z ověřených nabídek</h2></div><select id="sort" class="sfSearchSelect" aria-label="Řazení"><option value="relevance">Nejrelevantnější</option><option value="price">Od nejnižší ceny</option><option value="stores">Nejvíce obchodů</option><option value="name">Podle názvu</option></select></div>
     <div class="sfSearchFilters" role="group" aria-label="Platnost nabídky">
       <button class="sfFilter active" type="button" data-filter="all">Všechny</button>
       <button class="sfFilter" type="button" data-filter="current">Platí dnes</button>
