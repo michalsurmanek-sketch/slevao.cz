@@ -82,7 +82,7 @@
   if (!document.querySelector('link[href*="home-live.css"]')) {
     const liveStyle = document.createElement('link');
     liveStyle.rel = 'stylesheet';
-    liveStyle.href = 'assets/home-live.css?v=20260808-1';
+    liveStyle.href = 'assets/home-live.css?v=20260808-2';
     document.head.appendChild(liveStyle);
   }
   if (!document.querySelector('script[src*="home-live.js"]')) {
