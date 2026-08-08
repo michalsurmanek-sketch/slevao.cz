@@ -3,15 +3,17 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const SOURCE_URL = 'https://www.benu.cz/benu-letak/akce';
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession:false, autoRefreshToken:false } });
 const CORS = {
   'access-control-allow-origin':'*',
-  'access-control-allow-headers':'authorization,apikey,content-type,x-client-info',
+  'access-control-allow-headers':'authorization,apikey,content-type,x-client-info,x-cron-secret',
   'access-control-allow-methods':'POST,OPTIONS',
   'content-type':'application/json; charset=utf-8',
 };
 
 function json(body:unknown,status=200){ return new Response(JSON.stringify(body),{status,headers:CORS}); }
+function allowed(req:Request){ return req.headers.get('authorization')===`Bearer ${SERVICE_ROLE_KEY}` || Boolean(CRON_SECRET && req.headers.get('x-cron-secret')===CRON_SECRET); }
 function clean(value:string){ return String(value||'').replace(/<script[\s\S]*?<\/script>/gi,' ').replace(/<style[\s\S]*?<\/style>/gi,' ').replace(/<[^>]+>/g,' ').replace(/&nbsp;|&#160;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&apos;/g,"'").replace(/\s+/g,' ').trim(); }
 function money(value:string){ const n=Number(String(value||'').replace(/\s/g,'').replace(',','.').replace(/[^0-9.]/g,'')); return Number.isFinite(n)&&n>0?n:null; }
 function pragueToday(){ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()); const v=Object.fromEntries(parts.map(p=>[p.type,p.value])); return `${v.year}-${v.month}-${v.day}`; }
@@ -80,6 +82,8 @@ async function fetchAllItems(){
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS') return new Response('ok',{headers:CORS});
+  if(req.method!=='POST') return json({error:'Method not allowed'},405);
+  if(!allowed(req)) return json({error:'Unauthorized'},401);
   const now=new Date().toISOString();
   try{
     const {data:store,error:storeError}=await db.from('stores').select('id').eq('slug','benu').single();
