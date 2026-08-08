@@ -6,11 +6,21 @@
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const money = (v) => Number(v || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const date = (v) => v ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${String(v).slice(0,10)}T12:00:00`)) : '–';
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  function pragueDate(offsetDays = 0) {
+    const target = new Date(Date.now() + offsetDays * 86400000);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(target);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  const today = pragueDate(0);
+  const upcomingTo = pragueDate(7);
   const productId = new URLSearchParams(location.search).get('id');
   let product = null;
   let offers = [];
@@ -25,6 +35,16 @@
   };
 
   const isUpcoming = (offer) => String(offer?.valid_from || '') > today;
+
+  function offerStoreKey(offer) {
+    return `${offer?.store_id || ''}|${String(offer?.store_location_name || '').trim().toLowerCase()}`;
+  }
+
+  function offerStoreLabel(offer) {
+    const storeName = offer?.stores?.name || 'Obchod';
+    const storeFormat = String(offer?.store_location_name || '').trim();
+    return storeFormat ? `${storeName} · ${storeFormat}` : storeName;
+  }
 
   function statWindow(days) {
     const from = Date.now() - days * 86400000;
@@ -80,7 +100,7 @@
       ? `začíná ${date(offer.valid_from)} · platí do ${date(offer.valid_to)}`
       : `platí do ${date(offer.valid_to)}`;
     return `<article class="sfCard sfOffer ${index === 0 ? 'best' : ''}">
-      <div class="sfOfferStore">${esc(store?.name || 'Obchod')}${index === 0 ? ' · nejnižší cena' : ''}</div>
+      <div class="sfOfferStore">${esc(offerStoreLabel(offer))}${index === 0 ? ' · nejnižší cena' : ''}</div>
       <div><span class="sfPrice">${money(offer.price)} Kč</span>${offer.old_price ? `<span class="sfOldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>
       <div class="sfMuted">${offer.unit_price ? `${money(offer.unit_price)} Kč/${esc(offer.unit_price_unit || 'jednotka')} · ` : ''}${validity}</div>
       <div style="margin-top:9px"><span class="sfBadge ${label.className}">${esc(label.label)}</span>${isUpcoming(offer) ? ' <span class="sfBadge warn">Od zítřka / brzy</span>' : ''}${discount ? ` <span class="sfBadge">−${discount} %</span>` : ''}</div>
@@ -105,12 +125,12 @@
     $('productImage').innerHTML = product.image_url ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}">` : '<div class="sfEmpty">Fotografie zatím není ověřena.</div>';
     $('currentPrice').textContent = cheapest ? `${money(cheapest.price)} Kč` : 'Bez viditelné ceny';
     $('currentStore').textContent = cheapest
-      ? `${isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)}` : 'Právě teď'} nejlevněji v ${cheapest.stores?.name || 'obchodě'}`
+      ? `${isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)}` : 'Právě teď'} nejlevněji v ${offerStoreLabel(cheapest)}`
       : 'Aktuální ani nadcházející nabídka není dostupná';
     $('stat30').textContent = statWindow(30) == null ? '–' : `${money(statWindow(30))} Kč`;
     $('stat90').textContent = statWindow(90) == null ? '–' : `${money(statWindow(90))} Kč`;
     $('statTypical').textContent = typical == null ? '–' : `${money(typical)} Kč`;
-    $('statStores').textContent = String(new Set(visible.map((row) => row.store_id)).size);
+    $('statStores').textContent = String(new Set(visible.map(offerStoreKey)).size);
     $('offers').innerHTML = visible.length ? visible.map(offerHtml).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
     $('priceChart').innerHTML = chartSvg();
     $('historyInfo').textContent = history.length ? `${history.length} cenových záznamů · poslední kontrola ${date(history.at(-1)?.recorded_at)}` : 'Historie cen zatím není dostupná.';
@@ -120,7 +140,7 @@
     if (!productId) throw new Error('V odkazu chybí identifikátor produktu.');
     const [productResult, offersResult, historyResult, locationResult] = await Promise.all([
       db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id').eq('id', productId).maybeSingle(),
-      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,stores(id,name,slug)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
+      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,stores(id,name,slug)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
       db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug)').eq('product_id', productId).order('recorded_at').limit(1000),
       db.from('public_product_leaflet_locations').select('*').eq('product_id', productId).order('valid_to', { ascending:false }).limit(30)
     ]);
