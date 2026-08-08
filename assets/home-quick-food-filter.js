@@ -23,6 +23,24 @@
     return true;
   }
 
+  function scrollToDealsTabs() {
+    const quickTabs = document.getElementById('quickTabs');
+    if (!quickTabs) return;
+
+    const topbar = document.querySelector('.topbar');
+    const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+    const targetTop = window.scrollY + quickTabs.getBoundingClientRect().top - headerHeight - 14;
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: 'smooth'
+    });
+
+    if (window.location.hash !== '#dealsSection') {
+      history.replaceState(null, '', '#dealsSection');
+    }
+  }
+
   function syncActive(dock) {
     const current = fold(document.getElementById('sideSearch')?.value || document.getElementById('q')?.value || '');
     dock.querySelectorAll('[data-sq-food]').forEach((button) => {
@@ -73,7 +91,7 @@
       const current = fold(document.getElementById('sideSearch')?.value || '');
       setExistingSearch(current === fold(term) ? '' : term);
       syncActive(dock);
-      document.getElementById('dealsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.requestAnimationFrame(scrollToDealsTabs);
     });
 
     dock.querySelector('.sqFoodClear').addEventListener('click', () => {
