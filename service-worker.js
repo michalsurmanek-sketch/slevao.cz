@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260804-6';
+const CACHE_NAME = 'slevao-shell-20260808-1';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -56,6 +56,10 @@ function isLocalStatic(request, url) {
     && (url.pathname.startsWith('/assets/') || /\.(?:css|js|svg|png|jpg|jpeg|webp|gif|woff2?|webmanifest)$/i.test(url.pathname));
 }
 
+function isCriticalStatic(url) {
+  return /\.(?:css|js|webmanifest)$/i.test(url.pathname);
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -83,12 +87,24 @@ self.addEventListener('fetch', (event) => {
 
   if (isLocalStatic(request, url)) {
     event.respondWith((async () => {
+      const cache = await caches.open(CACHE_NAME);
+
+      // JavaScript, CSS and the manifest control app behaviour. Prefer the network so
+      // a deployment is effective immediately; use cache only when offline.
+      if (isCriticalStatic(url)) {
+        try {
+          const response = await fetch(request);
+          if (response.ok) cache.put(request, response.clone()).catch(() => {});
+          return response;
+        } catch {
+          return (await caches.match(request)) || Response.error();
+        }
+      }
+
+      // Images/fonts can remain stale-while-revalidate for faster repeat visits.
       const cached = await caches.match(request);
       const network = fetch(request).then(async (response) => {
-        if (response.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, response.clone()).catch(() => {});
-        }
+        if (response.ok) cache.put(request, response.clone()).catch(() => {});
         return response;
       }).catch(() => null);
       return cached || (await network) || Response.error();
