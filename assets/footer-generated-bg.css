@@ -1,15 +1,34 @@
-/* Slevao.cz footer – čisté vektorové pozadí. Žádný raster ani base64, takže nemůže vzniknout JPEG/WebP banding. */
+/* Slevao.cz footer – bezpečné CSS pozadí bez obrázku/rasteru/SVG.
+   Záměrně nepoužívá žádný externí soubor, aby se vyloučilo poškození dekódování,
+   starý image cache i barevné horizontální pruhy. */
 .footerShell{
   background-color:#032f33!important;
-  background-image:url('footer-bg-clean-v4.svg?v=20260808-4')!important;
-  background-position:center center!important;
-  background-size:cover!important;
+  background-image:
+    radial-gradient(ellipse at 6% 6%,rgba(15,181,171,.18) 0,rgba(15,181,171,.08) 18%,transparent 42%),
+    radial-gradient(circle at 75% -5%,rgba(25,179,169,.12) 0,rgba(25,179,169,.045) 24%,transparent 47%),
+    radial-gradient(ellipse at 97% 86%,rgba(11,139,134,.16) 0,rgba(11,139,134,.07) 22%,transparent 48%),
+    radial-gradient(ellipse at 18% 104%,rgba(7,111,110,.17) 0,rgba(7,111,110,.06) 26%,transparent 52%),
+    linear-gradient(135deg,#032f34 0%,#00383c 47%,#02282e 100%)!important;
+  background-position:center!important;
+  background-size:auto!important;
   background-repeat:no-repeat!important;
+  background-attachment:scroll!important;
+}
+
+/* Vynutí vlastní kompozitní vrstvu bez dekódování obrázku. */
+.footerShell{
+  isolation:isolate;
+  transform:translateZ(0);
 }
 
 @media(max-width:620px){
   .footerShell{
-    background-position:center top!important;
-    background-size:auto 100%!important;
+    background-image:
+      radial-gradient(ellipse at 4% 4%,rgba(15,181,171,.17) 0,rgba(15,181,171,.07) 20%,transparent 46%),
+      radial-gradient(circle at 92% 14%,rgba(25,179,169,.11) 0,rgba(25,179,169,.035) 25%,transparent 50%),
+      radial-gradient(ellipse at 18% 100%,rgba(7,111,110,.15) 0,rgba(7,111,110,.05) 28%,transparent 55%),
+      linear-gradient(155deg,#032f34 0%,#00373b 48%,#02292f 100%)!important;
+    background-position:center!important;
+    background-size:auto!important;
   }
 }
