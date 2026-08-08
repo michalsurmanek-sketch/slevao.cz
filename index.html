@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="assets/home-v2.css?v=20260802-2">
   <link rel="stylesheet" href="assets/home-redesign-step1.css?v=20260802-2">
   <link rel="stylesheet" href="assets/home-redesign-step2.css?v=20260808-2">
-  <link rel="stylesheet" href="assets/home-redesign-step3.css?v=20260808-1">
+  <link rel="stylesheet" href="assets/home-redesign-step3.css?v=20260808-2">
   <link rel="stylesheet" href="assets/home-leaflet-covers.css?v=20260802-3">
   <link rel="stylesheet" href="assets/home-overview.css?v=20260803-3">
   <link rel="stylesheet" href="assets/home-footer-redesign.css?v=20260806-2">
@@ -72,7 +72,7 @@
     <section id="categoriesSection" class="section compactSection">
       <div class="container">
         <div class="sectionHead inlineHead">
-          <div><span class="eyebrow">Rychlý výběr</span><h2>Nakupuj podle kategorie</h2></div>
+          <div><span class="eyebrow">Rychlý výběr</span><h2>Nakupuj podle kategorie</h2><button id="categoryAllHeader" type="button" aria-label="Zobrazit všechny kategorie">Vše</button></div>
           <button id="clearCategory" class="textButton" type="button" hidden>Zrušit kategorii</button>
         </div>
         <div id="categoryChips" class="categoryChips"><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div></div>
@@ -257,5 +257,11 @@
   <script src="assets/home-overview.js?v=20260803-5" defer></script>
   <script src="assets/home-footer-redesign.js?v=20260808-6" defer></script>
   <script src="assets/mobile-navigation.js?v=20260807-1" defer></script>
+  <script>
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#categoryAllHeader')) return;
+      document.querySelector('#categoryChips .categoryChip[data-category="all"]')?.click();
+    });
+  </script>
 </body>
 </html>
