@@ -1,0 +1,65 @@
+name: Jednorázová údržba kvóty Edge Functions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/edge-quota-maintenance.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  maintenance:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Odstranit nepoužívané debug endpointy
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          for fn in \
+            debug-intersport-source \
+            debug-makro-source \
+            debug-moebelix-source \
+            debug-retail-candidates \
+            debug-albert-publitas \
+            debug-albert-site \
+            debug-albert-graphql \
+            debug-albert-store \
+            debug-albert-collection-stores \
+            debug-albert-text-parser \
+            debug-albert-dynamic-page \
+            debug-albert-catalog-parser; do
+            supabase functions delete "$fn" \
+              --project-ref uhampjdqjxmbhaptgitn \
+              --yes || true
+          done
+
+      - name: Nasadit opravenou hlavní pipeline
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy run-leaflet-pipeline-v2 \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --no-verify-jwt
+
+      - name: Ověřit endpoint
+        run: |
+          response="$(curl --fail --silent --show-error \
+            --request OPTIONS \
+            --retry 10 --retry-delay 3 \
+            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/run-leaflet-pipeline-v2')"
+          test "$response" = 'ok'
