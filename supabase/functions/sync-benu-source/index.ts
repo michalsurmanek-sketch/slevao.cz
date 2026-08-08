@@ -4,6 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const SOURCE_URL = 'https://www.benu.cz/benu-letak/akce';
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
+const PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/publish-imports`;
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession:false, autoRefreshToken:false } });
 const CORS = {
   'access-control-allow-origin':'*',
@@ -60,6 +61,13 @@ async function fetchPage(page:number){
   if(!response.ok) throw new Error(`BENU stránka ${page} HTTP ${response.status}`);
   const html=await response.text();
   return { url:response.url||url, items:parse(html,response.url||url) };
+}
+
+async function publishImport(importId:string){
+  const response=await fetch(PUBLISHER_URL,{method:'POST',headers:{authorization:`Bearer ${SERVICE_ROLE_KEY}`,apikey:SERVICE_ROLE_KEY,'content-type':'application/json',...(CRON_SECRET?{'x-cron-secret':CRON_SECRET}:{})},body:JSON.stringify({import_id:importId})});
+  const text=await response.text();
+  if(!response.ok) throw new Error(`publish-imports HTTP ${response.status}: ${text.slice(0,400)}`);
+  return JSON.parse(text);
 }
 
 async function fetchAllItems(){
@@ -127,7 +135,9 @@ Deno.serve(async req=>{
     }).select('id').single();
     if(importError) throw importError;
 
-    const rows=items.map(item=>({
+    const verifiedItems=items.filter(item=>item.quantity_text&&item.old_price&&item.old_price>item.price&&item.confidence>=.95);
+    if(verifiedItems.length<1) throw new Error('BENU: nebyla nalezena žádná bezpečně ověřená sleva.');
+    const rows=verifiedItems.map(item=>({
       import_id:imp.id,
       title:item.title,
       quantity_text:item.quantity_text,
@@ -135,7 +145,7 @@ Deno.serve(async req=>{
       old_price:item.old_price,
       image_url:item.image_url,
       confidence:item.confidence,
-      status:'review',
+      status:'approved',
       raw_data:item.raw_data,
     }));
     for(let i=0;i<rows.length;i+=200){
@@ -143,8 +153,10 @@ Deno.serve(async req=>{
       if(error) throw error;
     }
 
+    await db.from('leaflet_imports').update({product_count:verifiedItems.length}).eq('id',imp.id);
+    const publish=await publishImport(imp.id);
     await db.from('leaflet_sources').update({last_checked_at:now,last_success_at:now,last_error:null,last_strategy_used:'structured_html',last_strategy_success_at:now}).eq('id',source.id);
-    return json({ok:true,created:true,import_id:imp.id,items:items.length,pages,valid_from:validFrom,valid_to:validTo});
+    return json({ok:true,created:true,import_id:imp.id,items:items.length,verified_items:verifiedItems.length,pages,valid_from:validFrom,valid_to:validTo,publish});
   }catch(error){
     const message=error instanceof Error?error.message:String(error);
     const {data:store}=await db.from('stores').select('id').eq('slug','benu').maybeSingle();
