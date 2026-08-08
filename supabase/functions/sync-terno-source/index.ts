@@ -196,7 +196,6 @@ Deno.serve(async (request) => {
           detected_valid_from: flyer.validFrom,
           detected_valid_to: flyer.validTo,
           page_count: flyer.pageImageUrls.length || null,
-          cover_image_url: flyer.coverUrl,
           metadata: {
             ...(old.metadata || {}),
             adapter: 'store:terno-zlin-pdf-v1',
