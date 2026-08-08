@@ -19,11 +19,11 @@
     savedButton.after(tipButton);
   }
 
-  const scrollWithHeaderOffset = (target, hash = '#dealsSection') => {
+  const scrollWithHeaderOffset = (target, hash = '#dealsSection', gap = 14) => {
     if (!target) return;
     const topbar = document.querySelector('.topbar');
     const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
-    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - 8;
+    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - gap;
 
     window.scrollTo({
       top: Math.max(0, targetTop),
@@ -91,7 +91,7 @@
     if (href === '#categoriesSection' || href.endsWith('#categoriesSection')) {
       event.preventDefault();
       window.requestAnimationFrame(() => {
-        scrollWithHeaderOffset(document.getElementById('categoriesSection'), '#categoriesSection');
+        scrollWithHeaderOffset(document.getElementById('categoriesSection'), '#categoriesSection', 8);
       });
       return;
     }
