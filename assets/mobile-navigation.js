@@ -6,17 +6,18 @@
     let canonicalStatus = statusPill.textContent.trim();
     let renderedStatus = canonicalStatus;
 
-    const mobileStatus = (value) => {
+    const displayStatus = (value) => {
       const text = String(value || '').trim();
-      if (text === '✓ Aktualizováno dnes') return 'Aktualizováno';
-      if (text === 'Obnovuji aktuální data…') return 'Obnovuji';
-      return text.startsWith('✓ ') ? text.slice(2) : text;
+      if (text === '✓ Aktualizováno dnes') return 'Aktualizováno dnes';
+      if (mobileViewport.matches && text === 'Obnovuji aktuální data…') return 'Obnovuji';
+      if (mobileViewport.matches && text.startsWith('✓ ')) return text.slice(2);
+      return text;
     };
 
     const syncStatus = () => {
       const current = statusPill.textContent.trim();
       if (current !== renderedStatus) canonicalStatus = current;
-      const next = mobileViewport.matches ? mobileStatus(canonicalStatus) : canonicalStatus;
+      const next = displayStatus(canonicalStatus);
       renderedStatus = next;
       if (current !== next) statusPill.textContent = next;
     };
