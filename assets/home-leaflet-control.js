@@ -5,14 +5,11 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const SETTINGS_URL = `${SUPABASE_URL}/storage/v1/object/public/homepage-leaflet-settings/visibility.json`;
-  const LEGACY_IMAGE_BUCKET = 'homepage-leaflet-images';
   const COVER_KEY = 'slevao-cover';
   const VISIBILITY_KEY = 'slevao-leaflet-visibility';
   const FORCE_KEY = 'slevao-leaflet-force';
 
   let storeSettings = new Map();
-  let legacyHidden = new Set();
   let loading = null;
   let scheduled = 0;
   let generation = 0;
@@ -30,10 +27,6 @@
       base: index < 0 ? raw : raw.slice(0, index),
       params: index < 0 ? new URLSearchParams() : new URLSearchParams(raw.slice(index + 1)),
     };
-  }
-
-  function parseParams(value) {
-    return parseMeta(value).params;
   }
 
   function slugFromCard(card) {
@@ -60,20 +53,6 @@
     return response.json();
   }
 
-  async function fetchLegacyVisibility() {
-    try {
-      const response = await fetch(`${SETTINGS_URL}?v=${Date.now()}`, { cache: 'no-store' });
-      if (response.status === 404) return new Set();
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const payload = await response.json();
-      return new Set((Array.isArray(payload?.hidden_slugs) ? payload.hidden_slugs : [])
-        .map((slug) => String(slug || '').trim().toLowerCase()).filter(Boolean));
-    } catch (error) {
-      console.warn('Staré nastavení viditelnosti není dostupné:', error);
-      return new Set();
-    }
-  }
-
   function normalizeStore(row) {
     const website = parseMeta(row?.website_url);
     const logo = parseMeta(row?.logo_url);
@@ -93,14 +72,13 @@
   async function loadSettings(force = false) {
     if (loading && !force) return loading;
     loading = (async () => {
-      const [rows, oldHidden] = await Promise.all([fetchStores(), fetchLegacyVisibility()]);
+      const rows = await fetchStores();
       const next = new Map();
       for (const row of rows || []) {
         const setting = normalizeStore(row);
         if (setting.slug) next.set(setting.slug, setting);
       }
       storeSettings = next;
-      legacyHidden = oldHidden;
       generation += 1;
       imageChecks.clear();
     })().catch((error) => {
@@ -111,14 +89,8 @@
     return loading;
   }
 
-  function isHidden(slug, settings) {
-    if (settings?.visibility === 'hidden') return true;
-    if (settings?.visibility === 'visible') return false;
-    return legacyHidden.has(slug);
-  }
-
-  function legacyImageUrl(slug) {
-    return `${SUPABASE_URL}/storage/v1/object/public/${LEGACY_IMAGE_BUCKET}/${encodeURIComponent(slug)}/cover?v=${generation}`;
+  function isHidden(settings) {
+    return settings?.visibility === 'hidden';
   }
 
   function probeImage(url, key) {
@@ -140,7 +112,10 @@
     if (/^https:\/\//i.test(settings?.cover || '')) {
       return probeImage(settings.cover, `mapped:${slug}:${settings.cover}`);
     }
-    return probeImage(legacyImageUrl(slug), `legacy:${slug}:${generation}`);
+    // Current admin stores a custom cover URL directly in store metadata. The old
+    // homepage-leaflet-images bucket is intentionally not probed when no marker is
+    // present, avoiding a 400 request for every card on every refresh.
+    return '';
   }
 
   function rememberAutomaticImage(image) {
@@ -168,7 +143,7 @@
     const slug = slugFromCard(card);
     if (!slug || !card.isConnected) return;
     const settings = storeSettings.get(slug) || null;
-    const hidden = isHidden(slug, settings);
+    const hidden = isHidden(settings);
 
     card.hidden = hidden;
     card.setAttribute('aria-hidden', hidden ? 'true' : 'false');
@@ -243,12 +218,12 @@
     cards.filter((card) => card.dataset.forcedLeafletCard === '1').forEach((card) => {
       const slug = slugFromCard(card);
       const settings = storeSettings.get(slug);
-      if (!settings?.force || isHidden(slug, settings) || automaticSlugs.has(slug)) card.remove();
+      if (!settings?.force || isHidden(settings) || automaticSlugs.has(slug)) card.remove();
     });
 
     const existing = new Set([...grid.querySelectorAll('.leafletCard')].map(slugFromCard).filter(Boolean));
     for (const settings of storeSettings.values()) {
-      if (!settings.force || isHidden(settings.slug, settings) || existing.has(settings.slug)) continue;
+      if (!settings.force || isHidden(settings) || existing.has(settings.slug)) continue;
       grid.insertAdjacentHTML('beforeend', forcedCardMarkup(settings));
       existing.add(settings.slug);
     }
