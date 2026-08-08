@@ -19,18 +19,6 @@
     navScript.defer = true;
     document.head.appendChild(navScript);
   }
-  if (!document.querySelector('link[href*="home-region-dropdown.css"]')) {
-    const regionStyle = document.createElement('link');
-    regionStyle.rel = 'stylesheet';
-    regionStyle.href = 'assets/home-region-dropdown.css?v=20260808-1';
-    document.head.appendChild(regionStyle);
-  }
-  if (!document.querySelector('script[src*="home-region-dropdown.js"]')) {
-    const regionScript = document.createElement('script');
-    regionScript.src = 'assets/home-region-dropdown.js?v=20260808-1';
-    regionScript.defer = true;
-    document.head.appendChild(regionScript);
-  }
   if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
     const quickFoodStyle = document.createElement('link');
     quickFoodStyle.rel = 'stylesheet';
@@ -85,9 +73,15 @@
     liveStyle.href = 'assets/home-live.css?v=20260808-2';
     document.head.appendChild(liveStyle);
   }
+  if (!document.querySelector('link[href*="home-live-hero.css"]')) {
+    const liveHeroStyle = document.createElement('link');
+    liveHeroStyle.rel = 'stylesheet';
+    liveHeroStyle.href = 'assets/home-live-hero.css?v=20260808-1';
+    document.head.appendChild(liveHeroStyle);
+  }
   if (!document.querySelector('script[src*="home-live.js"]')) {
     const liveScript = document.createElement('script');
-    liveScript.src = 'assets/home-live.js?v=20260807-3';
+    liveScript.src = 'assets/home-live.js?v=20260808-1';
     liveScript.defer = true;
     document.head.appendChild(liveScript);
   }
