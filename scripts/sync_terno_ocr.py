@@ -16,7 +16,6 @@ from datetime import datetime, timezone
 ENGINE = "tesseract-cli-ces-v1"
 LANGUAGE = "ces+eng"
 SUPABASE_USER_AGENT = "slevao-github-actions-terno-ocr/1.0"
-BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Slevao-Terno-OCR/1.0"
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -31,18 +30,21 @@ def looks_like_jwt(value: str) -> bool:
     return value.startswith("eyJ") and value.count(".") == 2
 
 
-def api(method: str, path: str, body=None, extra_headers=None):
-    url = f"{SUPABASE_URL}{path}"
+def server_headers(accept: str = "application/json"):
     headers = {
         "apikey": SERVICE_ROLE_KEY,
-        "Accept": "application/json",
+        "Accept": accept,
         "User-Agent": SUPABASE_USER_AGENT,
         "X-Client-Info": SUPABASE_USER_AGENT,
     }
-    # Legacy service-role JWTs are valid bearer tokens. Modern sb_secret_* keys
-    # authenticate through apikey and must not be presented as a fake JWT.
     if looks_like_jwt(SERVICE_ROLE_KEY):
         headers["Authorization"] = f"Bearer {SERVICE_ROLE_KEY}"
+    return headers
+
+
+def api(method: str, path: str, body=None, extra_headers=None):
+    url = f"{SUPABASE_URL}{path}"
+    headers = server_headers()
     if body is not None:
         headers["Content-Type"] = "application/json"
     if extra_headers:
@@ -60,17 +62,26 @@ def api(method: str, path: str, body=None, extra_headers=None):
         raise RuntimeError(f"Supabase {method} {path}: HTTP {exc.code}: {detail}") from exc
 
 
-def download(url: str, destination: str):
-    request = urllib.request.Request(
-        url,
-        headers={"User-Agent": BROWSER_USER_AGENT, "Accept": "image/jpeg,image/png,image/webp,*/*"},
-    )
-    with urllib.request.urlopen(request, timeout=90) as response, open(destination, "wb") as out:
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            out.write(chunk)
+def download(image_url: str, destination: str):
+    proxy_url = f"{SUPABASE_URL}/functions/v1/proxy-terno-page"
+    headers = server_headers("image/jpeg,image/png,image/webp,*/*")
+    headers["Content-Type"] = "application/json"
+    payload = json.dumps({"image_url": image_url}).encode("utf-8")
+    request = urllib.request.Request(proxy_url, data=payload, headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(request, timeout=75) as response, open(destination, "wb") as out:
+            content_type = (response.headers.get("content-type") or "").lower()
+            if not content_type.startswith("image/"):
+                detail = response.read(2000).decode("utf-8", "replace")
+                raise RuntimeError(f"Terno proxy nevrátil obrázek: {content_type}: {detail}")
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:2000]
+        raise RuntimeError(f"Terno proxy HTTP {exc.code}: {detail}") from exc
 
 
 def file_sha256(path: str):
@@ -251,7 +262,7 @@ def main():
     with tempfile.TemporaryDirectory(prefix="terno-ocr-") as temp_dir:
         for index, image_url in enumerate(page_urls, start=1):
             image_path = os.path.join(temp_dir, f"page-{index}.jpg")
-            print(f"[{index}/{len(page_urls)}] download {image_url}", flush=True)
+            print(f"[{index}/{len(page_urls)}] proxy download {image_url}", flush=True)
             download(image_url, image_path)
             checksum = file_sha256(image_path)
             old = existing.get(index)
