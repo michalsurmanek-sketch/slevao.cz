@@ -12,10 +12,22 @@ const CORS = {
 };
 const json = (body: unknown, status = 200) => Response.json(body, { status, headers: CORS });
 
+type OcrWord = {
+  text: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  confidence: number | string | null;
+  block?: number;
+  paragraph?: number;
+  line?: number;
+};
 type OcrPage = {
   page_number: number;
   text_content: string;
   avg_confidence: number | string | null;
+  words: OcrWord[] | null;
 };
 type Candidate = {
   title: string;
@@ -24,6 +36,16 @@ type Candidate = {
   source_page: number;
   confidence: number;
   raw_data: Record<string, unknown>;
+};
+type SpatialLine = {
+  text: string;
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+  centerX: number;
+  confidence: number;
+  column: number;
 };
 
 function allowed(req: Request) {
@@ -38,21 +60,18 @@ function round2(n: number) { return Math.round(n * 100) / 100; }
 function letters(s: string) { return (s.match(/[A-Za-zÁ-ž]/g) || []).length; }
 function isPromo(s: string) {
   const n = norm(s);
-  return /(pri koupi|kup vic|zaplat min|super (ctvrtek|patek|sobota|nedele|pondeli|utery|streda)|pouze (ve|v|dnes)|verne zakazniky|klub|karta|aplikac|kupon|cena plati pro max|na nakup\/den|od \d+\s*ks)/i.test(n);
+  return /(pri koupi|kup vic|zaplat min|super (ctvrtek|patek|sobota|nedele|pondeli|utery|streda)|pouze (ve|v|dnes)|verne zakazniky|klub|karta|aplikac|kupon|cena plati pro max|na nakup\/den|od \d+\s*ks|cena od)/i.test(n);
 }
 function isNoise(s: string) {
   const n = norm(s);
-  if (letters(s) < 3) return true;
-  if (s.length < 3 || s.length > 100) return true;
+  if (letters(s) < 3 || s.length < 3 || s.length > 100) return true;
   if (/^(super cena|cena|akce|novinka|vybrane druhy|pultovy prodej|kvalitni potraviny|z naseho regionu)$/i.test(n)) return true;
-  if (/^1\s*(kg|l|ks)\s*=/i.test(n)) return true;
-  if (/^\d+(?:[,.]\d+)?\s*(g|kg|ml|l|ks)\b/i.test(n)) return true;
-  if (/^-?\d+\s*%/.test(n)) return true;
-  if (isPromo(s)) return true;
-  return false;
+  if (/^(?:\d+(?:[,.]\d+)?\s*)?(?:g|kg|ml|l|ks)\b/i.test(n)) return true;
+  if (/^1\s*(kg|l|ks)\s*=/i.test(n) || /^-?\d+\s*%/.test(n)) return true;
+  return isPromo(s);
 }
 function parseQuantity(line: string) {
-  if (/\d\s*[-–]\s*\d/.test(line)) return null;
+  if (/\d\s*[-–]\s*\d/.test(line) || /\d+\s*[x×]\s*\d+/i.test(line)) return null;
   const m = line.match(/\b(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l)\b/i);
   if (!m) return null;
   const value = Number(m[1].replace(',', '.'));
@@ -65,102 +84,129 @@ function parseQuantity(line: string) {
   if (!(base > 0 && base <= 20)) return null;
   return { text: clean(m[0]), base, baseUnit };
 }
-function parseUnitPrice(lines: string[], index: number, baseUnit: string) {
-  for (let j = index; j <= Math.min(lines.length - 1, index + 3); j++) {
-    const raw = clean(lines[j]).replace(/\b0d\b/ig, 'od');
-    const n = norm(raw);
-    if (!n.includes(`1${baseUnit}`) && !n.includes(`1 ${baseUnit}`)) continue;
-    if (/\bod\b/i.test(n)) continue;
-    const re = new RegExp(`1\\s*${baseUnit}\\s*=\\s*(\\d{1,5})(?:[,.](\\d{1,2}))?`, 'i');
-    const m = raw.match(re);
-    if (!m) continue;
-    const value = Number(m[1]) + Number((m[2] || '0').padEnd(2, '0')) / 100;
-    if (value > 0 && value < 100000) return { value: round2(value), line: raw };
-  }
-  return null;
+function parseUnitPrice(line: string, baseUnit: string) {
+  const raw = clean(line).replace(/\b0d\b/ig, 'od');
+  if (/\bod\b/i.test(norm(raw))) return null;
+  const re = new RegExp(`1\\s*${baseUnit}\\s*=\\s*(\\d{1,5})(?:[,.](\\d{1,2}))?`, 'i');
+  const m = raw.match(re);
+  if (!m) return null;
+  const value = Number(m[1]) + Number((m[2] || '0').padEnd(2, '0')) / 100;
+  return value > 0 && value < 100000 ? round2(value) : null;
 }
-function numericCandidates(line: string) {
+function numericCandidates(value: string) {
   const out = new Set<number>();
-  const s = clean(line);
+  const s = clean(value);
   for (const m of s.matchAll(/\b(\d{1,4})[,.](\d{1,2})\b/g)) {
     const v = Number(m[1]) + Number(m[2].padEnd(2, '0')) / 100;
     if (v >= 2 && v <= 5000) out.add(round2(v));
   }
-  for (const m of s.matchAll(/\b(\d{1,3})\s+(\d{2})\b/g)) {
-    const v = Number(m[1]) + Number(m[2]) / 100;
-    if (v >= 2 && v <= 5000) out.add(round2(v));
-  }
-  for (const m of s.matchAll(/\b(\d{3,5})\b/g)) {
+  for (const m of s.matchAll(/^\D*(\d{2,5})\D*$/g)) {
     const raw = Number(m[1]);
-    const v = raw / 100;
+    const v = raw >= 1000 ? raw / 100 : raw;
     if (v >= 2 && v <= 5000) out.add(round2(v));
   }
   return [...out];
 }
-function findPrintedPrice(lines: string[], index: number, expected: number) {
-  const tolerance = Math.max(0.12, expected * 0.012);
-  let best: { value: number; line: string; distance: number } | null = null;
-  for (let j = Math.max(0, index - 8); j < index; j++) {
-    const line = clean(lines[j]);
-    if (/1\s*(kg|l|ks)\s*=/i.test(line) || isPromo(line)) continue;
-    for (const value of numericCandidates(line)) {
-      const delta = Math.abs(value - expected);
-      if (delta <= tolerance && (!best || delta < best.distance)) best = { value, line, distance: delta };
-    }
+function spatialLines(words: OcrWord[]) {
+  const valid = words.filter((w) => clean(w.text) && Number.isFinite(Number(w.left)) && Number.isFinite(Number(w.top)));
+  const maxRight = Math.max(1000, ...valid.map((w) => Number(w.left) + Number(w.width || 0)));
+  const columnWidth = maxRight / 4;
+  const groups = new Map<string, OcrWord[]>();
+  for (const w of valid) {
+    const key = `${w.block ?? 0}|${w.paragraph ?? 0}|${w.line ?? Math.round(Number(w.top) / 8)}`;
+    const bucket = groups.get(key) || [];
+    bucket.push(w);
+    groups.set(key, bucket);
   }
-  return best;
-}
-function findTitle(lines: string[], index: number) {
-  const picked: string[] = [];
-  for (let j = index - 1; j >= Math.max(0, index - 6); j--) {
-    const line = clean(lines[j]);
-    if (isNoise(line)) continue;
-    if (/\d{2,}/.test(line) && letters(line) < 8) continue;
-    picked.unshift(line.replace(/^[-–—|]+|[-–—|]+$/g, '').trim());
-    if (picked.length >= 2) break;
-  }
-  if (!picked.length) return null;
-  const title = clean(picked.join(' '));
-  if (title.length < 3 || title.length > 110 || letters(title) < 4) return null;
-  if (isPromo(title)) return null;
-  return title;
-}
-function localPromo(lines: string[], index: number) {
-  for (let j = Math.max(0, index - 8); j <= Math.min(lines.length - 1, index + 4); j++) {
-    if (isPromo(lines[j])) return true;
-  }
-  return false;
+  return [...groups.values()].map((group): SpatialLine => {
+    group.sort((a, b) => Number(a.left) - Number(b.left));
+    const left = Math.min(...group.map((w) => Number(w.left)));
+    const right = Math.max(...group.map((w) => Number(w.left) + Number(w.width || 0)));
+    const top = Math.min(...group.map((w) => Number(w.top)));
+    const bottom = Math.max(...group.map((w) => Number(w.top) + Number(w.height || 0)));
+    const confidences = group.map((w) => Number(w.confidence || 0)).filter(Number.isFinite);
+    const centerX = (left + right) / 2;
+    return {
+      text: clean(group.map((w) => w.text).join(' ')),
+      left, right, top, bottom, centerX,
+      confidence: confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0,
+      column: Math.max(0, Math.min(3, Math.floor(centerX / columnWidth))),
+    };
+  }).sort((a, b) => a.top - b.top || a.left - b.left);
 }
 function parsePage(page: OcrPage): Candidate[] {
-  const avg = Number(page.avg_confidence || 0);
-  if (avg < 68 || page.page_number === 1) return [];
-  const lines = String(page.text_content || '').split(/\r?\n/).map(clean).filter(Boolean);
+  const pageConfidence = Number(page.avg_confidence || 0);
+  const words = Array.isArray(page.words) ? page.words : [];
+  if (pageConfidence < 60 || page.page_number === 1 || words.length < 30) return [];
+  const lines = spatialLines(words);
   const out: Candidate[] = [];
-  for (let i = 0; i < lines.length; i++) {
-    const quantity = parseQuantity(lines[i]);
-    if (!quantity || localPromo(lines, i)) continue;
-    const unitPrice = parseUnitPrice(lines, i, quantity.baseUnit);
+
+  for (const quantityLine of lines) {
+    const quantity = parseQuantity(quantityLine.text);
+    if (!quantity || quantityLine.confidence < 72) continue;
+    const unitPrice = parseUnitPrice(quantityLine.text, quantity.baseUnit);
     if (!unitPrice) continue;
-    const expected = round2(unitPrice.value * quantity.base);
+    const expected = round2(unitPrice * quantity.base);
     if (!(expected >= 2 && expected <= 5000)) continue;
-    const printed = findPrintedPrice(lines, i, expected);
+
+    const local = lines.filter((line) =>
+      line.column === quantityLine.column &&
+      line.top >= quantityLine.top - 320 &&
+      line.top <= quantityLine.bottom + 45
+    );
+    if (local.some((line) => isPromo(line.text))) continue;
+
+    const priceWords = words.filter((w) => {
+      const centerX = Number(w.left) + Number(w.width || 0) / 2;
+      const wordColumn = Math.max(0, Math.min(3, Math.floor(centerX / (Math.max(1000, ...words.map((x) => Number(x.left) + Number(x.width || 0))) / 4))));
+      return wordColumn === quantityLine.column &&
+        Number(w.top) >= quantityLine.top - 300 &&
+        Number(w.top) <= quantityLine.top - 20 &&
+        Number(w.height || 0) >= 18 &&
+        Number(w.confidence || 0) >= 55;
+    });
+    let printed: { value: number; text: string; delta: number; confidence: number } | null = null;
+    for (const word of priceWords) {
+      for (const value of numericCandidates(clean(word.text))) {
+        const delta = Math.abs(value - expected);
+        if (delta <= 0.06 && (!printed || delta < printed.delta)) {
+          printed = { value, text: clean(word.text), delta, confidence: Number(word.confidence || 0) };
+        }
+      }
+    }
     if (!printed) continue;
-    const title = findTitle(lines, i);
-    if (!title) continue;
+
+    const titleLines = lines
+      .filter((line) =>
+        line.column === quantityLine.column &&
+        line.bottom <= quantityLine.top + 2 &&
+        line.top >= quantityLine.top - 90 &&
+        line.confidence >= 72 &&
+        !isNoise(line.text)
+      )
+      .slice(-2);
+    const title = clean(titleLines.map((line) => line.text).join(' '));
+    if (title.length < 4 || title.length > 110 || letters(title) < 5 || isPromo(title)) continue;
+
+    const confidence = Math.min(0.99, round2(
+      0.94 +
+      Math.min(quantityLine.confidence, printed.confidence, pageConfidence) / 2000
+    ));
     out.push({
       title,
       price: printed.value,
       quantity_text: quantity.text,
       source_page: page.page_number,
-      confidence: 0.97,
+      confidence,
       raw_data: {
-        parser: 'terno-ocr-unit-price-v1',
-        unit_price: unitPrice.value,
-        unit_price_line: unitPrice.line,
+        parser: 'terno-ocr-spatial-unit-price-v2',
+        unit_price: unitPrice,
+        unit_price_line: quantityLine.text,
         expected_price: expected,
-        printed_price_line: printed.line,
-        price_delta: round2(printed.distance),
-        ocr_page_confidence: avg,
+        printed_price_word: printed.text,
+        price_delta: round2(printed.delta),
+        quantity_coordinates: { left: quantityLine.left, top: quantityLine.top, right: quantityLine.right, bottom: quantityLine.bottom },
+        ocr_page_confidence: pageConfidence,
         coverage_label: 'Vybrané prodejny Terno',
       },
     });
@@ -214,7 +260,7 @@ Deno.serve(async (req) => {
     if (!sourceImport) throw new Error('Aktuální Terno import s dokončeným OCR nebyl nalezen.');
 
     const { data: pages, error: pagesError } = await db.from('leaflet_ocr_pages')
-      .select('page_number,text_content,avg_confidence')
+      .select('page_number,text_content,avg_confidence,words')
       .eq('import_id', sourceImport.id)
       .order('page_number', { ascending: true });
     if (pagesError) throw pagesError;
@@ -237,7 +283,7 @@ Deno.serve(async (req) => {
     });
     if (candidates.length < 8) throw new Error(`Bezpečný Terno parser našel jen ${candidates.length} položek; publikace zastavena.`);
 
-    const hash = `terno-ocr-safe-v1-${sourceImport.id}`;
+    const hash = `terno-ocr-safe-v2-${sourceImport.id}`;
     const existing = await db.from('leaflet_imports').select('id,status').eq('source_hash', hash).maybeSingle();
     if (existing.error) throw existing.error;
     if (existing.data?.status === 'published') return json({ ok: true, reused: true, import_id: existing.data.id, candidate_count: candidates.length });
@@ -253,9 +299,9 @@ Deno.serve(async (req) => {
         coverage_scope: 'selected_stores',
         detected_valid_from: sourceImport.detected_valid_from,
         detected_valid_to: sourceImport.detected_valid_to,
-        confidence: 0.97,
+        confidence: 0.98,
         metadata: {
-          parser: 'terno-ocr-unit-price-v1',
+          parser: 'terno-ocr-spatial-unit-price-v2',
           deterministic: true,
           verified_pipeline: true,
           source_import_id: sourceImport.id,
