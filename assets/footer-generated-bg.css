@@ -1,8 +1,15 @@
-/* Slevao.cz footer – čisté vektorové pozadí bez rastrových artefaktů. */
+/* Slevao.cz footer – čisté vektorové pozadí. Žádný raster ani base64, takže nemůže vzniknout JPEG/WebP banding. */
 .footerShell{
-  background:#032f33 url('footer-bg-clean-20260808.svg?v=20260808-5') center center/cover no-repeat!important;
+  background-color:#032f33!important;
+  background-image:url('footer-bg-clean-v4.svg?v=20260808-4')!important;
+  background-position:center center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
 }
 
 @media(max-width:620px){
-  .footerShell{background-position:center top!important}
+  .footerShell{
+    background-position:center top!important;
+    background-size:auto 100%!important;
+  }
 }
