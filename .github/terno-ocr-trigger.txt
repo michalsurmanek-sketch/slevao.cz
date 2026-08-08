@@ -1,0 +1,1 @@
+Trigger Terno OCR integration test 2026-08-08.
