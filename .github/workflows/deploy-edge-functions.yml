@@ -18,8 +18,98 @@ permissions:
   contents: read
 
 jobs:
+  edge-maintenance:
+    name: Uklidit debug funkce a uvolnit kapacitu
+    if: ${{ contains(github.event.head_commit.message, '[edge-maintenance]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Ověřit přístupový token
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
+            exit 1
+          }
+
+      - name: Odstranit nepoužívané diagnostické Edge Functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          PROJECT_REF='uhampjdqjxmbhaptgitn'
+          debug_functions=(
+            debug-albert-catalog-parser
+            debug-albert-collection-stores
+            debug-albert-dynamic-page
+            debug-albert-graphql
+            debug-albert-publitas
+            debug-albert-site
+            debug-albert-source
+            debug-albert-store
+            debug-albert-text-parser
+            debug-bauhaus-source
+            debug-benu-source
+            debug-datart-source
+            debug-dm-source
+            debug-drmax-source
+            debug-intersport-source
+            debug-jip-source
+            debug-jysk-source
+            debug-kik-source
+            debug-makro-source
+            debug-moebelix-source
+            debug-obi-source
+            debug-pepco-source
+            debug-retail-candidates
+            debug-rossmann-source
+            debug-tedi-source
+            debug-terno-source
+            debug-teta-source
+            debug-xxxlutz-source
+            debug-zabka-source
+          )
+          for function_name in "${debug_functions[@]}"; do
+            echo "Odstraňuji ${function_name}, pokud existuje..."
+            printf 'y\n' | supabase functions delete "$function_name" --project-ref "$PROJECT_REF" || true
+          done
+          echo 'debug-kaufland-source zůstává zachován, protože na něj existuje DB reference.'
+
+      - name: Nasadit strukturovaný retail parser
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy sync-structured-retail-products \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --use-api
+
+      - name: Nasadit úplný BENU parser
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions deploy sync-benu-source \
+            --project-ref uhampjdqjxmbhaptgitn \
+            --use-api
+
+      - name: Ověřit výslednou kapacitu
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions list --project-ref uhampjdqjxmbhaptgitn
+
   deploy-homepage-leaflet-image:
     name: Nasadit obrázky letáků
+    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -50,6 +140,7 @@ jobs:
 
   deploy-homepage-leaflet-visibility:
     name: Nasadit viditelnost letáků
+    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -80,6 +171,7 @@ jobs:
 
   deploy-other-functions:
     name: Nasadit ostatní funkce
+    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
