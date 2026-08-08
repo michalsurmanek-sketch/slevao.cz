@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'supabase/functions/**'
+      - '!supabase/functions/run-leaflet-pipeline-v2/**'
       - '.github/scripts/patch_process_leaflet_large_files.py'
       - '.github/workflows/deploy-edge-functions.yml'
   workflow_dispatch:
