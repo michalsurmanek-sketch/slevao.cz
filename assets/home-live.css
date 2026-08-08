@@ -1,20 +1,23 @@
 /* Slevao.cz – datový modul SLEVAO LIVE. Bez zásahu do existujících homepage komponent. */
 .slLiveSection{padding:16px 0 8px}
-.slLiveCard{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:24px;padding:26px;border:1px solid #cfe9e6;border-radius:28px;background:linear-gradient(135deg,#0c756e 0%,#159e94 48%,#e9fbf8 48.1%,#fff 100%);box-shadow:0 18px 55px rgba(23,34,34,.1)}
-.slLiveMain{min-width:0;color:#fff;padding:3px 5px}
+.slLiveCard{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr);gap:18px;padding:18px;border:1px solid #cfe9e6;border-radius:28px;background:#eefaf8;box-shadow:0 18px 55px rgba(23,34,34,.1)}
+.slLiveMain{position:relative;min-width:0;overflow:hidden;color:#fff;padding:28px 30px;border-radius:22px;background:linear-gradient(145deg,#08766e 0%,#159e94 72%,#20aa9f 100%);box-shadow:0 14px 34px rgba(8,118,110,.2)}
+.slLiveMain:after{content:"";position:absolute;right:-90px;bottom:-110px;width:270px;height:270px;border-radius:50%;background:rgba(255,255,255,.055);pointer-events:none}
+.slLiveMain>*{position:relative;z-index:1}
 .slLiveTopline{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
-.slLiveBadge{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.slLiveBadge{display:inline-flex;align-items:center;gap:7px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3);font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
 .slLiveDot{width:8px;height:8px;border-radius:50%;background:#8dfff2;box-shadow:0 0 0 5px rgba(141,255,242,.13)}
-.slLiveMain h2{margin:11px 0 5px;font-size:clamp(28px,4vw,42px);letter-spacing:-1.5px}
-.slLiveLead{margin:0;color:rgba(255,255,255,.82);max-width:720px;line-height:1.5}
-.slLiveMetric{margin-top:20px;display:inline-grid;gap:2px;padding:13px 17px;border-radius:18px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.2);backdrop-filter:blur(10px)}
-.slLiveMetric small{font-size:10px;font-weight:950;letter-spacing:.07em;text-transform:uppercase;color:rgba(255,255,255,.78)}
-.slLiveMetric strong{font-size:34px;line-height:1.05;letter-spacing:-1.2px}
-.slLiveContext{margin-top:14px;display:grid;gap:7px;font-size:13px;line-height:1.45;color:rgba(255,255,255,.93)}
-.slLiveContext strong{color:#fff}
+.slLiveMain h2{max-width:760px;margin:14px 0 8px;font-size:clamp(28px,4vw,42px);line-height:1.08;letter-spacing:-1.5px;color:#fff}
+.slLiveLead{margin:0;max-width:760px;color:#e9fffc;font-size:16px;line-height:1.55}
+.slLiveMetric{margin-top:22px;display:inline-grid;gap:3px;min-width:220px;padding:14px 18px;border-radius:18px;background:rgba(3,80,75,.28);border:1px solid rgba(255,255,255,.3);box-shadow:inset 0 1px 0 rgba(255,255,255,.08);backdrop-filter:blur(10px)}
+.slLiveMetric small{font-size:10px;font-weight:950;letter-spacing:.07em;text-transform:uppercase;color:#d8fffa}
+.slLiveMetric strong{font-size:34px;line-height:1.05;letter-spacing:-1.2px;color:#fff}
+.slLiveContext{max-width:820px;margin-top:16px;display:grid;gap:8px;padding:13px 15px;border:1px solid rgba(255,255,255,.18);border-radius:15px;background:rgba(2,67,63,.24);font-size:13px;line-height:1.5;color:#f4fffd}
+.slLiveContext span{display:block}
+.slLiveContext strong{color:#fff;font-weight:950}
 .slLiveStores{display:flex;flex-wrap:wrap;gap:7px;margin-top:14px}
-.slLiveStoreTag{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.19);font-size:11px;font-weight:850;color:#fff}
-.slLivePanel{align-self:stretch;display:flex;flex-direction:column;gap:13px;padding:20px;border:1px solid #dce9e7;border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 12px 34px rgba(23,34,34,.08)}
+.slLiveStoreTag{display:inline-flex;align-items:center;gap:5px;padding:7px 9px;border-radius:999px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.24);font-size:11px;font-weight:850;color:#fff}
+.slLivePanel{align-self:stretch;display:flex;flex-direction:column;gap:13px;padding:22px;border:1px solid #d7e8e5;border-radius:22px;background:#fff;box-shadow:0 12px 34px rgba(23,34,34,.08)}
 .slLivePanel h3{margin:0;font-size:19px;letter-spacing:-.4px}
 .slLivePanel p{margin:0;color:#667373;font-size:12px;line-height:1.45}
 .slLiveLocationButton{height:48px;padding:0 10px;border:0;border-radius:14px;background:#159e94;color:#fff;font-size:13px;line-height:1.1;font-weight:950;white-space:nowrap;box-shadow:0 10px 22px rgba(21,158,148,.2)}
@@ -60,8 +63,8 @@
 @media(max-width:1000px){.slLiveDeals{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:900px){
   .slLiveSection{padding-top:10px}
-  .slLiveCard{grid-template-columns:1fr;gap:14px;padding:18px;background:linear-gradient(165deg,#0c756e 0%,#159e94 45%,#f0fbf9 45.1%,#fff 100%)}
-  .slLiveMain{padding:2px 2px 12px}
+  .slLiveCard{grid-template-columns:1fr;gap:12px;padding:12px;background:#eefaf8}
+  .slLiveMain{padding:22px 20px;border-radius:19px}
   .slLiveMetric strong{font-size:30px}
   .slLivePanel{padding:16px}
 }
@@ -74,10 +77,12 @@
 }
 
 @media(max-width:560px){
-  .slLiveCard{border-radius:22px;padding:14px}
+  .slLiveCard{border-radius:22px;padding:10px}
+  .slLiveMain{padding:19px 16px;border-radius:17px}
   .slLiveMain h2{font-size:30px}
   .slLiveLead{font-size:13px}
-  .slLiveMetric{width:100%}
+  .slLiveContext{padding:12px 13px;font-size:12px}
+  .slLiveMetric{width:100%;min-width:0}
   .slLiveManual{grid-template-columns:1fr}
   .slLiveManual button{height:44px}
   .slLiveOptions{grid-template-columns:1fr}
