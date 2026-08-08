@@ -1,0 +1,1 @@
+Trigger Terno OCR integration test after server auth fix 2026-08-08.
