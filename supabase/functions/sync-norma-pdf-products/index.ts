@@ -48,7 +48,7 @@ function parsePage(page:Page):Candidate[]{
     const p=prices[0];
     const local=dedup.filter(t=>Math.abs(cx(t)-cx(q))<=65&&t.y>=p.t.y-80&&t.y<=q.y+25).map(t=>t.text).join(' ');
     if(promo(local))continue;
-    const titles=dedup.filter(t=>t.y<q.y&&q.y-t.y<=38&&q.y-t.y>=1&&Math.abs(cx(t)-cx(q))<45&&!/^\d/.test(t.text)&&/[A-Za-zÁ-ž]/.test(t.text))
+    const titles=dedup.filter(t=>t.y>q.y&&t.y-q.y<=38&&t.y-q.y>=1&&Math.abs(cx(t)-cx(q))<45&&!/^\d/.test(t.text)&&/[A-Za-zÁ-ž]/.test(t.text))
       .sort((a,b)=>Math.abs(q.y-a.y)-Math.abs(q.y-b.y));
     const title=clean(titles[0]?.text);
     if(badTitle(title))continue;
