@@ -1,0 +1,32 @@
+-- Cover every currently unindexed public foreign key. Besides faster joins, these
+-- indexes avoid full-table scans when a referenced row is updated/deleted.
+create index if not exists idx_fk_albert_offer_staging_source_import_id on public.albert_offer_staging (source_import_id);
+create index if not exists idx_fk_albert_product_sync_runs_source_id on public.albert_product_sync_runs (source_id);
+create index if not exists idx_fk_albert_product_sync_runs_store_id on public.albert_product_sync_runs (store_id);
+create index if not exists idx_fk_audit_logs_user_id on public.audit_logs (user_id);
+create index if not exists idx_fk_categories_parent_id on public.categories (parent_id);
+create index if not exists idx_fk_favorites_offer_id on public.favorites (offer_id);
+create index if not exists idx_fk_flyers_store_id on public.flyers (store_id);
+create index if not exists idx_fk_import_items_offer_id on public.import_items (offer_id);
+create index if not exists idx_fk_import_items_product_id on public.import_items (product_id);
+create index if not exists idx_fk_import_runs_created_by on public.import_runs (created_by);
+create index if not exists idx_fk_import_runs_flyer_id on public.import_runs (flyer_id);
+create index if not exists idx_fk_import_runs_store_id on public.import_runs (store_id);
+create index if not exists idx_fk_leaflet_cold_rebuild_runs_store_id on public.leaflet_cold_rebuild_runs (store_id);
+create index if not exists idx_fk_leaflet_import_items_category_id on public.leaflet_import_items (category_id);
+create index if not exists idx_fk_leaflet_imports_store_id on public.leaflet_imports (store_id);
+create index if not exists idx_fk_leaflet_pipeline_runs_import_id on public.leaflet_pipeline_runs (import_id);
+create index if not exists idx_fk_leaflet_pipeline_runs_store_id on public.leaflet_pipeline_runs (store_id);
+create index if not exists idx_fk_leaflet_sources_store_id on public.leaflet_sources (store_id);
+create index if not exists idx_fk_notifications_offer_id on public.notifications (offer_id);
+create index if not exists idx_fk_notifications_product_id on public.notifications (product_id);
+create index if not exists idx_fk_offers_branch_id on public.offers (branch_id);
+create index if not exists idx_fk_offers_flyer_id on public.offers (flyer_id);
+create index if not exists idx_fk_price_history_branch_id on public.price_history (branch_id);
+create index if not exists idx_fk_price_history_offer_id on public.price_history (offer_id);
+create index if not exists idx_fk_product_image_candidates_reviewed_by on public.product_image_candidates (reviewed_by);
+create index if not exists idx_fk_products_brand_id on public.products (brand_id);
+create index if not exists idx_fk_products_category_id on public.products (category_id);
+create index if not exists idx_fk_recently_viewed_products_product_id on public.recently_viewed_products (product_id);
+create index if not exists idx_fk_shopping_list_purchases_shopping_list_id on public.shopping_list_purchases (shopping_list_id);
+create index if not exists idx_fk_shopping_list_shares_created_by on public.shopping_list_shares (created_by);
