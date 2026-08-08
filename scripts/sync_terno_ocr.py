@@ -5,7 +5,6 @@ import io
 import json
 import os
 import subprocess
-import sys
 import tempfile
 import time
 import urllib.error
@@ -16,7 +15,8 @@ from datetime import datetime, timezone
 
 ENGINE = "tesseract-cli-ces-v1"
 LANGUAGE = "ces+eng"
-USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) Slevao-Terno-OCR/1.0"
+SUPABASE_USER_AGENT = "slevao-github-actions-terno-ocr/1.0"
+BROWSER_USER_AGENT = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Slevao-Terno-OCR/1.0"
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_ROLE_KEY = os.environ.get("SUPABASE_SERVICE_ROLE_KEY", "")
@@ -27,14 +27,22 @@ if not SUPABASE_URL or not SERVICE_ROLE_KEY:
     raise SystemExit("Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY")
 
 
+def looks_like_jwt(value: str) -> bool:
+    return value.startswith("eyJ") and value.count(".") == 2
+
+
 def api(method: str, path: str, body=None, extra_headers=None):
     url = f"{SUPABASE_URL}{path}"
     headers = {
         "apikey": SERVICE_ROLE_KEY,
-        "Authorization": f"Bearer {SERVICE_ROLE_KEY}",
         "Accept": "application/json",
-        "User-Agent": USER_AGENT,
+        "User-Agent": SUPABASE_USER_AGENT,
+        "X-Client-Info": SUPABASE_USER_AGENT,
     }
+    # Legacy service-role JWTs are valid bearer tokens. Modern sb_secret_* keys
+    # authenticate through apikey and must not be presented as a fake JWT.
+    if looks_like_jwt(SERVICE_ROLE_KEY):
+        headers["Authorization"] = f"Bearer {SERVICE_ROLE_KEY}"
     if body is not None:
         headers["Content-Type"] = "application/json"
     if extra_headers:
@@ -55,7 +63,7 @@ def api(method: str, path: str, body=None, extra_headers=None):
 def download(url: str, destination: str):
     request = urllib.request.Request(
         url,
-        headers={"User-Agent": USER_AGENT, "Accept": "image/jpeg,image/png,image/webp,*/*"},
+        headers={"User-Agent": BROWSER_USER_AGENT, "Accept": "image/jpeg,image/png,image/webp,*/*"},
     )
     with urllib.request.urlopen(request, timeout=90) as response, open(destination, "wb") as out:
         while True:
@@ -235,7 +243,7 @@ def main():
     if not page_urls:
         raise RuntimeError("Terno target has no page images")
 
-    print(f"Terno OCR target {import_id}: {len(page_urls)} pages")
+    print(f"Terno OCR target {import_id}: {len(page_urls)} pages", flush=True)
     existing = existing_pages(import_id)
     processed = 0
     skipped = 0
@@ -243,12 +251,12 @@ def main():
     with tempfile.TemporaryDirectory(prefix="terno-ocr-") as temp_dir:
         for index, image_url in enumerate(page_urls, start=1):
             image_path = os.path.join(temp_dir, f"page-{index}.jpg")
-            print(f"[{index}/{len(page_urls)}] download {image_url}")
+            print(f"[{index}/{len(page_urls)}] download {image_url}", flush=True)
             download(image_url, image_path)
             checksum = file_sha256(image_path)
             old = existing.get(index)
             if not FORCE and old and old.get("checksum") == checksum and int(old.get("word_count") or 0) > 0:
-                print(f"[{index}/{len(page_urls)}] unchanged, skip")
+                print(f"[{index}/{len(page_urls)}] unchanged, skip", flush=True)
                 skipped += 1
                 continue
 
@@ -258,7 +266,8 @@ def main():
             words = result["words"]
             print(
                 f"[{index}/{len(page_urls)}] OCR {len(words)} words, "
-                f"avg={result['avg_confidence']}, {elapsed:.1f}s"
+                f"avg={result['avg_confidence']}, {elapsed:.1f}s",
+                flush=True,
             )
             if not words:
                 raise RuntimeError(f"OCR page {index} returned zero words")
@@ -290,7 +299,7 @@ def main():
         "complete_pages": complete_pages,
         "processed": processed,
         "skipped": skipped,
-    }, ensure_ascii=False))
+    }, ensure_ascii=False), flush=True)
     if complete_pages != len(page_urls):
         raise SystemExit(2)
 
