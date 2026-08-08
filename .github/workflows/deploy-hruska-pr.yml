@@ -1,0 +1,44 @@
+name: Deploy Hruska parser PR
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-hruska:
+    name: Nasadit overeny Hruska parser
+    if: ${{ github.event.pull_request.head.repo.full_name == github.repository && contains(github.event.pull_request.title, '[deploy-hruska]') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+
+      - name: Setup Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Overit token
+        run: test -n "$SUPABASE_ACCESS_TOKEN"
+
+      - name: Nasadit process-leaflet-basic
+        run: supabase functions deploy process-leaflet-basic --project-ref uhampjdqjxmbhaptgitn --use-api
+
+      - name: Nasadit sync-hruska-products
+        run: supabase functions deploy sync-hruska-products --project-ref uhampjdqjxmbhaptgitn --use-api
+
+      - name: Nasadit sync-hruska-source
+        run: supabase functions deploy sync-hruska-source --project-ref uhampjdqjxmbhaptgitn --use-api
+
+      - name: Overit nasazeni
+        run: |
+          supabase functions list --project-ref uhampjdqjxmbhaptgitn | grep -E 'process-leaflet-basic|sync-hruska-products|sync-hruska-source'
