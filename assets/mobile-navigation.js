@@ -19,6 +19,22 @@
     savedButton.after(tipButton);
   }
 
+  const scrollWithHeaderOffset = (target) => {
+    if (!target) return;
+    const topbar = document.querySelector('.topbar');
+    const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
+    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - 14;
+
+    window.scrollTo({
+      top: Math.max(0, targetTop),
+      behavior: 'smooth'
+    });
+
+    if (window.location.hash !== '#dealsSection') {
+      history.replaceState(null, '', '#dealsSection');
+    }
+  };
+
   const tipButton = document.getElementById('topbarTipButton');
   if (tipButton) {
     tipButton.setAttribute('aria-label', 'Tip dne');
@@ -26,24 +42,30 @@
 
     tipButton.addEventListener('click', (event) => {
       event.preventDefault();
-
-      const quickTabs = document.getElementById('quickTabs');
-      if (!quickTabs) return;
-
-      const topbar = document.querySelector('.topbar');
-      const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
-      const targetTop = window.scrollY + quickTabs.getBoundingClientRect().top - headerHeight - 14;
-
-      window.scrollTo({
-        top: Math.max(0, targetTop),
-        behavior: 'smooth'
-      });
-
-      if (window.location.hash !== '#dealsSection') {
-        history.replaceState(null, '', '#dealsSection');
-      }
+      scrollWithHeaderOffset(document.getElementById('quickTabs'));
     });
   }
+
+  const fold = (value) => String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+  document.addEventListener('click', (event) => {
+    const control = event.target.closest('a,button');
+    if (!control || control.id === 'topbarTipButton' || control.closest('.sqFoodDock')) return;
+
+    const text = fold(`${control.textContent || ''} ${control.getAttribute('aria-label') || ''} ${control.getAttribute('title') || ''}`);
+    const isCurrentDeals = text.includes('aktualni slev') || text.includes('aktualni nabid');
+    if (!isCurrentDeals) return;
+
+    const href = control.getAttribute('href') || '';
+    if (control.tagName === 'A' && href !== '#dealsSection' && !href.endsWith('#dealsSection')) return;
+
+    event.preventDefault();
+    scrollWithHeaderOffset(document.querySelector('#dealsSection .dealsHeading') || document.getElementById('dealsSection'));
+  });
 
   const mobileViewport = window.matchMedia('(max-width: 800px)');
   const statusPill = document.getElementById('statusPill');
