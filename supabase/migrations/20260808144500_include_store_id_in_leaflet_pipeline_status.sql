@@ -1,11 +1,12 @@
 -- run-leaflet-pipeline-v2 verifies product-backed sources by store_id. The status
 -- view omitted that field, so the Edge Function built REST filters `store_id=eq.`
 -- and PostgreSQL rejected the empty value as an invalid UUID.
+-- Append store_id after the existing columns so CREATE OR REPLACE VIEW preserves
+-- every current column position/name expected by PostgreSQL and existing clients.
 
 create or replace view public.leaflet_source_pipeline_status as
 select
   ls.id as source_id,
-  ls.store_id,
   s.slug as store_slug,
   s.name as store_name,
   ls.name as source_name,
@@ -19,7 +20,8 @@ select
   ls.last_strategy_success_at,
   ls.last_checked_at,
   ls.last_success_at,
-  ls.last_error
+  ls.last_error,
+  ls.store_id
 from public.leaflet_sources ls
 join public.stores s on s.id = ls.store_id;
 
