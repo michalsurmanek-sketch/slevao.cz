@@ -1,6 +1,6 @@
-/* Slevao.cz footer – opravené pozadí z dodaného obrázku bez poškozeného JPEG přenosu. */
+/* Slevao.cz footer – čisté vektorové pozadí bez rastrových artefaktů. */
 .footerShell{
-  background:#032f33 url('footer-bg-fixed-20260808.svg?v=20260808-3') center center/cover no-repeat!important;
+  background:#032f33 url('footer-bg-clean-20260808.svg?v=20260808-5') center center/cover no-repeat!important;
 }
 
 @media(max-width:620px){
