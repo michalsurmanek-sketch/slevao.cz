@@ -11,7 +11,7 @@ on:
       generic_limit:
         description: Maximální počet neznačkových produktů pro generování
         required: false
-        default: '20'
+        default: '5'
   schedule:
     - cron: '41 */6 * * *'
   push:
@@ -59,7 +59,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          GENERIC_LIMIT: ${{ github.event.inputs.generic_limit || '20' }}
+          GENERIC_LIMIT: ${{ github.event.inputs.generic_limit || '5' }}
         run: |
           curl --fail-with-body --silent --show-error \
             --request POST \
