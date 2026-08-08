@@ -40,7 +40,7 @@ jobs:
         run: supabase functions deploy sync-hruska-source --project-ref uhampjdqjxmbhaptgitn --use-api
 
       - name: Nasadit sync-terno-ocr-products
-        run: supabase functions deploy sync-terno-ocr-products --project-ref uhampjdqjxmbhaptgitn --use-api
+        run: supabase functions deploy sync-terno-ocr-products --project-ref uhampjdqjxmbhaptgitn --use-api --no-verify-jwt
 
       - name: Overit nasazeni
         run: |
