@@ -1,0 +1,69 @@
+/* Slevao.cz – SLEVAO LIVE v hero sekci. Formulář je v pravém panelu, výsledek je skrytý do vyhledání. */
+.heroNearbyPanel{justify-content:center;gap:11px}
+.heroNearbyPanel .slLiveTopline{margin-bottom:1px}
+.heroNearbyPanel .slLiveBadge{background:#e8faf7;border-color:#c9eee9;color:#0a776f}
+.heroNearbyPanel .slLiveDot{background:#17b9ad;box-shadow:0 0 0 5px rgba(23,185,173,.12)}
+.heroNearbyPanel>strong{font-size:21px}
+.heroNearbyPanel>p{margin:0 0 2px}
+.heroNearbyPanel .slLiveOptions{display:grid;grid-template-columns:92px minmax(0,1fr);gap:8px;align-items:end}
+.heroNearbyPanel .slLiveOptions label{display:grid;gap:5px;margin:0;font-size:11px}
+.heroNearbyPanel .slLiveRadius{width:100%;height:45px;padding:0 28px 0 10px;font-size:13px}
+.heroNearbyPanel .slLiveLocationButton{height:45px;border-radius:13px;font-size:12px;white-space:normal}
+.heroNearbyPanel .slLiveDivider{margin:1px 0}
+.heroNearbyPanel .slLiveManual{display:grid;grid-template-columns:minmax(0,1fr) 78px;gap:7px}
+.heroNearbyPanel .slLiveManual input{min-width:0;height:45px;font-size:14px}
+.heroNearbyPanel .slLiveManual button{min-width:0;height:45px;background:linear-gradient(135deg,#16b7ab,#079c91);border-color:#079c91;color:#fff;box-shadow:0 8px 18px rgba(7,156,145,.18)}
+.heroNearbyPanel .slLiveStatus{min-height:0;padding:8px 10px;margin-top:1px;font-size:10.5px}
+.slLiveLegacyRegion{display:none!important}
+
+.slLiveHeroResult{grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:10px;padding:19px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
+.slLiveHeroResult[hidden]{display:none!important}
+.slLiveHeroResult .slLiveTopline{margin-bottom:0}
+.slLiveHeroResult .slLiveBadge{padding:5px 8px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;font-size:9px}
+.slLiveHeroResult h2{margin:0;color:#fff;font-size:24px;line-height:1.04;letter-spacing:-.7px}
+.slLiveHeroResult .slLiveMetric{margin:0;min-width:0;width:max-content;max-width:100%;padding:9px 11px;border-radius:13px}
+.slLiveHeroResult .slLiveMetric small{font-size:8px}
+.slLiveHeroResult .slLiveMetric strong{font-size:24px}
+.slLiveHeroResult .slLiveContext{margin:0;padding:10px 11px;border-radius:13px;font-size:10.5px;line-height:1.35;max-height:92px;overflow:auto}
+.slLiveHeroResult .slLiveStores{margin:0;gap:5px;max-height:52px;overflow:hidden}
+.slLiveHeroResult .slLiveStoreTag{padding:5px 7px;font-size:9px}
+.slLiveHeroResult .slLiveNearbyDeals{display:grid;grid-template-columns:1fr;gap:6px;margin:0;min-height:0;overflow:auto;scrollbar-width:thin}
+.slLiveHeroResult .slLiveNearbyDeals[hidden]{display:none!important}
+.slLiveNearbyRow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:9px;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.12);color:#fff}
+.slLiveNearbyMain{min-width:0;display:grid;gap:2px}
+.slLiveNearbyMain>.slLiveStoreDistance{justify-self:start;background:rgba(255,255,255,.18);color:#eafffc;font-size:8px;padding:3px 6px}
+.slLiveNearbyMain>strong{font-size:12px;line-height:1.1;color:#fff}
+.slLiveNearbyMain>small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#dffbf7;font-size:9px}
+.slLiveNearbyDeal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f6fffd;font-size:9px}
+.slLiveNearbyDeal b{color:#fff}
+.slLiveNearbyDeal.muted{opacity:.72}
+.slLiveHeroResult .slLiveStoreCount{background:rgba(255,255,255,.16);color:#fff;font-size:8px}
+.slLiveHeroResult .slLiveDealsLoading{padding:12px;border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.1);color:#ecfffc;font-size:10px}
+.heroCard.slLiveHasResult .heroArtwork{display:none}
+
+@media(max-width:1240px) and (min-width:1051px){
+  .slLiveHeroResult{padding:16px}
+  .slLiveHeroResult h2{font-size:21px}
+  .heroNearbyPanel{padding:19px}
+}
+
+@media(max-width:1050px){
+  .heroCard.slLiveHasResult{grid-template-columns:minmax(0,1fr) minmax(290px,.72fr)}
+  .slLiveHeroResult{grid-column:1/-1;grid-row:auto;order:3;min-height:0}
+  .heroNearbyPanel{grid-column:2;grid-row:1}
+}
+
+@media(max-width:800px){
+  .heroNearbyPanel{order:2;grid-column:auto;grid-row:auto;padding:16px}
+  .slLiveHeroResult{order:3;grid-column:auto;grid-row:auto;width:100%;padding:16px;border-radius:19px}
+  .heroNearbyPanel .slLiveOptions{grid-template-columns:92px minmax(0,1fr)}
+  .slLiveHeroResult .slLiveContext{max-height:none}
+  .slLiveHeroResult .slLiveStores{max-height:none}
+}
+
+@media(max-width:480px){
+  .heroNearbyPanel .slLiveOptions{grid-template-columns:1fr}
+  .heroNearbyPanel .slLiveLocationButton{width:100%}
+  .heroNearbyPanel .slLiveManual{grid-template-columns:1fr 72px}
+  .slLiveHeroResult h2{font-size:21px}
+}
