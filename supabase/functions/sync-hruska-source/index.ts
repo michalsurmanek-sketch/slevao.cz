@@ -4,7 +4,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const SOURCE_URL = 'https://mojehruska.cz/';
-const PROCESSOR_URL = Deno.env.get('LEAFLET_PROCESSOR_URL') || `${SUPABASE_URL}/functions/v1/process-leaflet`;
+const BASIC_PROCESSOR_URL = `${SUPABASE_URL}/functions/v1/process-leaflet-basic`;
+const HRUSKA_PARSER_URL = `${SUPABASE_URL}/functions/v1/sync-hruska-products`;
+const PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/publish-imports`;
 
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
@@ -71,8 +73,8 @@ function findCurrentPdf(html: string, pageUrl: string): string {
   return sorted[0];
 }
 
-async function queueProcessor(importId: string): Promise<void> {
-  const response = await fetch(PROCESSOR_URL, {
+async function callEdge(url: string, body: Record<string, unknown>): Promise<any> {
+  const response = await fetch(url, {
     method: 'POST',
     headers: {
       authorization: `Bearer ${SERVICE_ROLE_KEY}`,
@@ -80,12 +82,55 @@ async function queueProcessor(importId: string): Promise<void> {
       'content-type': 'application/json',
       ...(CRON_SECRET ? { 'x-cron-secret': CRON_SECRET } : {}),
     },
-    body: JSON.stringify({ import_id: importId }),
+    body: JSON.stringify(body),
   });
-
+  const text = await response.text();
+  let payload: any = null;
+  try { payload = text ? JSON.parse(text) : {}; } catch { payload = { raw: text.slice(0, 500) }; }
   if (!response.ok) {
-    const text = await response.text().catch(() => '');
-    throw new Error(`Zpracování Hrušky selhalo: HTTP ${response.status} ${text.slice(0, 300)}`);
+    throw new Error(`Edge krok ${new URL(url).pathname.split('/').pop()} selhal: HTTP ${response.status} ${text.slice(0, 300)}`);
+  }
+  return payload;
+}
+
+async function runVerifiedPipeline(importId: string) {
+  try {
+    const basic = await callEdge(BASIC_PROCESSOR_URL, { import_id: importId });
+    if (!basic?.ok || basic?.pages < 1 || basic?.text_chars < 500) {
+      throw new Error(`PDF textová extrakce není použitelná: ${JSON.stringify(basic).slice(0, 300)}`);
+    }
+
+    const parsed = await callEdge(HRUSKA_PARSER_URL, { import_id: importId, dry_run: false });
+    if (!parsed?.ok || Number(parsed?.candidate_count || 0) < 1) {
+      throw new Error(`Hruška souřadnicový parser nenašel ověřené produkty: ${JSON.stringify(parsed).slice(0, 300)}`);
+    }
+
+    const publish = await callEdge(PUBLISHER_URL, { import_id: importId });
+    const result = Array.isArray(publish?.results) ? publish.results[0] : null;
+    if (!publish?.ok || !result || result.error) {
+      throw new Error(`Publikace Hrušky selhala: ${JSON.stringify(publish).slice(0, 500)}`);
+    }
+    if (Number(result.published || 0) + Number(result.duplicates || 0) < 1) {
+      throw new Error('Publikace Hrušky nevytvořila ani neověřila žádnou nabídku.');
+    }
+
+    return {
+      extracted_pages: Number(basic.pages || 0),
+      extracted_text_chars: Number(basic.text_chars || 0),
+      verified_candidates: Number(parsed.candidate_count || 0),
+      validity: parsed.validity || null,
+      published: Number(result.published || 0),
+      duplicates: Number(result.duplicates || 0),
+      failed: Number(result.failed || 0),
+    };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    await db.from('leaflet_imports').update({
+      status: 'failed',
+      error_message: `Hruška verified pipeline: ${message}`,
+      finished_at: new Date().toISOString(),
+    }).eq('id', importId);
+    throw error;
   }
 }
 
@@ -164,10 +209,10 @@ Deno.serve(async (request) => {
     }).catch(() => null);
     if (pdfHead && !pdfHead.ok) throw new Error(`PDF leták Hrušky vrátil HTTP ${pdfHead.status}.`);
 
-    const sourceHash = await sha256(`${sourceId}|${pdfUrl}|hruska-pdf-v1`);
+    const sourceHash = await sha256(`${sourceId}|${pdfUrl}|hruska-coordinate-v1`);
     const { data: existingImport, error: existingImportError } = await db
       .from('leaflet_imports')
-      .select('id,status,updated_at')
+      .select('id,status,updated_at,metadata')
       .eq('source_hash', sourceHash)
       .maybeSingle();
 
@@ -175,8 +220,9 @@ Deno.serve(async (request) => {
 
     let importId = existingImport?.id || null;
     let createdImport = false;
+    let pipeline: any = null;
 
-    if (!existingImport) {
+    const createAndRun = async (retryOf?: string) => {
       const { data: createdImportRow, error: importError } = await db.from('leaflet_imports').insert({
         source_id: sourceId,
         store_id: store.id,
@@ -187,49 +233,35 @@ Deno.serve(async (request) => {
         metadata: {
           discovered_at: checkedAt,
           source_name: 'Hruška – aktuální leták',
-          adapter: 'store:hruska-pdf',
-          candidate_filter: 'official-current-pdf-v1',
+          adapter: 'store:hruska-coordinate-pdf',
+          candidate_filter: 'coordinate-unit-price-verified-v1',
+          verified_pipeline: true,
+          ...(retryOf ? { retry_of: retryOf } : {}),
         },
       }).select('id').single();
-
       if (importError) throw importError;
       importId = createdImportRow.id;
       createdImport = true;
-      await queueProcessor(importId);
+      pipeline = await runVerifiedPipeline(importId);
+    };
+
+    if (!existingImport) {
+      await createAndRun();
     } else {
       const ageMs = Date.now() - new Date(existingImport.updated_at || 0).getTime();
       const retryable = existingImport.status === 'failed' && ageMs >= 60 * 60_000;
-      const stale = ['queued', 'downloading', 'processing'].includes(String(existingImport.status || '')) && ageMs >= 10 * 60_000;
+      const stale = ['queued', 'downloading', 'processing', 'review', 'publishing'].includes(String(existingImport.status || '')) && ageMs >= 15 * 60_000;
 
       if (retryable || stale) {
         const archivedHash = `${sourceHash}:archived:${existingImport.id}:${Date.now()}`;
         const { error: archiveError } = await db.from('leaflet_imports').update({
           source_hash: archivedHash,
           status: 'failed',
-          error_message: stale ? 'Předchozí zpracování Hrušky překročilo časový limit.' : undefined,
-          finished_at: stale ? checkedAt : undefined,
+          error_message: stale ? 'Předchozí Hruška verified pipeline překročila časový limit.' : existingImport.metadata?.error_message || null,
+          finished_at: checkedAt,
         }).eq('id', existingImport.id);
         if (archiveError) throw archiveError;
-
-        const { data: retryImport, error: retryError } = await db.from('leaflet_imports').insert({
-          source_id: sourceId,
-          store_id: store.id,
-          source_document_url: pdfUrl,
-          source_hash: sourceHash,
-          status: 'queued',
-          coverage_scope: 'national',
-          metadata: {
-            discovered_at: checkedAt,
-            source_name: 'Hruška – aktuální leták',
-            adapter: 'store:hruska-pdf',
-            candidate_filter: 'official-current-pdf-v1',
-            retry_of: existingImport.id,
-          },
-        }).select('id').single();
-        if (retryError) throw retryError;
-        importId = retryImport.id;
-        createdImport = true;
-        await queueProcessor(importId);
+        await createAndRun(existingImport.id);
       }
     }
 
@@ -246,8 +278,9 @@ Deno.serve(async (request) => {
       pdf_url: pdfUrl,
       import_id: importId,
       import_created: createdImport,
-      import_status: existingImport?.status || (createdImport ? 'queued' : null),
-      adapter: 'store:hruska-pdf',
+      import_status: createdImport ? 'published' : existingImport?.status || null,
+      adapter: 'store:hruska-coordinate-pdf',
+      pipeline,
     }, { headers: CORS_HEADERS });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
