@@ -28,7 +28,7 @@
   <link rel="stylesheet" href="assets/mobile-ux.css?v=20260807-1">
   <link rel="stylesheet" href="assets/filter-background-generated.css?v=20260808-1">
   <link rel="stylesheet" href="assets/top-tip-button.css?v=20260808-4">
-  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name={search_term_string}"}}</script>
 </head>
 <body>
   <header class="topbar">
@@ -62,14 +62,21 @@
             </div>
           </div>
           <div class="heroArtwork" aria-hidden="true"></div>
-          <div class="heroLocation">
-            <strong>Nabídky pro tvůj region</strong>
-            <p>Celostátní nabídky uvidíš vždy. Regionální přidáme podle výběru.</p>
-            <label for="regionSelect">Kraj</label>
-            <select id="regionSelect"><option value="all">Celá Česká republika</option></select>
-            <label for="citySelect">Město</label>
-            <select id="citySelect" disabled><option value="all">Všechna města</option></select>
-            <a class="heroBrowseButton" href="#dealsSection">Zobrazit nabídky <span aria-hidden="true">→</span></a>
+          <div class="heroLocation heroNearbyPanel" data-nearby-ready="1">
+            <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>POBLÍŽ VÁS</span></div>
+            <strong>Najít obchody poblíž</strong>
+            <p>Zadejte město nebo PSČ, případně použijte svoji polohu.</p>
+            <div class="slLiveOptions">
+              <label>Okruh<select id="slLiveRadius" class="slLiveRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
+              <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
+            </div>
+            <div class="slLiveDivider">nebo ručně</div>
+            <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ"><button type="submit">Najít</button></form>
+            <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Výsledek se zobrazí až po vyhledání.</div>
+            <div class="slLiveLegacyRegion" hidden>
+              <select id="regionSelect" aria-hidden="true" tabindex="-1"><option value="all">Celá Česká republika</option></select>
+              <select id="citySelect" aria-hidden="true" tabindex="-1" disabled><option value="all">Všechna města</option></select>
+            </div>
           </div>
         </div>
       </div>
