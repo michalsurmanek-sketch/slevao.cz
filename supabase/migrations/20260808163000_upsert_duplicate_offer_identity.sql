@@ -10,9 +10,10 @@ set search_path to 'public'
 as $function$
 declare
   existing_id uuid;
+  existing_locked boolean := false;
 begin
-  select o.id
-  into existing_id
+  select o.id, coalesce((o.metadata ->> '_manual_delete_lock')::boolean, false)
+  into existing_id, existing_locked
   from public.offers o
   where o.store_id = new.store_id
     and lower(btrim(o.title)) = lower(btrim(new.title))
@@ -30,33 +31,35 @@ begin
     return new;
   end if;
 
+  -- A deliberately deleted offer stays suppressed even if an automatic import
+  -- encounters the same identity again.
+  if existing_locked then
+    return null;
+  end if;
+
   update public.offers o
   set product_id = coalesce(new.product_id, o.product_id),
-      branch_id = coalesce(new.branch_id, o.branch_id),
-      flyer_id = coalesce(new.flyer_id, o.flyer_id),
-      external_id = coalesce(nullif(new.external_id, ''), o.external_id),
       title = new.title,
-      normalized_title = coalesce(new.normalized_title, o.normalized_title),
       description = coalesce(new.description, o.description),
       image_url = coalesce(new.image_url, o.image_url),
       source_url = coalesce(new.source_url, o.source_url),
       price = new.price,
-      old_price = coalesce(new.old_price, o.old_price),
-      currency = coalesce(new.currency, o.currency),
-      package_amount = coalesce(new.package_amount, o.package_amount),
-      package_unit = coalesce(new.package_unit, o.package_unit),
-      unit_price = coalesce(new.unit_price, o.unit_price),
-      unit_price_unit = coalesce(new.unit_price_unit, o.unit_price_unit),
-      discount_percent = coalesce(new.discount_percent, o.discount_percent),
-      deal_score = coalesce(new.deal_score, o.deal_score),
+      old_price = case
+        when new.old_price is not null and new.old_price >= new.price then new.old_price
+        when o.old_price is not null and o.old_price >= new.price then o.old_price
+        else null
+      end,
       status = case
         when new.status = 'published' then 'published'
         when o.status = 'published' then o.status
         else new.status
       end,
-      is_featured = coalesce(new.is_featured, o.is_featured),
       is_verified = coalesce(o.is_verified, false) or coalesce(new.is_verified, false),
-      confidence_score = greatest(coalesce(o.confidence_score, 0), coalesce(new.confidence_score, 0)),
+      confidence_score = case
+        when o.confidence_score is null then new.confidence_score
+        when new.confidence_score is null then o.confidence_score
+        else greatest(o.confidence_score, new.confidence_score)
+      end,
       metadata = coalesce(o.metadata, '{}'::jsonb)
         || coalesce(new.metadata, '{}'::jsonb)
         || jsonb_build_object(
@@ -68,10 +71,6 @@ begin
         else o.published_at
       end,
       category_id = coalesce(new.category_id, o.category_id),
-      coverage_scope = new.coverage_scope,
-      region_code = new.region_code,
-      city_name = new.city_name,
-      store_location_name = new.store_location_name,
       updated_at = now()
   where o.id = existing_id;
 
