@@ -296,7 +296,10 @@ Deno.serve(async (req) => {
         source_document_url: sourceImport.source_document_url,
         source_hash: hash,
         status: 'queued',
-        coverage_scope: 'selected_stores',
+        coverage_scope: sourceImport.coverage_scope || 'city',
+        region_code: sourceImport.region_code || null,
+        city_name: sourceImport.city_name || null,
+        store_location_name: sourceImport.store_location_name || null,
         detected_valid_from: sourceImport.detected_valid_from,
         detected_valid_to: sourceImport.detected_valid_to,
         confidence: 0.98,
@@ -349,7 +352,7 @@ Deno.serve(async (req) => {
 
     return json({ ok: true, dry_run: false, import_id: derivedId, source_import_id: sourceImport.id, candidate_count: candidates.length, publish });
   } catch (e) {
-    const message = e instanceof Error ? e.message : String(e);
+    const message = e instanceof Error ? e.message : (typeof e === 'object' ? JSON.stringify(e) : String(e));
     return json({ ok: false, error: message }, 500);
   }
 });
