@@ -16,7 +16,9 @@
 .heroNearbyPanel .slLiveStatus{min-height:0;padding:8px 10px;margin-top:1px;font-size:10.5px}
 .slLiveLegacyRegion{display:none!important}
 
-.slLiveHeroResult{grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:10px;padding:19px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
+/* Po vyhledání dostane prostřední výsledkový panel více šířky. */
+.heroCard.slLiveHasResult{grid-template-columns:minmax(430px,.9fr) minmax(540px,1.12fr) minmax(320px,.68fr);gap:18px}
+.slLiveHeroResult{grid-column:2;grid-row:1;align-self:stretch;min-width:0;display:flex;flex-direction:column;gap:9px;padding:18px;border:1px solid rgba(8,118,110,.26);border-radius:23px;background:linear-gradient(145deg,rgba(7,112,104,.97),rgba(14,151,140,.96));box-shadow:0 16px 38px rgba(8,118,110,.24);color:#fff;overflow:hidden;z-index:2}
 .slLiveHeroResult[hidden]{display:none!important}
 .slLiveHeroResult .slLiveTopline{margin-bottom:0}
 .slLiveHeroResult .slLiveBadge{padding:5px 8px;background:rgba(255,255,255,.15);border-color:rgba(255,255,255,.25);color:#fff;font-size:9px}
@@ -24,12 +26,14 @@
 .slLiveHeroResult .slLiveMetric{margin:0;min-width:0;width:max-content;max-width:100%;padding:9px 11px;border-radius:13px}
 .slLiveHeroResult .slLiveMetric small{font-size:8px}
 .slLiveHeroResult .slLiveMetric strong{font-size:24px}
-.slLiveHeroResult .slLiveContext{margin:0;padding:10px 11px;border-radius:13px;font-size:10.5px;line-height:1.35;max-height:92px;overflow:auto}
-.slLiveHeroResult .slLiveStores{margin:0;gap:5px;max-height:52px;overflow:hidden}
-.slLiveHeroResult .slLiveStoreTag{padding:5px 7px;font-size:9px}
-.slLiveHeroResult .slLiveNearbyDeals{display:grid;grid-template-columns:1fr;gap:6px;margin:0;min-height:0;overflow:auto;scrollbar-width:thin}
+.slLiveHeroResult .slLiveContext{margin:0;padding:9px 11px;border-radius:13px;font-size:10.5px;line-height:1.35;max-height:74px;overflow:auto}
+.slLiveHeroResult .slLiveStores{display:flex;flex-wrap:nowrap;gap:5px;margin:0;max-height:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;padding-bottom:2px}
+.slLiveHeroResult .slLiveStoreTag{flex:0 0 auto;padding:5px 7px;font-size:9px}
+
+/* Výsledky poboček jdou vedle sebe, ne pod sebe. */
+.slLiveHeroResult .slLiveNearbyDeals{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:row;gap:7px;margin:0;min-height:0;max-height:none;overflow:visible}
 .slLiveHeroResult .slLiveNearbyDeals[hidden]{display:none!important}
-.slLiveNearbyRow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;padding:9px;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.12);color:#fff}
+.slLiveNearbyRow{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;min-width:0;padding:9px;border:1px solid rgba(255,255,255,.18);border-radius:13px;background:rgba(255,255,255,.12);color:#fff}
 .slLiveNearbyMain{min-width:0;display:grid;gap:2px}
 .slLiveNearbyMain>.slLiveStoreDistance{justify-self:start;background:rgba(255,255,255,.18);color:#eafffc;font-size:8px;padding:3px 6px}
 .slLiveNearbyMain>strong{font-size:12px;line-height:1.1;color:#fff}
@@ -37,20 +41,28 @@
 .slLiveNearbyDeal{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#f6fffd;font-size:9px}
 .slLiveNearbyDeal b{color:#fff}
 .slLiveNearbyDeal.muted{opacity:.72}
-.slLiveHeroResult .slLiveStoreCount{background:rgba(255,255,255,.16);color:#fff;font-size:8px}
-.slLiveHeroResult .slLiveDealsLoading{padding:12px;border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.1);color:#ecfffc;font-size:10px}
+.slLiveHeroResult .slLiveStoreCount{flex:0 0 auto;background:rgba(255,255,255,.16);color:#fff;font-size:8px}
+.slLiveHeroResult .slLiveDealsLoading{grid-column:1/-1;padding:12px;border-color:rgba(255,255,255,.24);background:rgba(255,255,255,.1);color:#ecfffc;font-size:10px}
 .heroCard.slLiveHasResult .heroArtwork{display:none}
 
-@media(max-width:1240px) and (min-width:1051px){
-  .slLiveHeroResult{padding:16px}
+@media(max-width:1380px) and (min-width:1051px){
+  .heroCard.slLiveHasResult{grid-template-columns:minmax(360px,.82fr) minmax(440px,1fr) minmax(300px,.7fr);gap:14px;padding-left:28px;padding-right:28px}
+  .slLiveHeroResult{padding:15px}
   .slLiveHeroResult h2{font-size:21px}
-  .heroNearbyPanel{padding:19px}
+  .heroNearbyPanel{padding:18px}
+}
+
+@media(max-width:1180px) and (min-width:1051px){
+  .heroCard.slLiveHasResult{grid-template-columns:minmax(320px,.78fr) minmax(390px,.95fr) minmax(285px,.72fr)}
+  .slLiveHeroResult .slLiveNearbyDeals{grid-template-columns:1fr 1fr}
+  .slLiveNearbyRow{padding:8px}
 }
 
 @media(max-width:1050px){
   .heroCard.slLiveHasResult{grid-template-columns:minmax(0,1fr) minmax(290px,.72fr)}
   .slLiveHeroResult{grid-column:1/-1;grid-row:auto;order:3;min-height:0}
   .heroNearbyPanel{grid-column:2;grid-row:1}
+  .slLiveHeroResult .slLiveNearbyDeals{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:800px){
@@ -58,7 +70,10 @@
   .slLiveHeroResult{order:3;grid-column:auto;grid-row:auto;width:100%;padding:16px;border-radius:19px}
   .heroNearbyPanel .slLiveOptions{grid-template-columns:92px minmax(0,1fr)}
   .slLiveHeroResult .slLiveContext{max-height:none}
-  .slLiveHeroResult .slLiveStores{max-height:none}
+  .slLiveHeroResult .slLiveStores{flex-wrap:wrap;overflow:visible}
+  .slLiveHeroResult .slLiveNearbyDeals{display:flex;overflow-x:auto;overflow-y:hidden;gap:8px;scroll-snap-type:x proximity;scrollbar-width:none}
+  .slLiveHeroResult .slLiveNearbyDeals::-webkit-scrollbar{display:none}
+  .slLiveNearbyRow{flex:0 0 min(78vw,320px);scroll-snap-align:start}
 }
 
 @media(max-width:480px){
