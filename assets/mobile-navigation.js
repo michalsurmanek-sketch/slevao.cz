@@ -52,6 +52,36 @@
     .toLowerCase()
     .trim();
 
+  const scrollToSearchResults = () => {
+    const activeFilters = document.getElementById('activeFilters');
+    const target = activeFilters && !activeFilters.hidden && activeFilters.getClientRects().length
+      ? activeFilters
+      : (document.querySelector('#dealsSection .dealsLayout') || document.getElementById('dealsSection'));
+
+    scrollWithHeaderOffset(target, '#dealsSection');
+  };
+
+  const scheduleSearchResultScroll = () => {
+    window.setTimeout(() => {
+      window.requestAnimationFrame(() => window.requestAnimationFrame(scrollToSearchResults));
+    }, 90);
+  };
+
+  document.addEventListener('click', (event) => {
+    const searchButton = event.target.closest('#searchButton');
+    const suggestionBox = event.target.closest('#searchSuggestions');
+    if (!searchButton && !suggestionBox) return;
+
+    const query = document.getElementById('q')?.value?.trim();
+    if (!query && searchButton) return;
+    scheduleSearchResultScroll();
+  });
+
+  document.getElementById('q')?.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' || !event.currentTarget.value.trim()) return;
+    scheduleSearchResultScroll();
+  });
+
   document.addEventListener('click', (event) => {
     const control = event.target.closest('a,button');
     if (!control || control.id === 'topbarTipButton' || control.closest('.sqFoodDock')) return;
