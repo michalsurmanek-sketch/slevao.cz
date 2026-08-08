@@ -76,7 +76,7 @@
   if (!document.querySelector('link[href*="home-live-hero.css"]')) {
     const liveHeroStyle = document.createElement('link');
     liveHeroStyle.rel = 'stylesheet';
-    liveHeroStyle.href = 'assets/home-live-hero.css?v=20260808-2';
+    liveHeroStyle.href = 'assets/home-live-hero.css?v=20260808-3';
     document.head.appendChild(liveHeroStyle);
   }
   if (!document.querySelector('script[src*="home-live.js"]')) {
