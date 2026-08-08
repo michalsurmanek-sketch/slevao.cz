@@ -39,7 +39,7 @@
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
     const quickFoodScript = document.createElement('script');
-    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260807-1';
+    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260808-1';
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }
