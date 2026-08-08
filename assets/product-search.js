@@ -40,6 +40,16 @@
     return String(offer.valid_from || '') <= today ? 'current' : 'upcoming';
   }
 
+  function offerStoreKey(offer) {
+    return `${offer?.store_id || ''}|${String(offer?.store_location_name || '').trim().toLowerCase()}`;
+  }
+
+  function offerStoreLabel(offer) {
+    const storeName = offer?.stores?.name || 'Obchod';
+    const storeFormat = String(offer?.store_location_name || '').trim();
+    return storeFormat ? `${storeName} · ${storeFormat}` : storeName;
+  }
+
   function bestOffer(productId) {
     const rows = state.offerMap.get(productId) || [];
     const current = rows.filter((row) => String(row.valid_from || '') <= today);
@@ -54,13 +64,13 @@
     const offers = productOffers(product.id);
     const offer = bestOffer(product.id);
     const status = offerState(offer);
-    const storeCount = new Set(offers.map((row) => row.store_id)).size;
+    const storeCount = new Set(offers.map(offerStoreKey)).size;
     const image = product.image_url
       ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}" loading="lazy">`
       : '<span class="sfNoImage" aria-hidden="true">%</span>';
     const price = offer ? `${money(offer.price)} Kč` : 'Bez akční ceny';
     const storeText = offer
-      ? `${esc(offer.stores?.name || 'Obchod')}${storeCount > 1 ? `<br>+ ${storeCount - 1} další` : ''}`
+      ? `${esc(offerStoreLabel(offer))}${storeCount > 1 ? `<br>+ ${storeCount - 1} další` : ''}`
       : 'Momentálně bez nabídky';
     const validity = status === 'current'
       ? `Platí do ${formatDate(offer.valid_to)}`
@@ -90,7 +100,7 @@
     if (state.sort === 'price') {
       rows.sort((a, b) => Number(bestOffer(a.id)?.price ?? Infinity) - Number(bestOffer(b.id)?.price ?? Infinity));
     } else if (state.sort === 'stores') {
-      rows.sort((a, b) => new Set(productOffers(b.id).map((row) => row.store_id)).size - new Set(productOffers(a.id).map((row) => row.store_id)).size);
+      rows.sort((a, b) => new Set(productOffers(b.id).map(offerStoreKey)).size - new Set(productOffers(a.id).map(offerStoreKey)).size);
     } else if (state.sort === 'name') {
       rows.sort((a, b) => String(a.name).localeCompare(String(b.name), 'cs'));
     } else if (state.query) {
@@ -114,7 +124,7 @@
     for (let index = 0; index < productIds.length; index += 120) {
       const chunk = productIds.slice(index, index + 120);
       const { data, error } = await db.from('offers')
-        .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,stores(id,name,slug)')
+        .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,store_location_name,stores(id,name,slug)')
         .in('product_id', chunk)
         .eq('status', 'published')
         .gte('price', 2)
@@ -129,7 +139,7 @@
 
   async function loadDefault(token) {
     const { data, error } = await db.from('offers')
-      .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,stores(id,name,slug),products(id,name,brand,quantity_text,image_url,slug)')
+      .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,store_location_name,stores(id,name,slug),products(id,name,brand,quantity_text,image_url,slug)')
       .eq('status', 'published')
       .not('product_id', 'is', null)
       .gte('price', 2)
