@@ -27,6 +27,7 @@ type Flyer = {
   validTo: string;
   pdfUrl: string;
   coverUrl: string | null;
+  pageImageUrls: string[];
 };
 
 function json(body: unknown, status = 200) {
@@ -85,15 +86,22 @@ function parseFlyers(html: string): Flyer[] {
     const title = clean(block.match(/<h3[^>]*flyer__title[^>]*>([\s\S]*?)<\/h3>/i)?.[1] || '');
     const range = parseRange(block.match(/<div[^>]*flyer__dates[^>]*>([\s\S]*?)<\/div>/i)?.[1] || '');
     const pdfRaw = block.match(/<a[^>]+href="([^"]+\.pdf(?:\?[^"#]*)?)"[^>]*>/i)?.[1] || null;
-    const coverRaw = block.match(/lightboxThumbnailUrl":"([^"]+)"/i)?.[1]
-      || block.match(/"pages":\[\{"src":"([^"]+)"/i)?.[1]
-      || null;
+    const rawPageImages = [...block.matchAll(/"src":"([^"]+\.(?:jpe?g|png|webp)(?:\?[^"#]*)?)"/gi)]
+      .map((match) => match[1])
+      .filter(Boolean);
+    const pageImageUrls = [...new Set(rawPageImages
+      .map((raw) => {
+        try { return new URL(decode(raw), SOURCE_URL).toString(); }
+        catch { return null; }
+      })
+      .filter((url): url is string => Boolean(url && url.includes('terno.cz/'))))];
+    const coverRaw = block.match(/lightboxThumbnailUrl":"([^"]+)"/i)?.[1] || rawPageImages[0] || null;
     if (!title || !range || !pdfRaw) continue;
 
     const pdfUrl = new URL(decode(pdfRaw), SOURCE_URL).toString();
     const coverUrl = coverRaw ? new URL(decode(coverRaw), SOURCE_URL).toString() : null;
     if (!pdfUrl.includes('terno.cz/') || /(?:reklamacni-rad|gdpr)\.pdf/i.test(pdfUrl)) continue;
-    flyers.push({ title, ...range, pdfUrl, coverUrl });
+    flyers.push({ title, ...range, pdfUrl, coverUrl, pageImageUrls });
   }
 
   const unique = new Map<string, Flyer>();
@@ -172,12 +180,12 @@ Deno.serve(async (request) => {
     if (!flyers.length) throw new Error('Na oficiální stránce Terno nebyl nalezen žádný právě platný PDF leták.');
 
     const created: Array<{ id: string; title: string; pdf: string }> = [];
-    const existing: Array<{ id: string; title: string; status: string }> = [];
+    const existing: Array<{ id: string; title: string; status: string; page_images: number }> = [];
 
     for (const flyer of flyers) {
       const hash = await sha256(`${sourceId}|${flyer.pdfUrl}|terno-zlin-pdf-v1`);
       const { data: old, error: oldError } = await db.from('leaflet_imports')
-        .select('id,status')
+        .select('id,status,metadata')
         .eq('source_hash', hash)
         .maybeSingle();
       if (oldError) throw oldError;
@@ -187,9 +195,22 @@ Deno.serve(async (request) => {
           city_name: 'Zlín',
           detected_valid_from: flyer.validFrom,
           detected_valid_to: flyer.validTo,
+          page_count: flyer.pageImageUrls.length || null,
+          cover_image_url: flyer.coverUrl,
+          metadata: {
+            ...(old.metadata || {}),
+            adapter: 'store:terno-zlin-pdf-v1',
+            title: flyer.title,
+            cover_image_url: flyer.coverUrl,
+            page_image_urls: flyer.pageImageUrls,
+            page_image_count: flyer.pageImageUrls.length,
+            source_page: SOURCE_URL,
+            region: 'Zlín',
+            discovered_at: checkedAt,
+          },
         }).eq('id', old.id);
         if (refreshError) throw refreshError;
-        existing.push({ id: old.id, title: flyer.title, status: old.status });
+        existing.push({ id: old.id, title: flyer.title, status: old.status, page_images: flyer.pageImageUrls.length });
         continue;
       }
 
@@ -203,10 +224,13 @@ Deno.serve(async (request) => {
         city_name: 'Zlín',
         detected_valid_from: flyer.validFrom,
         detected_valid_to: flyer.validTo,
+        page_count: flyer.pageImageUrls.length || null,
         metadata: {
           adapter: 'store:terno-zlin-pdf-v1',
           title: flyer.title,
           cover_image_url: flyer.coverUrl,
+          page_image_urls: flyer.pageImageUrls,
+          page_image_count: flyer.pageImageUrls.length,
           source_page: SOURCE_URL,
           region: 'Zlín',
           discovered_at: checkedAt,
@@ -239,7 +263,14 @@ Deno.serve(async (request) => {
       ok: true,
       store: store.name,
       source_id: sourceId,
-      current_flyers: flyers,
+      current_flyers: flyers.map((flyer) => ({
+        title: flyer.title,
+        validFrom: flyer.validFrom,
+        validTo: flyer.validTo,
+        pdfUrl: flyer.pdfUrl,
+        coverUrl: flyer.coverUrl,
+        pageImageCount: flyer.pageImageUrls.length,
+      })),
       created,
       existing,
       processing_started: created.length,
