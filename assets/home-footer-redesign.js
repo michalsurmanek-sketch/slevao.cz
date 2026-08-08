@@ -67,18 +67,6 @@
     locationScript.defer = true;
     document.head.appendChild(locationScript);
   }
-  if (!document.querySelector('link[href*="home-live.css"]')) {
-    const liveStyle = document.createElement('link');
-    liveStyle.rel = 'stylesheet';
-    liveStyle.href = 'assets/home-live.css?v=20260808-2';
-    document.head.appendChild(liveStyle);
-  }
-  if (!document.querySelector('link[href*="home-live-hero.css"]')) {
-    const liveHeroStyle = document.createElement('link');
-    liveHeroStyle.rel = 'stylesheet';
-    liveHeroStyle.href = 'assets/home-live-hero.css?v=20260808-5';
-    document.head.appendChild(liveHeroStyle);
-  }
   if (!document.querySelector('script[src*="home-live.js"]')) {
     const liveScript = document.createElement('script');
     liveScript.src = 'assets/home-live.js?v=20260808-2';
