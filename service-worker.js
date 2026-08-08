@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260808-1';
+const CACHE_NAME = 'slevao-shell-20260808-2';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -89,11 +89,12 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
 
-      // JavaScript, CSS and the manifest control app behaviour. Prefer the network so
-      // a deployment is effective immediately; use cache only when offline.
+      // CSS/JS/manifest musí při nasazení obejít HTTP cache, aby se opravy
+      // projevily okamžitě i při nezměněném query stringu.
       if (isCriticalStatic(url)) {
         try {
-          const response = await fetch(request);
+          const freshRequest = new Request(request, { cache: 'reload' });
+          const response = await fetch(freshRequest);
           if (response.ok) cache.put(request, response.clone()).catch(() => {});
           return response;
         } catch {
@@ -101,7 +102,7 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // Images/fonts can remain stale-while-revalidate for faster repeat visits.
+      // Obrázky/fonty mohou zůstat stale-while-revalidate pro rychlejší opakované návštěvy.
       const cached = await caches.match(request);
       const network = fetch(request).then(async (response) => {
         if (response.ok) cache.put(request, response.clone()).catch(() => {});
