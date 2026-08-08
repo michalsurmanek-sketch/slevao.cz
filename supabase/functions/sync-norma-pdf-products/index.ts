@@ -33,7 +33,7 @@ function parsePage(page:Page):Candidate[]{
     .filter(t=>t.text&&[t.x,t.y,t.width,t.height].every(Number.isFinite));
   const dedup=[...new Map(tokens.map(t=>[`${t.text}|${t.x}|${t.y}|${t.width}|${t.height}`,t])).values()];
   const out:Candidate[]=[];
-  const quantity=/^(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l)\s*\((100\s*g|1\s*kg|100\s*ml|1\s*l)\s+(\d+(?:[,.]\d+)?)\)$/i;
+  const quantity=/\b(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l)\s*\((100\s*g|1\s*kg|100\s*ml|1\s*l)\s+(\d+(?:[,.]\d+)?)\)/i;
   for(const q of dedup){
     const m=q.text.match(quantity);
     if(!m||promo(q.text))continue;
