@@ -10,43 +10,77 @@
     return window.SlevaoLocation || null;
   }
 
+  function showResult(show = true) {
+    const result = document.getElementById('slevaoLive');
+    if (!result) return;
+    result.hidden = !show;
+    result.closest('.heroCard')?.classList.toggle('slLiveHasResult', show);
+  }
+
+  function setResultMessage(text) {
+    const node = document.getElementById('slLiveContext');
+    if (!node) return;
+    node.innerHTML = `<span>${esc(text)}</span>`;
+  }
+
+  function setSaving(value = '—') {
+    const metric = document.querySelector('#slevaoLive .slLiveMetric');
+    const node = document.getElementById('slLiveSaving');
+    if (node) node.textContent = value;
+    if (metric) metric.hidden = value === '—';
+  }
+
   function createUi() {
-    if (document.getElementById('slevaoLive')) return true;
-    const categories = document.getElementById('categoriesSection');
-    if (!categories) return false;
-    const section = document.createElement('section');
-    section.id = 'slevaoLive';
-    section.className = 'slLiveSection';
-    section.innerHTML = `
-      <div class="container">
-        <div class="slLiveCard">
-          <div class="slLiveMain">
-            <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>SLEVAO LIVE</span></div>
-            <h2>Co se vyplatí právě kolem vás</h2>
-            <p class="slLiveLead">Skutečné pobočky, jejich vzdálenost a dnešní akce. U celostátní nabídky vždy jasně říkáme, že jde o akci řetězce, ne konkrétní pobočky.</p>
-            <div class="slLiveMetric"><small>TEĎ KOLEM VÁS UŠETŘÍTE AŽ</small><strong id="slLiveSaving">—</strong></div>
-            <div id="slLiveContext" class="slLiveContext"><span>Povolte polohu nebo zadejte město. Dokud nejsou nalezené skutečné pobočky, Slevao žádnou částku ani lokální dostupnost nevymýšlí.</span></div>
-            <div id="slLiveStores" class="slLiveStores"></div>
-          </div>
-          <aside class="slLivePanel">
-            <h3>Najít obchody poblíž</h3>
-            <p>Poloha se vyžádá až po kliknutí. Pokud ji nepovolíte, použijte město nebo PSČ.</p>
-            <div class="slLiveOptions">
-              <label>Okruh<select id="slLiveRadius" class="slLiveRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
-              <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
-            </div>
-            <div class="slLiveDivider">nebo ručně</div>
-            <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ"><button type="submit">Najít</button></form>
-            <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Čekám na výběr polohy.</div>
-            <a class="slLiveLink" href="seznam.html">Otevřít nákupní seznam →</a>
-          </aside>
+    const heroCard = document.querySelector('.heroCard');
+    const host = heroCard?.querySelector('.heroLocation');
+    if (!heroCard || !host) return false;
+
+    if (host.dataset.nearbyReady !== '1') {
+      const legacyRegion = document.getElementById('regionSelect');
+      const legacyCity = document.getElementById('citySelect');
+      const legacy = document.createElement('div');
+      legacy.className = 'slLiveLegacyRegion';
+      legacy.hidden = true;
+      if (legacyRegion) legacy.appendChild(legacyRegion);
+      if (legacyCity) legacy.appendChild(legacyCity);
+
+      host.classList.add('heroNearbyPanel');
+      host.dataset.nearbyReady = '1';
+      host.innerHTML = `
+        <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>POBLÍŽ VÁS</span></div>
+        <strong>Najít obchody poblíž</strong>
+        <p>Zadejte město nebo PSČ, případně použijte svoji polohu.</p>
+        <div class="slLiveOptions">
+          <label>Okruh<select id="slLiveRadius" class="slLiveRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
+          <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
         </div>
-        <div id="slLiveDeals" class="slLiveDeals" hidden></div>
-      </div>`;
-    categories.parentNode.insertBefore(section, categories);
+        <div class="slLiveDivider">nebo ručně</div>
+        <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ"><button type="submit">Najít</button></form>
+        <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Výsledek se zobrazí až po vyhledání.</div>`;
+      host.appendChild(legacy);
+    }
+
+    let result = document.getElementById('slevaoLive');
+    if (!result) {
+      result = document.createElement('section');
+      result.id = 'slevaoLive';
+      result.className = 'slLiveHeroResult';
+      result.hidden = true;
+      result.setAttribute('aria-label', 'Výsledek hledání obchodů v okolí');
+      result.innerHTML = `
+        <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>SLEVAO LIVE</span></div>
+        <h2>Obchody v okolí</h2>
+        <div class="slLiveMetric" hidden><small>NA NÁKUPU MŮŽETE UŠETŘIT AŽ</small><strong id="slLiveSaving">—</strong></div>
+        <div id="slLiveContext" class="slLiveContext"><span>Hledám nejbližší evidované obchody…</span></div>
+        <div id="slLiveStores" class="slLiveStores"></div>
+        <div id="slLiveDeals" class="slLiveDeals slLiveNearbyDeals" hidden></div>`;
+      heroCard.insertBefore(result, host);
+    }
+
     bind();
     const saved = localStorage.getItem(PLACE_KEY) || '';
-    if (saved) document.getElementById('slLivePlace').value = saved;
+    const place = document.getElementById('slLivePlace');
+    if (saved && place && !place.value) place.value = saved;
     return true;
   }
 
@@ -59,8 +93,9 @@
 
   function renderStoreTags(branches, hasDistances) {
     const api = loc();
-    const stores = api.uniqueStores(branches).slice(0, 8);
     const node = document.getElementById('slLiveStores');
+    if (!api || !node) return;
+    const stores = api.uniqueStores(branches).slice(0, 5);
     node.innerHTML = stores.map((branch) => {
       const distance = hasDistances && Number.isFinite(Number(branch.distance_km)) ? ` · ${Number(branch.distance_km).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km` : '';
       return `<span class="slLiveStoreTag">${esc(branch.stores?.name || branch.name || 'Obchod')}${esc(distance)}</span>`;
@@ -103,56 +138,30 @@
     return `${count} ${count === 1 ? 'položka je' : count < 5 ? 'položky jsou' : 'položek je'} dnes levnější v jiném blízkém řetězci.${distance}`;
   }
 
-  function scopeLabel(offer) {
-    const scope = String(offer?.coverage_scope || 'national').toLowerCase();
-    if (scope === 'store') return 'Akce této pobočky';
-    if (scope === 'city') return offer.city_name ? `Akce pro ${offer.city_name}` : 'Městská akce';
-    if (scope === 'region') return 'Regionální akce';
-    return 'Akce řetězce';
-  }
-
-  function offerHtml(offer) {
-    const api = loc();
-    const discount = api.documentedDiscount(offer);
-    const oldPrice = Number(offer.old_price || 0) > Number(offer.price || 0) ? Number(offer.old_price) : 0;
-    const href = offer.product_id ? `produkt.html?id=${encodeURIComponent(offer.product_id)}` : '#';
-    const image = offer.image_url
-      ? `<img class="slLiveOfferImage" loading="lazy" src="${esc(offer.image_url)}" alt="">`
-      : `<span class="slLiveOfferImage slLiveOfferImageFallback" aria-hidden="true">%</span>`;
-    return `<a class="slLiveOffer" href="${href}">
-      ${image}
-      <span class="slLiveOfferBody">
-        <span class="slLiveOfferScope">${esc(scopeLabel(offer))}</span>
-        <strong>${esc(offer.title || 'Akční nabídka')}</strong>
-        <span class="slLiveOfferPrice"><b>${api.money(offer.price)} Kč</b>${oldPrice ? `<s>${api.money(oldPrice)} Kč</s>` : ''}${discount ? `<em>−${discount} %</em>` : ''}</span>
-      </span>
-    </a>`;
-  }
-
   function renderLiveDeals(branches, offers, hasDistances) {
     const api = loc();
     const node = document.getElementById('slLiveDeals');
-    const nearest = api.uniqueStores(branches).slice(0, 12);
+    if (!api || !node) return;
+    const nearest = api.uniqueStores(branches).slice(0, 8);
     const offerCount = (branch) => offers.filter((offer) => String(offer.store_id) === String(branch.store_id)).length;
     const chosen = [
       ...nearest.filter((branch) => offerCount(branch) > 0),
       ...nearest.filter((branch) => offerCount(branch) === 0),
-    ].slice(0, 6);
+    ].slice(0, 4);
 
     node.hidden = false;
     node.innerHTML = chosen.map((branch) => {
-      const storeOffers = api.rankOffers(offers.filter((offer) => String(offer.store_id) === String(branch.store_id)), 2);
+      const storeOffers = api.rankOffers(offers.filter((offer) => String(offer.store_id) === String(branch.store_id)), 1);
+      const best = storeOffers[0];
       const storeName = branch.stores?.name || branch.name || 'Obchod';
       const distance = hasDistances && Number.isFinite(Number(branch.distance_km))
         ? `${Number(branch.distance_km).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km`
         : 'v zadané lokalitě';
       const address = [branch.street, branch.city].filter(Boolean).join(', ');
-      const content = storeOffers.length
-        ? storeOffers.map(offerHtml).join('')
-        : '<div class="slLiveNoOffer">Pobočku evidujeme, ale pro tento řetězec teď nemáme načtenou dnešní nabídku.</div>';
-      return `<article class="slLiveStoreCard">
-        <header><div><span class="slLiveStoreDistance">${esc(distance)}</span><h3>${esc(storeName)}</h3><p>${esc(address)}</p></div><span class="slLiveStoreCount">${offerCount(branch)} akcí</span></header>
-        <div class="slLiveStoreOffers">${content}</div>
+      const bestDeal = best ? `<span class="slLiveNearbyDeal">${esc(best.title || 'Akční nabídka')} · <b>${api.money(best.price)} Kč</b></span>` : '<span class="slLiveNearbyDeal muted">Aktuální nabídka není načtená.</span>';
+      return `<article class="slLiveNearbyRow">
+        <div class="slLiveNearbyMain"><span class="slLiveStoreDistance">${esc(distance)}</span><strong>${esc(storeName)}</strong><small>${esc(address || 'Evidovaná pobočka')}</small>${bestDeal}</div>
+        <span class="slLiveStoreCount">${offerCount(branch)} akcí</span>
       </article>`;
     }).join('');
   }
@@ -160,11 +169,12 @@
   async function evaluate(branches, context = {}) {
     const api = loc();
     const unique = api.uniqueStores(branches);
+    showResult(true);
     renderStoreTags(branches, Boolean(context.position));
     lastContext = { branches, ...context };
 
     if (!unique.length) {
-      document.getElementById('slLiveSaving').textContent = '—';
+      setSaving('—');
       document.getElementById('slLiveContext').innerHTML = '<span>V této oblasti zatím nemáme žádnou spolehlivě evidovanou pobočku.</span>';
       document.getElementById('slLiveDeals').hidden = true;
       setStatus('Pobočky pro tuto oblast zatím chybí. Zkuste větší okruh nebo jiné město.', 'bad');
@@ -194,28 +204,30 @@
     }
 
     if (!linked.length) {
-      document.getElementById('slLiveSaving').textContent = '—';
-      lines.push('Pro osobní výpočet úspory přidejte produkty do nákupního seznamu.');
+      setSaving('—');
       document.getElementById('slLiveContext').innerHTML = lines.map((line) => `<span>${line}</span>`).join('');
-      setStatus(offers.length ? 'Zobrazuji skutečné dnešní akce nejbližších evidovaných řetězců.' : 'Nalezené pobočky jsou připravené; konkrétní dnešní akce teď nejsou dostupné.', offers.length ? 'good' : '');
+      setStatus(offers.length ? 'Zobrazuji nejbližší evidované obchody a jejich dnešní akce.' : 'Nalezené pobočky jsou připravené; konkrétní dnešní akce teď nejsou dostupné.', offers.length ? 'good' : '');
       return;
     }
 
     const productIds = new Set(linked.map((row) => String(row.product_id)));
     const listOffers = offers.filter((offer) => productIds.has(String(offer.product_id)));
     const metrics = api.basketMetrics(linked, listOffers);
-    document.getElementById('slLiveSaving').textContent = metrics.matchedCount ? `${api.money(metrics.savings)} Kč` : '—';
+    setSaving(metrics.matchedCount ? `${api.money(metrics.savings)} Kč` : '—');
     lines.push(`Cenu se podařilo najít pro ${metrics.matchedCount} z ${metrics.itemCount} propojených položek.`);
     if (metrics.bestSingleStore) lines.push(`Nejvýhodnější jeden obchod pro celý porovnatelný nákup: <strong>${esc(metrics.bestSingleStore.store_name)} · ${api.money(metrics.bestSingleStore.total)} Kč</strong>.`);
     const cheaper = cheaperElsewhereText(current?.branch, branches, metrics, listOffers);
     if (cheaper) lines.push(esc(cheaper));
     document.getElementById('slLiveContext').innerHTML = lines.map((line) => `<span>${line}</span>`).join('');
-    setStatus(metrics.matchedCount ? 'SLEVAO LIVE počítá z dnešních cen a skutečně evidovaných poboček.' : 'V okolních řetězcích nejsou pro položky ze seznamu dohledané dnešní ceny.', metrics.matchedCount ? 'good' : '');
+    setStatus(metrics.matchedCount ? 'Výsledek počítá z dnešních cen a skutečně evidovaných poboček.' : 'V okolních řetězcích nejsou pro položky ze seznamu dohledané dnešní ceny.', metrics.matchedCount ? 'good' : '');
   }
 
   async function usePosition() {
     const api = loc();
     const button = document.getElementById('slLiveLocate');
+    if (!api || !button) return;
+    showResult(true);
+    setResultMessage('Zjišťuji polohu a hledám nejbližší obchody…');
     button.disabled = true;
     const old = button.textContent;
     button.textContent = 'Určuji polohu…';
@@ -226,6 +238,9 @@
       const branches = await api.fetchNearbyBranches(position.latitude, position.longitude, radius);
       await evaluate(branches, { position, radius });
     } catch (error) {
+      setSaving('—');
+      setResultMessage(error.message || 'Polohu se nepodařilo použít. Zadejte město nebo PSČ.');
+      document.getElementById('slLiveDeals').hidden = true;
       setStatus(error.message || 'Polohu se nepodařilo použít. Zadejte město nebo PSČ.', 'bad');
     } finally {
       button.disabled = false;
@@ -237,23 +252,39 @@
     event.preventDefault();
     const api = loc();
     const input = document.getElementById('slLivePlace');
-    const term = input.value.trim();
-    if (!term) { input.focus(); return; }
+    const term = input?.value.trim() || '';
+    if (!term) { input?.focus(); showResult(false); return; }
     localStorage.setItem(PLACE_KEY, term);
+    showResult(true);
+    setResultMessage(`Hledám obchody pro ${term}…`);
     setStatus('Hledám evidované pobočky…');
     try {
       const branches = await api.searchBranchesByPlace(term);
       await evaluate(branches, { place: term });
     } catch (error) {
+      setSaving('—');
+      setResultMessage(error.message || 'Pobočky se nepodařilo načíst.');
+      document.getElementById('slLiveDeals').hidden = true;
       setStatus(error.message || 'Pobočky se nepodařilo načíst.', 'bad');
     }
   }
 
   function bind() {
-    document.getElementById('slLiveLocate').addEventListener('click', usePosition);
-    document.getElementById('slLiveManual').addEventListener('submit', useManual);
-    document.getElementById('slLiveRadius').addEventListener('change', () => {
+    const panel = document.querySelector('.heroNearbyPanel');
+    if (!panel || panel.dataset.liveBound === '1') return;
+    panel.dataset.liveBound = '1';
+    document.getElementById('slLiveLocate')?.addEventListener('click', usePosition);
+    document.getElementById('slLiveManual')?.addEventListener('submit', useManual);
+    document.getElementById('slLiveRadius')?.addEventListener('change', () => {
       if (lastContext?.position) usePosition();
+    });
+    document.getElementById('slLivePlace')?.addEventListener('input', (event) => {
+      const value = event.target.value.trim();
+      if (!value || (lastContext?.place && value !== lastContext.place)) {
+        showResult(false);
+        lastContext = null;
+        setStatus('Výsledek se zobrazí až po vyhledání.');
+      }
     });
   }
 
