@@ -8,8 +8,18 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const formatDate = (value) => value ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric' }).format(new Date(`${String(value).slice(0,10)}T12:00:00`)) : '–';
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  function pragueDate(offsetDays = 0) {
+    const target = new Date(Date.now() + offsetDays * 86400000);
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).formatToParts(target);
+    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+    return `${values.year}-${values.month}-${values.day}`;
+  }
+
+  const today = pragueDate(0);
+  const upcomingTo = pragueDate(7);
 
   const state = {
     query: new URLSearchParams(location.search).get('q') || '',
@@ -91,7 +101,7 @@
 
   function render() {
     const rows = filteredProducts();
-    $('resultTitle').textContent = state.query ? `Výsledky pro „${state.query}“` : 'Nejzajímavější aktuální produkty';
+    $('resultTitle').textContent = state.query ? `Výsledky pro „${state.query}“` : 'Aktuální produkty z ověřených nabídek';
     message(`${rows.length} produktů${state.filter !== 'all' ? ' v tomto filtru' : ''}.`);
     $('results').innerHTML = rows.length
       ? rows.map(cardHtml).join('')
@@ -107,6 +117,7 @@
         .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,stores(id,name,slug)')
         .in('product_id', chunk)
         .eq('status', 'published')
+        .gte('price', 2)
         .gte('valid_to', today)
         .lte('valid_from', upcomingTo)
         .limit(4000);
@@ -118,13 +129,14 @@
 
   async function loadDefault(token) {
     const { data, error } = await db.from('offers')
-      .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url,slug)')
+      .select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,stores(id,name,slug),products(id,name,brand,quantity_text,image_url,slug)')
       .eq('status', 'published')
       .not('product_id', 'is', null)
+      .gte('price', 2)
       .gte('valid_to', today)
       .lte('valid_from', upcomingTo)
-      .order('price', { ascending: true })
-      .limit(300);
+      .order('published_at', { ascending: false })
+      .limit(500);
     if (error) throw error;
     if (token !== state.loadingToken) return;
 
@@ -136,7 +148,7 @@
       products.set(product.id, product);
       offers.push({ ...row, products: undefined });
     });
-    state.products = [...products.values()].slice(0, 90);
+    state.products = [...products.values()];
     setOffers(offers.filter((row) => products.has(row.product_id)));
   }
 
@@ -161,6 +173,16 @@
       rows.push(offer);
       state.offerMap.set(offer.product_id, rows);
     });
+  }
+
+  async function loadCatalogCount() {
+    const { count, error } = await db.from('products')
+      .select('id', { count: 'exact', head: true })
+      .eq('is_active', true)
+      .eq('is_verified', true);
+    if (!error && Number.isFinite(Number(count))) {
+      $('catalogCount').textContent = `${Number(count).toLocaleString('cs-CZ')} ověřených produktů`;
+    }
   }
 
   async function load() {
@@ -231,5 +253,6 @@
     window.SlevaoPublic?.toast('Produkt byl přidán do nákupního seznamu.');
   });
 
+  loadCatalogCount();
   load();
 })();
