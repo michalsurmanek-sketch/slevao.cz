@@ -1,6 +1,73 @@
 (() => {
   'use strict';
 
+  const HOME_FAVORITES_KEY = 'slevao-saved';
+  const STORE_FAVORITES_KEY = 'slevao-favorite-offers-v1';
+  const FAVORITES_RELOAD_KEY = 'slevao-favorites-key-sync-v1';
+
+  function parseFavoriteList(raw) {
+    if (raw === null) return null;
+    try {
+      const value = JSON.parse(raw);
+      return Array.isArray(value) ? [...new Set(value.map(String))] : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // store-feed.js historically used another localStorage key than the homepage.
+  // Treat the homepage key as canonical when it exists, migrate older store-only
+  // data forward and mirror future writes so favorites behave as one feature.
+  try {
+    const homeRaw = localStorage.getItem(HOME_FAVORITES_KEY);
+    const storeRaw = localStorage.getItem(STORE_FAVORITES_KEY);
+    const homeFavorites = parseFavoriteList(homeRaw);
+    const storeFavorites = parseFavoriteList(storeRaw);
+    const canonical = homeFavorites !== null ? homeFavorites : storeFavorites;
+    let needsStoreReload = false;
+
+    if (canonical !== null) {
+      const normalized = JSON.stringify(canonical);
+      if (homeRaw !== normalized) localStorage.setItem(HOME_FAVORITES_KEY, normalized);
+      if (storeRaw !== normalized) {
+        localStorage.setItem(STORE_FAVORITES_KEY, normalized);
+        needsStoreReload = homeFavorites !== null;
+      }
+    }
+
+    if (!Storage.prototype.__slevaoFavoriteSyncPatched) {
+      const nativeSetItem = Storage.prototype.setItem;
+      const nativeRemoveItem = Storage.prototype.removeItem;
+      Object.defineProperty(Storage.prototype, '__slevaoFavoriteSyncPatched', {
+        value: true,
+        configurable: true,
+      });
+      Storage.prototype.setItem = function setItem(key, value) {
+        nativeSetItem.call(this, key, value);
+        if (this !== window.localStorage) return;
+        if (key !== HOME_FAVORITES_KEY && key !== STORE_FAVORITES_KEY) return;
+        const mirrorKey = key === HOME_FAVORITES_KEY ? STORE_FAVORITES_KEY : HOME_FAVORITES_KEY;
+        if (this.getItem(mirrorKey) !== String(value)) nativeSetItem.call(this, mirrorKey, String(value));
+      };
+      Storage.prototype.removeItem = function removeItem(key) {
+        nativeRemoveItem.call(this, key);
+        if (this !== window.localStorage) return;
+        if (key !== HOME_FAVORITES_KEY && key !== STORE_FAVORITES_KEY) return;
+        const mirrorKey = key === HOME_FAVORITES_KEY ? STORE_FAVORITES_KEY : HOME_FAVORITES_KEY;
+        nativeRemoveItem.call(this, mirrorKey);
+      };
+    }
+
+    if (needsStoreReload && !sessionStorage.getItem(FAVORITES_RELOAD_KEY)) {
+      sessionStorage.setItem(FAVORITES_RELOAD_KEY, '1');
+      location.reload();
+      return;
+    }
+    sessionStorage.removeItem(FAVORITES_RELOAD_KEY);
+  } catch {
+    // localStorage/sessionStorage can be disabled; navigation must keep working.
+  }
+
   if (!document.querySelector('link[href*="public-features.css"]')) {
     const style = document.createElement('link');
     style.rel = 'stylesheet';
