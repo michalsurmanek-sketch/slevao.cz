@@ -27,6 +27,7 @@
   }
   body .topbar .container,
   body .hero>.container,
+  body #categoriesSection>.container,
   body .sqAutopilotSection>.container{
     --sqFoodContentLeft:max(24px,calc((100vw - 1450px)/2));
     width:min(1450px,calc(100vw - var(--sqFoodContentLeft) - var(--sqFoodDockSafeSpace)));
