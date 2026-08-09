@@ -27,6 +27,7 @@ type Issue = {
   validTo: string;
   pageCount: number;
   coverUrl: string | null;
+  pageImageUrls: string[];
 };
 
 function json(body: unknown, status = 200) {
@@ -121,6 +122,16 @@ async function loadCurrentIssue(): Promise<Issue> {
   const validity = dateFromIssueSlug(issueSlug);
   const coverUrl = meta(issue.html, 'og:image') || null;
   const pages = pageCount(issue.html, issueSlug);
+  const pageImageUrls = await Promise.all(Array.from({ length: pages }, async (_, index) => {
+    const pageUrl = `${issueUrl}/strana-${index + 1}`;
+    const page = await fetchHtml(pageUrl);
+    const image = meta(page.html, 'og:image');
+    const parsed = new URL(image);
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'triobodistribution.blob.core.windows.net' || !/^\/public\/ogPreview\d+\.jpg$/i.test(parsed.pathname)) {
+      throw new Error(`Dr. Max strana ${index + 1} nevrátila povolený oficiální obrázek.`);
+    }
+    return parsed.toString();
+  }));
   const rawTitle = meta(issue.html, 'og:title')
     || decodeHtml(issue.html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '');
   const title = rawTitle.replace(/\s*\|\s*Leták Dr\.Max\s*$/i, '').trim() || issueSlug;
@@ -132,6 +143,7 @@ async function loadCurrentIssue(): Promise<Issue> {
     validTo: validity.validTo,
     pageCount: pages,
     coverUrl,
+    pageImageUrls,
   };
 }
 
@@ -172,6 +184,9 @@ Deno.serve(async (request) => {
       page_count: issue.pageCount,
       viewer_url: issue.issueUrl,
       cover_image_url: issue.coverUrl,
+      page_image_urls: issue.pageImageUrls,
+      ocr_required: true,
+      ocr_source: 'official_triobo_page_previews',
       source_page: SOURCE_URL,
       last_seen_at: checkedAt,
     };
@@ -252,6 +267,7 @@ Deno.serve(async (request) => {
       viewer_url: issue.issueUrl,
       cover_url: issue.coverUrl,
       page_count: issue.pageCount,
+      page_image_urls: issue.pageImageUrls,
       valid_from: issue.validFrom,
       valid_to: issue.validTo,
       expired,
