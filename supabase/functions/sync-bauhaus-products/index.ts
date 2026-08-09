@@ -143,6 +143,55 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
   return { rows: [...unique.values()].sort((a, b) => a.source_page - b.source_page || a.title.localeCompare(b.title, 'cs')), rejected };
 }
 
+
+async function validateOfficialProducts(rows: any[]) {
+  const response = await fetch('https://www.bauhaus.cz/api/catalog/vue_storefront_catalog/product/_search', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', accept: 'application/json', 'user-agent': 'Mozilla/5.0' },
+    body: JSON.stringify({
+      size: Math.min(300, rows.length),
+      query: { bool: { filter: [{ terms: { sku: rows.map((row) => String(row.metadata.bauhaus_sku)) } }] } },
+    }),
+  });
+  if (!response.ok) throw new Error(`Bauhaus katalogové API HTTP ${response.status}`);
+  const payload = await response.json();
+  const hits = Array.isArray(payload?.hits?.hits) ? payload.hits.hits : [];
+  const official = new Map<string, any>();
+  for (const hit of hits) {
+    const product = hit?._source;
+    const sku = String(product?.sku || '');
+    if (!/^\d{8}$/.test(sku) || official.has(sku)) continue;
+    if (Number(product.status) !== 1 || Number(product.visibility) !== 4 || Number(product.shopable) !== 1 || Number(product.golive) !== 1) continue;
+    const name = clean(product.name);
+    const urlPath = clean(product.url_path);
+    const imagePath = clean(product.image_webp || product.image);
+    if (name.length < 8 || name.length > 180 || !urlPath.endsWith(`-${sku}`) || !/^\/[a-z0-9/_.-]+$/i.test(imagePath)) continue;
+    official.set(sku, { name, urlPath, imagePath });
+  }
+  const validated = [];
+  for (const row of rows) {
+    const sku = String(row.metadata.bauhaus_sku);
+    const product = official.get(sku);
+    if (!product) continue;
+    validated.push({
+      ...row,
+      title: product.name,
+      normalized_title: normalizeTitle(product.name),
+      quantity_text: quantity(product.name),
+      source_url: `https://www.bauhaus.cz/${product.urlPath}`,
+      image_url: `https://media.bauhaus.cz/media/catalog/product${product.imagePath}`,
+      confidence: 0.99,
+      metadata: {
+        ...row.metadata,
+        adapter: 'bauhaus-pdf-spatial-catalog-v2',
+        parser_version: 'bauhaus-pdf-spatial-catalog-v2',
+        evidence: { ...row.metadata.evidence, official_catalog_match: true, official_name: product.name, official_url_path: product.urlPath },
+      },
+    });
+  }
+  return validated;
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -169,19 +218,17 @@ Deno.serve(async (request) => {
     const validTo = String(imported.detected_valid_to);
     const viewerUrl = String(imported.metadata?.viewer_url || imported.source_document_url);
     const parsed = extract(extracted.pages as Page[], validFrom, validTo, viewerUrl);
-    if (parsed.rows.length < MIN_SAFE || parsed.rows.length > MAX_SAFE) throw new Error(`Bauhaus má ${parsed.rows.length} bezpečných kandidátů; očekáváno ${MIN_SAFE}–${MAX_SAFE}.`);
-    const signature = await sha256(parsed.rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.quantity_text || ''}`).join('\n'));
-    if (dryRun) return json({ ok: true, dry_run: true, import_id: imported.id, pages: extracted.page_count, text_chars: extracted.text_chars, publishable: parsed.rows.length, rejected: parsed.rejected.length, signature, candidates: parsed.rows });
-    throw new Error('Publikace Bauhaus je zablokovaná, dokud nejsou názvy kandidátů ověřené proti oficiálním SKU.');
-    /* Publishing is intentionally unreachable until official SKU validation is implemented.
+    const validatedRows = await validateOfficialProducts(parsed.rows);
+    if (validatedRows.length < MIN_SAFE || validatedRows.length > MAX_SAFE) throw new Error(`Bauhaus má ${validatedRows.length} katalogově ověřených kandidátů; očekáváno ${MIN_SAFE}–${MAX_SAFE}.`);
+    const signature = await sha256(validatedRows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.quantity_text || ''}`).join('\n'));
+    if (dryRun) return json({ ok: true, dry_run: true, import_id: imported.id, pages: extracted.page_count, text_chars: extracted.text_chars, spatial_candidates: parsed.rows.length, publishable: validatedRows.length, rejected: parsed.rejected.length + (parsed.rows.length - validatedRows.length), signature, candidates: validatedRows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
-      p_store_slug: 'bauhaus', p_adapter: ADAPTER, p_signature: signature, p_rows: parsed.rows,
-      p_min_products: MIN_SAFE, p_max_products: MAX_SAFE, p_source_document_url: imported.source_document_url, p_parser_version: PARSER,
+      p_store_slug: 'bauhaus', p_adapter: 'bauhaus-pdf-spatial-catalog-v2', p_signature: signature, p_rows: validatedRows,
+      p_min_products: MIN_SAFE, p_max_products: MAX_SAFE, p_source_document_url: imported.source_document_url, p_parser_version: 'bauhaus-pdf-spatial-catalog-v2',
     });
     if (publishError) throw publishError;
-    await db.from('leaflet_sources').update({ last_checked_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_error: null, last_strategy_used: PARSER, last_strategy_success_at: new Date().toISOString() }).eq('id', source.id);
-    return json({ ok: true, store: store.name, publishable: parsed.rows.length, signature, result });
-    */
+    await db.from('leaflet_sources').update({ last_checked_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_error: null, last_strategy_used: 'bauhaus-pdf-spatial-catalog-v2', last_strategy_success_at: new Date().toISOString() }).eq('id', source.id);
+    return json({ ok: true, store: store.name, spatial_candidates: parsed.rows.length, published: validatedRows.length, signature, result });
   } catch (error) {
     const text = message(error);
     if (sourceId) await db.from('leaflet_sources').update({ last_checked_at: new Date().toISOString(), last_error: text.slice(0, 1000) }).eq('id', sourceId);
