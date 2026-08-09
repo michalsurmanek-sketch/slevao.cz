@@ -100,8 +100,8 @@
   }
 
   async function fetchOffers() {
-    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,is_verified,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url),categories(name,slug)';
-    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,is_verified,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url)';
+    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url),categories(name,slug)';
+    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url)';
     const collect = async (select) => {
       const rows = [];
       for (let from = 0; ; from += 1000) {
@@ -165,6 +165,13 @@
 
   function compareKey(offer) {
     return offer.product_id || normalizeName(offer.products?.name || offer.title);
+  }
+
+  function leafletLocation(offer) {
+    const page = Number(offer?.metadata?.leaflet_page || 0);
+    const documentUrl = String(offer?.metadata?.leaflet_document_url || '');
+    if (!Number.isInteger(page) || page < 1 || page > 500 || !/^https:\/\//i.test(documentUrl)) return null;
+    return { page, url: `${documentUrl}#page=${page}&zoom=page-fit` };
   }
 
   function geographyMatches(offer) {
@@ -315,7 +322,7 @@
       const quantity = offer.products?.quantity_text || quantityInfo(offer)?.label || '';
       const brand = offer.products?.brand || '';
       const comparable = groups.get(compareKey(offer)) || [];
-      return `<article class="dealCard"><div class="dealMedia">${offer.image_url ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentElement.insertAdjacentHTML('afterbegin','<span class=dealPlaceholder>🏷️</span>')">` : '<span class="dealPlaceholder">🏷️</span>'}${discount ? `<span class="discountBadge">−${discount} %</span>` : ''}${isUpcoming(offer) ? `<span class="endingBadge">Platí od ${date(offer.valid_from)}</span>` : offer.valid_to === TODAY ? '<span class="endingBadge">Končí dnes</span>' : ''}<button class="dealMenu" data-report-id="${esc(offer.id)}" title="Nahlásit problém">⋯</button><button class="saveOffer ${saved ? 'active' : ''}" data-save-id="${esc(offer.id)}" aria-label="${saved ? 'Odebrat z uložených' : 'Uložit nabídku'}">${saved ? '♥' : '♡'}</button></div><div class="dealBody"><div class="storeLine">${logoHTML(storeData)}<span>${esc(offer.stores?.name || 'Obchod')}</span></div><h3>${esc(offer.title || offer.products?.name || 'Produkt')}</h3><div class="productDetail">${esc([brand,quantity].filter(Boolean).join(' · ') || offer.categories?.name || '')}</div><div class="priceRow"><span class="price">${money(offer.price)} Kč</span>${oldPriceOf(offer) ? `<span class="oldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>${unitPrice(offer) ? `<div class="unitPrice">${unitPrice(offer)}</div>` : ''}${saving ? `<span class="saving">Ušetříš ${money(saving)} Kč</span>` : ''}<div class="dealActions"><button class="compareButton" data-compare-id="${esc(offer.id)}" ${comparable.length < 2 ? 'disabled' : ''}>${comparable.length > 1 ? `Porovnat (${comparable.length})` : 'Bez porovnání'}</button><a class="storeButton" href="${encodeURIComponent(offer.stores?.slug || '')}.html">Stránka obchodu</a></div><div class="validity">Platí ${date(offer.valid_from)}–${date(offer.valid_to)}</div><div class="sourceLine">Zdroj: nabídka obchodu · aktualizováno průběžně</div></div></article>`;
+      return `<article class="dealCard"><div class="dealMedia">${offer.image_url ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentElement.insertAdjacentHTML('afterbegin','<span class=dealPlaceholder>🏷️</span>')">` : '<span class="dealPlaceholder">🏷️</span>'}${discount ? `<span class="discountBadge">−${discount} %</span>` : ''}${isUpcoming(offer) ? `<span class="endingBadge">Platí od ${date(offer.valid_from)}</span>` : offer.valid_to === TODAY ? '<span class="endingBadge">Končí dnes</span>' : ''}<button class="dealMenu" data-report-id="${esc(offer.id)}" title="Nahlásit problém">⋯</button><button class="saveOffer ${saved ? 'active' : ''}" data-save-id="${esc(offer.id)}" aria-label="${saved ? 'Odebrat z uložených' : 'Uložit nabídku'}">${saved ? '♥' : '♡'}</button></div><div class="dealBody"><div class="storeLine">${logoHTML(storeData)}<span>${esc(offer.stores?.name || 'Obchod')}</span></div><h3>${esc(offer.title || offer.products?.name || 'Produkt')}</h3><div class="productDetail">${esc([brand,quantity].filter(Boolean).join(' · ') || offer.categories?.name || '')}</div><div class="priceRow"><span class="price">${money(offer.price)} Kč</span>${oldPriceOf(offer) ? `<span class="oldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>${unitPrice(offer) ? `<div class="unitPrice">${unitPrice(offer)}</div>` : ''}${saving ? `<span class="saving">Ušetříš ${money(saving)} Kč</span>` : ''}<div class="dealActions"><button class="compareButton" data-compare-id="${esc(offer.id)}" ${comparable.length < 2 ? 'disabled' : ''}>${comparable.length > 1 ? `Porovnat (${comparable.length})` : 'Bez porovnání'}</button><a class="storeButton" href="${encodeURIComponent(offer.stores?.slug || '')}.html">Stránka obchodu</a></div><div class="validity">Platí ${date(offer.valid_from)}–${date(offer.valid_to)}</div>${leafletLocation(offer) ? `<a class="leafletLocationButton" href="${esc(leafletLocation(offer).url)}" target="_blank" rel="noopener noreferrer" aria-label="Ukázat produkt v letáku na straně ${leafletLocation(offer).page}"><span>📄</span> Leták · strana ${leafletLocation(offer).page}</a>` : ''}<div class="sourceLine">Zdroj: nabídka obchodu · aktualizováno průběžně</div></div></article>`;
     }).join('');
   }
 
