@@ -51,8 +51,9 @@ function quantity(text: string) {
 }
 function badTitle(text: string) {
   return text.length < 8 || text.length > 80 || !/[A-Za-zÁ-ž]/u.test(text) || /,-/.test(text)
+    || /^•/.test(text) || (/^\S+$/.test(text) && /[áéíý]$/i.test(text))
     || /^(?:od |pro |do |na |a |v |s |bez |např|hmotnost|balení|šířka|délka|interiér|exteriér)/i.test(text)
-    || /(bauhaus|nakupujte|záruka|cena|pal\.|sleva|platí|materiál|použití|vhodn|ochrana|kvalit|voděodol|ocel|výkon)/i.test(text);
+    || /(bauhaus|nakupujte|záruka|cena|pal\.|sleva|platí|materiál|použití|vhodn|ochrana|kvalit|voděodol|ocel|výkon|servis)/i.test(text);
 }
 function nearby(tokens: Token[], price: Token, dx: number, dy: number) {
   return tokens.filter((token) => Math.abs(token.x - price.x) <= dx && Math.abs(token.y - price.y) <= dy);
@@ -101,8 +102,8 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
       const title = clean([...new Set(titleParts.length ? titleParts : [anchor.text])].join(' '));
       if (badTitle(title)) continue;
       const quantityToken = tokens
-        .filter((token) => quantity(token.text) && Math.abs(token.x - priceToken.x) <= 60 && Math.abs(token.y - priceToken.y) <= 60)
-        .sort((a, b) => Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y))[0];
+        .filter((token) => quantity(token.text) && Math.abs(token.x - sku.x) <= 40 && Math.abs(token.y - priceToken.y) <= 60)
+        .sort((a, b) => Math.abs(a.x - sku.x) + Math.abs(a.y - priceToken.y))[0];
       rows.push({
         external_id: `bauhaus:${sku.text}:${validFrom}:${validTo}`,
         title,
