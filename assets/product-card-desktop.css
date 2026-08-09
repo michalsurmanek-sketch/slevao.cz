@@ -1,0 +1,70 @@
+@media(min-width:801px){
+  .dealGrid{grid-template-columns:1fr!important;gap:18px!important}
+  .dealCard[data-mobile-product-card="1"]{min-height:0;border:1px solid #dfe9e8;border-radius:24px;background:#fff;overflow:hidden;box-shadow:0 12px 34px rgba(23,34,34,.08);transform:none!important}
+  .dealCard[data-mobile-product-card="1"] .dealTop{display:grid;grid-template-columns:minmax(150px,36%) minmax(0,1fr);gap:18px;padding:20px 20px 0;align-items:stretch}
+  .dealCard[data-mobile-product-card="1"] .dealMedia{height:auto;min-height:210px;padding:4px 0 8px;background:#fff;overflow:visible;display:grid;place-items:center}
+  .dealCard[data-mobile-product-card="1"] .dealMedia>img{width:100%;height:100%;max-width:100%;max-height:210px;object-fit:contain;filter:drop-shadow(0 10px 16px rgba(23,34,34,.08));transform:none!important}
+  .dealCard[data-mobile-product-card="1"] .dealPlaceholder{font-size:58px}
+  .dealCard[data-mobile-product-card="1"] .discountBadge,.dealCard[data-mobile-product-card="1"] .endingBadge{display:none}
+  .dealCard[data-mobile-product-card="1"] .dealMenu{left:0;right:auto;top:0;width:36px;height:36px;border-radius:11px;font-size:16px;background:rgba(255,255,255,.96)}
+  .dealCard[data-mobile-product-card="1"] .dealInfo{position:relative;min-width:0;padding:6px 46px 6px 0;align-self:center}
+  .dealCard[data-mobile-product-card="1"] .saveOffer{position:absolute;right:0;top:0;width:40px;height:40px;border:0;background:#fff;font-size:27px;color:#172222;box-shadow:none}
+  .dealCard[data-mobile-product-card="1"] .saveOffer.active{background:#fff;color:#c62d35;border:0}
+  .dealCard[data-mobile-product-card="1"] .storeLine{display:flex;gap:8px;align-items:center;margin:0 0 8px;min-height:22px;font-size:12px;font-weight:900;text-transform:none;color:var(--deal-store-color,#087e75);white-space:nowrap;overflow:hidden}
+  .dealCard[data-mobile-product-card="1"] .storeLine img,.dealCard[data-mobile-product-card="1"] .storeLine .storeAllIcon{display:none!important}
+  .dealCard[data-mobile-product-card="1"] .storeLine>span:not(.dealBrandName){overflow:hidden;text-overflow:ellipsis}
+  .dealCard[data-mobile-product-card="1"] .dealBrandName{color:#74807f;font-weight:750;text-transform:uppercase;letter-spacing:.02em;overflow:hidden;text-overflow:ellipsis}
+  .dealCard[data-mobile-product-card="1"] .dealInfo h3{margin:0 0 11px;font-size:23px;line-height:1.14;letter-spacing:-.45px;color:#182126}
+  .dealCard[data-mobile-product-card="1"] .productDetail[hidden],.dealCard[data-mobile-product-card="1"] .unitPrice[hidden]{display:none!important}
+  .dealCard[data-mobile-product-card="1"] .dealChips{display:flex;gap:7px;align-items:center;flex-wrap:wrap;margin:0 0 11px}
+  .dealCard[data-mobile-product-card="1"] .dealChips>span{min-height:32px;padding:0 10px;border:1px solid #afe3de;border-radius:11px;background:#f6fcfb;color:#263233;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:750;white-space:nowrap}
+  .dealCard[data-mobile-product-card="1"] .dealChips svg{width:16px;height:16px;color:#087e75}
+  .dealCard[data-mobile-product-card="1"] .dealChips b{font:inherit}
+  .dealCard[data-mobile-product-card="1"] .priceRow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0}
+  .dealCard[data-mobile-product-card="1"] .price{font-size:38px;line-height:1;font-weight:950;letter-spacing:-1.2px;color:#121b20}
+  .dealCard[data-mobile-product-card="1"] .oldPrice{font-size:12px;order:3;width:100%;margin-top:-1px}
+  .dealCard[data-mobile-product-card="1"] .dealPriceBadge{min-height:31px;padding:0 10px;border:1px solid #afe3de;border-radius:999px;background:#f5fbfa;color:#087e75;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;white-space:nowrap}
+  .dealCard[data-mobile-product-card="1"] .dealPriceBadge svg{width:15px;height:15px}
+  .dealCard[data-mobile-product-card="1"] .saving{margin:7px 0 0;padding:4px 8px;font-size:10.5px;border-radius:8px}
+  .dealCard[data-mobile-product-card="1"] .dealBody{padding:0 20px 19px;display:block;min-width:0}
+  .dealCard[data-mobile-product-card="1"] .dealActions{display:grid!important;grid-template-columns:1fr 1fr!important;gap:11px;margin:15px 0 0;padding:0}
+  .dealCard[data-mobile-product-card="1"] .dealActions>.compareButton,.dealCard[data-mobile-product-card="1"] .dealActions>.storeButton{height:46px;border-radius:13px;font-size:13px;font-weight:900;display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;visibility:visible!important;opacity:1}
+  .dealCard[data-mobile-product-card="1"] .dealActions>.compareButton{border-color:#078c82;background:linear-gradient(135deg,#078c82,#13a99d);color:#fff}
+  .dealCard[data-mobile-product-card="1"] .dealActions>.compareButton:disabled{opacity:1;cursor:default}
+  .dealCard[data-mobile-product-card="1"] .dealActions>.storeButton{min-width:0;border:1px solid #078c82;background:#fff;color:#1a2529}
+  .dealCard[data-mobile-product-card="1"] .dealActions>.slevaoExtraActions{display:none!important}
+  .dealCard[data-mobile-product-card="1"] .dealActionIcon{width:19px;height:19px;flex:0 0 19px;display:inline-grid;place-items:center;line-height:0}
+  .dealCard[data-mobile-product-card="1"] .dealActionIcon svg{display:block;width:100%;height:100%}
+  .dealCard[data-mobile-product-card="1"] .dealActionLabel{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dealCard[data-mobile-product-card="1"] .dealUtilityPanel{margin-top:14px;border:1px solid #e0e9e8;border-radius:16px;background:#fff;overflow:hidden}
+  .dealCard[data-mobile-product-card="1"] .dealToolsSlot:empty{display:none}
+  .dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0!important;padding:12px!important}
+  .dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions a,.dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions button{min-width:0;min-height:44px;height:44px;padding:0 7px!important;border-radius:11px!important;font-size:11px!important;line-height:1.05!important;font-weight:850!important;white-space:nowrap;letter-spacing:-.12px;display:flex!important;align-items:center!important;justify-content:center!important;gap:6px!important}
+  .dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions .sfPrimary{background:linear-gradient(135deg,#078c82,#13a99d)!important;color:#fff!important;border-color:transparent!important}
+  .dealCard[data-mobile-product-card="1"] .dealToolsSlot .dealActionIcon{width:17px;height:17px;flex-basis:17px}
+  .dealCard[data-mobile-product-card="1"] .dealFacts{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid #edf2f1}
+  .dealCard[data-mobile-product-card="1"] .dealUtilityPanel.withoutFacts .dealFacts{display:none}
+  .dealCard[data-mobile-product-card="1"] .validity,.dealCard[data-mobile-product-card="1"] .leafletLocationButton{min-width:0;min-height:74px;margin:0;padding:12px 11px;border:0;border-radius:0;background:#fff;color:#273235;text-decoration:none;display:flex;align-items:center;gap:9px;font-size:11.5px}
+  .dealCard[data-mobile-product-card="1"] .leafletLocationButton{border-left:1px solid #edf2f1;position:relative;padding-right:56px}
+  .dealCard[data-mobile-product-card="1"] .dealFactIcon{flex:0 0 25px;width:25px;height:25px;display:grid;place-items:center;color:#078c82}
+  .dealCard[data-mobile-product-card="1"] .dealFactIcon svg{width:23px;height:23px}
+  .dealCard[data-mobile-product-card="1"] .dealFactText{min-width:0;display:grid;gap:3px;line-height:1.16}
+  .dealCard[data-mobile-product-card="1"] .dealFactText small{font-size:10.5px;color:#697675}
+  .dealCard[data-mobile-product-card="1"] .dealFactText strong{font-size:12px;font-weight:850;color:#263133;line-height:1.22}
+  .dealCard[data-mobile-product-card="1"] .leafletMiniPreview{position:absolute;right:8px;top:10px;width:38px;height:50px;border:1px solid #d9e4e2;border-radius:6px;background:#fff;box-shadow:0 5px 12px rgba(23,34,34,.08);padding:6px 5px;display:grid;align-content:start;gap:4px;overflow:visible}
+  .dealCard[data-mobile-product-card="1"] .leafletMiniPreview i{display:block;height:4px;border-radius:2px;background:#e75b45}
+  .dealCard[data-mobile-product-card="1"] .leafletMiniPreview i:nth-child(2){background:#f0b32d;width:72%}
+  .dealCard[data-mobile-product-card="1"] .leafletMiniPreview i:nth-child(3){background:#21a796;width:86%}
+  .dealCard[data-mobile-product-card="1"] .leafletMiniPreview b{position:absolute;right:-8px;bottom:-7px;width:25px;height:25px;border-radius:50%;display:grid;place-items:center;background:#078c82;color:#fff;font-size:13px;box-shadow:0 4px 9px rgba(7,140,130,.25)}
+  .dealCard[data-mobile-product-card="1"] .dealNotice{margin-top:13px;padding:12px 13px;border-radius:13px;background:linear-gradient(90deg,#eefaf8,#f7fcfb);display:grid;grid-template-columns:29px minmax(0,1fr);gap:10px;align-items:start;color:#116e65}
+  .dealCard[data-mobile-product-card="1"] .dealNoticeIcon{width:27px;height:27px;display:grid;place-items:center;color:#078c82}
+  .dealCard[data-mobile-product-card="1"] .dealNoticeIcon svg{width:24px;height:24px}
+  .dealCard[data-mobile-product-card="1"] .dealNotice>span:last-child{display:grid;gap:2px}
+  .dealCard[data-mobile-product-card="1"] .dealNotice strong{font-size:12.5px;font-weight:950}
+  .dealCard[data-mobile-product-card="1"] .dealNotice small{font-size:11px;line-height:1.35;color:#334d4a}
+  .dealCard[data-mobile-product-card="1"] .sourceLine{margin:13px 0 0;font-size:10.5px;line-height:1.3;color:#899391}
+}
+
+@media(min-width:1100px){
+  .dealGrid{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
