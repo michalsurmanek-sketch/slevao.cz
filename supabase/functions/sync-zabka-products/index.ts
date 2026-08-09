@@ -43,7 +43,7 @@ function quantity(title: string) {
 async function parseProducts(html: string, today: string) {
   const section = html.match(/<section class="section-container section-container--white section-container--sale-items">([\s\S]*?)<\/section>/)?.[1] || '';
   if (!section.includes('<h2>Žabka nabídka</h2>')) throw new Error('Oficiální sekce Žabka nabídka nebyla nalezena.');
-  const blocks = section.split(/<div class="sale-item(?:\\s[^"]*)?">/).slice(1);
+  const blocks = section.split(/<div class="sale-item(?:\s[^"]*)?">/).slice(1);
   const rows: any[] = [];
   for (const block of blocks) {
     const image = decodeHtml(block.match(/<div class="sale-item-image"><img[^>]+src="([^"]+)"/)?.[1] || '');
