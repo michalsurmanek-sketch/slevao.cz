@@ -27,6 +27,10 @@
     'rohlik',
   ];
 
+  const FORCED_LOGOS = {
+    globus: 'assets/logos/globus.svg?v=1',
+  };
+
   let activeIndex = 0;
   let applying = false;
 
@@ -46,7 +50,7 @@
         bySlug.set(slug, {
           slug,
           name: String(item.store_name || slug),
-          logo: item.logo_url || '',
+          logo: FORCED_LOGOS[slug] || item.logo_url || '',
           category: item.category || 'other',
           count: 0,
         });
@@ -54,7 +58,8 @@
 
       const store = bySlug.get(slug);
       store.count += 1;
-      if (!store.logo && item.logo_url) store.logo = item.logo_url;
+      if (FORCED_LOGOS[slug]) store.logo = FORCED_LOGOS[slug];
+      else if (!store.logo && item.logo_url) store.logo = item.logo_url;
     });
 
     return bySlug;
