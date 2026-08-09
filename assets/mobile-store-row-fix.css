@@ -1,0 +1,30 @@
+/* Slevao.cz – mobile store row overflow containment
+   Horizontal scrolling belongs only to the store rail, never to the whole page. */
+@media(max-width:800px){
+  #storesSection,
+  #storesSection>.container{
+    min-width:0;
+    max-width:100%;
+  }
+
+  #storesSection .storeGrid{
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    width:100%!important;
+    max-width:100%!important;
+    min-width:0!important;
+    margin-left:0!important;
+    margin-right:0!important;
+    padding:4px 0 10px!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    box-sizing:border-box!important;
+    scroll-padding-inline:0!important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  #storesSection .storeCard{
+    max-width:none!important;
+  }
+}
