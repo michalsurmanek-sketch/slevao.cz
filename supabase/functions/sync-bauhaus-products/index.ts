@@ -66,8 +66,8 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
     for (const priceToken of tokens) {
       const price = parsePrice(priceToken.text);
       if (!price || Number(priceToken.height) < 9.5) continue;
-      const context = nearby(tokens, priceToken, 125, 28).map((token) => token.text).join(' ');
-      if (/(?:od\s*1\s*pal|při koupi|karta|klub|kupón|sleva\s*%|za\s*\d+\s*ks|pronájem)/i.test(context)) {
+      const context = nearby(tokens, priceToken, 125, 45).map((token) => token.text).join(' ');
+      if (/(?:\bod\b|při koupi|karta|klub|kupón|sleva\s*%|za\s*\d+\s*ks|pronájem|\/\s*(?:kg|m²?|l)\b)/i.test(context)) {
         rejected.push({ page: page.page, price, reason: 'conditional_price', context });
         continue;
       }
