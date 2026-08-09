@@ -1,6 +1,35 @@
 (() => {
   'use strict';
 
+  const grid = document.getElementById('leafletGrid');
+  if (grid && grid.dataset.leafletGridGuard !== '1') {
+    const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
+    if (descriptor?.get && descriptor?.set) {
+      window.__slevaoDedicatedLeafletGrid = true;
+      grid.dataset.leafletGridGuard = '1';
+      Object.defineProperty(grid, 'innerHTML', {
+        configurable: true,
+        enumerable: false,
+        get() {
+          return descriptor.get.call(this);
+        },
+        set(value) {
+          const html = String(value ?? '');
+          const dedicatedWrite =
+            html.includes('data-direct-leaflet-card="1"') ||
+            html.includes('data-fast-skeleton=') ||
+            html.includes('leafletFastSkeleton');
+          if (window.__slevaoDedicatedLeafletGrid && !dedicatedWrite) return;
+          descriptor.set.call(this, value);
+        },
+      });
+
+      if (!grid.querySelector('.leafletCard[data-direct-leaflet-card="1"]')) {
+        descriptor.set.call(grid, [0, 1, 2].map((index) => `<article class="leafletCard leafletFastSkeleton" data-fast-skeleton="${index}"><div class="leafletCover"></div><div class="leafletBody"><div class="leafletSkeletonLine wide"></div><div class="leafletSkeletonLine"></div><div class="leafletSkeletonLine short"></div></div></article>`).join(''));
+      }
+    }
+  }
+
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const DAY_MS = 86400000;
@@ -39,7 +68,7 @@
 
     const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
       headers: { apikey: SUPABASE_KEY },
-      cache: 'no-store'
+      cache: 'default'
     });
     if (!response.ok) throw new Error(`Leták se nepodařilo načíst (${response.status}).`);
     const row = (await response.json())[0];
@@ -65,7 +94,7 @@
           });
           const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
             headers: { apikey: SUPABASE_KEY },
-            cache: 'no-store'
+            cache: 'default'
           });
           if (response.ok) {
             const rows = await response.json();
@@ -108,9 +137,9 @@
   let frame = 0;
   function scan() {
     frame = 0;
-    const grid = document.getElementById('leafletGrid');
-    if (!grid) return;
-    grid.querySelectorAll('.leafletCard').forEach((card) => enhanceCard(card));
+    const currentGrid = document.getElementById('leafletGrid');
+    if (!currentGrid) return;
+    currentGrid.querySelectorAll('.leafletCard[data-direct-leaflet-card="1"]').forEach((card) => enhanceCard(card));
   }
 
   function schedule() {
@@ -119,12 +148,12 @@
   }
 
   function attach() {
-    const grid = document.getElementById('leafletGrid');
-    if (!grid) {
+    const currentGrid = document.getElementById('leafletGrid');
+    if (!currentGrid) {
       window.setTimeout(attach, 120);
       return;
     }
-    new MutationObserver(schedule).observe(grid, { childList: true, subtree: true });
+    new MutationObserver(schedule).observe(currentGrid, { childList: true, subtree: true });
     schedule();
   }
 
