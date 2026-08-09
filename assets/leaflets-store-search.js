@@ -115,7 +115,9 @@
     visibleStores = results.slice(0, 8);
     activeIndex = visibleStores.length ? Math.min(Math.max(activeIndex, 0), visibleStores.length - 1) : -1;
 
-    if (!visibleStores.length) {
+    if (!stores.length) {
+      suggestions.innerHTML = '<div class="leafletsStoreNoResult">Načítám aktuální obchody…</div>';
+    } else if (!visibleStores.length) {
       suggestions.innerHTML = '<div class="leafletsStoreNoResult">Takový obchod mezi aktuálními letáky není.</div>';
     } else {
       suggestions.innerHTML = visibleStores.map(resultMarkup).join('');
@@ -233,6 +235,7 @@
 
   if (categoriesRoot) {
     const observer = new MutationObserver(() => {
+      if (!suggestions.hidden) renderSuggestions(!input.value.trim());
       if (!selectedSlug) return;
       const store = currentStores().find((item) => item.slug === selectedSlug);
       if (store) setLead(store);
