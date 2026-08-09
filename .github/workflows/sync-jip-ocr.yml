@@ -4,6 +4,13 @@ on:
   schedule:
     - cron: '41 */6 * * *'
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/sync_jip_ocr.py'
+      - '.github/workflows/sync-jip-ocr.yml'
+      - '.github/jip-ocr-trigger.txt'
   push:
     branches:
       - main
