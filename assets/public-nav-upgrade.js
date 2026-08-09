@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  const LEAFLETS_URL = 'letaky.html';
+
   function loadPersonalization() {
     if (!document.querySelector('link[href*="product-personalization.css"]')) {
       const style = document.createElement('link');
@@ -90,7 +92,7 @@
     }
 
     if (leaflets) {
-      leaflets.href = 'letaky.html';
+      leaflets.href = LEAFLETS_URL;
       leaflets.removeAttribute('aria-current');
     }
 
@@ -100,6 +102,14 @@
 
     return true;
   }
+
+  document.addEventListener('click', (event) => {
+    const link = event.target.closest('.slevaoBottomNav a');
+    if (!link || !/Letáky/i.test(link.textContent || '')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.location.assign(LEAFLETS_URL);
+  }, true);
 
   loadPersonalization();
   loadPwa();
