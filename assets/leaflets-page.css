@@ -88,7 +88,7 @@ button{font:inherit}
   html{scroll-padding-top:70px}
   .leafletsShell{width:calc(100% - 20px)}
   .leafletsTopbarInner{min-height:64px}
-  .leafletsLogo{width:52px;height:48px;background-image:url('slevao-mark.svg?v=20260802-1');background-position:left center}
+  .leafletsLogo{width:150px;height:48px;background-image:url('slevao-logo.svg?v=20260802-1');background-position:left center;background-size:contain}
   .leafletsBack{min-height:40px;padding-inline:12px;font-size:11px}
   .leafletsHero{padding:12px 0 10px}
   .leafletsHeroCard{padding:22px 18px;border-radius:22px}
