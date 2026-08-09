@@ -362,7 +362,7 @@
 
   function apply(storeData, rows, status) {
     store = storeData;
-    offers = unique(rows);
+    offers = unique(rows).filter((offer) => offer.is_verified === true);
     applyBrandShell(store);
     $('status').textContent = status;
     $('offerCount').textContent = `${offers.length} nabídek`;
@@ -382,9 +382,10 @@
       if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');
       const today = new Date().toISOString().slice(0, 10);
       const rows = await request('offers', {
-        select: 'id,title,price,old_price,image_url,valid_from,valid_to,products(name)',
+        select: 'id,title,price,old_price,image_url,valid_from,valid_to,is_verified,products(name)',
         store_id: `eq.${stores[0].id}`,
         status: 'eq.published',
+        is_verified: 'eq.true',
         valid_from:`lte.${today}`,
         valid_to:`gte.${today}`,
         order: 'published_at.desc',
