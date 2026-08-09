@@ -140,7 +140,7 @@
     const socialStyle = document.createElement('style');
     socialStyle.id = socialStyleId;
     socialStyle.textContent = `
-      .footerSocial{margin-top:26px;padding-top:20px;border-top:1px dashed rgba(145,224,216,.2)}
+      .footerSocial{margin-top:22px;padding-top:18px;border-top:1px dashed rgba(145,224,216,.2)}
       .footerSocialTitle{margin:0 0 12px;color:#fff;font-size:15px;font-weight:950}
       .footerSocialLinks{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
       .footerSocialLink{width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:13px;color:#fff;background:rgba(255,255,255,.035);text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
@@ -148,14 +148,14 @@
       .footerSocialLink svg{width:22px;height:22px;display:block;fill:currentColor}
       .footerSocialNote{display:block;margin-top:12px;color:#9fb9b6;font-size:12px;line-height:1.45}
       @media(max-width:900px){.footerSocial{max-width:520px}.footerSocialLink{width:46px;height:46px}}
-      @media(max-width:620px){.footerSocial{margin-top:22px}.footerSocialTitle{font-size:14px}.footerSocialLinks{gap:9px}.footerSocialLink{width:43px;height:43px;border-radius:12px}.footerSocialNote{font-size:11.5px}}
+      @media(max-width:620px){.footerSocial{margin-top:20px}.footerSocialTitle{font-size:14px}.footerSocialLinks{gap:9px}.footerSocialLink{width:43px;height:43px;border-radius:12px}.footerSocialNote{font-size:11.5px}}
       @media(prefers-reduced-motion:reduce){.footerSocialLink{transition:none}.footerSocialLink:hover{transform:none}}
     `;
     document.head.appendChild(socialStyle);
   }
 
-  const footerIdentity = document.querySelector('.footerIdentity');
-  if (footerIdentity && !footerIdentity.querySelector('.footerSocial')) {
+  const footerUseful = [...document.querySelectorAll('.footerColumn')].find((column) => column.querySelector('h3')?.textContent.trim() === 'Užitečné');
+  if (footerUseful && !footerUseful.querySelector('.footerSocial')) {
     const social = document.createElement('div');
     social.className = 'footerSocial';
     social.innerHTML = `
@@ -176,7 +176,7 @@
       </div>
       <small class="footerSocialNote">Nové akce, tipy a slevy každý den.</small>
     `;
-    footerIdentity.appendChild(social);
+    footerUseful.appendChild(social);
   }
 
   const form = document.getElementById('footerAlertsForm');
