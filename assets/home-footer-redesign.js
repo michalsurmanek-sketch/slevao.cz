@@ -135,6 +135,50 @@
     if (event.target?.id === 'slLiveRadius') hideInStore();
   });
 
+  const socialStyleId = 'slevaoFooterSocialStyle';
+  if (!document.getElementById(socialStyleId)) {
+    const socialStyle = document.createElement('style');
+    socialStyle.id = socialStyleId;
+    socialStyle.textContent = `
+      .footerSocial{margin-top:26px;padding-top:20px;border-top:1px dashed rgba(145,224,216,.2)}
+      .footerSocialTitle{margin:0 0 12px;color:#fff;font-size:15px;font-weight:950}
+      .footerSocialLinks{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+      .footerSocialLink{width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:13px;color:#fff;background:rgba(255,255,255,.035);text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+      .footerSocialLink:hover{transform:translateY(-2px);border-color:#49dfcf;background:rgba(53,215,198,.13);box-shadow:0 8px 20px rgba(0,0,0,.12)}
+      .footerSocialLink svg{width:22px;height:22px;display:block;fill:currentColor}
+      .footerSocialNote{display:block;margin-top:12px;color:#9fb9b6;font-size:12px;line-height:1.45}
+      @media(max-width:900px){.footerSocial{max-width:520px}.footerSocialLink{width:46px;height:46px}}
+      @media(max-width:620px){.footerSocial{margin-top:22px}.footerSocialTitle{font-size:14px}.footerSocialLinks{gap:9px}.footerSocialLink{width:43px;height:43px;border-radius:12px}.footerSocialNote{font-size:11.5px}}
+      @media(prefers-reduced-motion:reduce){.footerSocialLink{transition:none}.footerSocialLink:hover{transform:none}}
+    `;
+    document.head.appendChild(socialStyle);
+  }
+
+  const footerIdentity = document.querySelector('.footerIdentity');
+  if (footerIdentity && !footerIdentity.querySelector('.footerSocial')) {
+    const social = document.createElement('div');
+    social.className = 'footerSocial';
+    social.innerHTML = `
+      <p class="footerSocialTitle">Sledujte nás</p>
+      <div class="footerSocialLinks" aria-label="Sociální sítě Slevao.cz">
+        <a class="footerSocialLink" href="https://www.facebook.com/" target="_blank" rel="noopener noreferrer" aria-label="Facebook" title="Facebook">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13.6 22v-9h3l.5-3.5h-3.5V7.3c0-1 .3-1.8 1.8-1.8h1.9V2.4c-.3 0-1.5-.1-2.8-.1-2.8 0-4.7 1.7-4.7 4.8v2.4H6.7V13h3.1v9h3.8Z"/></svg>
+        </a>
+        <a class="footerSocialLink" href="https://www.instagram.com/" target="_blank" rel="noopener noreferrer" aria-label="Instagram" title="Instagram">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7.2 2h9.6A5.2 5.2 0 0 1 22 7.2v9.6a5.2 5.2 0 0 1-5.2 5.2H7.2A5.2 5.2 0 0 1 2 16.8V7.2A5.2 5.2 0 0 1 7.2 2Zm0 1.8a3.4 3.4 0 0 0-3.4 3.4v9.6a3.4 3.4 0 0 0 3.4 3.4h9.6a3.4 3.4 0 0 0 3.4-3.4V7.2a3.4 3.4 0 0 0-3.4-3.4H7.2Zm10.1 1.3a1.2 1.2 0 1 1 0 2.4 1.2 1.2 0 0 1 0-2.4ZM12 6.9a5.1 5.1 0 1 1 0 10.2 5.1 5.1 0 0 1 0-10.2Zm0 1.8a3.3 3.3 0 1 0 0 6.6 3.3 3.3 0 0 0 0-6.6Z"/></svg>
+        </a>
+        <a class="footerSocialLink" href="https://www.tiktok.com/" target="_blank" rel="noopener noreferrer" aria-label="TikTok" title="TikTok">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14.3 2h3.1c.2 1.2.8 2.3 1.7 3.1.8.8 1.8 1.3 2.9 1.5v3.2a8.8 8.8 0 0 1-4.6-1.4v6.7A6.9 6.9 0 1 1 11 8.2v3.3a3.7 3.7 0 1 0 3.3 3.6V2Z"/></svg>
+        </a>
+        <a class="footerSocialLink" href="https://www.youtube.com/" target="_blank" rel="noopener noreferrer" aria-label="YouTube" title="YouTube">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M23 7.1a3 3 0 0 0-2.1-2.2C19 4.4 12 4.4 12 4.4s-7 0-8.9.5A3 3 0 0 0 1 7.1C.5 9 .5 12 .5 12s0 3 .5 4.9a3 3 0 0 0 2.1 2.2c1.9.5 8.9.5 8.9.5s7 0 8.9-.5a3 3 0 0 0 2.1-2.2c.5-1.9.5-4.9.5-4.9s0-3-.5-4.9ZM9.7 15.3V8.7l5.8 3.3-5.8 3.3Z"/></svg>
+        </a>
+      </div>
+      <small class="footerSocialNote">Nové akce, tipy a slevy každý den.</small>
+    `;
+    footerIdentity.appendChild(social);
+  }
+
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
   const status = document.getElementById('footerAlertStatus');
