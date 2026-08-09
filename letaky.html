@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#159e94">
+  <meta name="description" content="Všechny aktuální letáky českých obchodů přehledně rozdělené podle kategorií.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <link rel="canonical" href="https://slevao.cz/letaky.html">
+  <link rel="icon" href="favicon.svg?v=20260802-2" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:site_name" content="Slevao.cz">
+  <meta property="og:title" content="Aktuální letáky podle kategorií | Slevao.cz">
+  <meta property="og:description" content="Potraviny, drogerie, elektronika, domácnost a další aktuální letáky na jednom místě.">
+  <meta property="og:url" content="https://slevao.cz/letaky.html">
+  <title>Aktuální letáky podle kategorií | Slevao.cz</title>
+  <link rel="stylesheet" href="assets/leaflets-page.css?v=20260809-1">
+</head>
+<body>
+  <header class="leafletsTopbar">
+    <div class="leafletsShell leafletsTopbarInner">
+      <a class="leafletsLogo" href="index.html" aria-label="Slevao.cz domů"></a>
+      <a class="leafletsBack" href="index.html#leafletsSection" aria-label="Zpět na hlavní stránku">← Zpět na Slevao.cz</a>
+    </div>
+  </header>
+
+  <main>
+    <section class="leafletsHero">
+      <div class="leafletsShell">
+        <div class="leafletsHeroCard">
+          <span class="leafletsEyebrow">Aktuální vydání obchodů</span>
+          <h1>Všechny letáky přehledně podle kategorií</h1>
+          <p>Vyber kategorii a prolistuj právě platné letáky. Nová vydání se zde zobrazují automaticky.</p>
+          <div class="leafletsStatus" aria-label="Stav letáků">
+            <span><b id="leafletsTotal">…</b> letáků</span>
+            <span><b id="leafletStoresTotal">…</b> obchodů</span>
+            <span>Platné nabídky</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <nav class="leafletCategoryNav" aria-label="Kategorie letáků">
+      <div class="leafletsShell">
+        <div id="leafletCategoryChips" class="leafletCategoryChips">
+          <span class="leafletCategoryChip">Načítám kategorie…</span>
+        </div>
+      </div>
+    </nav>
+
+    <div class="leafletsShell leafletsMain">
+      <div id="leafletCategories">
+        <div class="leafletsLoading" role="status" aria-live="polite">
+          <span class="leafletsSpinner" aria-hidden="true"></span>
+          <strong>Načítám všechny aktuální letáky</strong>
+          <span>Řadím je podle kategorií obchodů.</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="leafletsFooter">
+    <div class="leafletsShell leafletsFooterInner">
+      <a class="leafletsFooterLogo" href="index.html" aria-label="Slevao.cz domů"></a>
+      <span>© 2026 Slevao.cz · Aktuální slevy a letáky českých obchodů.</span>
+    </div>
+  </footer>
+
+  <script src="assets/leaflets-page.js?v=20260809-1" defer></script>
+</body>
+</html>
