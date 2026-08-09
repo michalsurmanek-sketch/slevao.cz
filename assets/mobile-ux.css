@@ -171,3 +171,60 @@ body{overflow-x:hidden}
   .dealCard[data-mobile-product-card="1"] .dealFactIcon{display:none}
   .dealCard[data-mobile-product-card="1"] .validity{padding-inline:8px}
 }
+
+/* Mobil: Výběr obchodů v jednom vodorovném scrollovacím řádku. */
+@media(max-width:800px){
+  #storesSection .storeGrid{
+    display:flex!important;
+    flex-wrap:nowrap!important;
+    gap:10px!important;
+    overflow-x:auto!important;
+    overflow-y:visible!important;
+    width:auto!important;
+    margin-inline:-16px!important;
+    padding:4px 16px 10px!important;
+    scroll-snap-type:x proximity;
+    scroll-padding-inline:16px;
+    overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:none;
+    -ms-overflow-style:none;
+  }
+  #storesSection .storeGrid::-webkit-scrollbar{display:none}
+  #storesSection .storeCard{
+    flex:0 0 128px!important;
+    width:128px!important;
+    min-width:128px!important;
+    min-height:116px!important;
+    padding:12px 10px!important;
+    scroll-snap-align:start;
+    transform:none!important;
+  }
+  #storesSection .storeLogoBox{
+    height:54px!important;
+    margin-bottom:7px!important;
+  }
+  #storesSection .storeLogoBox img{
+    max-width:94px!important;
+    max-height:50px!important;
+  }
+  #storesSection .storeFilterButton{
+    font-size:12px!important;
+    line-height:1.15!important;
+  }
+  #storesSection .storePageLink{
+    top:7px!important;
+    right:7px!important;
+    width:27px!important;
+    height:27px!important;
+    border-radius:9px!important;
+  }
+}
+
+@media(max-width:390px){
+  #storesSection .storeCard{
+    flex-basis:116px!important;
+    width:116px!important;
+    min-width:116px!important;
+  }
+}
