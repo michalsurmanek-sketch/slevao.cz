@@ -42,6 +42,7 @@ body{overflow-x:hidden}
   .inlineHead>.textButton{margin-left:auto;min-height:44px;display:inline-flex;align-items:center}
   #storesSection .sectionHead h2{white-space:nowrap;overflow-wrap:normal;word-break:normal}
   #leafletsSection .sectionHead h2{font-size:clamp(18px,5.1vw,26px);white-space:nowrap;overflow-wrap:normal;word-break:normal}
+  #dealsTitle{font-size:clamp(18px,5.2vw,27px);white-space:nowrap;overflow-wrap:normal;word-break:normal}
 
   .categoryChips,.quickTabs{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior-inline:contain;scroll-snap-type:x proximity}
   .categoryChips::-webkit-scrollbar,.quickTabs::-webkit-scrollbar{display:none}
