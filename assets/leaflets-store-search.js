@@ -8,7 +8,7 @@
   const clearButton = document.getElementById('leafletsStoreSearchClear');
   const searchButton = document.getElementById('leafletsStoreSearchButton');
   const categoriesRoot = document.getElementById('leafletCategories');
-  if (!root || !input || !suggestions || !lead || !clearButton || !searchButton) return;
+  if (!root || !input || !suggestions || !lead || !clearButton || !searchButton || !categoriesRoot) return;
 
   const CATEGORY_NAMES = {
     food: 'Potraviny',
@@ -25,6 +25,7 @@
   let activeIndex = -1;
   let visibleStores = [];
   let selectedSlug = '';
+  let selectionScrollTimer = 0;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
@@ -38,10 +39,13 @@
       .trim();
   }
 
+  function currentItems() {
+    return Array.isArray(window.__slevaoAllLeaflets) ? window.__slevaoAllLeaflets : [];
+  }
+
   function currentStores() {
-    const items = Array.isArray(window.__slevaoAllLeaflets) ? window.__slevaoAllLeaflets : [];
     const bySlug = new Map();
-    items.forEach((item, index) => {
+    currentItems().forEach((item) => {
       const slug = String(item?.store_slug || '').toLowerCase();
       if (!slug) return;
       if (!bySlug.has(slug)) {
@@ -51,7 +55,6 @@
           logo: item.logo_url || '',
           category: item.category || 'other',
           count: 0,
-          firstIndex: index,
         });
       }
       const store = bySlug.get(slug);
@@ -59,6 +62,11 @@
       if (!store.logo && item.logo_url) store.logo = item.logo_url;
     });
     return [...bySlug.values()].sort((a, b) => a.name.localeCompare(b.name, 'cs'));
+  }
+
+  function storeBySlug(slug) {
+    const normalized = String(slug || '').toLowerCase();
+    return currentStores().find((store) => store.slug === normalized) || null;
   }
 
   function searchIcon() {
@@ -71,7 +79,7 @@
       return;
     }
     if (store) {
-      lead.innerHTML = `<span class="leafletsStoreSuggestionMark" aria-hidden="true">%</span>`;
+      lead.innerHTML = '<span class="leafletsStoreSuggestionMark" aria-hidden="true">%</span>';
       return;
     }
     lead.innerHTML = searchIcon();
@@ -82,7 +90,7 @@
       ? `<img src="${esc(store.logo)}" alt="" loading="lazy" decoding="async">`
       : '<span class="leafletsStoreSuggestionMark" aria-hidden="true">%</span>';
     const category = CATEGORY_NAMES[store.category] || 'Aktuální letáky';
-    return `<button type="button" class="leafletsStoreSuggestion${index === activeIndex ? ' is-active' : ''}" data-store-index="${index}" role="option" aria-selected="${index === activeIndex ? 'true' : 'false'}">
+    return `<button type="button" class="leafletsStoreSuggestion${index === activeIndex ? ' is-active' : ''}" data-store-slug="${esc(store.slug)}" role="option" aria-selected="${index === activeIndex ? 'true' : 'false'}">
       <span class="leafletsStoreSuggestionLogo">${logo}</span>
       <span class="leafletsStoreSuggestionText"><strong>${esc(store.name)}</strong><small>${esc(category)}</small></span>
       <span class="leafletsStoreSuggestionCount">${store.count} ${store.count === 1 ? 'leták' : store.count < 5 ? 'letáky' : 'letáků'}</span>
@@ -113,7 +121,8 @@
     }
 
     visibleStores = results.slice(0, 8);
-    activeIndex = visibleStores.length ? Math.min(Math.max(activeIndex, 0), visibleStores.length - 1) : -1;
+    if (!visibleStores.length) activeIndex = -1;
+    else if (activeIndex < 0 || activeIndex >= visibleStores.length) activeIndex = 0;
 
     if (!stores.length) {
       suggestions.innerHTML = '<div class="leafletsStoreNoResult">Načítám aktuální obchody…</div>';
@@ -132,14 +141,63 @@
     activeIndex = -1;
   }
 
-  function findCard(store) {
-    const items = Array.isArray(window.__slevaoAllLeaflets) ? window.__slevaoAllLeaflets : [];
-    const index = items.findIndex((item) => String(item?.store_slug || '').toLowerCase() === store.slug);
-    if (index < 0) return null;
-    return document.querySelector(`.allLeafletCard[data-leaflet-index="${index}"]`);
+  function restoreAllCards() {
+    document.querySelectorAll('.allLeafletCard').forEach((card) => {
+      card.style.removeProperty('display');
+      card.classList.remove('allLeafletCard--search-hit');
+    });
+    document.querySelectorAll('.leafletCategorySection').forEach((section) => {
+      section.style.removeProperty('display');
+    });
   }
 
-  function revealStore(store) {
+  function itemForCard(card) {
+    const index = Number(card?.dataset?.leafletIndex);
+    if (!Number.isInteger(index)) return null;
+    return currentItems()[index] || null;
+  }
+
+  function applyStoreSelection(store, options = {}) {
+    if (!store) return false;
+    const { scroll = true, animate = true } = options;
+    const cards = [...document.querySelectorAll('.allLeafletCard')];
+    if (!cards.length) return false;
+
+    let firstMatch = null;
+    let matches = 0;
+    cards.forEach((card) => {
+      const item = itemForCard(card);
+      const match = String(item?.store_slug || '').toLowerCase() === store.slug;
+      card.style.display = match ? '' : 'none';
+      card.classList.remove('allLeafletCard--search-hit');
+      if (match) {
+        matches += 1;
+        if (!firstMatch) firstMatch = card;
+      }
+    });
+
+    document.querySelectorAll('.leafletCategorySection').forEach((section) => {
+      const hasVisibleCard = [...section.querySelectorAll('.allLeafletCard')].some((card) => card.style.display !== 'none');
+      section.style.display = hasVisibleCard ? '' : 'none';
+    });
+
+    if (!matches || !firstMatch) {
+      restoreAllCards();
+      return false;
+    }
+
+    if (animate) firstMatch.classList.add('allLeafletCard--search-hit');
+    if (scroll) {
+      window.clearTimeout(selectionScrollTimer);
+      selectionScrollTimer = window.setTimeout(() => {
+        firstMatch.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 40);
+    }
+    if (animate) window.setTimeout(() => firstMatch.classList.remove('allLeafletCard--search-hit'), 1600);
+    return true;
+  }
+
+  function selectStore(store, options = {}) {
     if (!store) return;
     selectedSlug = store.slug;
     input.value = store.name;
@@ -147,17 +205,17 @@
     setLead(store);
     closeSuggestions();
 
-    const reveal = () => {
-      const card = findCard(store);
-      if (!card) return false;
-      document.querySelectorAll('.allLeafletCard--search-hit').forEach((node) => node.classList.remove('allLeafletCard--search-hit'));
-      card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      card.classList.add('allLeafletCard--search-hit');
-      window.setTimeout(() => card.classList.remove('allLeafletCard--search-hit'), 1600);
-      return true;
-    };
+    if (!applyStoreSelection(store, options)) {
+      window.setTimeout(() => {
+        const freshStore = storeBySlug(selectedSlug);
+        if (freshStore) applyStoreSelection(freshStore, options);
+      }, 250);
+    }
+  }
 
-    if (!reveal()) window.setTimeout(reveal, 350);
+  function selectStoreBySlug(slug, options = {}) {
+    const store = storeBySlug(slug);
+    if (store) selectStore(store, options);
   }
 
   function chooseBest() {
@@ -166,19 +224,33 @@
       renderSuggestions(true);
       return;
     }
+
     const stores = currentStores();
     const exact = stores.find((store) => fold(store.name) === query || fold(store.slug.replace(/-/g, ' ')) === query);
     if (exact) {
-      revealStore(exact);
+      selectStore(exact);
       return;
     }
+
     renderSuggestions();
-    if (visibleStores[0]) revealStore(visibleStores[0]);
+    if (visibleStores[0]) selectStore(visibleStores[0]);
+  }
+
+  function clearSelection(options = {}) {
+    selectedSlug = '';
+    restoreAllCards();
+    setLead();
+    if (options.resetInput !== false) input.value = '';
+    clearButton.hidden = !input.value;
   }
 
   input.addEventListener('focus', () => renderSuggestions(!input.value.trim()));
+
   input.addEventListener('input', () => {
-    selectedSlug = '';
+    if (selectedSlug) {
+      selectedSlug = '';
+      restoreAllCards();
+    }
     setLead();
     clearButton.hidden = !input.value;
     activeIndex = 0;
@@ -189,20 +261,20 @@
     if (event.key === 'ArrowDown') {
       event.preventDefault();
       if (suggestions.hidden) renderSuggestions(!input.value.trim());
-      else {
-        activeIndex = visibleStores.length ? (activeIndex + 1) % visibleStores.length : -1;
+      else if (visibleStores.length) {
+        activeIndex = (activeIndex + 1) % visibleStores.length;
         suggestions.innerHTML = visibleStores.map(resultMarkup).join('');
       }
     } else if (event.key === 'ArrowUp') {
       event.preventDefault();
       if (suggestions.hidden) renderSuggestions(!input.value.trim());
-      else {
-        activeIndex = visibleStores.length ? (activeIndex - 1 + visibleStores.length) % visibleStores.length : -1;
+      else if (visibleStores.length) {
+        activeIndex = (activeIndex - 1 + visibleStores.length) % visibleStores.length;
         suggestions.innerHTML = visibleStores.map(resultMarkup).join('');
       }
     } else if (event.key === 'Enter') {
       event.preventDefault();
-      if (!suggestions.hidden && visibleStores[activeIndex]) revealStore(visibleStores[activeIndex]);
+      if (!suggestions.hidden && visibleStores[activeIndex]) selectStore(visibleStores[activeIndex]);
       else chooseBest();
     } else if (event.key === 'Escape') {
       closeSuggestions();
@@ -210,21 +282,17 @@
     }
   });
 
-  suggestions.addEventListener('pointerdown', (event) => {
-    const button = event.target.closest('[data-store-index]');
+  suggestions.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-store-slug]');
     if (!button) return;
     event.preventDefault();
-    const index = Number(button.dataset.storeIndex);
-    revealStore(visibleStores[index]);
+    selectStoreBySlug(button.dataset.storeSlug);
   });
 
   searchButton.addEventListener('click', chooseBest);
 
   clearButton.addEventListener('click', () => {
-    input.value = '';
-    selectedSlug = '';
-    clearButton.hidden = true;
-    setLead();
+    clearSelection();
     input.focus();
     renderSuggestions(true);
   });
@@ -233,15 +301,18 @@
     if (!root.contains(event.target)) closeSuggestions();
   });
 
-  if (categoriesRoot) {
-    const observer = new MutationObserver(() => {
-      if (!suggestions.hidden) renderSuggestions(!input.value.trim());
-      if (!selectedSlug) return;
-      const store = currentStores().find((item) => item.slug === selectedSlug);
-      if (store) setLead(store);
+  const observer = new MutationObserver(() => {
+    if (!suggestions.hidden) renderSuggestions(!input.value.trim());
+    if (!selectedSlug) return;
+
+    window.requestAnimationFrame(() => {
+      const store = storeBySlug(selectedSlug);
+      if (!store) return;
+      setLead(store);
+      applyStoreSelection(store, { scroll: false, animate: false });
     });
-    observer.observe(categoriesRoot, { childList: true, subtree: true });
-  }
+  });
+  observer.observe(categoriesRoot, { childList: true });
 
   setLead();
 })();
