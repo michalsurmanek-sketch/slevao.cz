@@ -50,7 +50,7 @@ function quantity(text: string) {
   return match?.[0]?.replace(/\s+/g, ' ') || null;
 }
 function badTitle(text: string) {
-  return text.length < 4 || text.length > 80 || !/[A-Za-zÁ-ž]/u.test(text)
+  return text.length < 8 || text.length > 80 || !/[A-Za-zÁ-ž]/u.test(text) || /,-/.test(text)
     || /^(?:od |pro |do |na |a |v |s |bez |např|hmotnost|balení|šířka|délka|interiér|exteriér)/i.test(text)
     || /(bauhaus|nakupujte|záruka|cena|pal\.|sleva|platí|materiál|použití|vhodn|ochrana|kvalit|voděodol|ocel|výkon)/i.test(text);
 }
@@ -66,7 +66,7 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
       const price = parsePrice(priceToken.text);
       if (!price || Number(priceToken.height) < 9.5) continue;
       const context = nearby(tokens, priceToken, 125, 28).map((token) => token.text).join(' ');
-      if (/(?:od\s*1\s*pal|při koupi|karta|klub|kupón|sleva\s*%|za\s*\d+\s*ks)/i.test(context)) {
+      if (/(?:od\s*1\s*pal|při koupi|karta|klub|kupón|sleva\s*%|za\s*\d+\s*ks|pronájem)/i.test(context)) {
         rejected.push({ page: page.page, price, reason: 'conditional_price', context });
         continue;
       }
@@ -78,9 +78,13 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
         continue;
       }
       const sku = skus[0];
+      if (Math.abs(sku.y - priceToken.y) > 6 && Math.abs(sku.x - priceToken.x) > 15) {
+        rejected.push({ page: page.page, price, sku: sku.text, reason: 'weak_sku_price_alignment' });
+        continue;
+      }
       const titles = tokens
         .filter((token) => Number(token.height) >= 9.5 && Number(token.height) <= 15
-          && Math.abs(token.x - priceToken.x) <= 85 && Math.abs(token.y - priceToken.y) >= 8
+          && Math.abs(token.x - sku.x) <= 60 && Math.abs(token.y - priceToken.y) >= 8
           && Math.abs(token.y - priceToken.y) <= 105 && !badTitle(token.text))
         .sort((a, b) => Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y));
       if (!titles.length) {
@@ -97,7 +101,7 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
       const title = clean([...new Set(titleParts.length ? titleParts : [anchor.text])].join(' '));
       if (badTitle(title)) continue;
       const quantityToken = tokens
-        .filter((token) => quantity(token.text) && Math.abs(token.x - priceToken.x) <= 105 && Math.abs(token.y - priceToken.y) <= 125)
+        .filter((token) => quantity(token.text) && Math.abs(token.x - priceToken.x) <= 60 && Math.abs(token.y - priceToken.y) <= 60)
         .sort((a, b) => Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y))[0];
       rows.push({
         external_id: `bauhaus:${sku.text}:${validFrom}:${validTo}`,
