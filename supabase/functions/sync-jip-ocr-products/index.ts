@@ -60,7 +60,7 @@ function round2(n: number) { return Math.round(n * 100) / 100; }
 function letters(s: string) { return (s.match(/[A-Za-zÁ-ž]/g) || []).length; }
 function isPromo(s: string) {
   const n = norm(s);
-  return /(pri koupi|kup vic|zaplat min|super (ctvrtek|patek|sobota|nedele|pondeli|utery|streda)|pouze (ve|v|dnes)|verne zakazniky|klub|karta|aplikac|kupon|cena plati pro max|na nakup\/den|od \d+\s*ks|cena od|nabidka (ne)?plati pro|do vyprodani zasob|bez dph|s dph)/i.test(n);
+  return /(pri koupi|kup vic|zaplat min|super (ctvrtek|patek|sobota|nedele|pondeli|utery|streda)|pouze (ve|v|dnes)|verne zakazniky|klub|karta|aplikac|kupon|cena plati pro max|na nakup\/den|od \d+\s*ks|cena od|nabidka (ne)?plati pro|do vyprodani zasob|bez dph)/i.test(n);
 }
 function isNoise(s: string) {
   const n = norm(s);
@@ -70,53 +70,31 @@ function isNoise(s: string) {
   if (/^1\s*(kg|l|ks)\s*=/i.test(n) || /^-?\d+\s*%/.test(n)) return true;
   return isPromo(s);
 }
-function parseQuantity(line: string) {
-  if (/\d\s*[-–]\s*\d/.test(line) || /\d+\s*[x×]\s*\d+/i.test(line)) return null;
-  const m = line.match(/\b(\d+(?:[,.]\d+)?)\s*(g|kg|ml|l)\b/i);
-  if (!m) return null;
-  const value = Number(m[1].replace(',', '.'));
-  if (!(value > 0)) return null;
-  const unit = m[2].toLowerCase();
-  let base = value;
-  let baseUnit = unit;
-  if (unit === 'g') { base = value / 1000; baseUnit = 'kg'; }
-  if (unit === 'ml') { base = value / 1000; baseUnit = 'l'; }
-  if (!(base > 0 && base <= 20)) return null;
-  return { text: clean(m[0]), base, baseUnit };
+
+function unitMarker(line: string) {
+  const n = norm(line).replace(/\s+/g, '');
+  if (/\/100g\b/.test(n)) return { text: '100 g', base: 0.1, baseUnit: 'kg' };
+  if (/\/kg\b/.test(n)) return { text: '1 kg', base: 1, baseUnit: 'kg' };
+  if (/\/l\b/.test(n)) return { text: '1 l', base: 1, baseUnit: 'l' };
+  return null;
 }
-function parseUnitPrice(line: string, baseUnit: string) {
-  const raw = clean(line).replace(/\b0d\b/ig, 'od');
-  if (/\bod\b/i.test(norm(raw))) return null;
-  const re = new RegExp(`1\\s*${baseUnit}\\s*=\\s*(\\d{1,5})(?:[,.](\\d{1,2}))?`, 'i');
-  const m = raw.match(re);
-  if (!m) return null;
-  const value = Number(m[1]) + Number((m[2] || '0').padEnd(2, '0')) / 100;
-  return value > 0 && value < 100000 ? round2(value) : null;
-}
-function numericCandidates(value: string) {
-  const out = new Set<number>();
-  const s = clean(value);
+function printedPrices(value: string) {
+  const out = new Set<number>(); const s = clean(value);
   for (const m of s.matchAll(/\b(\d{1,4})[,.](\d{1,2})\b/g)) {
     const v = Number(m[1]) + Number(m[2].padEnd(2, '0')) / 100;
     if (v >= 2 && v <= 5000) out.add(round2(v));
   }
-  for (const m of s.matchAll(/^\D*(\d{2,5})\D*$/g)) {
-    const raw = Number(m[1]);
-    const v = raw >= 1000 ? raw / 100 : raw;
-    if (v >= 2 && v <= 5000) out.add(round2(v));
+  for (const m of s.matchAll(/\b(\d{1,4})\s*,-\b/g)) {
+    const v = Number(m[1]); if (v >= 2 && v <= 5000) out.add(v);
   }
   return [...out];
 }
 function spatialLines(words: OcrWord[]) {
-  const valid = words.filter((w) => clean(w.text) && Number.isFinite(Number(w.left)) && Number.isFinite(Number(w.top)));
-  const maxRight = Math.max(1000, ...valid.map((w) => Number(w.left) + Number(w.width || 0)));
-  const columnWidth = maxRight / 4;
+  const valid = words.filter((w) => clean(w.text) && clean(w.text).length < 120 && Number.isFinite(Number(w.left)) && Number.isFinite(Number(w.top)));
   const groups = new Map<string, OcrWord[]>();
   for (const w of valid) {
     const key = `${w.block ?? 0}|${w.paragraph ?? 0}|${w.line ?? Math.round(Number(w.top) / 8)}`;
-    const bucket = groups.get(key) || [];
-    bucket.push(w);
-    groups.set(key, bucket);
+    const bucket = groups.get(key) || []; bucket.push(w); groups.set(key, bucket);
   }
   return [...groups.values()].map((group): SpatialLine => {
     group.sort((a, b) => Number(a.left) - Number(b.left));
@@ -125,91 +103,43 @@ function spatialLines(words: OcrWord[]) {
     const top = Math.min(...group.map((w) => Number(w.top)));
     const bottom = Math.max(...group.map((w) => Number(w.top) + Number(w.height || 0)));
     const confidences = group.map((w) => Number(w.confidence || 0)).filter(Number.isFinite);
-    const centerX = (left + right) / 2;
-    return {
-      text: clean(group.map((w) => w.text).join(' ')),
-      left, right, top, bottom, centerX,
-      confidence: confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0,
-      column: Math.max(0, Math.min(3, Math.floor(centerX / columnWidth))),
-    };
+    return { text: clean(group.map((w) => w.text).join(' ')), left, right, top, bottom, centerX: (left + right) / 2,
+      confidence: confidences.length ? confidences.reduce((a, b) => a + b, 0) / confidences.length : 0, column: 0 };
   }).sort((a, b) => a.top - b.top || a.left - b.left);
 }
 function parsePage(page: OcrPage): Candidate[] {
-  const pageConfidence = Number(page.avg_confidence || 0);
-  const words = Array.isArray(page.words) ? page.words : [];
-  if (pageConfidence < 60 || page.page_number === 1 || words.length < 30) return [];
-  const lines = spatialLines(words);
-  const out: Candidate[] = [];
-
-  for (const quantityLine of lines) {
-    const quantity = parseQuantity(quantityLine.text);
-    if (!quantity || quantityLine.confidence < 72) continue;
-    const unitPrice = parseUnitPrice(quantityLine.text, quantity.baseUnit);
-    if (!unitPrice) continue;
-    const expected = round2(unitPrice * quantity.base);
-    if (!(expected >= 2 && expected <= 5000)) continue;
-
-    const local = lines.filter((line) =>
-      line.column === quantityLine.column &&
-      line.top >= quantityLine.top - 320 &&
-      line.top <= quantityLine.bottom + 45
-    );
+  const pageConfidence = Number(page.avg_confidence || 0); const words = Array.isArray(page.words) ? page.words : [];
+  if (pageConfidence < 60 || words.length < 30) return [];
+  const lines = spatialLines(words); const out: Candidate[] = [];
+  for (const markerLine of lines) {
+    const marker = unitMarker(markerLine.text); if (!marker || markerLine.confidence < 72) continue;
+    const local = lines.filter((line) => Math.abs(line.centerX - markerLine.centerX) <= 230 && line.top >= markerLine.top - 170 && line.top <= markerLine.bottom + 210);
     if (local.some((line) => isPromo(line.text))) continue;
-
-    const priceWords = words.filter((w) => {
-      const centerX = Number(w.left) + Number(w.width || 0) / 2;
-      const wordColumn = Math.max(0, Math.min(3, Math.floor(centerX / (Math.max(1000, ...words.map((x) => Number(x.left) + Number(x.width || 0))) / 4))));
-      return wordColumn === quantityLine.column &&
-        Number(w.top) >= quantityLine.top - 300 &&
-        Number(w.top) <= quantityLine.top - 20 &&
-        Number(w.height || 0) >= 18 &&
-        Number(w.confidence || 0) >= 55;
-    });
-    let printed: { value: number; text: string; delta: number; confidence: number } | null = null;
-    for (const word of priceWords) {
-      for (const value of numericCandidates(clean(word.text))) {
-        const delta = Math.abs(value - expected);
-        if (delta <= 0.06 && (!printed || delta < printed.delta)) {
-          printed = { value, text: clean(word.text), delta, confidence: Number(word.confidence || 0) };
-        }
+    const priceOptions: Array<{ value: number; line: SpatialLine; distance: number }> = [];
+    for (const line of local) {
+      if (line.confidence < 82 || unitMarker(line.text) || isPromo(line.text)) continue;
+      for (const value of printedPrices(line.text)) {
+        const distance = Math.abs(line.centerX - markerLine.centerX) + Math.abs(line.top - markerLine.top) * 1.7;
+        if (Math.abs(line.top - markerLine.top) <= 95) priceOptions.push({ value, line, distance });
       }
     }
-    if (!printed) continue;
-
-    const titleLines = lines
-      .filter((line) =>
-        line.column === quantityLine.column &&
-        line.bottom <= quantityLine.top + 2 &&
-        line.top >= quantityLine.top - 90 &&
-        line.confidence >= 72 &&
-        !isNoise(line.text)
-      )
-      .slice(-2);
-    const title = clean(titleLines.map((line) => line.text).join(' '));
-    if (title.length < 4 || title.length > 110 || letters(title) < 5 || isPromo(title)) continue;
-
-    const confidence = Math.min(0.99, round2(
-      0.94 +
-      Math.min(quantityLine.confidence, printed.confidence, pageConfidence) / 2000
-    ));
-    out.push({
-      title,
-      price: printed.value,
-      quantity_text: quantity.text,
-      source_page: page.page_number,
-      confidence,
-      raw_data: {
-        parser: 'jip-ocr-spatial-unit-price-v2',
-        unit_price: unitPrice,
-        unit_price_line: quantityLine.text,
-        expected_price: expected,
-        printed_price_word: printed.text,
-        price_delta: round2(printed.delta),
-        quantity_coordinates: { left: quantityLine.left, top: quantityLine.top, right: quantityLine.right, bottom: quantityLine.bottom },
-        ocr_page_confidence: pageConfidence,
-        coverage_label: 'JIP potraviny – dle omezení uvedených v letáku',
-      },
-    });
+    priceOptions.sort((a, b) => a.distance - b.distance); const printed = priceOptions[0]; if (!printed) continue;
+    const titles = local.filter((line) => {
+      if (line === printed.line || line === markerLine || line.confidence < 82 || Math.abs(line.top - markerLine.top) > 170) return false;
+      if (printedPrices(line.text).length || unitMarker(line.text) || isNoise(line.text)) return false;
+      if (/(cena|dph|nabidka|www\.|jip potraviny|na pultu|\/100g|\/kg)/i.test(norm(line.text))) return false;
+      return letters(line.text) >= 5 && line.text.length >= 5 && line.text.length <= 80;
+    }).map((line) => ({ line, distance: Math.abs(line.centerX - markerLine.centerX) + Math.abs(line.top - markerLine.top) * 1.25 }))
+      .sort((a, b) => a.distance - b.distance);
+    const titleLine = titles[0]?.line; if (!titleLine) continue;
+    const confidence = Math.min(0.99, round2(0.94 + Math.min(markerLine.confidence, printed.line.confidence, titleLine.confidence, pageConfidence) / 2000));
+    out.push({ title: clean(titleLine.text), price: printed.value, quantity_text: marker.text, source_page: page.page_number, confidence,
+      raw_data: { parser: 'jip-ocr-spatial-unit-marker-v2', deterministic: true, printed_unit_marker: markerLine.text, printed_price_line: printed.line.text,
+        quantity_base: marker.base, quantity_base_unit: marker.baseUnit,
+        marker_coordinates: { left: markerLine.left, top: markerLine.top, right: markerLine.right, bottom: markerLine.bottom },
+        price_coordinates: { left: printed.line.left, top: printed.line.top, right: printed.line.right, bottom: printed.line.bottom },
+        title_coordinates: { left: titleLine.left, top: titleLine.top, right: titleLine.right, bottom: titleLine.bottom },
+        ocr_page_confidence: pageConfidence, coverage_label: 'JIP potraviny – dle omezení uvedených v letáku' } });
   }
   return out;
 }
