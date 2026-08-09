@@ -1,0 +1,41 @@
+*{box-sizing:border-box}
+html{background:#eef6f5;color:#102422;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+body{margin:0;min-height:100vh;background:linear-gradient(180deg,#f8fcfb 0,#edf7f5 100%)}
+button,a{font:inherit}
+.viewerTopbar{position:sticky;top:0;z-index:30;background:rgba(255,255,255,.96);backdrop-filter:blur(18px);border-bottom:1px solid rgba(20,110,103,.12);box-shadow:0 8px 28px rgba(24,73,68,.08)}
+.viewerTopbarInner{max-width:1120px;margin:auto;min-height:76px;padding:10px 18px;display:flex;align-items:center;gap:14px}
+.viewerLogo{display:block;width:196px;height:50px;flex:0 0 auto;background:url('slevao-logo.svg?v=20260802-1') left center/contain no-repeat}
+.viewerMeta{min-width:0;flex:1;display:flex;flex-direction:column;gap:2px}
+.viewerMeta strong{font-size:17px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viewerMeta span{font-size:13px;color:#6d817e;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.viewerBack{height:44px;padding:0 16px;border:1px solid #cfe2df;border-radius:14px;background:#fff;color:#16312e;font-weight:800;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap}
+.viewerBack:hover{border-color:#7fcac4;color:#0d837b}
+.viewerMain{max-width:1120px;margin:auto;padding:22px 16px 48px}
+.viewerToolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 auto 16px;max-width:980px}
+.viewerStatus{display:flex;align-items:center;gap:10px;min-width:0;color:#526965;font-size:14px;font-weight:700}
+.viewerStatusDot{width:10px;height:10px;border-radius:999px;background:#24c5b8;box-shadow:0 0 0 5px rgba(36,197,184,.12);flex:0 0 auto}
+.viewerPageCount{padding:7px 11px;border:1px solid #d7e8e5;border-radius:999px;background:#fff;color:#28423e;font-size:13px;font-weight:800;white-space:nowrap}
+.viewerPages{display:flex;flex-direction:column;align-items:center;gap:18px}
+.viewerPage{position:relative;width:min(100%,980px);min-height:380px;border:1px solid rgba(20,105,98,.13);border-radius:18px;background:#fff;box-shadow:0 18px 50px rgba(25,70,66,.11);overflow:hidden;display:flex;align-items:center;justify-content:center}
+.viewerPage canvas{display:block;max-width:100%;height:auto;background:#fff}
+.viewerPageNumber{position:absolute;right:10px;bottom:10px;padding:5px 9px;border-radius:999px;background:rgba(7,38,35,.78);color:#fff;font-size:11px;font-weight:800;backdrop-filter:blur(8px)}
+.viewerSkeleton{width:100%;min-height:460px;display:grid;place-items:center;background:linear-gradient(110deg,#fff 20%,#f1f8f7 40%,#fff 60%);background-size:220% 100%;animation:viewerShimmer 1.4s linear infinite;color:#7b908d;font-weight:700;font-size:13px}
+@keyframes viewerShimmer{to{background-position:-220% 0}}
+.viewerImageWrap{width:min(100%,980px);padding:10px;border:1px solid rgba(20,105,98,.13);border-radius:18px;background:#fff;box-shadow:0 18px 50px rgba(25,70,66,.11)}
+.viewerImageWrap img{display:block;width:100%;height:auto;border-radius:12px}
+.viewerError{max-width:680px;margin:10vh auto 0;padding:28px;border:1px solid #d7e8e5;border-radius:22px;background:#fff;box-shadow:0 18px 50px rgba(25,70,66,.1);text-align:center}
+.viewerError strong{display:block;font-size:22px;margin-bottom:8px}.viewerError p{margin:0;color:#617672;line-height:1.55}.viewerError a{display:inline-flex;margin-top:18px;padding:12px 18px;border-radius:14px;background:#159e94;color:#fff;text-decoration:none;font-weight:850}
+.viewerSpinner{width:28px;height:28px;border:3px solid #d9eeeb;border-top-color:#159e94;border-radius:50%;animation:viewerSpin .75s linear infinite}@keyframes viewerSpin{to{transform:rotate(360deg)}}
+@media(max-width:800px){
+ body{background:#eaf4f2}
+ .viewerTopbarInner{min-height:62px;padding:7px 10px;gap:9px}
+ .viewerLogo{width:46px;height:46px;background-image:url('slevao-mark.svg?v=20260802-1');background-position:center}
+ .viewerMeta strong{font-size:14px}.viewerMeta span{font-size:11px}
+ .viewerBack{height:40px;padding:0 11px;border-radius:12px;font-size:13px}
+ .viewerMain{padding:12px 7px 30px}
+ .viewerToolbar{padding:0 5px;margin-bottom:10px}.viewerStatus{font-size:12px}.viewerPageCount{font-size:11px;padding:6px 9px}
+ .viewerPages{gap:10px}
+ .viewerPage{width:100%;min-height:240px;border-radius:10px;box-shadow:0 8px 24px rgba(25,70,66,.09)}
+ .viewerSkeleton{min-height:300px}.viewerPageNumber{right:6px;bottom:6px}
+ .viewerImageWrap{width:100%;padding:5px;border-radius:10px}.viewerImageWrap img{border-radius:7px}
+}
