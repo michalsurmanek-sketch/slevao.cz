@@ -39,7 +39,7 @@ function parseProducts(html: string, today: string) {
     if (/C&A for you|člensk[aá]|s kódem|kup[oó]n|při koupi|od \d+ ks/i.test(visible)) continue;
     const href = block.match(/href="(\/eu\/cz\/shop\/[^"]+)"/i)?.[1];
     const sku = href?.match(/-(\d{7})\/\d+(?:\?|$)/)?.[1];
-    const title = decode(block.match(/data-qa="Copy">([\s\S]*?)<\/div>/i)?.[1] || '');
+    const title = decode(block.match(/aria-label="Přidat na seznam přání:\s*([^"]+)"/i)?.[1] || '');
     const image = block.match(/<img[^>]+src="(https:\/\/www\.c-and-a\.com\/img\/product\/[^"]+)"/i)?.[1]?.replace(/&amp;/g, '&');
     const currentRaw = block.match(/data-qa="ProductPrice">\s*([0-9\s.\u00a0]+(?:,[0-9]{1,2})?)\s*Kč/i)?.[1];
     const oldRaw = block.match(/Původní cena[\s\S]{0,300}?([0-9][0-9\s.\u00a0]*(?:,[0-9]{1,2})?)\s*Kč/i)?.[1];
