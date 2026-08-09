@@ -116,7 +116,7 @@ function pageCount(html: string, issueSlug: string) {
 }
 
 async function loadIssueMetaSummary(html: string, issueSlug: string) {
-  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\async function loadCurrentIssue(): Promise<Issue> {');');
+  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const issueId = html.match(new RegExp(`<li[^>]+(?:id=["']?(\\d+)["']?[^>]+url=["']${escaped}["']|url=["']${escaped}["'][^>]+id=["']?(\\d+)["']?)`, 'i'))?.slice(1).find(Boolean);
   if (!issueId) throw new Error('Dr. Max nevrátil ID vydání pro zdrojová metadata.');
   const url = `https://triobodistribution.blob.core.windows.net/iss${issueId}f/issueMeta.json`;
