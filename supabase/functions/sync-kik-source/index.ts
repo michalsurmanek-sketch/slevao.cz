@@ -264,6 +264,7 @@ Deno.serve(async (request) => {
     const { data: oldImports, error: oldError } = await db.from('leaflet_imports')
       .select('id,source_hash,metadata')
       .eq('source_id', source.id)
+      .contains('metadata', { adapter: 'kik-publitas-v1' })
       .neq('source_hash', sourceHash)
       .in('status', ['published', 'review', 'publishing'])
       .or(`detected_valid_to.is.null,detected_valid_to.gte.${today}`);
