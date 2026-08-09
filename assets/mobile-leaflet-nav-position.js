@@ -16,6 +16,21 @@
     document.head.appendChild(shareScript);
   }
 
+  /* Vlastní výběr okruhu – šířka pro celé „15 km“ a dropdown v designu Slevao.cz. */
+  if (!document.querySelector('link[href*="home-radius-select.css"]')) {
+    const radiusStyle = document.createElement('link');
+    radiusStyle.rel = 'stylesheet';
+    radiusStyle.href = 'assets/home-radius-select.css?v=20260809-1';
+    document.head.appendChild(radiusStyle);
+  }
+
+  if (!document.querySelector('script[src*="home-radius-select.js"]')) {
+    const radiusScript = document.createElement('script');
+    radiusScript.src = 'assets/home-radius-select.js?v=20260809-1';
+    radiusScript.async = false;
+    document.head.appendChild(radiusScript);
+  }
+
   const mobile = window.matchMedia('(max-width: 800px)');
   const GAP = 10;
   let correctionTimer = 0;
