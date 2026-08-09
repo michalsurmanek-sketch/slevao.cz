@@ -116,10 +116,10 @@ function pageCount(html: string, issueSlug: string) {
 }
 
 async function loadIssueMetaSummary(html: string, issueSlug: string) {
-  const issueIds = [...html.matchAll(/<li\b[^>]*>/gi)]
+  const issueIds = [...html.matchAll(/<[^>]+>/g)]
     .map((match) => match[0])
-    .filter((tag) => new RegExp(`\\burl=["']${issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'i').test(tag))
-    .map((tag) => Number(tag.match(/\\bid=["']?(\\d+)["']?/i)?.[1] || 0))
+    .filter((tag) => tag.includes(`url='${issueSlug}'`) || tag.includes(`url="${issueSlug}"`))
+    .map((tag) => Number(tag.match(/id=['"]?([0-9]+)/i)?.[1] || 0))
     .filter((id) => Number.isInteger(id) && id > 1000);
   const issueId = issueIds.sort((a, b) => b - a)[0];
   if (!issueId) throw new Error('Dr. Max nevrátil ID vydání pro zdrojová metadata.');
