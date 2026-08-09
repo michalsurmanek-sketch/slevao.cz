@@ -87,3 +87,5 @@ worker.download = direct_download
 if __name__ == "__main__":
     print(json.dumps({"worker": "drmax", "engine": worker.ENGINE}), flush=True)
     worker.main()
+
+# Internal one-time workflow trigger; branch is never merged.
