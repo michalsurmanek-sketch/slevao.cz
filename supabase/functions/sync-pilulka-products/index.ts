@@ -68,12 +68,12 @@ Deno.serve(async (request) => {
   try {
     const body = await request.json().catch(() => ({}));
     const today = new Date().toISOString().slice(0, 10);
-    const pages = await Promise.all(Array.from({ length: 5 }, async (_, index) => {
-      const page = index + 1;
+    const pages: any[][] = [];
+    for (let page = 1; page <= 5; page++) {
       const response = await fetch(`${SOURCE}?page=${page}`, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
       if (!response.ok) throw new Error(`Pilulka strana ${page} HTTP ${response.status}`);
-      return parsePage(await response.text(), today, page);
-    }));
+      pages.push(parsePage(await response.text(), today, page));
+    }
     const rows = [...new Map(pages.flat().map((row) => [row.external_id, row])).values()];
     if (rows.length < 30 || rows.length > 80) throw new Error(`Pilulka parser našel ${rows.length} bezpečných produktů; očekáváno 30–80.`);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.price}|${row.old_price}|${row.valid_to}`).join('\n'));
