@@ -45,8 +45,8 @@ body{overflow-x:hidden}
   .categoryChips::-webkit-scrollbar,.quickTabs::-webkit-scrollbar{display:none}
   .categoryChips{flex-wrap:nowrap;overflow-x:auto;padding:3px 2px 8px}
   #categoryAllHeader{display:none}
-  #categoryChips .categoryChip[data-category="food"]{order:1}
-  #categoryChips .categoryChip[data-category="all"]{display:inline-flex;order:2}
+  #categoryChips .categoryChip[data-category="all"]{display:inline-flex;order:1}
+  #categoryChips .categoryChip[data-category="food"]{order:2}
   #categoryChips .categoryChip:not([data-category="food"]):not([data-category="all"]){order:3}
   .categoryChip,.quickTab{flex:0 0 auto;min-height:44px;scroll-snap-align:start}
   .quickTabs{padding-right:12px}
