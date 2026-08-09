@@ -1,0 +1,28 @@
+name: Deploy Takko parser
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-takko.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Reclaim obsolete debug slot
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions delete debug-jysk-source --project-ref uhampjdqjxmbhaptgitn --yes || true
+      - name: Deploy Takko parser
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy sync-takko-products --project-ref uhampjdqjxmbhaptgitn --use-api --no-verify-jwt
