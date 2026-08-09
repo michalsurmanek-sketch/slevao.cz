@@ -62,7 +62,7 @@ function parseProducts(html: string, today: string) {
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length < 50 || unique.length > 90) throw new Error(`Intersport parser našel ${unique.length} bezpečných produktů; očekáváno 50–90.`);
+  if (unique.length < 5 || unique.length > 10) throw new Error(`Intersport parser našel ${unique.length} bezpečných produktů; očekáváno 5–10.`);
   return unique;
 }
 
@@ -88,7 +88,7 @@ Deno.serve(async (request) => {
       if (error) throw error;
     }
     if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
-    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'intersport', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 50, p_max_products: 90, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
+    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'intersport', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 5, p_max_products: 10, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
   } catch (error) {
