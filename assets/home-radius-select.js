@@ -30,7 +30,13 @@
   menu.className = 'slRadiusMenu';
   menu.setAttribute('role', 'listbox');
   menu.setAttribute('aria-label', 'Okruh hledání');
-  menu.hidden = true;
+
+  const supportsPopover = typeof menu.showPopover === 'function' && typeof menu.hidePopover === 'function';
+  if (supportsPopover) {
+    menu.setAttribute('popover', 'manual');
+  } else {
+    menu.hidden = true;
+  }
 
   const valueNode = trigger.querySelector('.slRadiusValue');
   const options = [...select.options];
@@ -47,7 +53,11 @@
   });
 
   select.parentNode.insertBefore(control, select);
-  control.append(trigger, menu, select);
+  control.append(trigger, select);
+
+  // Menu zůstává mimo hero kartu. V prohlížečích s Popover API jde navíc do top-layer,
+  // takže ho nemůže oříznout overflow, border-radius ani stacking context rodičů.
+  document.body.appendChild(menu);
 
   const sync = () => {
     const selected = select.options[select.selectedIndex] || options[0];
@@ -59,64 +69,69 @@
     });
   };
 
-  const resetMenuPlacement = () => {
-    menu.style.removeProperty('position');
-    menu.style.removeProperty('left');
-    menu.style.removeProperty('top');
-    menu.style.removeProperty('right');
-    menu.style.removeProperty('bottom');
-    menu.style.removeProperty('z-index');
-    menu.style.removeProperty('max-height');
-    menu.style.removeProperty('overflow-y');
-    if (menu.parentElement !== control) control.insertBefore(menu, select);
-  };
+  const menuIsOpen = () => supportsPopover
+    ? menu.matches(':popover-open')
+    : !menu.hidden;
 
-  const positionPortalMenu = () => {
+  const positionMenu = () => {
     const rect = trigger.getBoundingClientRect();
-    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
-    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
-    const edge = 8;
+    const viewportWidth = window.visualViewport?.width || document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = window.visualViewport?.height || document.documentElement.clientHeight || window.innerHeight;
+    const edge = 10;
     const gap = 8;
+    const wantedWidth = Math.max(150, Math.min(178, rect.width + 34));
+    const menuWidth = Math.min(wantedWidth, viewportWidth - edge * 2);
 
-    if (menu.parentElement !== document.body) document.body.appendChild(menu);
-    menu.style.position = 'fixed';
-    menu.style.zIndex = '10000';
-    menu.style.right = 'auto';
-    menu.style.bottom = 'auto';
-    menu.style.maxHeight = `${Math.max(170, viewportHeight - edge * 2)}px`;
-    menu.style.overflowY = 'auto';
+    menu.style.setProperty('position', 'fixed', 'important');
+    menu.style.setProperty('margin', '0', 'important');
+    menu.style.setProperty('inset', 'auto', 'important');
+    menu.style.setProperty('width', `${Math.round(menuWidth)}px`, 'important');
+    menu.style.setProperty('max-width', `calc(100vw - ${edge * 2}px)`, 'important');
+    menu.style.setProperty('max-height', `${Math.max(170, viewportHeight - edge * 2)}px`, 'important');
+    menu.style.setProperty('overflow-y', 'auto', 'important');
+    menu.style.setProperty('z-index', '2147483647', 'important');
 
-    const menuRect = menu.getBoundingClientRect();
-    const menuWidth = menuRect.width || Math.max(150, rect.width);
-    const menuHeight = menuRect.height || 220;
-    const left = Math.min(Math.max(edge, rect.left), Math.max(edge, viewportWidth - menuWidth - edge));
+    // Teprve po nastavení šířky změříme skutečnou výšku menu.
+    const measured = menu.getBoundingClientRect();
+    const menuHeight = Math.min(measured.height || 230, viewportHeight - edge * 2);
+    const left = Math.min(
+      Math.max(edge, rect.left),
+      Math.max(edge, viewportWidth - menuWidth - edge)
+    );
 
     const roomBelow = viewportHeight - rect.bottom - edge;
     const roomAbove = rect.top - edge;
-    let top = rect.bottom + gap;
-    if (roomBelow < menuHeight + gap && roomAbove > roomBelow) {
-      top = Math.max(edge, rect.top - menuHeight - gap);
-    } else {
-      top = Math.min(top, Math.max(edge, viewportHeight - menuHeight - edge));
-    }
+    const opensUp = roomBelow < menuHeight + gap && roomAbove > roomBelow;
+    const top = opensUp
+      ? Math.max(edge, rect.top - menuHeight - gap)
+      : Math.min(rect.bottom + gap, Math.max(edge, viewportHeight - menuHeight - edge));
 
-    menu.style.left = `${Math.round(left)}px`;
-    menu.style.top = `${Math.round(top)}px`;
+    menu.style.setProperty('left', `${Math.round(left)}px`, 'important');
+    menu.style.setProperty('top', `${Math.round(top)}px`, 'important');
   };
 
   const close = (focusTrigger = false) => {
-    menu.hidden = true;
+    if (supportsPopover) {
+      if (menu.matches(':popover-open')) menu.hidePopover();
+    } else {
+      menu.hidden = true;
+    }
     control.classList.remove('is-open');
     trigger.setAttribute('aria-expanded', 'false');
-    resetMenuPlacement();
     if (focusTrigger) trigger.focus({ preventScroll: true });
   };
 
   const open = () => {
     control.classList.add('is-open');
     trigger.setAttribute('aria-expanded', 'true');
-    menu.hidden = false;
-    positionPortalMenu();
+
+    if (supportsPopover) {
+      if (!menu.matches(':popover-open')) menu.showPopover();
+    } else {
+      menu.hidden = false;
+    }
+
+    positionMenu();
     const active = buttons.find((button) => button.dataset.value === select.value) || buttons[0];
     requestAnimationFrame(() => active?.focus({ preventScroll: true }));
   };
@@ -131,14 +146,14 @@
   };
 
   trigger.addEventListener('click', () => {
-    if (menu.hidden) open();
-    else close();
+    if (menuIsOpen()) close();
+    else open();
   });
 
   trigger.addEventListener('keydown', (event) => {
     if (!['ArrowDown', 'ArrowUp', 'Enter', ' '].includes(event.key)) return;
     event.preventDefault();
-    open();
+    if (!menuIsOpen()) open();
   });
 
   buttons.forEach((button, index) => {
@@ -175,12 +190,20 @@
 
   document.addEventListener('pointerdown', (event) => {
     if (!control.contains(event.target) && !menu.contains(event.target)) close();
+  }, true);
+
+  window.addEventListener('scroll', () => {
+    if (menuIsOpen()) close();
+  }, { passive: true });
+
+  const viewport = window.visualViewport;
+  viewport?.addEventListener('resize', () => {
+    if (menuIsOpen()) positionMenu();
   });
 
-  window.addEventListener('resize', () => close());
-  window.addEventListener('scroll', () => {
-    if (control.classList.contains('is-open')) close();
-  }, { passive: true });
+  window.addEventListener('resize', () => {
+    if (menuIsOpen()) positionMenu();
+  });
 
   sync();
 })();
