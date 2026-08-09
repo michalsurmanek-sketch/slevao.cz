@@ -1,6 +1,21 @@
 (() => {
   'use strict';
 
+  /* Sdílení produktové karty – načteno zde, aby fungovalo na mobilu i desktopu bez zásahu do rendererů. */
+  if (!document.querySelector('link[href*="product-card-share.css"]')) {
+    const shareStyle = document.createElement('link');
+    shareStyle.rel = 'stylesheet';
+    shareStyle.href = 'assets/product-card-share.css?v=20260809-1';
+    document.head.appendChild(shareStyle);
+  }
+
+  if (!document.querySelector('script[src*="product-card-share.js"]')) {
+    const shareScript = document.createElement('script');
+    shareScript.src = 'assets/product-card-share.js?v=20260809-1';
+    shareScript.async = false;
+    document.head.appendChild(shareScript);
+  }
+
   const mobile = window.matchMedia('(max-width: 800px)');
   const GAP = 10;
   let correctionTimer = 0;
