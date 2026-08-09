@@ -3,7 +3,7 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const CACHE_KEY = 'slevao-home-v2-data-upcoming-v1';
+  const CACHE_KEY = 'slevao-home-v2-data-verified-upcoming-v2';
   const SAVED_KEY = 'slevao-saved';
   const RECENT_KEY = 'slevao-recent-searches';
   const PAGE_SIZE = 24;
