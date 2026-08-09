@@ -18,15 +18,15 @@
     ['CZ072','Zlínský kraj'],['CZ080','Moravskoslezský kraj']
   ];
   const CATEGORY_DEFS = [
-    ['food','Potraviny','🥫',['potrav','maso','kuře','ryba','pečivo','chléb','mléko','sýr','jogurt','máslo','vejce','ovoce','zelenina','čokol','káva','cukr','mouka','rýže','těstov']],
-    ['drinks','Nápoje','🥤',['nápoj','voda','cola','limon','džus','pivo','víno','káva','čaj']],
-    ['drugstore','Drogerie','🧴',['droger','šampon','mýdlo','prací','aviváž','zubní','plen','papír','čistič']],
-    ['home','Domácnost','🏠',['domác','kuchyň','nádob','úklid','dekor','svíčk','ručník','povleč']],
-    ['electronics','Elektronika','🔌',['elektr','telefon','notebook','televiz','sluchát','baterie','kabel']],
-    ['garden','Zahrada','🌿',['zahrad','sekač','substrát','květin','gril','nářadí']],
-    ['fashion','Oblečení','👕',['obleč','tričko','kalhot','bunda','boty','ponož']],
-    ['pharmacy','Lékárna','💊',['lékár','vitam','krém','tablety','zdraví']],
-    ['pets','Zvířata','🐾',['krmivo','pes','kočka','zvíř','granule']],
+    ['food','Potraviny','🥫',['potrav','maso','masov','vepr','hovez','kurec','krkovic','kyta','kotlet','svickov','stehno','prsa','sunka','uzen','salám','klobas','parek','ryba','losos','tresk','peciv','chleb','rohlik','mleko','syr','jogurt','maslo','vejce','ovoce','zelenina','brambor','cibul','rajcat','paprik','cokol','cukr','mouka','ryze','testovin']],
+    ['drinks','Nápoje','🥤',['napoj','voda','cola','limon','dzus','juice','pivo','vino','kava','caj','sirup','energy']],
+    ['drugstore','Drogerie','🧴',['droger','sampon','mydlo','praci','avivaz','zubni','plenk','toaletni papir','cistic','kosmetik','deodor']],
+    ['home','Domácnost','🏠',['domac','kuchyn','nadob','uklid','dekor','svick','rucnik','povlec','nabytek','skrin','postel','stul','zidle','sedack','drez','dlazb','naradi','mlynek','svitidlo','zarovk']],
+    ['electronics','Elektronika','🔌',['elektr','telefon','mobil','notebook','televiz','sluchat','pocitac','tablet','monitor','kabel']],
+    ['garden','Zahrada','🌿',['zahrad','sekac','substrat','kvetin','gril','cerpadlo','hadice','komposter']],
+    ['fashion','Oblečení','👕',['oblec','tricko','kalhot','bunda','boty','ponoz','mikina','saty','sukne','kosile']],
+    ['pharmacy','Lékárna','💊',['lekar','vitam','leciv','tablety','kapsle','zdravi','mast']],
+    ['pets','Zvířata','🐾',['krmivo','granule','stelivo','mazlic','pro psy','pro kocky','whiskas','pedigree','purina']],
     ['other','Ostatní','🏷️',[]]
   ];
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
@@ -130,11 +130,17 @@
     const explicit = offer.categories?.slug || offer.categories?.name;
     if (explicit) {
       const value = fold(explicit);
-      const found = CATEGORY_DEFS.find(([,name,,words]) => value.includes(fold(name)) || words.some((word) => value.includes(fold(word))));
+      const found = CATEGORY_DEFS.find(([key,name,,words]) => key !== 'other' && (value.includes(fold(name)) || words.some((word) => value.includes(fold(word)))));
       if (found) return found[0];
     }
-    const haystack = fold([offer.title, offer.products?.name, offer.products?.brand].filter(Boolean).join(' '));
-    return (CATEGORY_DEFS.find((item) => item[3].some((word) => haystack.includes(fold(word)))) || CATEGORY_DEFS.at(-1))[0];
+
+    const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text].filter(Boolean).join(' '));
+    const priority = ['electronics','pharmacy','pets','fashion','drugstore','garden','home','drinks','food'];
+    const foundKey = priority.find((key) => {
+      const definition = CATEGORY_DEFS.find((item) => item[0] === key);
+      return definition?.[3].some((word) => haystack.includes(fold(word)));
+    });
+    return foundKey || 'other';
   }
 
   function quantityInfo(offer) {
