@@ -88,14 +88,14 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
         .filter((token) => {
           if (Number(token.height) < 9.5 || Number(token.height) > 15 || badTitle(token.text)) return false;
           const rowTitle = skuPriceSameLine && token.x >= priceToken.x + 25 && token.x <= priceToken.x + 190
-            && Math.abs(token.y - priceToken.y) <= 35;
+            && token.y >= priceToken.y - 5 && token.y <= priceToken.y + 35;
           const columnTitle = Math.abs(token.x - sku.x) <= 60 && Math.abs(token.y - priceToken.y) >= 8
             && Math.abs(token.y - priceToken.y) <= 105;
-          return rowTitle || columnTitle;
+          return skuPriceSameLine ? rowTitle : columnTitle;
         })
         .sort((a, b) => {
-          const aRow = skuPriceSameLine && a.x >= priceToken.x + 25 && Math.abs(a.y - priceToken.y) <= 35;
-          const bRow = skuPriceSameLine && b.x >= priceToken.x + 25 && Math.abs(b.y - priceToken.y) <= 35;
+          const aRow = skuPriceSameLine && a.x >= priceToken.x + 25 && a.y >= priceToken.y - 5 && a.y <= priceToken.y + 35;
+          const bRow = skuPriceSameLine && b.x >= priceToken.x + 25 && b.y >= priceToken.y - 5 && b.y <= priceToken.y + 35;
           if (aRow !== bRow) return aRow ? -1 : 1;
           return Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y);
         });
