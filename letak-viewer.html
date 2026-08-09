@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#159e94">
+  <meta name="robots" content="noindex,follow">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <title>Leták | Slevao.cz</title>
+  <link rel="icon" href="favicon.svg?v=20260802-2" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/leaflet-viewer.css?v=20260809-1">
+</head>
+<body>
+  <header class="viewerTopbar">
+    <div class="viewerTopbarInner">
+      <a class="viewerLogo" href="index.html" aria-label="Slevao.cz domů"></a>
+      <div class="viewerMeta">
+        <strong id="viewerTitle">Aktuální leták</strong>
+        <span id="viewerStore">Slevao.cz</span>
+      </div>
+      <button id="viewerBack" class="viewerBack" type="button" aria-label="Zpět">← Zpět</button>
+    </div>
+  </header>
+
+  <main class="viewerMain">
+    <div class="viewerToolbar">
+      <div class="viewerStatus"><span class="viewerStatusDot" aria-hidden="true"></span><span id="viewerStatus">Načítám leták…</span></div>
+      <span id="viewerPageCount" class="viewerPageCount">…</span>
+    </div>
+    <div id="viewerPages" class="viewerPages" aria-live="polite">
+      <div class="viewerPage"><div class="viewerSpinner" aria-hidden="true"></div></div>
+    </div>
+  </main>
+
+  <script type="module" src="assets/leaflet-viewer.js?v=20260809-1"></script>
+</body>
+</html>
