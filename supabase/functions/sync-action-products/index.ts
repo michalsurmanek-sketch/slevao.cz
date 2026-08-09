@@ -70,7 +70,19 @@ Deno.serve(async (request) => {
         metadata: { adapter: ADAPTER, parser_version: ADAPTER, action_product_number: sku, evidence: { raw_text: raw } },
       });
     }
+    const titleCounts = new Map<string, number>();
+    for (const row of rows) titleCounts.set(row.normalized_title, (titleCounts.get(row.normalized_title) || 0) + 1);
+    for (const row of rows) {
+      if ((titleCounts.get(row.normalized_title) || 0) > 1) {
+        if (!row.quantity_text) continue;
+        row.title = clean(`${row.title} ${row.quantity_text}`);
+        row.normalized_title = normalize(row.title);
+      }
+    }
     const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()].sort((a, b) => a.title.localeCompare(b.title, 'cs'));
+    if (new Set(unique.map((row) => row.normalized_title)).size !== unique.length) {
+      throw new Error('Action obsahuje nerozlišitelné duplicitní názvy produktů.');
+    }
     if (unique.length < 20 || unique.length > 40) throw new Error(`Action má ${unique.length} bezpečných produktů; očekáváno 20–40.`);
     const signature = await sha256(unique.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.quantity_text || ''}`).join('\n'));
     if (body.dry_run === true) return json({ ok: true, dry_run: true, import_id: imported.id, publishable: unique.length, signature, candidates: unique });
