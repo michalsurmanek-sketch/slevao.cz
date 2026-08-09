@@ -121,7 +121,7 @@ async function loadIssueMetaSummary(html: string, issueSlug: string) {
   if (!issueId) throw new Error('Dr. Max nevrátil ID vydání pro zdrojová metadata.');
   const url = `https://triobodistribution.blob.core.windows.net/iss${issueId}f/issueMeta.json`;
   const response = await fetch(url, { headers: { ...HEADERS, accept: 'application/json,*/*' } });
-  if (!response.ok) throw new Error(`Triobo issueMeta HTTP ${response.status}`);
+  if (!response.ok) throw new Error(`Triobo issueMeta ${url} HTTP ${response.status}`);
   const metadata = await response.json();
   const sources = metadata?.freeSources || metadata?.sources || null;
   return {
