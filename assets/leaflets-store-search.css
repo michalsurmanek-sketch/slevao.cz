@@ -1,0 +1,59 @@
+/* Slevao.cz – vyhledávač obchodů na stránce letáků */
+.leafletsStoreSearchSection{position:relative;z-index:65;margin:0 0 2px}
+.leafletsStoreSearchCard{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(360px,520px);align-items:center;gap:28px;padding:18px 22px;border:1px solid #d8e9e7;border-radius:22px;background:rgba(255,255,255,.97);box-shadow:0 12px 34px rgba(20,50,47,.07)}
+.leafletsStoreSearchCopy{min-width:0}
+.leafletsStoreSearchCopy span{display:block;margin-bottom:3px;color:#159e94;font-size:10px;font-weight:950;letter-spacing:.09em;text-transform:uppercase}
+.leafletsStoreSearchCopy strong{display:block;color:#182629;font-size:18px;line-height:1.15;letter-spacing:-.025em}
+.leafletsStoreSearchCopy small{display:block;margin-top:4px;color:#70807d;font-size:11px;line-height:1.4}
+.leafletsStoreSearch{position:relative;min-width:0}
+.leafletsStoreSearchBox{position:relative;display:grid;grid-template-columns:44px minmax(0,1fr) auto;align-items:center;min-height:52px;padding:4px 5px 4px 6px;border:2px solid #d9e9e7;border-radius:17px;background:#fff;box-shadow:0 7px 20px rgba(20,50,47,.045);transition:border-color .15s ease,box-shadow .15s ease}
+.leafletsStoreSearchBox:focus-within{border-color:#50cfc4;box-shadow:0 0 0 4px rgba(21,158,148,.1),0 10px 24px rgba(20,50,47,.07)}
+.leafletsStoreSearchLead{width:38px;height:38px;display:grid;place-items:center;overflow:hidden;border-radius:12px;background:#eefaf8;color:#159e94}
+.leafletsStoreSearchLead svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
+.leafletsStoreSearchLead img{width:30px;height:26px;object-fit:contain}
+.leafletsStoreSearchInput{width:100%;height:42px;min-width:0;padding:0 10px;border:0;outline:0;background:transparent;color:#172326;font:800 14px/1.2 Inter,system-ui,-apple-system,"Segoe UI",sans-serif}
+.leafletsStoreSearchInput::placeholder{color:#84918f;font-weight:650}
+.leafletsStoreSearchButton{height:42px;display:inline-flex;align-items:center;justify-content:center;padding:0 18px;border:0;border-radius:13px;background:linear-gradient(135deg,#19b9ad,#079c91);color:#fff;font-size:12px;font-weight:950;cursor:pointer;box-shadow:0 7px 16px rgba(7,156,145,.18)}
+.leafletsStoreSearchButton:hover{filter:brightness(.98)}
+.leafletsStoreSearchClear{position:absolute;right:82px;top:50%;width:30px;height:30px;transform:translateY(-50%);display:grid;place-items:center;border:0;border-radius:9px;background:transparent;color:#80908d;font-size:19px;line-height:1;cursor:pointer}
+.leafletsStoreSearchClear:hover{background:#f0f7f6;color:#087e75}
+.leafletsStoreSearchClear[hidden]{display:none}
+.leafletsStoreSuggestions{position:absolute;left:0;right:0;top:calc(100% + 8px);z-index:120;overflow:hidden;padding:7px;border:1px solid #d7e8e6;border-radius:18px;background:rgba(255,255,255,.985);box-shadow:0 20px 55px rgba(19,49,46,.16);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.leafletsStoreSuggestions[hidden]{display:none}
+.leafletsStoreSuggestion{width:100%;min-height:58px;display:grid;grid-template-columns:46px minmax(0,1fr) auto;align-items:center;gap:10px;padding:7px 10px;border:0;border-radius:13px;background:transparent;color:#1b282a;text-align:left;cursor:pointer}
+.leafletsStoreSuggestion:hover,.leafletsStoreSuggestion.is-active{background:#eefaf8}
+.leafletsStoreSuggestionLogo{width:42px;height:42px;display:grid;place-items:center;border:1px solid #e4eeec;border-radius:12px;background:#fff;overflow:hidden}
+.leafletsStoreSuggestionLogo img{max-width:34px;max-height:28px;object-fit:contain}
+.leafletsStoreSuggestionMark{font-size:15px;font-weight:950;color:#159e94}
+.leafletsStoreSuggestionText{min-width:0}
+.leafletsStoreSuggestionText strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px;line-height:1.2}
+.leafletsStoreSuggestionText small{display:block;margin-top:3px;color:#72817f;font-size:10px;font-weight:700}
+.leafletsStoreSuggestionCount{min-width:54px;padding:6px 8px;border-radius:999px;background:#f3f7f6;color:#60706d;font-size:9.5px;font-weight:900;text-align:center;white-space:nowrap}
+.leafletsStoreNoResult{padding:16px 13px;color:#70807d;font-size:12px;text-align:center}
+.allLeafletCard--search-hit{animation:leafletSearchHit 1.45s ease;outline:3px solid rgba(21,158,148,.26);outline-offset:3px}
+@keyframes leafletSearchHit{0%,100%{transform:translateY(0);box-shadow:0 8px 24px rgba(20,50,47,.055)}35%{transform:translateY(-3px);box-shadow:0 17px 38px rgba(21,158,148,.2)}}
+
+@media(max-width:800px){
+  .leafletsStoreSearchSection{margin-top:0}
+  .leafletsStoreSearchCard{grid-template-columns:1fr;gap:11px;padding:14px 13px;border-radius:18px}
+  .leafletsStoreSearchCopy strong{font-size:15px}
+  .leafletsStoreSearchCopy small{font-size:10px}
+  .leafletsStoreSearchBox{grid-template-columns:40px minmax(0,1fr) auto;min-height:48px;border-radius:15px}
+  .leafletsStoreSearchLead{width:35px;height:35px;border-radius:10px}
+  .leafletsStoreSearchLead img{width:28px;height:23px}
+  .leafletsStoreSearchInput{height:38px;padding-inline:8px;font-size:13px}
+  .leafletsStoreSearchButton{height:38px;padding-inline:14px;border-radius:11px;font-size:11px}
+  .leafletsStoreSearchClear{right:69px;width:27px;height:27px;font-size:17px}
+  .leafletsStoreSuggestions{top:calc(100% + 6px);padding:5px;border-radius:15px}
+  .leafletsStoreSuggestion{min-height:54px;grid-template-columns:42px minmax(0,1fr) auto;padding:6px 8px}
+  .leafletsStoreSuggestionLogo{width:38px;height:38px;border-radius:10px}
+  .leafletsStoreSuggestionLogo img{max-width:31px;max-height:25px}
+  .leafletsStoreSuggestionCount{min-width:48px;padding-inline:6px;font-size:9px}
+}
+
+@media(max-width:370px){
+  .leafletsStoreSearchButton{padding-inline:11px}
+  .leafletsStoreSearchClear{right:62px}
+}
+
+@media(prefers-reduced-motion:reduce){.allLeafletCard--search-hit{animation:none}}
