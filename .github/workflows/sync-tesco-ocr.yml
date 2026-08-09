@@ -1,8 +1,6 @@
 name: Tesco OCR
 
 on:
-  schedule:
-    - cron: '23 */6 * * *'
   workflow_dispatch:
   pull_request:
     branches:
