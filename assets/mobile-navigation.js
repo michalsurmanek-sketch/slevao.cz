@@ -445,3 +445,93 @@
   sections.forEach(({ section }) => observer.observe(section));
   setActive(links.find((link) => link.getAttribute('href') === window.location.hash) || links[0]);
 })();
+
+/* Mobilní karta: jistota tlačítka Stránka obchodu + ikon u akcí */
+(() => {
+  const mobile = window.matchMedia('(max-width: 800px)');
+  const grid = document.getElementById('dealGrid');
+  if (!grid) return;
+
+  const paths = {
+    compare:'<path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/>',
+    store:'<path d="M3 10h18M5 10v10h14V10M4 4h16l2 6H2z"/><path d="M9 20v-6h6v6"/>',
+    add:'<path d="M12 5v14M5 12h14"/>',
+    detail:'<path d="M4 19V11M10 19V5M16 19v-9M22 19H2"/>',
+    bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/>'
+  };
+
+  const makeIcon = (name) => {
+    const span = document.createElement('span');
+    span.className = 'dealActionIcon';
+    span.setAttribute('aria-hidden', 'true');
+    span.innerHTML = `<svg viewBox="0 0 24 24" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name]}</g></svg>`;
+    return span;
+  };
+
+  const replaceButtonContent = (control, iconName, forcedLabel = '') => {
+    if (!control || control.querySelector(':scope > .dealActionIcon')) return;
+    const labelText = forcedLabel || control.textContent.replace(/^\s*[＋+✓♡♥]\s*/, '').trim();
+    const label = document.createElement('span');
+    label.className = 'dealActionLabel';
+    label.textContent = labelText;
+    control.replaceChildren(makeIcon(iconName), label);
+  };
+
+  const enhanceCard = (card) => {
+    if (!mobile.matches || !card) return;
+    const actions = card.querySelector('.dealActions');
+    const compare = actions?.querySelector('.compareButton');
+    const store = actions?.querySelector('.storeButton');
+
+    if (compare) replaceButtonContent(compare, 'compare');
+    if (store) {
+      store.hidden = false;
+      store.style.removeProperty('display');
+      replaceButtonContent(store, 'store', 'Stránka obchodu');
+      store.setAttribute('aria-label', 'Stránka obchodu');
+    }
+
+    const tools = card.querySelector('.dealToolsSlot .slevaoExtraActions') || card.querySelector('.slevaoExtraActions');
+    if (tools) {
+      replaceButtonContent(tools.querySelector('[data-sf-add]'), 'add', 'Do seznamu');
+      replaceButtonContent(tools.querySelector('[data-sf-detail]'), 'detail', 'Detail a ceny');
+      replaceButtonContent(tools.querySelector('[data-sf-alert]'), 'bell', 'Hlídat cenu');
+    }
+  };
+
+  if (!document.getElementById('mobileProductActionIconFix')) {
+    const style = document.createElement('style');
+    style.id = 'mobileProductActionIconFix';
+    style.textContent = `
+      @media(max-width:800px){
+        .dealCard[data-mobile-product-card="1"] .dealActions{display:grid!important;grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+        .dealCard[data-mobile-product-card="1"] .dealActions>.storeButton,
+        .dealCard[data-mobile-product-card="1"] .dealActions>.compareButton{display:flex!important;align-items:center!important;justify-content:center!important;gap:7px!important;visibility:visible!important;opacity:1}
+        .dealCard[data-mobile-product-card="1"] .dealActions>.storeButton{min-width:0!important;color:#172222!important;border:1px solid #078c82!important;background:#fff!important}
+        .dealCard[data-mobile-product-card="1"] .dealActionIcon{width:19px;height:19px;flex:0 0 19px;display:inline-grid;place-items:center;line-height:0}
+        .dealCard[data-mobile-product-card="1"] .dealActionIcon svg{display:block;width:100%;height:100%}
+        .dealCard[data-mobile-product-card="1"] .dealActionLabel{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions button,
+        .dealCard[data-mobile-product-card="1"] .dealToolsSlot .slevaoExtraActions a{display:flex!important;align-items:center!important;justify-content:center!important;gap:5px!important}
+        .dealCard[data-mobile-product-card="1"] .dealToolsSlot .dealActionIcon{width:17px;height:17px;flex-basis:17px}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  let frame = 0;
+  const refresh = () => {
+    frame = 0;
+    if (!mobile.matches) return;
+    grid.querySelectorAll('.dealCard').forEach(enhanceCard);
+  };
+  const schedule = () => {
+    if (frame) return;
+    frame = requestAnimationFrame(refresh);
+  };
+
+  new MutationObserver(schedule).observe(grid, { childList:true, subtree:true });
+  if (typeof mobile.addEventListener === 'function') mobile.addEventListener('change', schedule);
+  else if (typeof mobile.addListener === 'function') mobile.addListener(schedule);
+  schedule();
+})();
