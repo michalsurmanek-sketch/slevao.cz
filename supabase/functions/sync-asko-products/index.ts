@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const SOURCE = 'https://www.asko-nabytek.cz/vyprodej';
-const ADAPTER = 'asko-official-clearance-html-v1';
+const ADAPTER = 'asko-official-clearance-html-v2';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
 
@@ -42,7 +42,7 @@ async function sha256(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
-function parseProducts(html: string, today: string) {
+function parseProducts(html: string, today: string, page: number) {
   const blocks = html.split('<div class="product">').slice(1);
   const rows: any[] = [];
   for (const block of blocks) {
@@ -63,13 +63,18 @@ function parseProducts(html: string, today: string) {
     const image = `https://www.asko-nabytek.cz${relativeImage}`;
     rows.push({
       external_id: `asko:${id}`, title, normalized_title: normalize(title), price, old_price: oldPrice, quantity_text: null,
-      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: 1, product_id: null, image_url: image, confidence: 0.99,
-      metadata: { adapter: ADAPTER, parser_version: ADAPTER, asko_product_id: id, evidence: { official_clearance_badge: true, displayed_price: price, cart_unit_price: cartPrice, price_before_clearance: oldPrice } },
+      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: page, product_id: null, image_url: image, confidence: 0.99,
+      metadata: { adapter: ADAPTER, parser_version: ADAPTER, asko_product_id: id, source_page: page, evidence: { official_clearance_badge: true, displayed_price: price, cart_unit_price: cartPrice, price_before_clearance: oldPrice } },
     });
   }
-  const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length < 8 || unique.length > 20) throw new Error(`ASKO parser našel ${unique.length} bezpečných produktů; očekáváno 8–20.`);
-  return unique;
+  return rows;
+}
+
+async function fetchPage(page: number) {
+  const url = page === 1 ? SOURCE : `${SOURCE}?page=${page}`;
+  const response = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
+  if (!response.ok) throw new Error(`ASKO strana ${page} HTTP ${response.status}`);
+  return response.text();
 }
 
 Deno.serve(async (request) => {
@@ -78,11 +83,19 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   try {
     const body = await request.json().catch(() => ({}));
-    const response = await fetch(SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
-    if (!response.ok) throw new Error(`ASKO HTTP ${response.status}`);
-    const html = await response.text();
     const today = new Date().toISOString().slice(0, 10);
-    const rows = parseProducts(html, today);
+    const firstHtml = await fetchPage(1);
+    const pageNumbers = [...firstHtml.matchAll(/\/vyprodej\?page=(\d+)/g)].map((match) => Number(match[1])).filter(Number.isFinite);
+    const lastPage = Math.max(1, ...pageNumbers);
+    if (lastPage < 2 || lastPage > 150) throw new Error(`ASKO má neočekávaný počet stran: ${lastPage}.`);
+    const collected = parseProducts(firstHtml, today, 1);
+    for (let start = 2; start <= lastPage; start += 10) {
+      const pages = Array.from({ length: Math.min(10, lastPage - start + 1) }, (_, index) => start + index);
+      const htmlPages = await Promise.all(pages.map(fetchPage));
+      htmlPages.forEach((html, index) => collected.push(...parseProducts(html, today, pages[index])));
+    }
+    const rows = [...new Map(collected.map((row) => [row.external_id, row])).values()];
+    if (rows.length < 100 || rows.length > 1600) throw new Error(`ASKO parser našel ${rows.length} bezpečných produktů; očekáváno 100–1600.`);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price}|${row.valid_to}`).join('\n'));
     const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'asko').single();
     if (storeError || !store) throw storeError || new Error('ASKO nebyl nalezen.');
@@ -93,8 +106,8 @@ Deno.serve(async (request) => {
       const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'ASKO Výprodej', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_html' });
       if (error) throw error;
     }
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
-    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'asko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 8, p_max_products: 20, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, pages: lastPage, publishable: rows.length, signature, candidates: rows });
+    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'asko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 100, p_max_products: 1600, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
   } catch (error) {
