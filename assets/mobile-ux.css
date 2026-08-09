@@ -40,6 +40,7 @@ body{overflow-x:hidden}
   .inlineHead{flex-wrap:wrap;align-items:flex-end}
   .inlineHead>div{min-width:0;flex:1 1 230px}
   .inlineHead>.textButton{margin-left:auto;min-height:44px;display:inline-flex;align-items:center}
+  #storesSection .sectionHead h2{white-space:nowrap;overflow-wrap:normal;word-break:normal}
 
   .categoryChips,.quickTabs{scrollbar-width:none;-ms-overflow-style:none;overscroll-behavior-inline:contain;scroll-snap-type:x proximity}
   .categoryChips::-webkit-scrollbar,.quickTabs::-webkit-scrollbar{display:none}
