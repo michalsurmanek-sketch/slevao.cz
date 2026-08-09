@@ -38,7 +38,7 @@ async function sha256(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
-function parseProducts(html: string, today: string) {
+function parseProducts(html: string, today: string, page: number) {
   const blocks = html.split('<div class="p" data-micro="product"').slice(1);
   const rows: any[] = [];
   for (const block of blocks) {
@@ -59,13 +59,11 @@ function parseProducts(html: string, today: string) {
     const href = `https://www.petcenter.cz${relativeHref}`;
     rows.push({
       external_id: `petcenter:${id}`, title, normalized_title: normalize(title), price, old_price: oldPrice, quantity_text: null,
-      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: 1, product_id: null, image_url: image, confidence: 0.99,
+      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: page, product_id: null, image_url: image, confidence: 0.99,
       metadata: { adapter: ADAPTER, parser_version: ADAPTER, petcenter_product_id: id, evidence: { official_clearance_flag: true, current_price: price, regular_price: oldPrice, in_stock: true, minimum_quantity: 1 } },
     });
   }
-  const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length < 15 || unique.length > 30) throw new Error(`PetCenter parser našel ${unique.length} bezpečných produktů; očekáváno 15–30.`);
-  return unique;
+  return rows;
 }
 
 Deno.serve(async (request) => {
@@ -74,11 +72,16 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   try {
     const body = await request.json().catch(() => ({}));
-    const response = await fetch(SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
-    if (!response.ok) throw new Error(`PetCenter HTTP ${response.status}`);
-    const html = await response.text();
     const today = new Date().toISOString().slice(0, 10);
-    const rows = parseProducts(html, today);
+    const pageRows = await Promise.all(Array.from({ length: 15 }, async (_, index) => {
+      const page = index + 1;
+      const pageUrl = page === 1 ? SOURCE : `${SOURCE}strana-${page}/`;
+      const response = await fetch(pageUrl, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
+      if (!response.ok) throw new Error(`PetCenter strana ${page} HTTP ${response.status}`);
+      return parseProducts(await response.text(), today, page);
+    }));
+    const rows = [...new Map(pageRows.flat().map((row) => [row.external_id, row])).values()];
+    if (rows.length < 200 || rows.length > 320) throw new Error(`PetCenter parser našel ${rows.length} bezpečných produktů; očekáváno 200–320.`);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price}|${row.valid_to}`).join('\n'));
     const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'petcenter').single();
     if (storeError || !store) throw storeError || new Error('PetCenter nebyl nalezen.');
@@ -90,7 +93,7 @@ Deno.serve(async (request) => {
       if (error) throw error;
     }
     if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
-    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'petcenter', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 15, p_max_products: 30, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
+    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'petcenter', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 200, p_max_products: 320, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
   } catch (error) {
