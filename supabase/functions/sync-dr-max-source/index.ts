@@ -127,18 +127,31 @@ async function loadIssueMetaSummary(html: string, issueSlug: string) {
   const response = await fetch(url, { headers: { ...HEADERS, accept: 'application/json,*/*' } });
   if (!response.ok) throw new Error(`Triobo issueMeta ${url} HTTP ${response.status}`);
   const metadata = await response.json();
-  const sources = metadata?.freeSources || metadata?.sources || null;
+  const sources = metadata?.freeSources || null;
+  if (!sources || typeof sources !== 'object' || Array.isArray(sources)) {
+    throw new Error('Triobo nevrátilo mapu volně dostupných zdrojů.');
+  }
+  const sourceEntries = Object.values(sources)
+    .filter((source: any) => source?.type === 'jpg' && Number(source?.id) > 0 && Number(source?.articleId) > 0)
+    .sort((a: any, b: any) => Number(a.articleId) - Number(b.articleId));
+  if (!sourceEntries.length) throw new Error('Triobo nevrátilo originální JPG strany.');
+  const container = `https://triobodistribution.blob.core.windows.net/iss${issueId}f`;
+  const pageImageUrls = sourceEntries.map((source: any) => `${container}/item${Number(source.id)}-orig.jpg`);
+  const probe = await fetch(pageImageUrls[0], { method: 'HEAD', headers: HEADERS });
+  if (!probe.ok || !String(probe.headers.get('content-type') || '').toLowerCase().startsWith('image/jpeg')) {
+    throw new Error(`Triobo originální strana HTTP ${probe.status}`);
+  }
   return {
-    issue_id: Number(issueId),
-    container_url: url,
-    top_level_keys: Object.keys(metadata || {}),
-    source_kind: Array.isArray(sources) ? 'array' : typeof sources,
-    source_count: Array.isArray(sources) ? sources.length : sources && typeof sources === 'object' ? Object.keys(sources).length : 0,
-    source_sample: Array.isArray(sources)
-      ? sources.slice(0, 3)
-      : sources && typeof sources === 'object'
-        ? Object.fromEntries(Object.entries(sources).slice(0, 3))
-        : null,
+    pageImageUrls,
+    summary: {
+      issue_id: Number(issueId),
+      container_url: url,
+      source_count: sourceEntries.length,
+      image_width: Number((sourceEntries[0] as any)?.meta?.width || 0),
+      image_height: Number((sourceEntries[0] as any)?.meta?.height || 0),
+      image_bytes: Number((sourceEntries[0] as any)?.meta?.size || 0),
+      asset_kind: 'official_triobo_original_jpg',
+    },
   };
 }
 
@@ -148,19 +161,13 @@ async function loadCurrentIssue(): Promise<Issue> {
   const issueUrl = `${SOURCE_URL.replace(/\/$/, '')}/${issueSlug}`;
   const issue = await fetchHtml(issueUrl);
   const validity = dateFromIssueSlug(issueSlug);
-  const issueMetaSummary = await loadIssueMetaSummary(listing.html, issueSlug);
+  const issueAssets = await loadIssueMetaSummary(listing.html, issueSlug);
   const coverUrl = meta(issue.html, 'og:image') || null;
   const pages = pageCount(issue.html, issueSlug);
-  const pageImageUrls = await Promise.all(Array.from({ length: pages }, async (_, index) => {
-    const pageUrl = `${issueUrl}/strana-${index + 1}`;
-    const page = await fetchHtml(pageUrl);
-    const image = meta(page.html, 'og:image');
-    const parsed = new URL(image);
-    if (parsed.protocol !== 'https:' || parsed.hostname !== 'triobodistribution.blob.core.windows.net' || !/^\/public\/ogPreview\d+\.jpg$/i.test(parsed.pathname)) {
-      throw new Error(`Dr. Max strana ${index + 1} nevrátila povolený oficiální obrázek.`);
-    }
-    return parsed.toString();
-  }));
+  if (issueAssets.pageImageUrls.length !== pages) {
+    throw new Error(`Triobo vrátilo ${issueAssets.pageImageUrls.length} originálů pro ${pages} stran.`);
+  }
+  const pageImageUrls = issueAssets.pageImageUrls;
   const rawTitle = meta(issue.html, 'og:title')
     || decodeHtml(issue.html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '');
   const title = rawTitle.replace(/\s*\|\s*Leták Dr\.Max\s*$/i, '').trim() || issueSlug;
@@ -173,7 +180,7 @@ async function loadCurrentIssue(): Promise<Issue> {
     pageCount: pages,
     coverUrl,
     pageImageUrls,
-    issueMetaSummary,
+    issueMetaSummary: issueAssets.summary,
   };
 }
 
@@ -217,7 +224,7 @@ Deno.serve(async (request) => {
       page_image_urls: issue.pageImageUrls,
       issue_meta_summary: issue.issueMetaSummary,
       ocr_required: true,
-      ocr_source: 'official_triobo_page_previews',
+      ocr_source: 'official_triobo_original_jpg',
       source_page: SOURCE_URL,
       last_seen_at: checkedAt,
     };
