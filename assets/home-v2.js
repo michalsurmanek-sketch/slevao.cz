@@ -451,7 +451,7 @@
     const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];
     const mobileStatus = matchMedia('(max-width: 800px)').matches;
     const visibleStatus = mobileStatus
-      ? (/načítám|obnovuji/i.test(String(status)) ? 'Aktualizováno' : String(status).replace(' dnes', ''))
+      ? (/obnovuji/i.test(String(status)) ? 'Obnovuji' : /načítám/i.test(String(status)) ? 'Aktualizováno' : String(status).replace(' dnes', ''))
       : status;
     $('statusPill').textContent = !currentCount && state.offers.length && nextStart ? `✓ Nabídky platí od ${date(nextStart)}` : visibleStatus;
     renderAll();
