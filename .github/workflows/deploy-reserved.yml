@@ -1,0 +1,32 @@
+name: Deploy Reserved parser
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/sync-reserved-products/**'
+      - '.github/workflows/deploy-reserved.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Remove obsolete debug functions
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          for function_name in debug-intersport-source debug-jysk-source debug-makro-source debug-pepco-source debug-terno-source debug-teta-source; do
+            supabase functions delete "$function_name" --project-ref uhampjdqjxmbhaptgitn --yes || true
+          done
+      - name: Deploy Reserved parser
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: supabase functions deploy sync-reserved-products --project-ref uhampjdqjxmbhaptgitn --use-api --no-verify-jwt
