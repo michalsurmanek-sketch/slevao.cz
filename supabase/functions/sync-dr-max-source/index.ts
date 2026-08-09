@@ -28,6 +28,7 @@ type Issue = {
   pageCount: number;
   coverUrl: string | null;
   pageImageUrls: string[];
+  issueMetaSummary: unknown;
 };
 
 function json(body: unknown, status = 200) {
@@ -114,12 +115,36 @@ function pageCount(html: string, issueSlug: string) {
   return count;
 }
 
+async function loadIssueMetaSummary(html: string, issueSlug: string) {
+  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\async function loadCurrentIssue(): Promise<Issue> {');
+  const issueId = html.match(new RegExp(`<li[^>]+(?:id=["']?(\\d+)["']?[^>]+url=["']${escaped}["']|url=["']${escaped}["'][^>]+id=["']?(\\d+)["']?)`, 'i'))?.slice(1).find(Boolean);
+  if (!issueId) throw new Error('Dr. Max nevrátil ID vydání pro zdrojová metadata.');
+  const url = `https://triobodistribution.blob.core.windows.net/iss${issueId}f/issueMeta.json`;
+  const response = await fetch(url, { headers: { ...HEADERS, accept: 'application/json,*/*' } });
+  if (!response.ok) throw new Error(`Triobo issueMeta HTTP ${response.status}`);
+  const metadata = await response.json();
+  const sources = metadata?.freeSources || metadata?.sources || null;
+  return {
+    issue_id: Number(issueId),
+    container_url: url,
+    top_level_keys: Object.keys(metadata || {}),
+    source_kind: Array.isArray(sources) ? 'array' : typeof sources,
+    source_count: Array.isArray(sources) ? sources.length : sources && typeof sources === 'object' ? Object.keys(sources).length : 0,
+    source_sample: Array.isArray(sources)
+      ? sources.slice(0, 3)
+      : sources && typeof sources === 'object'
+        ? Object.fromEntries(Object.entries(sources).slice(0, 3))
+        : null,
+  };
+}
+
 async function loadCurrentIssue(): Promise<Issue> {
   const listing = await fetchHtml(SOURCE_URL);
   const issueSlug = currentIssueSlug(listing.html);
   const issueUrl = `${SOURCE_URL.replace(/\/$/, '')}/${issueSlug}`;
   const issue = await fetchHtml(issueUrl);
   const validity = dateFromIssueSlug(issueSlug);
+  const issueMetaSummary = await loadIssueMetaSummary(issue.html, issueSlug);
   const coverUrl = meta(issue.html, 'og:image') || null;
   const pages = pageCount(issue.html, issueSlug);
   const pageImageUrls = await Promise.all(Array.from({ length: pages }, async (_, index) => {
@@ -144,6 +169,7 @@ async function loadCurrentIssue(): Promise<Issue> {
     pageCount: pages,
     coverUrl,
     pageImageUrls,
+    issueMetaSummary,
   };
 }
 
@@ -185,6 +211,7 @@ Deno.serve(async (request) => {
       viewer_url: issue.issueUrl,
       cover_image_url: issue.coverUrl,
       page_image_urls: issue.pageImageUrls,
+      issue_meta_summary: issue.issueMetaSummary,
       ocr_required: true,
       ocr_source: 'official_triobo_page_previews',
       source_page: SOURCE_URL,
@@ -268,6 +295,7 @@ Deno.serve(async (request) => {
       cover_url: issue.coverUrl,
       page_count: issue.pageCount,
       page_image_urls: issue.pageImageUrls,
+      issue_meta_summary: issue.issueMetaSummary,
       valid_from: issue.validFrom,
       valid_to: issue.validTo,
       expired,
