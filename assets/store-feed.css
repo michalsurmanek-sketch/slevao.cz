@@ -72,3 +72,26 @@
 @media(max-width:650px){.hero h1 #titleName{font-size:34px}.store-page--brand .hero h1 #titleName{font-size:32px}}
 @media(max-width:520px){.store-page--tesco .hero h1 #titleName{font-size:34px}}
 .store-page--brand footer,.store-page--tesco footer{background:linear-gradient(135deg,color-mix(in srgb,var(--store) 88%,#000),var(--store));color:var(--store-on);border-top:4px solid var(--store-accent)}
+
+/* Opens the exact source leaflet page when reliable import evidence exists. */
+.leafletLocationButton{
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  align-self:flex-start;
+  margin-top:9px;
+  padding:0 12px;
+  border:1px solid color-mix(in srgb,var(--store,#0b9d93) 28%,#dce9e7);
+  border-radius:999px;
+  background:color-mix(in srgb,var(--store,#0b9d93) 9%,#fff);
+  color:var(--store,#087f76);
+  font-size:12px;
+  font-weight:900;
+  line-height:1;
+  text-decoration:none;
+}
+.leafletLocationButton:hover{filter:brightness(.97);transform:translateY(-1px)}
+.leafletLocationButton:focus-visible{outline:0;box-shadow:0 0 0 4px color-mix(in srgb,var(--store,#0b9d93) 18%,transparent)}
+@media(max-width:800px){.leafletLocationButton{min-height:38px;margin-top:8px;padding:0 11px}}
