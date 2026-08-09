@@ -172,6 +172,8 @@ Deno.serve(async (request) => {
     if (parsed.rows.length < MIN_SAFE || parsed.rows.length > MAX_SAFE) throw new Error(`Bauhaus má ${parsed.rows.length} bezpečných kandidátů; očekáváno ${MIN_SAFE}–${MAX_SAFE}.`);
     const signature = await sha256(parsed.rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.quantity_text || ''}`).join('\n'));
     if (dryRun) return json({ ok: true, dry_run: true, import_id: imported.id, pages: extracted.page_count, text_chars: extracted.text_chars, publishable: parsed.rows.length, rejected: parsed.rejected.length, signature, candidates: parsed.rows });
+    throw new Error('Publikace Bauhaus je zablokovaná, dokud nejsou názvy kandidátů ověřené proti oficiálním SKU.');
+    /* Publishing is intentionally unreachable until official SKU validation is implemented.
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
       p_store_slug: 'bauhaus', p_adapter: ADAPTER, p_signature: signature, p_rows: parsed.rows,
       p_min_products: MIN_SAFE, p_max_products: MAX_SAFE, p_source_document_url: imported.source_document_url, p_parser_version: PARSER,
@@ -179,6 +181,7 @@ Deno.serve(async (request) => {
     if (publishError) throw publishError;
     await db.from('leaflet_sources').update({ last_checked_at: new Date().toISOString(), last_success_at: new Date().toISOString(), last_error: null, last_strategy_used: PARSER, last_strategy_success_at: new Date().toISOString() }).eq('id', source.id);
     return json({ ok: true, store: store.name, publishable: parsed.rows.length, signature, result });
+    */
   } catch (error) {
     const text = message(error);
     if (sourceId) await db.from('leaflet_sources').update({ last_checked_at: new Date().toISOString(), last_error: text.slice(0, 1000) }).eq('id', sourceId);
