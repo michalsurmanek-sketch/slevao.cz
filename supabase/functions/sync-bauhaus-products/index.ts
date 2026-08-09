@@ -83,11 +83,22 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
         rejected.push({ page: page.page, price, sku: sku.text, reason: 'weak_sku_price_alignment' });
         continue;
       }
+      const skuPriceSameLine = Math.abs(sku.y - priceToken.y) <= 6;
       const titles = tokens
-        .filter((token) => Number(token.height) >= 9.5 && Number(token.height) <= 15
-          && Math.abs(token.x - sku.x) <= 60 && Math.abs(token.y - priceToken.y) >= 8
-          && Math.abs(token.y - priceToken.y) <= 105 && !badTitle(token.text))
-        .sort((a, b) => Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y));
+        .filter((token) => {
+          if (Number(token.height) < 9.5 || Number(token.height) > 15 || badTitle(token.text)) return false;
+          const rowTitle = skuPriceSameLine && token.x >= priceToken.x + 25 && token.x <= priceToken.x + 190
+            && Math.abs(token.y - priceToken.y) <= 35;
+          const columnTitle = Math.abs(token.x - sku.x) <= 60 && Math.abs(token.y - priceToken.y) >= 8
+            && Math.abs(token.y - priceToken.y) <= 105;
+          return rowTitle || columnTitle;
+        })
+        .sort((a, b) => {
+          const aRow = skuPriceSameLine && a.x >= priceToken.x + 25 && Math.abs(a.y - priceToken.y) <= 35;
+          const bRow = skuPriceSameLine && b.x >= priceToken.x + 25 && Math.abs(b.y - priceToken.y) <= 35;
+          if (aRow !== bRow) return aRow ? -1 : 1;
+          return Math.abs(a.y - priceToken.y) - Math.abs(b.y - priceToken.y);
+        });
       if (!titles.length) {
         rejected.push({ page: page.page, price, sku: sku.text, reason: 'missing_spatial_title' });
         continue;
@@ -96,21 +107,18 @@ function extract(pages: Page[], validFrom: string, validTo: string, viewerUrl: s
       const titleParts = tokens
         .filter((token) => Number(token.height) >= 9.5 && Number(token.height) <= 15
           && Math.abs(token.x - anchor.x) <= 8 && Math.abs(token.y - anchor.y) <= 22
-          && !badTitle(token.text))
+          && /[A-Za-zÁ-ž]/u.test(token.text) && !/,-/.test(token.text))
         .sort((a, b) => b.y - a.y)
         .map((token) => token.text);
       const title = clean([...new Set(titleParts.length ? titleParts : [anchor.text])].join(' '));
       if (badTitle(title)) continue;
-      const quantityToken = tokens
-        .filter((token) => quantity(token.text) && Math.abs(token.x - sku.x) <= 40 && Math.abs(token.y - priceToken.y) <= 60)
-        .sort((a, b) => Math.abs(a.x - sku.x) + Math.abs(a.y - priceToken.y))[0];
       rows.push({
         external_id: `bauhaus:${sku.text}:${validFrom}:${validTo}`,
         title,
         normalized_title: normalizeTitle(title),
         price,
         old_price: null,
-        quantity_text: quantityToken ? quantity(quantityToken.text) : null,
+        quantity_text: null,
         valid_from: validFrom,
         valid_to: validTo,
         source_url: viewerUrl,
