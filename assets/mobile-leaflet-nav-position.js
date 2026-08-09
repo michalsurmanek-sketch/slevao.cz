@@ -2,6 +2,7 @@
   'use strict';
 
   const mobile = window.matchMedia('(max-width: 800px)');
+  const VIEWPORT_GAP = 12;
 
   function scrollLeafletsToReferencePosition() {
     if (!mobile.matches) return;
@@ -15,17 +16,32 @@
       || section.querySelector('.sectionHead')
       || section;
     const topbar = document.querySelector('.topbar');
-    const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
-    const top = window.scrollY + target.getBoundingClientRect().top - headerHeight - 6;
+    const fixedTop = topbar ? topbar.getBoundingClientRect().bottom : 0;
+    const targetTop = target.getBoundingClientRect().top;
+    const scrollTop = window.scrollY + targetTop - fixedTop - VIEWPORT_GAP;
+
+    const leafletGrid = document.getElementById('leafletGrid');
+    if (leafletGrid) {
+      leafletGrid.scrollTo({ left: 0, behavior: 'auto' });
+    }
 
     window.scrollTo({
-      top: Math.max(0, top),
+      top: Math.max(0, scrollTop),
       behavior: 'smooth'
     });
 
     if (window.location.hash !== '#leafletsSection') {
       history.replaceState(null, '', '#leafletsSection');
     }
+  }
+
+  function settlePosition() {
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        scrollLeafletsToReferencePosition();
+        window.setTimeout(scrollLeafletsToReferencePosition, 180);
+      });
+    });
   }
 
   function attach() {
@@ -36,10 +52,9 @@
     link.addEventListener('click', (event) => {
       if (!mobile.matches) return;
       event.preventDefault();
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(scrollLeafletsToReferencePosition);
-      });
-    });
+      event.stopPropagation();
+      settlePosition();
+    }, true);
   }
 
   attach();
