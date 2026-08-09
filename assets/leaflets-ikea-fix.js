@@ -5,13 +5,11 @@
     ikea: {
       url: 'https://www.ikea.com/cz/cs/cat/lower-price/',
       title: 'Snižujeme ceny, kde se dá',
-      hint: 'Oficiální nabídka IKEA',
       aria: 'Otevřít aktuální nabídku IKEA',
     },
     kaufland: {
       url: 'https://prodejny.kaufland.cz/nabidka/prehled.html',
       title: 'Aktuální nabídka: zboží v akci',
-      hint: 'Oficiální nabídka Kaufland',
       aria: 'Otevřít aktuální nabídku Kaufland',
     },
   };
@@ -25,7 +23,51 @@
   function offerForCard(card) {
     const item = itemForCard(card);
     const slug = String(item?.store_slug || '').toLowerCase();
-    return ONLINE_OFFERS[slug] || null;
+    const offer = ONLINE_OFFERS[slug];
+    return offer ? { ...offer, slug, item } : null;
+  }
+
+  function buildOnlineCover(card, offer) {
+    const cover = card.querySelector('.allLeafletCover');
+    if (!cover || cover.querySelector('.allLeafletOnlineVisual')) return;
+
+    const sourceLogo = card.querySelector('.allLeafletStore img') || cover.querySelector('.allLeafletCoverPlaceholder img');
+    const storeName = String(offer.item?.store_name || offer.slug || '').trim();
+
+    const visual = document.createElement('div');
+    visual.className = 'allLeafletOnlineVisual';
+    visual.setAttribute('aria-hidden', 'true');
+
+    const sheet = document.createElement('div');
+    sheet.className = 'allLeafletOnlineSheet';
+
+    const brand = document.createElement('div');
+    brand.className = 'allLeafletOnlineBrand';
+    if (sourceLogo) {
+      const logo = sourceLogo.cloneNode(true);
+      logo.removeAttribute('loading');
+      logo.removeAttribute('decoding');
+      logo.alt = '';
+      brand.appendChild(logo);
+    } else {
+      const name = document.createElement('strong');
+      name.textContent = storeName;
+      brand.appendChild(name);
+    }
+
+    const stripe = document.createElement('div');
+    stripe.className = 'allLeafletOnlineStripe';
+    stripe.innerHTML = '<span>AKTUÁLNÍ</span><strong>NABÍDKA</strong>';
+
+    const detail = document.createElement('div');
+    detail.className = 'allLeafletOnlineDetail';
+    detail.innerHTML = '<i></i><i></i><i></i><b>%</b>';
+
+    sheet.append(brand, stripe, detail);
+    visual.appendChild(sheet);
+
+    cover.querySelector('.allLeafletCoverPlaceholder')?.remove();
+    cover.prepend(visual);
   }
 
   function decorateOnlineOffer(card) {
@@ -36,15 +78,16 @@
     card.dataset.onlineOfferFixed = '1';
     card.dataset.coverLoaded = '1';
     card.dataset.onlineOfferUrl = offer.url;
+    card.dataset.onlineStore = offer.slug;
+    card.classList.add('allLeafletCard--online');
+
+    buildOnlineCover(card, offer);
 
     const badge = card.querySelector('.allLeafletBadge');
     if (badge) badge.textContent = 'Aktuální nabídka';
 
     const title = card.querySelector('.allLeafletBody h3');
     if (title) title.textContent = offer.title;
-
-    const hint = card.querySelector('.allLeafletCoverPlaceholder small');
-    if (hint) hint.textContent = offer.hint;
 
     const button = card.querySelector('[data-open-leaflet]');
     if (button) {
