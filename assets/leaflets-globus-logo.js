@@ -19,17 +19,27 @@
     });
   }
 
-  function logoImg(extra = '') {
-    return `<img src="${GLOBUS_LOGO}" alt="" ${extra}>`;
+  function ensureLogo(slot, alt = '') {
+    if (!slot) return;
+    let img = slot.querySelector('img');
+    if (!img) {
+      img = document.createElement('img');
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.alt = alt;
+      slot.replaceChildren(img);
+    }
+    if (img.getAttribute('src') !== GLOBUS_LOGO) img.setAttribute('src', GLOBUS_LOGO);
   }
 
   function patchSuggestions() {
-    document.querySelectorAll('.leafletsStoreSuggestion[data-store-slug="globus"] .leafletsStoreSuggestionLogo').forEach((box) => {
-      box.innerHTML = logoImg('loading="lazy" decoding="async"');
+    document.querySelectorAll('.leafletsStoreSuggestion[data-store-slug="globus"] .leafletsStoreSuggestionLogo').forEach((slot) => {
+      ensureLogo(slot);
     });
 
     if (lead && input && String(input.value || '').trim().toLowerCase() === 'globus') {
-      lead.innerHTML = logoImg('aria-hidden="true"');
+      ensureLogo(lead);
+      lead.querySelector('img')?.setAttribute('aria-hidden', 'true');
     }
   }
 
@@ -42,22 +52,28 @@
 
       const store = card.querySelector('.allLeafletStore');
       if (store) {
-        const oldImage = store.querySelector('img');
-        if (oldImage) oldImage.src = GLOBUS_LOGO;
-        else {
-          const mark = store.querySelector('.allLeafletStoreMark');
-          if (mark) mark.outerHTML = `<img src="${GLOBUS_LOGO}" alt="Logo Globus" loading="lazy" decoding="async">`;
+        let img = store.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          img.alt = 'Logo Globus';
+          img.loading = 'lazy';
+          img.decoding = 'async';
+          store.prepend(img);
+          store.querySelector('.allLeafletStoreMark')?.remove();
         }
+        if (img.getAttribute('src') !== GLOBUS_LOGO) img.setAttribute('src', GLOBUS_LOGO);
       }
 
       const placeholder = card.querySelector('.allLeafletCoverPlaceholder');
       if (placeholder) {
-        const oldImage = placeholder.querySelector('img');
-        if (oldImage) oldImage.src = GLOBUS_LOGO;
-        else {
-          const visual = placeholder.querySelector('span');
-          if (visual) visual.outerHTML = logoImg('aria-hidden="true"');
+        let img = placeholder.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          img.alt = '';
+          img.setAttribute('aria-hidden', 'true');
+          placeholder.prepend(img);
         }
+        if (img.getAttribute('src') !== GLOBUS_LOGO) img.setAttribute('src', GLOBUS_LOGO);
       }
     });
   }
@@ -68,7 +84,17 @@
     patchCards();
   }
 
-  const observer = new MutationObserver(patchAll);
+  let queued = false;
+  function queuePatch() {
+    if (queued) return;
+    queued = true;
+    window.requestAnimationFrame(() => {
+      queued = false;
+      patchAll();
+    });
+  }
+
+  const observer = new MutationObserver(queuePatch);
   if (suggestions) observer.observe(suggestions, { childList: true, subtree: true });
   if (categories) observer.observe(categories, { childList: true, subtree: true });
 
