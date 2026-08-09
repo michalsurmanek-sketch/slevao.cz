@@ -211,12 +211,18 @@ Deno.serve(async (request) => {
     for (const leaflet of leaflets) {
       const sourceHash = await sha256(`${source.id}|${leaflet.viewerUrl}|jip-flip-pdf-v1`);
       activeHashes.add(sourceHash);
+      const pageImageUrls = Array.from({ length: leaflet.pageCount }, (_, index) => new URL(`files/large/${index + 1}.jpg`, leaflet.viewerUrl).toString());
       const metadata = {
         adapter: 'jip-flip-pdf-v1',
         title: `${leaflet.title} – ${leaflet.pageCount} stran`,
         viewer_url: leaflet.viewerUrl,
         cover_image_url: leaflet.coverUrl,
         page_count: leaflet.pageCount,
+        page_image_urls: pageImageUrls,
+        page_image_width: 1080,
+        page_image_height: 1440,
+        ocr_required: true,
+        ocr_source: 'official_flip_pdf_large_pages',
         locations: leaflet.locations,
         source_page: SOURCE_URL,
         last_seen_at: checkedAt,
