@@ -323,6 +323,13 @@
     return rows;
   }
 
+  function leafletLocation(offer) {
+    const page = Number(offer?.metadata?.leaflet_page || 0);
+    const documentUrl = String(offer?.metadata?.leaflet_document_url || '');
+    if (!Number.isInteger(page) || page < 1 || page > 500 || !/^https:\/\//i.test(documentUrl)) return null;
+    return { page, url: `${documentUrl}#page=${page}&zoom=page-fit` };
+  }
+
   function offerCard(offer) {
     const id = String(offer.id);
     const isFavorite = favorites.has(id);
@@ -338,6 +345,7 @@
         <div class="prices"><span class="price">${price(offer).toLocaleString('cs-CZ')} Kč</span>${old(offer) ? `<span class="old">${old(offer).toLocaleString('cs-CZ')} Kč</span>` : ''}</div>
         ${saving(offer) ? `<span class="saving">Ušetříš ${saving(offer).toLocaleString('cs-CZ')} Kč</span>` : ''}
         <div class="validity">Platí ${format(offer.valid_from)}–${format(offer.valid_to)}</div>
+        ${leafletLocation(offer) ? `<a class="leafletLocationButton" href="${esc(leafletLocation(offer).url)}" target="_blank" rel="noopener noreferrer" aria-label="Ukázat produkt v letáku na straně ${leafletLocation(offer).page}"><span>📄</span> Leták · strana ${leafletLocation(offer).page}</a>` : ''}
       </div>
     </article>`;
   }
@@ -382,7 +390,7 @@
       if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');
       const today = new Date().toISOString().slice(0, 10);
       const rows = await request('offers', {
-        select: 'id,title,price,old_price,image_url,valid_from,valid_to,is_verified,products(name)',
+        select: 'id,title,price,old_price,image_url,valid_from,valid_to,is_verified,metadata,products(name)',
         store_id: `eq.${stores[0].id}`,
         status: 'eq.published',
         is_verified: 'eq.true',
