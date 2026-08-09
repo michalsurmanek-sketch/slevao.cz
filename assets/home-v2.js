@@ -100,12 +100,12 @@
   }
 
   async function fetchOffers() {
-    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url),categories(name,slug)';
-    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url)';
+    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,is_verified,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url),categories(name,slug)';
+    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,is_verified,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url)';
     const collect = async (select) => {
       const rows = [];
       for (let from = 0; ; from += 1000) {
-        const batch = await rest('offers', { select, status:'eq.published', valid_from:`lte.${UPCOMING_TO}`, valid_to:`gte.${TODAY}`, order:'published_at.desc' }, `${from}-${from + 999}`);
+        const batch = await rest('offers', { select, status:'eq.published', is_verified:'eq.true', valid_from:`lte.${UPCOMING_TO}`, valid_to:`gte.${TODAY}`, order:'published_at.desc' }, `${from}-${from + 999}`);
         rows.push(...batch);
         if (batch.length < 1000) break;
       }
@@ -445,7 +445,7 @@
   function applyData(stores, offers, status) {
     const activeStores = stores.filter((store) => store.is_active !== false);
     state.stores = activeStores.sort((a,b) => a.name.localeCompare(b.name,'cs'));
-    state.offers = deduplicate(offers).filter((offer) => activeStores.some((store) => store.slug === offer.stores?.slug));
+    state.offers = deduplicate(offers).filter((offer) => offer.is_verified === true && activeStores.some((store) => store.slug === offer.stores?.slug));
     $('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');
     const currentCount = state.offers.filter((offer) => !isUpcoming(offer)).length;
     const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];
