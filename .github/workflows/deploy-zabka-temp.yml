@@ -1,4 +1,4 @@
-name: Deploy Žabka sync (temporary retry)
+name: Deploy Žabka sync (temporary final)
 on:
   push:
     branches: [main]
