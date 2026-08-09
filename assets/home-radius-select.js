@@ -59,17 +59,64 @@
     });
   };
 
+  const resetMenuPlacement = () => {
+    menu.style.removeProperty('position');
+    menu.style.removeProperty('left');
+    menu.style.removeProperty('top');
+    menu.style.removeProperty('right');
+    menu.style.removeProperty('bottom');
+    menu.style.removeProperty('z-index');
+    menu.style.removeProperty('max-height');
+    menu.style.removeProperty('overflow-y');
+    if (menu.parentElement !== control) control.insertBefore(menu, select);
+  };
+
+  const positionPortalMenu = () => {
+    const rect = trigger.getBoundingClientRect();
+    const viewportWidth = document.documentElement.clientWidth || window.innerWidth;
+    const viewportHeight = document.documentElement.clientHeight || window.innerHeight;
+    const edge = 8;
+    const gap = 8;
+
+    if (menu.parentElement !== document.body) document.body.appendChild(menu);
+    menu.style.position = 'fixed';
+    menu.style.zIndex = '10000';
+    menu.style.right = 'auto';
+    menu.style.bottom = 'auto';
+    menu.style.maxHeight = `${Math.max(170, viewportHeight - edge * 2)}px`;
+    menu.style.overflowY = 'auto';
+
+    const menuRect = menu.getBoundingClientRect();
+    const menuWidth = menuRect.width || Math.max(150, rect.width);
+    const menuHeight = menuRect.height || 220;
+    const left = Math.min(Math.max(edge, rect.left), Math.max(edge, viewportWidth - menuWidth - edge));
+
+    const roomBelow = viewportHeight - rect.bottom - edge;
+    const roomAbove = rect.top - edge;
+    let top = rect.bottom + gap;
+    if (roomBelow < menuHeight + gap && roomAbove > roomBelow) {
+      top = Math.max(edge, rect.top - menuHeight - gap);
+    } else {
+      top = Math.min(top, Math.max(edge, viewportHeight - menuHeight - edge));
+    }
+
+    menu.style.left = `${Math.round(left)}px`;
+    menu.style.top = `${Math.round(top)}px`;
+  };
+
   const close = (focusTrigger = false) => {
     menu.hidden = true;
     control.classList.remove('is-open');
     trigger.setAttribute('aria-expanded', 'false');
+    resetMenuPlacement();
     if (focusTrigger) trigger.focus({ preventScroll: true });
   };
 
   const open = () => {
-    menu.hidden = false;
     control.classList.add('is-open');
     trigger.setAttribute('aria-expanded', 'true');
+    menu.hidden = false;
+    positionPortalMenu();
     const active = buttons.find((button) => button.dataset.value === select.value) || buttons[0];
     requestAnimationFrame(() => active?.focus({ preventScroll: true }));
   };
@@ -127,7 +174,7 @@
   select.addEventListener('change', sync);
 
   document.addEventListener('pointerdown', (event) => {
-    if (!control.contains(event.target)) close();
+    if (!control.contains(event.target) && !menu.contains(event.target)) close();
   });
 
   window.addEventListener('resize', () => close());
