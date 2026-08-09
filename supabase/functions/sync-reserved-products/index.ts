@@ -48,6 +48,7 @@ function parseProducts(html: string, today: string) {
     const href = String(product.url || '');
     const merchant = product.merchant || {};
     if (!id || !/^[A-Z0-9-]{5,}$/i.test(sku) || title.length < 3 || !href.startsWith('https://www.reserved.com/cz/cz/') || !image.startsWith('https://static.reserved.com/')) continue;
+    if (/^LADIES[`'’]?\s+T-SHIRT$/i.test(title)) continue;
     if (product.has_discount !== true || product.finalPriceType !== 'clearance' || Number(product.minQty) !== 1 || merchant.name !== 'Reserved' || merchant.isExternal !== false) continue;
     if (price == null || oldPrice == null || price < 10 || price > 10000 || oldPrice <= price) continue;
     rows.push({
