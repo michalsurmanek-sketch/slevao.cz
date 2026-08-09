@@ -144,7 +144,7 @@ async function loadCurrentIssue(): Promise<Issue> {
   const issueUrl = `${SOURCE_URL.replace(/\/$/, '')}/${issueSlug}`;
   const issue = await fetchHtml(issueUrl);
   const validity = dateFromIssueSlug(issueSlug);
-  const issueMetaSummary = await loadIssueMetaSummary(issue.html, issueSlug);
+  const issueMetaSummary = await loadIssueMetaSummary(listing.html, issueSlug);
   const coverUrl = meta(issue.html, 'og:image') || null;
   const pages = pageCount(issue.html, issueSlug);
   const pageImageUrls = await Promise.all(Array.from({ length: pages }, async (_, index) => {
