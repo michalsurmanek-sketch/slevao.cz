@@ -170,7 +170,7 @@
   function leafletLocation(offer) {
     const page = Number(offer?.metadata?.leaflet_page || 0);
     const documentUrl = String(offer?.metadata?.leaflet_document_url || '');
-    if (!Number.isInteger(page) || page < 1 || page > 500 || !/^https:\/\//i.test(documentUrl)) return null;
+    if (!Number.isInteger(page) || page < 1 || page > 500 || !/^https:\/\/.*\.pdf(?:\?|$)/i.test(documentUrl)) return null;
     return { page, url: `${documentUrl}#page=${page}&zoom=page-fit` };
   }
 
