@@ -116,8 +116,12 @@ function pageCount(html: string, issueSlug: string) {
 }
 
 async function loadIssueMetaSummary(html: string, issueSlug: string) {
-  const escaped = issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const issueId = html.match(new RegExp(`<li[^>]+(?:id=["']?(\\d+)["']?[^>]+url=["']${escaped}["']|url=["']${escaped}["'][^>]+id=["']?(\\d+)["']?)`, 'i'))?.slice(1).find(Boolean);
+  const issueIds = [...html.matchAll(/<li\b[^>]*>/gi)]
+    .map((match) => match[0])
+    .filter((tag) => new RegExp(`\\burl=["']${issueSlug.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}["']`, 'i').test(tag))
+    .map((tag) => Number(tag.match(/\\bid=["']?(\\d+)["']?/i)?.[1] || 0))
+    .filter((id) => Number.isInteger(id) && id > 1000);
+  const issueId = issueIds.sort((a, b) => b - a)[0];
   if (!issueId) throw new Error('Dr. Max nevrátil ID vydání pro zdrojová metadata.');
   const url = `https://triobodistribution.blob.core.windows.net/iss${issueId}f/issueMeta.json`;
   const response = await fetch(url, { headers: { ...HEADERS, accept: 'application/json,*/*' } });
