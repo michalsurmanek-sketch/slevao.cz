@@ -4,7 +4,8 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const SOURCE = 'https://www.takko.com/cs-cz/vyprodej/alles-anzeigen/';
-const ADAPTER = 'takko-official-sale-html-v1';
+const GRID_SOURCE = 'https://www.takko.com/on/demandware.store/Sites-DE-Site/cs_CZ/Search-UpdateGrid?cgid=sale&start=0&sz=1000';
+const ADAPTER = 'takko-official-sale-html-v2';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
 
@@ -37,7 +38,7 @@ async function sha256(value: string) {
 function parseProducts(html: string, today: string) {
   const blocks = html.split('data-product-type="variationGroup"').slice(1);
   const rows: any[] = [];
-  for (const block of blocks) {
+  for (const [index, block] of blocks.entries()) {
     const rawInfo = block.match(/data-information="([^"]+)"/)?.[1];
     const saleText = block.match(/<div class="sales[^"]*"[^>]*>[\s\S]*?<span class="value" content="([0-9.]+)"/)?.[1];
     const oldText = block.match(/<div class="strike-through list"[^>]*>[\s\S]*?<span class="value" content="([0-9.]+)"/)?.[1];
@@ -57,12 +58,12 @@ function parseProducts(html: string, today: string) {
     if (price < 20 || price > 5000 || oldPrice <= price || oldPrice > 10000) continue;
     rows.push({
       external_id: `takko:${id}`, title, normalized_title: normalize(title), price, old_price: oldPrice, quantity_text: null,
-      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: 1, product_id: null, image_url: image, confidence: 0.99,
-      metadata: { adapter: ADAPTER, parser_version: ADAPTER, takko_variation_id: id, evidence: { official_status: 'reduziert', displayed_sale_price: price, displayed_regular_price: oldPrice, conditional_promotion_ignored: true } },
+      valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: Math.floor(index / 24) + 1, product_id: null, image_url: image, confidence: 0.99,
+      metadata: { adapter: ADAPTER, parser_version: ADAPTER, takko_variation_id: id, source_page: Math.floor(index / 24) + 1, evidence: { official_status: 'reduziert', displayed_sale_price: price, displayed_regular_price: oldPrice, conditional_promotion_ignored: true } },
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length < 15 || unique.length > 40) throw new Error(`Takko parser našel ${unique.length} bezpečných produktů; očekáváno 15–40.`);
+  if (unique.length < 500 || unique.length > 1000) throw new Error(`Takko parser našel ${unique.length} bezpečných produktů; očekáváno 500–1000.`);
   return unique;
 }
 
@@ -72,7 +73,7 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   try {
     const body = await request.json().catch(() => ({}));
-    const response = await fetch(SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
+    const response = await fetch(GRID_SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!response.ok) throw new Error(`Takko HTTP ${response.status}`);
     const html = await response.text();
     const today = new Date().toISOString().slice(0, 10);
@@ -88,7 +89,7 @@ Deno.serve(async (request) => {
       if (error) throw error;
     }
     if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
-    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'takko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 15, p_max_products: 40, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
+    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'takko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 500, p_max_products: 1000, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
   } catch (error) {
