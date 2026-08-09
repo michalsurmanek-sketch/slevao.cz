@@ -53,24 +53,59 @@
     attach();
   }
 
+  function installMobileNavVisualFix() {
+    if (document.getElementById('slevaoMobileNavNoActiveBox')) return;
+    const style = document.createElement('style');
+    style.id = 'slevaoMobileNavNoActiveBox';
+    style.textContent = `
+      @media(max-width:720px){
+        .slevaoBottomNav a,
+        .slevaoBottomNav a:focus,
+        .slevaoBottomNav a:focus-visible,
+        .slevaoBottomNav a:active{
+          outline:0!important;
+          box-shadow:none!important;
+          -webkit-tap-highlight-color:transparent!important;
+        }
+        .slevaoBottomNav a.active{
+          background:transparent!important;
+          box-shadow:none!important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function upgrade() {
     const nav = document.querySelector('.slevaoBottomNav');
     if (!nav) return false;
+
     const links = [...nav.querySelectorAll('a')];
     const search = links.find((link) => /Hledat/i.test(link.textContent || '')) || links[1];
+    const leaflets = links.find((link) => /Letáky/i.test(link.textContent || '')) || links[2];
+
     if (search) {
       search.href = 'hledat.html';
       search.classList.toggle('active', location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html');
     }
+
+    if (leaflets) {
+      leaflets.href = 'letaky.html';
+      leaflets.removeAttribute('aria-current');
+    }
+
     if (location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html') {
       links.forEach((link) => { if (link !== search) link.classList.remove('active'); });
     }
+
     return true;
   }
 
   loadPersonalization();
   loadPwa();
   loadHomePersonalDeals();
+  installMobileNavVisualFix();
+
   if (upgrade()) return;
   const observer = new MutationObserver(() => {
     if (upgrade()) observer.disconnect();
