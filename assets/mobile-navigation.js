@@ -178,6 +178,212 @@
     syncStatus();
   }
 
+  const STORE_COLORS = {
+    hruska:'#c91624', penny:'#d71920', albert:'#008547', billa:'#e30613', tesco:'#00539f',
+    lidl:'#0050aa', kaufland:'#e10915', globus:'#d71920', coop:'#7a4a2f', makro:'#003b7a',
+    rohlik:'#6d2aa6', kosik:'#6b2d91', alza:'#76b82a', datart:'#0053a0', dm:'#00509d', rossmann:'#e30613'
+  };
+  let productCardFrame = 0;
+
+  const iconSvg = (name) => {
+    const paths = {
+      calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
+      leaflet:'<path d="M5 3h11l3 3v15H5z"/><path d="M16 3v4h4M8 11h8M8 15h8"/>',
+      tag:'<path d="M20 13 11 22 2 13V3h10z"/><circle cx="7" cy="8" r="1.5"/>'
+    };
+    return `<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${paths[name] || paths.tag}</g></svg>`;
+  };
+
+  const formatValidity = (node) => {
+    if (!node || node.dataset.cardFormatted === '1') return;
+    const raw = node.textContent.replace(/\s+/g, ' ').trim();
+    const match = raw.match(/^Platí\s+(.+?)[–-]\s*(.+)$/i);
+    node.textContent = '';
+    const icon = document.createElement('span');
+    icon.className = 'dealFactIcon';
+    icon.innerHTML = iconSvg('calendar');
+    const text = document.createElement('span');
+    text.className = 'dealFactText';
+    const label = document.createElement('small');
+    label.textContent = 'Platí od–do';
+    const strong = document.createElement('strong');
+    strong.textContent = match ? `${match[1].trim()} – ${match[2].trim()}` : raw.replace(/^Platí\s*/i, '');
+    text.append(label, strong);
+    node.append(icon, text);
+    node.dataset.cardFormatted = '1';
+  };
+
+  const formatLeaflet = (node) => {
+    if (!node || node.dataset.cardFormatted === '1') return;
+    const raw = node.textContent.replace(/\s+/g, ' ').trim();
+    const page = raw.match(/strana\s+(\d+)/i)?.[1] || '';
+    node.textContent = '';
+    const icon = document.createElement('span');
+    icon.className = 'dealFactIcon';
+    icon.innerHTML = iconSvg('leaflet');
+    const text = document.createElement('span');
+    text.className = 'dealFactText';
+    const label = document.createElement('small');
+    label.textContent = 'Leták';
+    const strong = document.createElement('strong');
+    strong.textContent = page ? `Strana ${page}` : 'Otevřít leták';
+    text.append(label, strong);
+    const preview = document.createElement('span');
+    preview.className = 'leafletMiniPreview';
+    preview.setAttribute('aria-hidden', 'true');
+    preview.innerHTML = '<i></i><i></i><i></i><b>⌕</b>';
+    node.append(icon, text, preview);
+    node.dataset.cardFormatted = '1';
+  };
+
+  const settleProductCardTools = (card) => {
+    if (!mobileViewport.matches || !card?.dataset.mobileProductCard) return;
+    const slot = card.querySelector('.dealToolsSlot');
+    const extra = card.querySelector('.slevaoExtraActions');
+    if (slot && extra && extra.parentElement !== slot) slot.appendChild(extra);
+  };
+
+  const decorateProductCard = (card) => {
+    if (!mobileViewport.matches || !card) return;
+    if (card.dataset.mobileProductCard === '1') {
+      settleProductCardTools(card);
+      return;
+    }
+
+    const media = card.querySelector(':scope > .dealMedia');
+    const body = card.querySelector(':scope > .dealBody');
+    if (!media || !body) return;
+
+    const top = document.createElement('div');
+    top.className = 'dealTop';
+    const info = document.createElement('div');
+    info.className = 'dealInfo';
+    card.insertBefore(top, media);
+    top.append(media, info);
+
+    const favorite = media.querySelector(':scope > .saveOffer');
+    if (favorite) info.appendChild(favorite);
+
+    ['.storeLine','h3','.productDetail','.priceRow','.unitPrice','.saving'].forEach((selector) => {
+      const node = body.querySelector(`:scope > ${selector}`);
+      if (node) info.appendChild(node);
+    });
+
+    const storeButton = body.querySelector(':scope > .dealActions .storeButton');
+    if (storeButton) {
+      try {
+        const slug = new URL(storeButton.href, location.href).pathname.split('/').pop()?.replace(/\.html$/i, '') || '';
+        card.dataset.storeSlug = slug;
+        card.style.setProperty('--deal-store-color', STORE_COLORS[slug] || '#087e75');
+      } catch {}
+    }
+
+    const detail = info.querySelector('.productDetail');
+    const unit = info.querySelector('.unitPrice');
+    const parts = detail ? detail.textContent.split('·').map((part) => part.trim()).filter(Boolean) : [];
+    const quantity = parts.find((part) => /\b\d+(?:[.,]\d+)?\s*(?:kg|g|l|ml|ks)\b/i.test(part)) || '';
+    const brand = parts.find((part) => part !== quantity) || '';
+    const storeLine = info.querySelector('.storeLine');
+    if (brand && storeLine && !storeLine.querySelector('.dealBrandName')) {
+      const brandNode = document.createElement('span');
+      brandNode.className = 'dealBrandName';
+      brandNode.textContent = brand;
+      storeLine.appendChild(brandNode);
+    }
+
+    const chips = document.createElement('div');
+    chips.className = 'dealChips';
+    if (quantity) {
+      const chip = document.createElement('span');
+      chip.innerHTML = `${iconSvg('leaflet')}<b>${quantity}</b>`;
+      chips.appendChild(chip);
+    }
+    if (unit?.textContent.trim()) {
+      const chip = document.createElement('span');
+      chip.textContent = unit.textContent.trim();
+      chips.appendChild(chip);
+    }
+    if (chips.childElementCount) {
+      const priceRow = info.querySelector('.priceRow');
+      if (priceRow) info.insertBefore(chips, priceRow);
+      else info.appendChild(chips);
+    }
+    if (detail) detail.hidden = true;
+    if (unit) unit.hidden = true;
+
+    const priceRow = info.querySelector('.priceRow');
+    if (priceRow && !priceRow.querySelector('.dealPriceBadge')) {
+      const badge = document.createElement('span');
+      badge.className = 'dealPriceBadge';
+      badge.innerHTML = `${iconSvg('tag')}<span>${info.querySelector('.saving') || media.querySelector('.discountBadge') ? 'Výhodná cena' : 'Akční cena'}</span>`;
+      priceRow.appendChild(badge);
+    }
+
+    const actions = body.querySelector(':scope > .dealActions');
+    const utility = document.createElement('div');
+    utility.className = 'dealUtilityPanel';
+    const tools = document.createElement('div');
+    tools.className = 'dealToolsSlot';
+    const facts = document.createElement('div');
+    facts.className = 'dealFacts';
+    utility.append(tools, facts);
+    if (actions) actions.after(utility);
+    else body.prepend(utility);
+
+    const validity = body.querySelector(':scope > .validity');
+    const leaflet = body.querySelector(':scope > .leafletLocationButton');
+    if (validity) {
+      formatValidity(validity);
+      facts.appendChild(validity);
+    }
+    if (leaflet) {
+      formatLeaflet(leaflet);
+      facts.appendChild(leaflet);
+    }
+    if (!facts.childElementCount) utility.classList.add('withoutFacts');
+
+    const notice = document.createElement('div');
+    notice.className = 'dealNotice';
+    const noticeIcon = document.createElement('span');
+    noticeIcon.className = 'dealNoticeIcon';
+    noticeIcon.innerHTML = iconSvg('tag');
+    const noticeCopy = document.createElement('span');
+    const noticeTitle = document.createElement('strong');
+    noticeTitle.textContent = 'Aktuální akce';
+    const noticeText = document.createElement('small');
+    noticeText.className = 'dealNoticeText';
+    const canCompare = !actions?.querySelector('.compareButton')?.disabled;
+    noticeText.textContent = leaflet
+      ? `Výhodná cena v letáku. ${canCompare ? 'Porovnejte ji i s dalšími obchody.' : 'Další srovnatelná nabídka zatím není dostupná.'}`
+      : `Aktuální akční nabídka. ${canCompare ? 'Porovnejte ji i s dalšími obchody.' : 'Další srovnatelná nabídka zatím není dostupná.'}`;
+    noticeCopy.append(noticeTitle, noticeText);
+    notice.append(noticeIcon, noticeCopy);
+
+    const source = body.querySelector(':scope > .sourceLine');
+    if (source) body.insertBefore(notice, source);
+    else body.appendChild(notice);
+
+    card.dataset.mobileProductCard = '1';
+    settleProductCardTools(card);
+  };
+
+  const refreshProductCards = () => {
+    productCardFrame = 0;
+    if (!mobileViewport.matches) return;
+    document.querySelectorAll('#dealGrid .dealCard').forEach(decorateProductCard);
+  };
+
+  const scheduleProductCardRefresh = () => {
+    if (productCardFrame) return;
+    productCardFrame = window.requestAnimationFrame(refreshProductCards);
+  };
+
+  const dealGrid = document.getElementById('dealGrid');
+  if (dealGrid) {
+    new MutationObserver(scheduleProductCardRefresh).observe(dealGrid, { childList:true, subtree:true });
+    scheduleProductCardRefresh();
+  }
+
   const navigation = document.querySelector('.mobileNav');
   if (!navigation) return;
 
