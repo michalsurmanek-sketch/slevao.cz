@@ -68,7 +68,7 @@ function parseProducts(html: string, dates: { from: string; to: string }) {
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length !== 27) throw new Error(`PLANEO parser našel ${unique.length} bezpečných produktů; očekáváno přesně 27.`);
+  if (unique.length !== 25) throw new Error(`PLANEO parser našel ${unique.length} bezpečných produktů; očekáváno přesně 25.`);
   return unique;
 }
 
@@ -100,7 +100,7 @@ Deno.serve(async (request) => {
     if (body.dry_run === true) return json({ ok: true, dry_run: true, dates, publishable: rows.length, signature, candidates: rows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
       p_store_slug: 'planeo', p_adapter: ADAPTER, p_signature: signature, p_rows: rows,
-      p_min_products: 27, p_max_products: 27, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
+      p_min_products: 25, p_max_products: 25, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
     });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
