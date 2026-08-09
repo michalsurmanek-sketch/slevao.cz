@@ -33,6 +33,8 @@
 
   let activeIndex = 0;
   let applying = false;
+  let applyTimer = 0;
+  let settleTimer = 0;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
@@ -103,11 +105,25 @@
     </button>`;
   }
 
+  function alreadyRendered(stores) {
+    if (suggestions.dataset.mainSupermarkets !== '1') return false;
+    const buttons = [...suggestions.querySelectorAll(':scope > [data-store-slug]')];
+    if (buttons.length !== stores.length) return false;
+
+    return buttons.every((button, index) => {
+      const store = stores[index];
+      if (!store || button.dataset.storeSlug !== store.slug) return false;
+      const img = button.querySelector('.leafletsStoreSuggestionLogo img');
+      const renderedLogo = img?.getAttribute('src') || '';
+      return renderedLogo === (store.logo || '');
+    });
+  }
+
   function applyMainSupermarkets() {
     if (input.value.trim() || suggestions.hidden || applying) return;
 
     const stores = foodSuggestions();
-    if (!stores.length) return;
+    if (!stores.length || alreadyRendered(stores)) return;
 
     applying = true;
     activeIndex = Math.min(activeIndex, stores.length - 1);
@@ -117,8 +133,10 @@
   }
 
   function scheduleApply() {
-    window.setTimeout(applyMainSupermarkets, 0);
-    window.setTimeout(applyMainSupermarkets, 80);
+    window.clearTimeout(applyTimer);
+    window.clearTimeout(settleTimer);
+    applyTimer = window.setTimeout(applyMainSupermarkets, 0);
+    settleTimer = window.setTimeout(applyMainSupermarkets, 100);
   }
 
   input.addEventListener('focus', scheduleApply);
