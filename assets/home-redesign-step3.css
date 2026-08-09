@@ -235,3 +235,29 @@
     font-size:13px;
   }
 }
+
+/* Reliable jump from an offer card to its exact source leaflet page. */
+.leafletLocationButton{
+  min-height:36px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  align-self:flex-start;
+  margin-top:9px;
+  padding:0 12px;
+  border:1px solid #bde8e3;
+  border-radius:999px;
+  background:#edf9f7;
+  color:#087f76;
+  font-size:12px;
+  font-weight:900;
+  line-height:1;
+  text-decoration:none;
+  transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease;
+}
+.leafletLocationButton:hover{transform:translateY(-1px);border-color:#77d4ca;background:#e0f6f2;box-shadow:0 7px 18px rgba(8,127,118,.12)}
+.leafletLocationButton:focus-visible{outline:0;box-shadow:0 0 0 4px rgba(52,214,199,.2)}
+@media(max-width:800px){
+  .leafletLocationButton{min-height:38px;margin-top:8px;padding:0 11px;font-size:12px}
+}
