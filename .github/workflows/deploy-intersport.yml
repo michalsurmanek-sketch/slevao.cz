@@ -22,7 +22,7 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions delete debug-makro-source --project-ref uhampjdqjxmbhaptgitn --yes || true
-      - name: Deploy Intersport parser
+      - name: Deploy corrected Intersport parser
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: supabase functions deploy sync-intersport-products --project-ref uhampjdqjxmbhaptgitn --use-api --no-verify-jwt
