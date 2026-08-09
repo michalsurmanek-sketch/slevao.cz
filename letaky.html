@@ -16,6 +16,7 @@
   <meta property="og:url" content="https://slevao.cz/letaky.html">
   <title>Aktuální letáky podle kategorií | Slevao.cz</title>
   <link rel="stylesheet" href="assets/leaflets-page.css?v=20260809-2">
+  <link rel="stylesheet" href="assets/leaflets-store-search.css?v=20260809-1">
 </head>
 <body>
   <header class="leafletsTopbar">
@@ -36,6 +37,27 @@
             <span><b id="leafletsTotal">…</b> letáků</span>
             <span><b id="leafletStoresTotal">…</b> obchodů</span>
             <span>Platné nabídky</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="leafletsStoreSearchSection" aria-label="Vyhledat obchod">
+      <div class="leafletsShell">
+        <div class="leafletsStoreSearchCard">
+          <div class="leafletsStoreSearchCopy">
+            <span>Rychlé hledání</span>
+            <strong>Najdi leták svého obchodu</strong>
+            <small>Začni psát název obchodu a vyber ho z našeptávače.</small>
+          </div>
+          <div id="leafletsStoreSearch" class="leafletsStoreSearch">
+            <div class="leafletsStoreSearchBox">
+              <span id="leafletsStoreSearchLead" class="leafletsStoreSearchLead" aria-hidden="true"></span>
+              <input id="leafletsStoreSearchInput" class="leafletsStoreSearchInput" type="search" placeholder="Např. Lidl, Penny, Tesco…" autocomplete="off" role="combobox" aria-label="Vyhledat obchod" aria-autocomplete="list" aria-controls="leafletsStoreSuggestions" aria-expanded="false">
+              <button id="leafletsStoreSearchButton" class="leafletsStoreSearchButton" type="button">Najít</button>
+              <button id="leafletsStoreSearchClear" class="leafletsStoreSearchClear" type="button" aria-label="Vymazat hledání" hidden>×</button>
+            </div>
+            <div id="leafletsStoreSuggestions" class="leafletsStoreSuggestions" role="listbox" aria-label="Návrhy obchodů" hidden></div>
           </div>
         </div>
       </div>
@@ -70,5 +92,6 @@
   <script src="assets/leaflets-page.js?v=20260809-1" defer></script>
   <script src="assets/leaflets-ikea-fix.js?v=20260809-3" defer></script>
   <script src="assets/leaflets-browser-viewer.js?v=20260809-1" defer></script>
+  <script src="assets/leaflets-store-search.js?v=20260809-1" defer></script>
 </body>
 </html>
