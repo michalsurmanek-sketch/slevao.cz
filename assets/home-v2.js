@@ -449,7 +449,8 @@
     $('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');
     const currentCount = state.offers.filter((offer) => !isUpcoming(offer)).length;
     const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];
-    $('statusPill').textContent = !currentCount && state.offers.length && nextStart ? `✓ Nabídky platí od ${date(nextStart)}` : status;
+    const visibleStatus = matchMedia('(max-width: 800px)').matches ? String(status).replace(' dnes', '') : status;
+    $('statusPill').textContent = !currentCount && state.offers.length && nextStart ? `✓ Nabídky platí od ${date(nextStart)}` : visibleStatus;
     renderAll();
   }
 
