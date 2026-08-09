@@ -32,63 +32,37 @@
   }
 
   const mobile = window.matchMedia('(max-width: 800px)');
-  const GAP = 10;
-  let correctionTimer = 0;
+  const ALL_LEAFLETS_URL = 'letaky.html';
 
-  function leafletTarget() {
-    const section = document.getElementById('leafletsSection');
-    if (!section) return null;
-
-    return section.querySelector('.sectionHead p')
-      || section.querySelector('.sectionHead')
-      || section;
+  function patchLeafletsLink() {
+    document.querySelectorAll('.mobileNav a[href="#leafletsSection"], .mobileNav a[href$="#leafletsSection"]').forEach((link) => {
+      link.href = ALL_LEAFLETS_URL;
+      link.dataset.leafletsAllPage = '1';
+    });
   }
 
-  function alignLeaflets() {
+  patchLeafletsLink();
+
+  const navObserver = new MutationObserver(patchLeafletsLink);
+  navObserver.observe(document.body, { childList: true, subtree: true });
+
+  document.addEventListener('click', (event) => {
     if (!mobile.matches) return;
 
-    const target = leafletTarget();
-    if (!target) return;
+    const link = event.target.closest('.mobileNav a');
+    if (!link) return;
 
-    const topbar = document.querySelector('.topbar');
-    const desiredViewportTop = (topbar ? topbar.getBoundingClientRect().bottom : 0) + GAP;
-    const currentViewportTop = target.getBoundingClientRect().top;
-    const delta = currentViewportTop - desiredViewportTop;
+    const href = link.getAttribute('href') || '';
+    const isLeafletsLink = link.dataset.leafletsAllPage === '1'
+      || href === '#leafletsSection'
+      || href.endsWith('#leafletsSection')
+      || href === ALL_LEAFLETS_URL
+      || href.endsWith(`/${ALL_LEAFLETS_URL}`);
 
-    if (Math.abs(delta) > 1) {
-      window.scrollBy({ top: delta, left: 0, behavior: 'auto' });
-    }
-  }
-
-  function openLeafletsFromBottomNav() {
-    document.body.classList.add('showOriginalLeaflets');
-
-    const grid = document.getElementById('leafletGrid');
-    if (grid) grid.scrollLeft = 0;
-
-    window.clearTimeout(correctionTimer);
-
-    // Počkej, až se projeví showOriginalLeaflets a dokončí aktuální layout.
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        alignLeaflets();
-        if (window.location.hash !== '#leafletsSection') {
-          history.replaceState(null, '', '#leafletsSection');
-        }
-      });
-    });
-
-    // Jediné tiché dorovnání proti případnému layout shiftu obrázků.
-    correctionTimer = window.setTimeout(alignLeaflets, 220);
-  }
-
-  // Jeden jediný capture handler pro tlačítko Letáky. Funguje i když se nav později překreslí.
-  document.addEventListener('click', (event) => {
-    const link = event.target.closest('.mobileNav a[href="#leafletsSection"]');
-    if (!link || !mobile.matches) return;
+    if (!isLeafletsLink) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
-    openLeafletsFromBottomNav();
+    window.location.href = ALL_LEAFLETS_URL;
   }, true);
 })();
