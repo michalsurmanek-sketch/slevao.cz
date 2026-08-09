@@ -26,6 +26,7 @@ type JipLeaflet = {
   validFrom: string;
   validTo: string;
   pageCount: number;
+  pageImagePath: string;
   locations: string[];
 };
 
@@ -120,18 +121,22 @@ function cardLocations(block: string, title: string) {
   return [...new Set(values)];
 }
 
-async function pageCount(viewerUrl: string) {
-  const basicUrl = new URL('files/basic-html/index.html', viewerUrl).toString();
-  const { text } = await fetchText(basicUrl);
-  if (!/Basic HTML Version|Page 1/i.test(text)) {
-    throw new Error('JIP flipbook nevrátil použitelnou statickou verzi.');
+async function viewerAssets(viewerUrl: string) {
+  const configUrl = new URL('mobile/javascript/config.js', viewerUrl).toString();
+  const { text } = await fetchText(configUrl);
+  const counts = [...text.matchAll(/bookConfig\.totalPageCount\s*=\s*(\d+)/gi)].map(match => Number(match[1]));
+  const pageCount = counts.filter(value => Number.isInteger(value) && value > 0 && value < 500).at(-1) || 0;
+  const paths = [...text.matchAll(/bookConfig\.largePath\s*=\s*["']([^"']+)["']/gi)].map(match => match[1]);
+  const pageImagePath = paths.at(-1) || '';
+  if (!pageCount || !/^files\/(?:mobile|large)\/$/i.test(pageImagePath)) {
+    throw new Error('JIP flipbook nevrátil úplnou konfiguraci stránek.');
   }
-  const pages = [...text.matchAll(/page(\d+)\.html/gi)]
-    .map((match) => Number(match[1]))
-    .filter((value) => Number.isInteger(value) && value > 0 && value < 500);
-  const count = pages.length ? Math.max(...pages) : 0;
-  if (!count) throw new Error('JIP flipbook nevrátil počet stran.');
-  return count;
+  const probe = new URL(`${pageImagePath}1.jpg`, viewerUrl).toString();
+  const response = await fetch(probe, { method: 'HEAD', headers: HEADERS, redirect: 'follow' });
+  if (!response.ok || !(response.headers.get('content-type') || '').toLowerCase().startsWith('image/')) {
+    throw new Error('JIP vysoké rozlišení stránek není dostupné.');
+  }
+  return { pageCount, pageImagePath };
 }
 
 async function loadCurrentLeaflets(): Promise<JipLeaflet[]> {
@@ -160,13 +165,15 @@ async function loadCurrentLeaflets(): Promise<JipLeaflet[]> {
       throw new Error(`JIP publikace ${title} není platný Flip PDF prohlížeč.`);
     }
 
+    const assets = await viewerAssets(viewerUrl);
     leaflets.push({
       viewerUrl,
       title,
       coverUrl,
       validFrom: validity.from,
       validTo: validity.to,
-      pageCount: await pageCount(viewerUrl),
+      pageCount: assets.pageCount,
+      pageImagePath: assets.pageImagePath,
       locations: cardLocations(block, title),
     });
     seen.add(viewerUrl);
@@ -211,7 +218,7 @@ Deno.serve(async (request) => {
     for (const leaflet of leaflets) {
       const sourceHash = await sha256(`${source.id}|${leaflet.viewerUrl}|jip-flip-pdf-v1`);
       activeHashes.add(sourceHash);
-      const pageImageUrls = Array.from({ length: leaflet.pageCount }, (_, index) => new URL(`files/large/${index + 1}.jpg`, leaflet.viewerUrl).toString());
+      const pageImageUrls = Array.from({ length: leaflet.pageCount }, (_, index) => new URL(`${leaflet.pageImagePath}${index + 1}.jpg`, leaflet.viewerUrl).toString());
       const metadata = {
         adapter: 'jip-flip-pdf-v1',
         title: `${leaflet.title} – ${leaflet.pageCount} stran`,
