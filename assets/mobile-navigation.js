@@ -1,4 +1,13 @@
 (() => {
+  const mobileUxVersion = '20260809-8';
+  if (!document.querySelector(`link[data-mobile-ux-version="${mobileUxVersion}"]`)) {
+    const mobileUxLink = document.createElement('link');
+    mobileUxLink.rel = 'stylesheet';
+    mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
+    mobileUxLink.dataset.mobileUxVersion = mobileUxVersion;
+    document.head.appendChild(mobileUxLink);
+  }
+
   if (!document.querySelector('link[href*="top-tip-button.css"]')) {
     const styleLink = document.createElement('link');
     styleLink.rel = 'stylesheet';
@@ -295,7 +304,12 @@
     chips.className = 'dealChips';
     if (quantity) {
       const chip = document.createElement('span');
-      chip.innerHTML = `${iconSvg('leaflet')}<b>${quantity}</b>`;
+      const chipIcon = document.createElement('span');
+      chipIcon.className = 'dealChipIcon';
+      chipIcon.innerHTML = iconSvg('leaflet');
+      const chipText = document.createElement('b');
+      chipText.textContent = quantity;
+      chip.append(chipIcon, chipText);
       chips.appendChild(chip);
     }
     if (unit?.textContent.trim()) {
