@@ -65,8 +65,63 @@
     });
   }
 
+  function installHomeScrollTop() {
+    const path = location.pathname.replace(/\/+$/, '');
+    if (path && !path.endsWith('/index.html')) return;
+    if (document.getElementById('leafletsScrollTop')) return;
+
+    if (!document.querySelector('link[href*="leaflets-scroll-top.css"]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = 'assets/leaflets-scroll-top.css?v=20260809-1';
+      document.head.appendChild(link);
+    }
+
+    const button = document.createElement('button');
+    button.id = 'leafletsScrollTop';
+    button.className = 'leafletsScrollTop';
+    button.type = 'button';
+    button.setAttribute('aria-label', 'Nahoru');
+    button.title = 'Nahoru';
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 14 6-6 6 6"/></svg>';
+    document.body.appendChild(button);
+
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let frame = 0;
+
+    const refresh = () => {
+      frame = 0;
+      if (!mobile.matches) {
+        button.classList.remove('is-visible');
+        return;
+      }
+
+      const top = window.scrollY || document.documentElement.scrollTop || 0;
+      const max = Math.max(1, document.documentElement.scrollHeight - window.innerHeight);
+      const progress = Math.max(0, Math.min(1, top / max));
+      button.style.setProperty('--scroll-progress', `${Math.round(progress * 360)}deg`);
+      button.classList.toggle('is-visible', top > 420);
+    };
+
+    const scheduleRefresh = () => {
+      if (frame) return;
+      frame = window.requestAnimationFrame(refresh);
+    };
+
+    button.addEventListener('click', () => {
+      button.blur();
+      window.scrollTo({ top: 0, left: 0, behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+    });
+
+    window.addEventListener('scroll', scheduleRefresh, { passive: true });
+    window.addEventListener('resize', scheduleRefresh, { passive: true });
+    if (typeof mobile.addEventListener === 'function') mobile.addEventListener('change', scheduleRefresh);
+    refresh();
+  }
+
   installVisualFix();
   patchLeafletsLinks();
+  installHomeScrollTop();
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
