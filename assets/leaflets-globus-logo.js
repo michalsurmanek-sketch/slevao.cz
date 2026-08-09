@@ -14,7 +14,8 @@
   function patchData() {
     items().forEach((item) => {
       if (String(item?.store_slug || '').toLowerCase() !== 'globus') return;
-      if (!item.logo_url) item.logo_url = GLOBUS_LOGO;
+      item.logo_url = GLOBUS_LOGO;
+      item.category = 'food';
     });
   }
 
@@ -24,13 +25,11 @@
 
   function patchSuggestions() {
     document.querySelectorAll('.leafletsStoreSuggestion[data-store-slug="globus"] .leafletsStoreSuggestionLogo').forEach((box) => {
-      const img = box.querySelector('img');
-      if (!img || !img.getAttribute('src')) box.innerHTML = logoImg('loading="lazy" decoding="async"');
+      box.innerHTML = logoImg('loading="lazy" decoding="async"');
     });
 
     if (lead && input && String(input.value || '').trim().toLowerCase() === 'globus') {
-      const img = lead.querySelector('img');
-      if (!img || !img.getAttribute('src')) lead.innerHTML = logoImg('aria-hidden="true"');
+      lead.innerHTML = logoImg('aria-hidden="true"');
     }
   }
 
@@ -42,15 +41,23 @@
       if (String(item?.store_slug || '').toLowerCase() !== 'globus') return;
 
       const store = card.querySelector('.allLeafletStore');
-      if (store && !store.querySelector('img')) {
-        const mark = store.querySelector('.allLeafletStoreMark');
-        if (mark) mark.outerHTML = `<img src="${GLOBUS_LOGO}" alt="Logo Globus" loading="lazy" decoding="async">`;
+      if (store) {
+        const oldImage = store.querySelector('img');
+        if (oldImage) oldImage.src = GLOBUS_LOGO;
+        else {
+          const mark = store.querySelector('.allLeafletStoreMark');
+          if (mark) mark.outerHTML = `<img src="${GLOBUS_LOGO}" alt="Logo Globus" loading="lazy" decoding="async">`;
+        }
       }
 
       const placeholder = card.querySelector('.allLeafletCoverPlaceholder');
-      if (placeholder && !placeholder.querySelector('img')) {
-        const visual = placeholder.querySelector('span');
-        if (visual) visual.outerHTML = logoImg('aria-hidden="true"');
+      if (placeholder) {
+        const oldImage = placeholder.querySelector('img');
+        if (oldImage) oldImage.src = GLOBUS_LOGO;
+        else {
+          const visual = placeholder.querySelector('span');
+          if (visual) visual.outerHTML = logoImg('aria-hidden="true"');
+        }
       }
     });
   }
