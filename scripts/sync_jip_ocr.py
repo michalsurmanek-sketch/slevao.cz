@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""JIP OCR worker reusing the proven Terno Tesseract implementation."""
+"""JIP OCR worker reusing the proven Terno Tesseract implementation.\nRuns only against current official JIP page images.\n"""
 import json
 import os
 import urllib.parse
