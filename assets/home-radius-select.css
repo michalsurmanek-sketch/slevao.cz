@@ -16,8 +16,10 @@
 .slRadiusControl.is-open .slRadiusChevron svg{transform:rotate(180deg)}
 .slRadiusValue{min-width:0;overflow:visible;color:#14252d;font-size:14px;font-weight:900;line-height:1;white-space:nowrap;text-align:left}
 
-.slRadiusMenu{position:absolute;left:0;top:calc(100% + 8px);width:164px;padding:7px;border:1px solid rgba(15,172,160,.2);border-radius:16px;background:rgba(255,255,255,.98);box-shadow:0 20px 48px rgba(7,71,67,.18),0 4px 12px rgba(7,71,67,.08);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);z-index:80;transform-origin:top left;animation:slRadiusOpen .14s ease-out}
+.slRadiusMenu{position:fixed;left:0;top:0;width:164px;padding:7px;border:1px solid rgba(15,172,160,.2);border-radius:16px;background:rgba(255,255,255,.99);box-shadow:0 20px 48px rgba(7,71,67,.22),0 4px 12px rgba(7,71,67,.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);z-index:2147483647;transform-origin:top left;animation:slRadiusOpen .14s ease-out;overscroll-behavior:contain}
 .slRadiusMenu[hidden]{display:none!important}
+.slRadiusMenu[popover]{margin:0!important;inset:auto!important;border:1px solid rgba(15,172,160,.2)}
+.slRadiusMenu:popover-open{display:block}
 @keyframes slRadiusOpen{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:none}}
 
 .slRadiusOption{width:100%;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 11px;border:0;border-radius:11px;background:transparent;color:#334542;text-align:left;font-size:13px;font-weight:800;cursor:pointer;transition:background .14s ease,color .14s ease,transform .14s ease}
