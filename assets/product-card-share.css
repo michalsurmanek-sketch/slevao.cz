@@ -1,0 +1,86 @@
+/* Sdílení nabídky na produktové kartě – stejné umístění na mobilu i desktopu */
+.dealCard[data-mobile-product-card="1"] .dealInfo{
+  padding-right:88px!important;
+}
+
+.dealCard[data-mobile-product-card="1"] .shareOffer{
+  position:absolute;
+  z-index:3;
+  right:44px;
+  top:0;
+  width:40px;
+  height:40px;
+  display:grid;
+  place-items:center;
+  padding:0;
+  border:0;
+  border-radius:12px;
+  background:#fff;
+  color:#455351;
+  box-shadow:none;
+  cursor:pointer;
+  transition:color .16s ease,background .16s ease,transform .16s ease,box-shadow .16s ease;
+}
+
+.dealCard[data-mobile-product-card="1"] .shareOffer svg{
+  width:20px;
+  height:20px;
+  display:block;
+}
+
+.dealCard[data-mobile-product-card="1"] .shareOffer:hover,
+.dealCard[data-mobile-product-card="1"] .shareOffer:focus-visible{
+  color:#087e75;
+  background:#effaf8;
+  box-shadow:0 5px 14px rgba(7,140,130,.11);
+  outline:0;
+}
+
+.dealCard[data-mobile-product-card="1"] .shareOffer:active{
+  transform:scale(.94);
+}
+
+.dealCard[data-mobile-product-card="1"] .shareOffer.is-sharing{
+  color:#087e75;
+  background:#e7f8f5;
+}
+
+@media(max-width:800px){
+  .dealCard[data-mobile-product-card="1"] .dealInfo{
+    padding-right:82px!important;
+  }
+
+  .dealCard[data-mobile-product-card="1"] .shareOffer{
+    right:40px;
+    width:38px;
+    height:38px;
+    border-radius:11px;
+  }
+
+  .dealCard[data-mobile-product-card="1"] .shareOffer svg{
+    width:19px;
+    height:19px;
+  }
+}
+
+@media(max-width:370px){
+  .dealCard[data-mobile-product-card="1"] .dealInfo{
+    padding-right:76px!important;
+  }
+
+  .dealCard[data-mobile-product-card="1"] .shareOffer{
+    right:36px;
+    width:34px;
+    height:34px;
+  }
+
+  .dealCard[data-mobile-product-card="1"] .shareOffer svg{
+    width:17px;
+    height:17px;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  .dealCard[data-mobile-product-card="1"] .shareOffer{transition:none}
+  .dealCard[data-mobile-product-card="1"] .shareOffer:active{transform:none}
+}
