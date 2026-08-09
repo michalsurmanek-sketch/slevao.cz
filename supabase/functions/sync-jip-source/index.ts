@@ -226,8 +226,6 @@ Deno.serve(async (request) => {
         cover_image_url: leaflet.coverUrl,
         page_count: leaflet.pageCount,
         page_image_urls: pageImageUrls,
-        page_image_width: 1080,
-        page_image_height: 1440,
         ocr_required: true,
         ocr_source: 'official_flip_pdf_large_pages',
         locations: leaflet.locations,
