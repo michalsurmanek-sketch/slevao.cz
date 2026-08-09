@@ -33,8 +33,32 @@ function parsePrice(text: string) {
 }
 function badContext(text: string) { return /(bez aplikace heyOBI|heyOBI|paletov[aá] cena|při koupi|od \d|za \d+ ks|pronájem|Kč\/(?:kg|m|m2|m²|l)|\bAKCE\b.*\bden)/i.test(text); }
 function badTitle(text: string) {
-  return text.length < 6 || text.length > 100 || !/[A-Za-zÁ-ž]/u.test(text) || /OBI č\.|cena|nabídka|sleva|aplikace|palet/i.test(text)
+  return text.length < 6 || text.length > 100 || !/[A-Za-zÁ-ž]/u.test(text) || /[*]|OBI č\.|cena|nabídka|sleva|aplikace|palet/i.test(text)
     || /^(?:bez|pro|při|od|včetně|barva|rozměr|balení|výhodné)/i.test(text);
+}
+async function validateOfficial(row: any) {
+  const sku = String(row.metadata.obi_sku);
+  try {
+    const res = await fetch(`https://www.obi.cz/p/${sku}?wt_mc=leaflet_akcniceny`, { redirect: 'follow', signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const html = await res.text();
+    if (!html.includes(sku)) return null;
+    const rawTitle = html.match(/<h1[^>]*>([\s\S]*?)<\/h1>/i)?.[1] || html.match(/<title[^>]*>([\s\S]*?)<\/title>/i)?.[1] || '';
+    const officialTitle = clean(rawTitle.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/&nbsp;/g, ' '));
+    const officialWords = new Set(normalize(officialTitle).split(' ').filter((w) => w.length >= 4));
+    const candidateWords = [...new Set(normalize(row.title).split(' ').filter((w) => w.length >= 4))];
+    const matches = candidateWords.filter((word) => officialWords.has(word)).length;
+    if (matches < Math.min(2, candidateWords.length)) return null;
+    return { ...row, source_url: res.url, metadata: { ...row.metadata, official_product_url: res.url, official_title: officialTitle, official_title_word_matches: matches } };
+  } catch { return null; }
+}
+async function validateRows(rows: any[]) {
+  const verified: any[] = [];
+  for (let i = 0; i < rows.length; i += 6) {
+    const batch = await Promise.all(rows.slice(i, i + 6).map(validateOfficial));
+    verified.push(...batch.filter(Boolean));
+  }
+  return verified;
 }
 function extract(pages: Page[], validFrom: string, validTo: string, sourceUrl: string) {
   const candidates: any[] = [];
@@ -86,8 +110,15 @@ Deno.serve(async (request) => {
     const { data: extracted, error: textError } = await db.from('leaflet_extracted_text').select('parser,page_count,pages,text_chars').eq('import_id', importId).single();
     if (textError || !extracted || extracted.parser !== 'pdf-text-v3') throw textError || new Error('Chybí textová vrstva pdf-text-v3.');
     const parsed = extract(extracted.pages as Page[], String(imported.detected_valid_from), String(imported.detected_valid_to), String(imported.metadata?.viewer_url || imported.source_document_url));
-    const signature = await sha256(parsed.rows.map((r) => `${r.external_id}|${r.title}|${r.price}`).join('\n'));
-    if (dryRun) return response({ ok: true, dry_run: true, import_id: importId, pages: extracted.page_count, text_chars: extracted.text_chars, publishable: parsed.rows.length, rejected: parsed.rejected.length, signature, candidates: parsed.rows, rejection_sample: parsed.rejected.slice(0, 50) });
-    throw new Error('Publikace OBI je zablokovaná, dokud názvy a ceny nejsou ověřené proti oficiálním SKU.');
+    const rows = await validateRows(parsed.rows);
+    if (rows.length < 5 || rows.length > 80) throw new Error(`OBI má ${rows.length} oficiálně ověřených kandidátů; očekáváno 5–80.`);
+    const signature = await sha256(rows.map((r) => `${r.external_id}|${r.title}|${r.price}`).join('\n'));
+    if (dryRun) return response({ ok: true, dry_run: true, import_id: importId, pages: extracted.page_count, text_chars: extracted.text_chars, spatial_candidates: parsed.rows.length, publishable: rows.length, rejected: parsed.rejected.length + parsed.rows.length - rows.length, signature, candidates: rows, rejection_sample: parsed.rejected.slice(0, 50) });
+    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
+      p_store_slug: 'obi', p_adapter: PARSER, p_signature: signature, p_rows: rows, p_min_products: 5, p_max_products: 80,
+      p_source_document_url: imported.source_document_url, p_parser_version: PARSER,
+    });
+    if (publishError) throw publishError;
+    return response({ ok: true, store: 'OBI', import_id: importId, published: rows.length, signature, result });
   } catch (error) { return response({ error: errorText(error), code: 'OBI_SPATIAL_SYNC_FAILED' }, 500); }
 });
