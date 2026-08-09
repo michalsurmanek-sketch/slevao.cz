@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 980 240" role="img" aria-labelledby="title desc">
   <title id="title">Slevao.cz</title>
-  <desc id="desc">Světlé logo Slevao.cz pro tmavé pozadí</desc>
+  <desc id="desc">Logo Slevao.cz s tyrkysovou cenovkou a symbolem procent</desc>
   <defs>
     <linearGradient id="tag" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#bffcf5"/>
@@ -8,11 +8,11 @@
       <stop offset="1" stop-color="#2eb8ae"/>
     </linearGradient>
     <linearGradient id="cz" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#34d6c7"/>
-      <stop offset="1" stop-color="#8af0e7"/>
+      <stop offset="0" stop-color="#35cfc4"/>
+      <stop offset="1" stop-color="#70e8df"/>
     </linearGradient>
     <filter id="shadow" x="-30%" y="-30%" width="170%" height="180%">
-      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#001b1f" flood-opacity=".38"/>
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#087b78" flood-opacity=".28"/>
     </filter>
   </defs>
   <g transform="translate(26 19) rotate(-8 95 95)" filter="url(#shadow)">
@@ -24,6 +24,6 @@
     <circle cx="72" cy="72" r="8" fill="#4bcfc5"/>
     <circle cx="144" cy="143" r="8" fill="#4bcfc5"/>
   </g>
-  <text x="250" y="162" font-family="Arial Black, Arial, sans-serif" font-size="126" font-weight="900" letter-spacing="-7" fill="#ffffff">SLEVAO</text>
+  <text x="250" y="162" font-family="Arial Black, Arial, sans-serif" font-size="126" font-weight="900" letter-spacing="-7" fill="#063f48">SLEVAO</text>
   <text x="797" y="162" font-family="Arial Black, Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="-4" fill="url(#cz)">.cz</text>
 </svg>
