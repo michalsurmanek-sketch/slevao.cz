@@ -74,6 +74,28 @@
   font-weight:950;
 }
 #leafletGrid .primaryButton{margin-top:10px}
+
+#leafletGrid .leafletFastSkeleton{
+  pointer-events:none;
+  box-shadow:none;
+  overflow:hidden;
+}
+#leafletGrid .leafletFastSkeleton .leafletCover{
+  background:#eef3f2;
+}
+#leafletGrid .leafletFastSkeleton .leafletBody{
+  min-height:124px;
+}
+#leafletGrid .leafletSkeletonLine{
+  height:13px;
+  width:62%;
+  margin:0 0 12px;
+  border-radius:999px;
+  background:#edf2f1;
+}
+#leafletGrid .leafletSkeletonLine.wide{width:78%;height:18px}
+#leafletGrid .leafletSkeletonLine.short{width:42%;margin-bottom:0}
+
 @media(max-width:900px){
   #leafletGrid.leafletGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
