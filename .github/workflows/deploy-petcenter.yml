@@ -1,0 +1,26 @@
+name: Deploy PetCenter parser
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/deploy-petcenter.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - name: Replace PetCenter parser at function cap
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          supabase functions delete sync-petcenter-products --project-ref uhampjdqjxmbhaptgitn --yes || true
+          supabase functions deploy sync-petcenter-products --project-ref uhampjdqjxmbhaptgitn --use-api --no-verify-jwt
