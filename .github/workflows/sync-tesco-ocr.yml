@@ -1,0 +1,48 @@
+name: Tesco OCR
+
+on:
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/sync_tesco_ocr.py'
+      - '.github/workflows/sync-tesco-ocr.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tesco-ocr-current-flyer
+  cancel-in-progress: false
+
+jobs:
+  ocr:
+    name: OCR aktuálního Tesco hypermarket letáku
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    env:
+      SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ověřit Supabase secrets
+        shell: bash
+        run: |
+          test -n "$SUPABASE_URL"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
+
+      - name: Nainstalovat český Tesseract
+        shell: bash
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng
+          tesseract --version | head -1
+          tesseract --list-langs | grep -E '^(ces|eng)$'
+
+      - name: Najít stránky, provést OCR a uložit souřadnice
+        run: python3 scripts/sync_tesco_ocr.py
