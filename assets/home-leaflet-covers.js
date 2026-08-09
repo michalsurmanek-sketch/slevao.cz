@@ -1,15 +1,19 @@
 (() => {
   'use strict';
 
+  window.__slevaoDedicatedLeafletGrid = true;
+
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const TODAY = new Date().toISOString().slice(0, 10);
   const MAX_CARDS = 12;
-  const STORE_BATCH_SIZE = 8;
-  const COVER_CONCURRENCY = 3;
-  const CACHE_NAME = 'slevao-homepage-leaflet-covers-v4';
+  const STORE_BATCH_SIZE = 12;
+  const COVER_CONCURRENCY = 5;
+  const CACHE_NAME = 'slevao-homepage-leaflet-covers-v5';
+  const META_CACHE_KEY = 'slevao-homepage-leaflets-meta-v5';
+  const META_CACHE_TTL = 30 * 60 * 1000;
   const PRIORITY_SLUGS = [
-    'tesco', 'penny', 'makro', 'kaufland', 'lidl', 'albert', 'billa', 'globus',
+    'penny', 'kaufland', 'lidl', 'tesco', 'makro', 'albert', 'billa', 'globus',
     'coop', 'hruska', 'norma', 'terno', 'action', 'dm', 'rossmann', 'teta',
   ];
   const LOCAL_LOGOS = {
@@ -28,23 +32,37 @@
   ];
 
   let pdfjsPromise = null;
-  let leafletDataPromise = null;
   let renderGeneration = 0;
-  let observerWriting = false;
-  let scheduledRender = 0;
+  let rendering = false;
   const objectUrls = new Set();
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[character]));
 
+  function readMetaCache() {
+    try {
+      const cached = JSON.parse(localStorage.getItem(META_CACHE_KEY) || 'null');
+      if (!cached || !Array.isArray(cached.leaflets)) return null;
+      const current = cached.leaflets.filter((item) => (!item.valid_from || item.valid_from <= TODAY) && (!item.valid_to || item.valid_to >= TODAY));
+      if (!current.length) return null;
+      return { ...cached, leaflets: current.slice(0, MAX_CARDS) };
+    } catch {
+      return null;
+    }
+  }
+
+  function writeMetaCache(leaflets) {
+    try {
+      localStorage.setItem(META_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), leaflets }));
+    } catch {}
+  }
+
   function formatDate(value) {
     if (!value) return '';
     const parsed = new Date(`${value}T12:00:00`);
     if (Number.isNaN(parsed.getTime())) return '';
-    return new Intl.DateTimeFormat('cs-CZ', {
-      day: 'numeric', month: 'numeric', year: 'numeric',
-    }).format(parsed);
+    return new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(parsed);
   }
 
   async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
@@ -57,14 +75,11 @@
     }
   }
 
-  async function rest(path, params, range = '') {
+  async function rest(path, params) {
     const query = new URLSearchParams(params);
     const response = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${path}?${query}`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        ...(range ? { Range: range } : {}),
-      },
-      cache: 'no-store',
+      headers: { apikey: SUPABASE_KEY },
+      cache: 'default',
     });
     if (!response.ok) throw new Error(`Databáze vrátila HTTP ${response.status}.`);
     return response.json();
@@ -76,33 +91,13 @@
       is_active: 'eq.true',
       order: 'name.asc',
     });
-
-    let activeIds = null;
-    try {
-      activeIds = new Set();
-      for (let from = 0; from < 5000; from += 1000) {
-        const rows = await rest('offers', {
-          select: 'store_id',
-          status: 'eq.published',
-          valid_from: `lte.${TODAY}`,
-          valid_to: `gte.${TODAY}`,
-        }, `${from}-${from + 999}`);
-        rows.forEach((row) => row.store_id && activeIds.add(String(row.store_id)));
-        if (rows.length < 1000) break;
-      }
-    } catch (error) {
-      console.warn('Aktivní obchody se nepodařilo omezit podle nabídek:', error);
-      activeIds = null;
-    }
-
     const priority = new Map(PRIORITY_SLUGS.map((slug, index) => [slug, index]));
     return stores
-      .filter((store) => store?.slug && (!activeIds || activeIds.has(String(store.id))))
+      .filter((store) => store?.slug)
       .sort((a, b) => {
         const aPriority = priority.has(a.slug) ? priority.get(a.slug) : 999;
         const bPriority = priority.has(b.slug) ? priority.get(b.slug) : 999;
-        return aPriority - bPriority
-          || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
+        return aPriority - bPriority || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
       });
   }
 
@@ -114,17 +109,16 @@
       .sort((a, b) => {
         const aPriority = a.key === 'hypermarket' ? 0 : a.key === 'supermarket' ? 1 : 2;
         const bPriority = b.key === 'hypermarket' ? 0 : b.key === 'supermarket' ? 1 : 2;
-        return aPriority - bPriority
-          || String(a.valid_to || '9999-12-31').localeCompare(String(b.valid_to || '9999-12-31'));
+        return aPriority - bPriority || String(a.valid_to || '9999-12-31').localeCompare(String(b.valid_to || '9999-12-31'));
       })[0] || null;
   }
 
   async function storeLeaflet(store) {
-    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=homepage-v4`;
+    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=homepage-v5`;
     const response = await fetchWithTimeout(endpoint, {
       headers: { apikey: SUPABASE_KEY },
-      cache: 'no-store',
-    }, 8000);
+      cache: 'default',
+    }, 6500);
     if (!response.ok) throw new Error(`${store.slug}: HTTP ${response.status}`);
     const payload = await response.json();
     const leaflet = currentLeaflet(payload?.leaflets);
@@ -140,26 +134,22 @@
     };
   }
 
-  async function loadLeaflets() {
+  async function loadFreshLeaflets() {
     const stores = await activeStores();
     const output = [];
     const seen = new Set();
-
     for (let offset = 0; offset < stores.length && output.length < MAX_CARDS; offset += STORE_BATCH_SIZE) {
       const batch = stores.slice(offset, offset + STORE_BATCH_SIZE);
       const results = await Promise.allSettled(batch.map(storeLeaflet));
       results.forEach((result) => {
-        if (result.status !== 'fulfilled') {
-          console.debug('Leták obchodu přeskočen:', result.reason);
-          return;
-        }
-        if (seen.has(result.value.store_slug)) return;
+        if (result.status !== 'fulfilled' || seen.has(result.value.store_slug)) return;
         seen.add(result.value.store_slug);
         output.push(result.value);
       });
     }
-
-    return output.slice(0, MAX_CARDS);
+    const leaflets = output.slice(0, MAX_CARDS);
+    if (leaflets.length) writeMetaCache(leaflets);
+    return leaflets;
   }
 
   async function loadPdfjs() {
@@ -173,7 +163,6 @@
             return module;
           } catch (error) {
             lastError = error;
-            console.warn('PDF.js zdroj selhal:', source.module, error);
           }
         }
         throw lastError || new Error('PDF.js není dostupné.');
@@ -184,37 +173,25 @@
 
   function isPdf(blob, bytes) {
     if (String(blob.type || '').toLowerCase().includes('pdf')) return true;
-    return bytes.length >= 4
-      && bytes[0] === 0x25
-      && bytes[1] === 0x50
-      && bytes[2] === 0x44
-      && bytes[3] === 0x46;
+    return bytes.length >= 4 && bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46;
   }
 
   async function fetchDocument(url) {
     let response = await fetchWithTimeout(url, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8',
-      },
-      cache: 'no-store',
-    }, 26000);
+      headers: { apikey: SUPABASE_KEY, accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8' },
+      cache: 'default',
+    }, 22000);
     if (!response.ok) throw new Error(`Dokument vrátil HTTP ${response.status}.`);
-
-    const contentType = String(response.headers.get('content-type') || '').toLowerCase();
-    if (contentType.includes('application/json')) {
+    if (String(response.headers.get('content-type') || '').toLowerCase().includes('application/json')) {
       const payload = await response.json();
       const redirectedUrl = String(payload?.url || '');
-      if (!redirectedUrl.startsWith('https://')) {
-        throw new Error(payload?.error || 'Leták nevrátil platný dokument.');
-      }
+      if (!redirectedUrl.startsWith('https://')) throw new Error(payload?.error || 'Leták nevrátil platný dokument.');
       response = await fetchWithTimeout(redirectedUrl, {
         headers: { accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8' },
-        cache: 'no-store',
-      }, 26000);
+        cache: 'default',
+      }, 22000);
       if (!response.ok) throw new Error(`Soubor vrátil HTTP ${response.status}.`);
     }
-
     const blob = await response.blob();
     if (!blob.size) throw new Error('Dokument letáku je prázdný.');
     return blob;
@@ -222,11 +199,8 @@
 
   async function cacheRequest(sourceUrl) {
     const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(sourceUrl));
-    const hash = Array.from(new Uint8Array(digest))
-      .slice(0, 16)
-      .map((value) => value.toString(16).padStart(2, '0'))
-      .join('');
-    return new Request(new URL(`/__slevao_home_leaflet_v4__/${hash}`, location.origin));
+    const hash = Array.from(new Uint8Array(digest)).slice(0, 16).map((value) => value.toString(16).padStart(2, '0')).join('');
+    return new Request(new URL(`/__slevao_home_leaflet_v5__/${hash}`, location.origin));
   }
 
   async function cachedCover(sourceUrl) {
@@ -244,19 +218,12 @@
     if (!('caches' in window) || !crypto?.subtle) return;
     try {
       const cache = await caches.open(CACHE_NAME);
-      await cache.put(await cacheRequest(sourceUrl), new Response(blob, {
-        headers: {
-          'content-type': blob.type || 'image/webp',
-          'cache-control': 'public,max-age=604800',
-        },
-      }));
-    } catch {
-      // Cache nesmí zablokovat zobrazení.
-    }
+      await cache.put(await cacheRequest(sourceUrl), new Response(blob, { headers: { 'content-type': blob.type || 'image/webp' } }));
+    } catch {}
   }
 
   async function canvasBlob(canvas) {
-    const webp = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.9));
+    const webp = await new Promise((resolve) => canvas.toBlob(resolve, 'image/webp', 0.86));
     if (webp) return webp;
     const png = await new Promise((resolve) => canvas.toBlob(resolve, 'image/png'));
     if (!png) throw new Error('Obrázek titulní strany se nepodařilo vytvořit.');
@@ -266,29 +233,20 @@
   async function renderFirstPage(documentBlob) {
     const bytes = new Uint8Array(await documentBlob.arrayBuffer());
     if (!isPdf(documentBlob, bytes)) {
-      if (!String(documentBlob.type || '').startsWith('image/')) {
-        throw new Error('Leták není PDF ani obrázek.');
-      }
+      if (!String(documentBlob.type || '').startsWith('image/')) throw new Error('Leták není PDF ani obrázek.');
       return documentBlob;
     }
-
     const pdfjs = await loadPdfjs();
-    const loadingTask = pdfjs.getDocument({
-      data: bytes,
-      isEvalSupported: false,
-      useWorkerFetch: true,
-    });
-    const pdf = await loadingTask.promise;
+    const pdf = await pdfjs.getDocument({ data: bytes, isEvalSupported: false, useWorkerFetch: true }).promise;
     try {
       const page = await pdf.getPage(1);
       const natural = page.getViewport({ scale: 1 });
-      const desiredWidth = Math.min(720, Math.max(420, window.innerWidth * 0.55));
-      const viewport = page.getViewport({ scale: Math.min(2.5, desiredWidth / natural.width) });
+      const desiredWidth = Math.min(640, Math.max(360, window.innerWidth * 0.5));
+      const viewport = page.getViewport({ scale: Math.min(2.2, desiredWidth / natural.width) });
       const canvas = document.createElement('canvas');
       canvas.width = Math.max(1, Math.ceil(viewport.width));
       canvas.height = Math.max(1, Math.ceil(viewport.height));
       const context = canvas.getContext('2d', { alpha: false });
-      if (!context) throw new Error('Prohlížeč neumí vykreslit PDF.');
       context.fillStyle = '#fff';
       context.fillRect(0, 0, canvas.width, canvas.height);
       await page.render({ canvasContext: context, viewport }).promise;
@@ -302,140 +260,157 @@
     const cached = await cachedCover(leaflet.preview_url);
     if (cached) return cached;
     const rendered = await renderFirstPage(await fetchDocument(leaflet.preview_url));
-    await saveCover(leaflet.preview_url, rendered);
+    saveCover(leaflet.preview_url, rendered);
     return rendered;
-  }
-
-  async function mapWithConcurrency(items, worker, concurrency) {
-    const results = new Array(items.length);
-    let cursor = 0;
-    async function run() {
-      while (cursor < items.length) {
-        const index = cursor++;
-        try {
-          results[index] = await worker(items[index], index);
-        } catch (error) {
-          results[index] = { error, leaflet: items[index] };
-        }
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, run));
-    return results;
   }
 
   function logoMarkup(leaflet) {
     if (leaflet.logo_url) {
-      return `<img class="leafletCardLogo" src="${esc(leaflet.logo_url)}" alt="Logo ${esc(leaflet.store_name)}" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'leafletCardLogoFallback',textContent:'%' }))">`;
+      return `<img class="leafletCardLogo" src="${esc(leaflet.logo_url)}" alt="Logo ${esc(leaflet.store_name)}" loading="eager" decoding="async" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'leafletCardLogoFallback',textContent:'%'}))">`;
     }
     return '<span class="leafletCardLogoFallback" aria-hidden="true">%</span>';
   }
 
-  function cardMarkup(leaflet, objectUrl) {
-    const validity = leaflet.valid_from && leaflet.valid_to
-      ? `${formatDate(leaflet.valid_from)}–${formatDate(leaflet.valid_to)}`
-      : leaflet.valid_to
-        ? `do ${formatDate(leaflet.valid_to)}`
-        : 'aktuální vydání';
+  function validityText(leaflet) {
+    if (leaflet.valid_from && leaflet.valid_to) return `${formatDate(leaflet.valid_from)}–${formatDate(leaflet.valid_to)}`;
+    if (leaflet.valid_to) return `do ${formatDate(leaflet.valid_to)}`;
+    return 'aktuální vydání';
+  }
 
-    return `<article class="leafletCard" data-direct-leaflet-card="1">
+  function cardMarkup(leaflet, objectUrl) {
+    return `<article class="leafletCard" data-direct-leaflet-card="1" data-store-slug="${esc(leaflet.store_slug)}">
       <a class="leafletCover leafletCoverLink" href="${esc(leaflet.store_slug)}.html" aria-label="Otevřít leták ${esc(leaflet.store_name)}">
-        <img class="leafletFrontPage" src="${esc(objectUrl)}" alt="Titulní strana aktuálního letáku ${esc(leaflet.store_name)}">
+        <img class="leafletFrontPage" src="${esc(objectUrl)}" alt="Titulní strana aktuálního letáku ${esc(leaflet.store_name)}" loading="eager" decoding="async">
         <span class="leafletCurrentBadge">Aktuální leták</span>
       </a>
       <div class="leafletBody">
         <div class="leafletStoreIdentity">${logoMarkup(leaflet)}<h3>${esc(leaflet.store_name)}</h3></div>
-        <div class="leafletMeta"><span>Titulní strana</span><span>${esc(validity)}</span></div>
-        <div class="leafletAction">
-          <button class="textButton" type="button" data-store="${esc(leaflet.store_slug)}">Zobrazit akce</button>
-          <a href="${esc(leaflet.store_slug)}.html">Prolistovat ↗</a>
-        </div>
-      </div>
-    </article>`;
-  }
-
-  function fallbackCardMarkup(leaflet) {
-    const validity = leaflet.valid_to ? `do ${formatDate(leaflet.valid_to)}` : 'aktuální vydání';
-    return `<article class="leafletCard" data-direct-leaflet-card="1" data-cover-fallback="1">
-      <a class="leafletCover leafletCoverLink" href="${esc(leaflet.store_slug)}.html">
-        <div class="leafletFallbackCover">${logoMarkup(leaflet)}<strong>Aktuální leták</strong><small>Náhled titulní strany se nepodařilo vytvořit</small></div>
-      </a>
-      <div class="leafletBody">
-        <div class="leafletStoreIdentity">${logoMarkup(leaflet)}<h3>${esc(leaflet.store_name)}</h3></div>
-        <div class="leafletMeta"><span>Leták</span><span>${esc(validity)}</span></div>
+        <div class="leafletMeta"><span>Titulní strana</span><span>${esc(validityText(leaflet))}</span></div>
         <div class="leafletAction"><button class="textButton" type="button" data-store="${esc(leaflet.store_slug)}">Zobrazit akce</button><a href="${esc(leaflet.store_slug)}.html">Prolistovat ↗</a></div>
       </div>
     </article>`;
   }
 
-  function errorMarkup(message) {
-    return `<div class="emptyState"><strong>Aktuální letáky se nepodařilo načíst</strong><span>${esc(message)}</span><button class="primaryButton" id="reloadLeafletCovers" type="button">Načíst znovu</button></div>`;
+  function skeletonMarkup(index) {
+    return `<article class="leafletCard leafletFastSkeleton" data-fast-skeleton="${index}"><div class="leafletCover"></div><div class="leafletBody"><div class="leafletSkeletonLine wide"></div><div class="leafletSkeletonLine"></div><div class="leafletSkeletonLine short"></div></div></article>`;
+  }
+
+  function ensureQuietSkeletons(grid) {
+    if (grid.querySelector('.leafletCard[data-direct-leaflet-card="1"]')) return;
+    const existingUseful = grid.querySelector('.leafletCard:not([data-fast-skeleton])');
+    if (existingUseful) return;
+    grid.innerHTML = [0, 1, 2].map(skeletonMarkup).join('');
+  }
+
+  async function resolveCachedCards(leaflets) {
+    const resolved = [];
+    for (const leaflet of leaflets) {
+      const blob = await cachedCover(leaflet.preview_url);
+      if (!blob) continue;
+      const objectUrl = URL.createObjectURL(blob);
+      objectUrls.add(objectUrl);
+      resolved.push({ leaflet, objectUrl });
+    }
+    return resolved;
+  }
+
+  function commitCards(grid, cards, state = 'ready') {
+    if (!cards.length) return;
+    grid.innerHTML = cards.map(({ leaflet, objectUrl }) => cardMarkup(leaflet, objectUrl)).join('');
+    grid.dataset.directLeafletRenderer = state;
+  }
+
+  async function renderFreshProgressively(grid, leaflets, generation, seedCards = []) {
+    const results = new Array(leaflets.length);
+    const seedBySlug = new Map(seedCards.map((item) => [item.leaflet.store_slug, item]));
+    leaflets.forEach((leaflet, index) => {
+      if (seedBySlug.has(leaflet.store_slug)) results[index] = seedBySlug.get(leaflet.store_slug);
+    });
+
+    let cursor = 0;
+    let firstCommitDone = seedCards.length > 0;
+    const workers = Array.from({ length: Math.min(COVER_CONCURRENCY, leaflets.length) }, async () => {
+      while (cursor < leaflets.length) {
+        const index = cursor++;
+        if (results[index]) continue;
+        const leaflet = leaflets[index];
+        try {
+          const cover = await coverFor(leaflet);
+          if (generation !== renderGeneration) return;
+          const objectUrl = URL.createObjectURL(cover);
+          objectUrls.add(objectUrl);
+          results[index] = { leaflet, objectUrl };
+
+          const ready = results.filter(Boolean);
+          if (!firstCommitDone && ready.length >= 2) {
+            commitCards(grid, ready, 'partial');
+            firstCommitDone = true;
+          } else if (firstCommitDone && ready.length < leaflets.length) {
+            commitCards(grid, ready, 'partial');
+          }
+        } catch (error) {
+          console.debug('Náhled letáku přeskočen:', leaflet.store_slug, error);
+        }
+      }
+    });
+
+    await Promise.all(workers);
+    if (generation !== renderGeneration) return [];
+    const finalCards = results.filter(Boolean);
+    if (finalCards.length) commitCards(grid, finalCards, 'ready');
+    return finalCards;
   }
 
   async function renderSection(forceReload = false) {
+    if (rendering && !forceReload) return;
     const grid = document.getElementById('leafletGrid');
     if (!grid) return;
+    rendering = true;
     const generation = ++renderGeneration;
-
-    observerWriting = true;
-    grid.dataset.directLeafletRenderer = 'loading';
-    grid.innerHTML = '<div class="loadingState"><span class="spinner"></span><strong>Načítám titulní strany letáků</strong><small>Kontroluji právě platná vydání obchodů.</small></div>';
-    observerWriting = false;
+    grid.dataset.directLeafletRenderer = 'warming';
+    ensureQuietSkeletons(grid);
 
     try {
-      if (forceReload) leafletDataPromise = null;
-      if (!leafletDataPromise) leafletDataPromise = loadLeaflets();
-      const leaflets = await leafletDataPromise;
-      if (generation !== renderGeneration) return;
-      if (!leaflets.length) throw new Error('Ve veřejném feedu nebyl nalezen žádný aktuální leták.');
-
-      const rendered = await mapWithConcurrency(leaflets, async (leaflet) => {
-        const cover = await coverFor(leaflet);
-        const objectUrl = URL.createObjectURL(cover);
-        objectUrls.add(objectUrl);
-        return { leaflet, objectUrl };
-      }, COVER_CONCURRENCY);
-      if (generation !== renderGeneration) return;
-
-      const successful = rendered.filter((item) => item && !item.error && item.objectUrl);
-      const failed = rendered.filter((item) => item?.error);
-      if (!successful.length) {
-        throw new Error('Prohlížeč nedokázal vykreslit první stránku žádného aktuálního letáku.');
+      const cachedMeta = !forceReload ? readMetaCache() : null;
+      let cachedCards = [];
+      if (cachedMeta?.leaflets?.length) {
+        cachedCards = await resolveCachedCards(cachedMeta.leaflets);
+        if (generation !== renderGeneration) return;
+        if (cachedCards.length) commitCards(grid, cachedCards, 'cached');
       }
 
-      observerWriting = true;
-      grid.innerHTML = [
-        ...successful.map(({ leaflet, objectUrl }) => cardMarkup(leaflet, objectUrl)),
-        ...failed.slice(0, Math.max(0, MAX_CARDS - successful.length)).map(({ leaflet }) => fallbackCardMarkup(leaflet)),
-      ].join('');
-      grid.dataset.directLeafletRenderer = 'ready';
-      observerWriting = false;
-    } catch (error) {
+      const cacheFresh = cachedMeta && Date.now() - Number(cachedMeta.savedAt || 0) < META_CACHE_TTL;
+      const freshLeaflets = cacheFresh ? cachedMeta.leaflets : await loadFreshLeaflets();
       if (generation !== renderGeneration) return;
-      console.error('Načtení titulních stran selhalo:', error);
-      observerWriting = true;
-      grid.innerHTML = errorMarkup(error instanceof Error ? error.message : 'Neznámá chyba.');
-      grid.dataset.directLeafletRenderer = 'error';
-      observerWriting = false;
-      document.getElementById('reloadLeafletCovers')?.addEventListener('click', () => renderSection(true), { once: true });
-    }
-  }
+      if (!freshLeaflets.length) throw new Error('Nebyl nalezen žádný aktuální leták.');
 
-  function scheduleRender(forceReload = false) {
-    window.clearTimeout(scheduledRender);
-    scheduledRender = window.setTimeout(() => renderSection(forceReload), 20);
+      await renderFreshProgressively(grid, freshLeaflets, generation, cachedCards);
+
+      if (cacheFresh) {
+        window.setTimeout(async () => {
+          try {
+            const refreshed = await loadFreshLeaflets();
+            if (!refreshed.length) return;
+            const same = JSON.stringify(refreshed.map((x) => [x.store_slug, x.preview_url])) === JSON.stringify(freshLeaflets.map((x) => [x.store_slug, x.preview_url]));
+            if (!same) renderSection(true);
+          } catch {}
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Načtení titulních stran selhalo:', error);
+      if (!grid.querySelector('.leafletCard[data-direct-leaflet-card="1"]')) {
+        grid.dataset.directLeafletRenderer = 'error';
+      }
+    } finally {
+      rendering = false;
+    }
   }
 
   function start() {
     const grid = document.getElementById('leafletGrid');
     if (!grid) return;
-
-    const observer = new MutationObserver(() => {
-      if (observerWriting) return;
-      const foreignCard = grid.querySelector('.leafletCard:not([data-direct-leaflet-card="1"])');
-      if (foreignCard) scheduleRender(false);
-    });
-    observer.observe(grid, { childList: true });
-    scheduleRender(false);
+    loadPdfjs().catch(() => {});
+    renderSection(false);
   }
 
   window.addEventListener('pagehide', () => {
