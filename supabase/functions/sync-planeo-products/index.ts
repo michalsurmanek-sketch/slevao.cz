@@ -32,17 +32,17 @@ async function sha256(value: string) {
 }
 function parseProducts(html: string, dates: { from: string; to: string }) {
   const start = html.indexOf('id="product-filter-top"');
-  if (start < 0) throw new Error('Sekce nejprodávanějších produktů nebyla nalezena.');
-  const end = html.indexOf('id="product-filter"', start + 1);
-  const section = html.slice(start, end > start ? end : start + 100000);
-  const blocks = section.split(/<div\s+[^>]*class="c-product c-product--top"/i).slice(1);
+  if (start < 0) throw new Error('Sekce produktů nebyla nalezena.');
+  const section = html.slice(start);
+  const blocks = section.split(/<div\s+[^>]*class="c-product c-product--(?:top|catalogue)"/i).slice(1);
   const rows: any[] = [];
   for (const block of blocks) {
     const sku = block.match(/data-gtm-product-id="(\d+)"/i)?.[1];
     const titleRaw = block.match(/data-gtm-product-name='([^']+)'/i)?.[1];
-    const href = block.match(/<a href="([^"]+)" class="c-product--top__items-wrapper"/i)?.[1];
+    const href = block.match(/<a href="([^"]+)" class="c-product--top__items-wrapper"/i)?.[1]
+      || block.match(/<a href="([^"]+)">\s*<div data-testid="catalogue\.item\.image"/i)?.[1];
     const image = block.match(/<img src="([^"]+)"[^>]*alt="[^"]*"/i)?.[1]?.replace(/&amp;/g, '&');
-    const current = block.match(/data-testid="category\.bestsellers\.item\.price"\s+data-test-value="(\d+)"/i)?.[1];
+    const current = block.match(/data-testid="(?:category\.bestsellers|catalogue)\.item\.price"\s+data-test-value="(\d+)"/i)?.[1];
     const oldRaw = block.match(/class="c-price-tag__price-strip">([\s\S]*?)<\/span>/i)?.[1];
     const sale = /class="c-price-tag__title">\s*VÝPRODEJ\s*</i.test(block);
     if (!sku || !titleRaw || !href || !current || !sale) continue;
@@ -68,7 +68,7 @@ function parseProducts(html: string, dates: { from: string; to: string }) {
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length !== 3) throw new Error(`PLANEO parser našel ${unique.length} bezpečných top produktů; očekávány přesně 3.`);
+  if (unique.length !== 27) throw new Error(`PLANEO parser našel ${unique.length} bezpečných produktů; očekáváno přesně 27.`);
   return unique;
 }
 
@@ -100,7 +100,7 @@ Deno.serve(async (request) => {
     if (body.dry_run === true) return json({ ok: true, dry_run: true, dates, publishable: rows.length, signature, candidates: rows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
       p_store_slug: 'planeo', p_adapter: ADAPTER, p_signature: signature, p_rows: rows,
-      p_min_products: 3, p_max_products: 3, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
+      p_min_products: 27, p_max_products: 27, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
     });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
