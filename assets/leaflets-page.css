@@ -80,12 +80,16 @@ button{font:inherit}
 .leafletsFooterInner{display:flex;align-items:center;justify-content:space-between;gap:16px;color:#70807d;font-size:12px}
 .leafletsFooterLogo{width:180px;height:42px;background:url('slevao-logo.svg?v=20260802-1') left center/contain no-repeat}
 
+/* Stejná spodní navigace jako na ostatních mobilních stránkách Slevao.cz. */
+.slevaoBottomNav{display:none}
+
 @media(max-width:980px){
   .leafletCategoryGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 
 @media(max-width:800px){
   html{scroll-padding-top:70px}
+  body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
   .leafletsShell{width:calc(100% - 20px)}
   .leafletsTopbarInner{min-height:64px}
   .leafletsLogo{width:150px;height:48px;background-image:url('slevao-logo.svg?v=20260802-1');background-position:left center;background-size:contain}
@@ -120,6 +124,44 @@ button{font:inherit}
   .allLeafletStoreLink{width:39px;flex-basis:39px}
   .leafletsFooterInner{align-items:flex-start;flex-direction:column}
   .leafletsFooterLogo{width:156px;height:38px}
+
+  .slevaoBottomNav{
+    position:fixed;
+    left:0;
+    right:0;
+    bottom:0;
+    z-index:9999;
+    min-height:68px;
+    padding:6px max(8px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(8px,env(safe-area-inset-left));
+    display:grid;
+    grid-template-columns:repeat(5,minmax(0,1fr));
+    background:rgba(255,255,255,.97);
+    -webkit-backdrop-filter:blur(18px);
+    backdrop-filter:blur(18px);
+    border-top:1px solid #dbe8e5;
+    box-shadow:0 -8px 30px rgba(15,45,40,.09);
+  }
+  .slevaoBottomNav a{
+    min-width:0;
+    display:grid;
+    place-items:center;
+    align-content:center;
+    gap:3px;
+    padding:3px 1px;
+    border:0;
+    border-radius:12px;
+    background:transparent!important;
+    color:#62716e;
+    text-decoration:none;
+    font:750 10px/1 system-ui,-apple-system,"Segoe UI",sans-serif;
+    outline:0!important;
+    box-shadow:none!important;
+    -webkit-tap-highlight-color:transparent;
+    touch-action:manipulation;
+  }
+  .slevaoBottomNav a span{font-size:20px;line-height:1}
+  .slevaoBottomNav a[aria-current="page"]{background:transparent!important;color:#0b776f}
+  .slevaoBottomNav a:focus,.slevaoBottomNav a:focus-visible,.slevaoBottomNav a:active{outline:0!important;box-shadow:none!important;background:transparent!important}
 }
 
 @media(max-width:370px){
