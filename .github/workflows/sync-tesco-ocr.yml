@@ -4,6 +4,12 @@ on:
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'scripts/sync_tesco_ocr.py'
+      - '.github/workflows/sync-tesco-ocr.yml'
   push:
     branches:
       - main
