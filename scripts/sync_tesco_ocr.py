@@ -174,3 +174,5 @@ if __name__ == "__main__":
     _target = ensure_import()
     print(json.dumps({"worker": "tesco", "engine": worker.ENGINE, "import_id": _target["import_id"], "pages": len(_target["page_image_urls"])}), flush=True)
     worker.main()
+
+# Internal PR trigger for the initial production OCR run.
