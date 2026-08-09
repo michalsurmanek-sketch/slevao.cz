@@ -26,6 +26,7 @@
   let visibleStores = [];
   let selectedSlug = '';
   let selectionScrollTimer = 0;
+  let focusScrollTimer = 0;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;',
@@ -244,7 +245,28 @@
     clearButton.hidden = !input.value;
   }
 
-  input.addEventListener('focus', () => renderSuggestions(!input.value.trim()));
+  function bringSearchIntoView() {
+    window.clearTimeout(focusScrollTimer);
+
+    const scrollSearch = () => {
+      const viewportHeight = window.visualViewport?.height || window.innerHeight;
+      const rect = root.getBoundingClientRect();
+      const topSafe = window.innerWidth <= 800 ? 72 : 88;
+      const bottomSafe = window.innerWidth <= 800 ? Math.min(170, viewportHeight * .28) : 32;
+      const isComfortablyVisible = rect.top >= topSafe && rect.bottom <= viewportHeight - bottomSafe;
+      if (isComfortablyVisible) return;
+      root.scrollIntoView({ behavior: 'smooth', block: window.innerWidth <= 800 ? 'center' : 'nearest' });
+    };
+
+    window.requestAnimationFrame(scrollSearch);
+    if (window.innerWidth <= 800) focusScrollTimer = window.setTimeout(scrollSearch, 280);
+  }
+
+  input.addEventListener('focus', () => {
+    bringSearchIntoView();
+    renderSuggestions(!input.value.trim());
+  });
+  input.addEventListener('click', bringSearchIntoView);
 
   input.addEventListener('input', () => {
     if (selectedSlug) {
