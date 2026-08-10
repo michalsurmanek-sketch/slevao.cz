@@ -1,13 +1,16 @@
-/* Slevao.cz – mobile store row overflow containment
-   Horizontal scrolling belongs only to the store rail, never to the whole page. */
+/* Slevao.cz – mobile horizontal rows overflow containment
+   Horizontal scrolling belongs only to the rails, never to the whole page. */
 @media(max-width:800px){
   #storesSection,
-  #storesSection>.container{
+  #storesSection>.container,
+  #categoriesSection,
+  #categoriesSection>.container{
     min-width:0;
     max-width:100%;
   }
 
-  #storesSection>.container{
+  #storesSection>.container,
+  #categoriesSection>.container{
     position:relative;
   }
 
@@ -30,7 +33,8 @@
     scrollbar-width:none;
   }
 
-  #storesSection .storeGrid::-webkit-scrollbar{
+  #storesSection .storeGrid::-webkit-scrollbar,
+  #categoriesSection .categoryChips::-webkit-scrollbar{
     display:none;
   }
 
@@ -39,8 +43,23 @@
     scroll-snap-align:start;
   }
 
-  #storesSection>.container::after{
-    content:"←  Posuň do stran pro další obchod  →";
+  #categoriesSection .categoryChips{
+    flex-wrap:nowrap!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+  }
+
+  #categoriesSection .categoryChip{
+    flex:0 0 auto;
+    scroll-snap-align:start;
+  }
+
+  #storesSection>.container::after,
+  #categoriesSection>.container::after{
     display:flex;
     align-items:center;
     justify-content:center;
@@ -59,10 +78,19 @@
     white-space:nowrap;
     pointer-events:none;
   }
+
+  #storesSection>.container::after{
+    content:"←  Posuň do stran pro další obchod  →";
+  }
+
+  #categoriesSection>.container::after{
+    content:"←  Posuň do stran pro další kategorii  →";
+  }
 }
 
 @media(max-width:380px){
-  #storesSection>.container::after{
+  #storesSection>.container::after,
+  #categoriesSection>.container::after{
     max-width:calc(100% - 16px);
     padding-inline:8px;
     font-size:10px;
