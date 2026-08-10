@@ -239,3 +239,39 @@
 @media(prefers-reduced-motion:reduce){
   .sqAutopilotRun,.sqAutopilotCard,.sqAutopilotBody,.sqAutopilotChevron svg{transition:none!important}
 }
+
+/* Mobil: při rozbalování nesmí karta přecházet přes jinou barvu ani zobrazit tap/focus highlight. */
+@media(max-width:800px){
+  .sqAutopilotCard,
+  .sqAutopilotCard.is-autopilot-collapsed,
+  .sqAutopilotCard.is-autopilot-expanded{
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url("nearby-panel-uploaded-bg.svg?v=20260808-1") center center/cover no-repeat!important;
+    transition:padding .25s ease,box-shadow .25s ease,border-color .25s ease!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+  .sqAutopilotToggle,
+  .sqAutopilotToggle:active,
+  .sqAutopilotToggle:focus,
+  .sqAutopilotToggle:focus-visible{
+    background:transparent!important;
+    outline:0!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+
+  body .heroNearbyPanel.nearbyMobileCollapsible,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-collapsed,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded{
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url("nearby-panel-uploaded-bg.svg?v=20260808-1") center center/cover no-repeat!important;
+    transition:max-height .32s cubic-bezier(.2,.75,.25,1),padding .25s ease,box-shadow .25s ease!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileToggle,
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileToggle:active,
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileToggle:focus,
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileToggle:focus-visible{
+    background:transparent!important;
+    outline:0!important;
+    box-shadow:none!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+}
