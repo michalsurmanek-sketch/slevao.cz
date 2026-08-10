@@ -45,13 +45,15 @@
   .sqAutopilotCard{
     padding:10px 12px;
     border-radius:21px;
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url("nearby-panel-uploaded-bg.svg?v=20260808-1") center center/cover no-repeat!important;
     transition:padding .25s ease,box-shadow .25s ease,border-color .25s ease,background .25s ease;
   }
+  .sqAutopilotCard:after{display:none}
   .sqAutopilotCard.is-autopilot-collapsed{
     padding:10px 12px;
     cursor:pointer;
     border-color:rgba(18,154,143,.24);
-    background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(239,251,249,.96));
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url("nearby-panel-uploaded-bg.svg?v=20260808-1") center center/cover no-repeat!important;
     box-shadow:0 9px 24px rgba(13,108,100,.10);
   }
   .sqAutopilotCard.is-autopilot-expanded{padding:10px 12px 16px}
@@ -129,7 +131,7 @@
     border-radius:21px!important;
     gap:0!important;
     justify-content:flex-start!important;
-    background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(239,251,249,.96))!important;
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url("nearby-panel-uploaded-bg.svg?v=20260808-1") center center/cover no-repeat!important;
     border-color:rgba(18,154,143,.24)!important;
     box-shadow:0 9px 24px rgba(13,108,100,.10)!important;
   }
