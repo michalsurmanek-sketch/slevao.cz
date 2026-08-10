@@ -1,8 +1,10 @@
-/* Slevao.cz – lehký přehled Nákupního autopilota na homepage. */
+/* Slevao.cz – Nákupní autopilot na homepage + mobilní rozbalovací karta. */
 .sqAutopilotSection{padding:12px 0 8px}
 .sqAutopilotSection>.container{width:min(1450px,calc(100% - 48px))}
-.sqAutopilotCard{position:relative;overflow:hidden;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);gap:22px;align-items:center;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
+.sqAutopilotCard{position:relative;overflow:hidden;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
 .sqAutopilotCard:after{content:"";position:absolute;right:-60px;top:-80px;width:220px;height:220px;border-radius:50%;background:rgba(52,214,199,.12);pointer-events:none}
+.sqAutopilotToggle{display:none}
+.sqAutopilotBody{position:relative;z-index:1;display:grid;grid-template-columns:minmax(0,1.45fr) minmax(360px,.9fr);gap:22px;align-items:center}
 .sqAutopilotCopy,.sqAutopilotResult{position:relative;z-index:1}
 .sqAutopilotEyebrow{display:inline-flex;align-items:center;gap:7px;margin-bottom:5px;color:#0b776f;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
 .sqAutopilotEyebrow:before{content:"✦";width:23px;height:23px;border-radius:9px;display:grid;place-items:center;background:#dff8f4;color:#0b776f;font-size:12px}
@@ -30,17 +32,102 @@
 @media(max-width:900px){
   .sqAutopilotSection{padding:7px 0 5px}
   .sqAutopilotSection>.container{width:calc(100% - 32px)}
-  .sqAutopilotCard{grid-template-columns:1fr;padding:20px;border-radius:23px;gap:16px}
+  .sqAutopilotCard{padding:20px;border-radius:23px}
+  .sqAutopilotBody{grid-template-columns:1fr;gap:16px}
   .sqAutopilotResult{min-height:0}
+}
+
+@media(max-width:800px){
+  .sqAutopilotCard{
+    padding:10px 12px;
+    border-radius:21px;
+    transition:padding .25s ease,box-shadow .25s ease,border-color .25s ease,background .25s ease;
+  }
+  .sqAutopilotCard.is-autopilot-collapsed{
+    padding:10px 12px;
+    cursor:pointer;
+    border-color:rgba(18,154,143,.24);
+    background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(239,251,249,.96));
+    box-shadow:0 9px 24px rgba(13,108,100,.10);
+  }
+  .sqAutopilotCard.is-autopilot-expanded{padding:10px 12px 16px}
+
+  .sqAutopilotToggle{
+    position:relative;
+    z-index:3;
+    width:100%;
+    height:66px;
+    display:grid;
+    grid-template-columns:42px minmax(0,1fr) 42px;
+    align-items:center;
+    gap:11px;
+    padding:0 4px 0 2px;
+    border:0;
+    border-radius:16px;
+    background:transparent;
+    color:#087e75;
+    text-align:left;
+    cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  .sqAutopilotToggleIcon{
+    width:42px;
+    height:42px;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    background:linear-gradient(145deg,#e4faf7,#f7fffe);
+    color:#0a978c;
+    box-shadow:inset 0 0 0 1px rgba(8,126,117,.08);
+    font-size:17px;
+    font-weight:950;
+  }
+  .sqAutopilotToggleCopy{min-width:0;display:grid;gap:4px}
+  .sqAutopilotToggleCopy strong{color:#087e75;font-size:13px;line-height:1.05;font-weight:950;letter-spacing:.035em}
+  .sqAutopilotToggleCopy small{color:#697b79;font-size:11px;line-height:1.25;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .sqAutopilotChevron{
+    width:42px;
+    height:42px;
+    display:grid;
+    place-items:center;
+    border:1px solid rgba(8,126,117,.18);
+    border-radius:50%;
+    background:#fff;
+    color:#0a978c;
+    box-shadow:0 7px 18px rgba(8,126,117,.12);
+  }
+  .sqAutopilotChevron svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round;transition:transform .28s cubic-bezier(.2,.75,.25,1)}
+  .sqAutopilotCard.is-autopilot-expanded .sqAutopilotChevron svg{transform:rotate(180deg)}
+  .sqAutopilotToggle:focus,.sqAutopilotToggle:focus-visible{outline:0}
+  .sqAutopilotToggle:active{transform:scale(.99)}
+
+  .sqAutopilotBody{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:16px;
+    overflow:hidden;
+    max-height:1100px;
+    opacity:1;
+    margin-top:10px;
+    transition:max-height .34s cubic-bezier(.2,.75,.25,1),opacity .2s ease,margin-top .28s ease;
+  }
+  .sqAutopilotCard.is-autopilot-collapsed .sqAutopilotBody{
+    max-height:0;
+    opacity:0;
+    margin-top:0;
+    pointer-events:none;
+  }
+  .sqAutopilotCard.is-autopilot-expanded .sqAutopilotBody{pointer-events:auto}
 }
 
 @media(max-width:560px){
   .sqAutopilotSection>.container{width:calc(100% - 20px)}
-  .sqAutopilotCard{padding:17px 16px;border-radius:21px}
   .sqAutopilotActions{display:grid;grid-template-columns:1fr 1fr;width:100%}
   .sqAutopilotRun,.sqAutopilotOpen{width:100%;min-height:48px;padding:0 10px;font-size:13px}
   .sqAutopilotStats{grid-template-columns:1fr 1fr}
   .sqAutopilotStat.primary{grid-column:1/-1;grid-row:auto}
 }
 
-@media(prefers-reduced-motion:reduce){.sqAutopilotRun{transition:none!important}}
+@media(prefers-reduced-motion:reduce){
+  .sqAutopilotRun,.sqAutopilotCard,.sqAutopilotBody,.sqAutopilotChevron svg{transition:none!important}
+}
