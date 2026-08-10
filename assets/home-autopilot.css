@@ -1,5 +1,4 @@
 /* Slevao.cz – Nákupní autopilot na homepage + mobilní rozbalovací karta. */
-.sqNearbyMobileSection{display:none}
 .sqAutopilotSection{padding:12px 0 8px}
 .sqAutopilotSection>.container{width:min(1450px,calc(100% - 48px))}
 .sqAutopilotCard{position:relative;overflow:hidden;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
@@ -123,6 +122,76 @@
     pointer-events:none;
   }
   .sqAutopilotCard.is-autopilot-expanded .sqAutopilotBody{pointer-events:auto}
+
+  /* Poblíž vás: stejná persistentní hlavička jako Nákupní autopilot. */
+  body .heroNearbyPanel.nearbyMobileCollapsible{
+    padding:10px 12px!important;
+    border-radius:21px!important;
+    gap:0!important;
+    justify-content:flex-start!important;
+    background:linear-gradient(145deg,rgba(255,255,255,.96),rgba(239,251,249,.96))!important;
+    border-color:rgba(18,154,143,.24)!important;
+    box-shadow:0 9px 24px rgba(13,108,100,.10)!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileToggle,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-collapsed .nearbyMobileToggle,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileToggle{
+    position:relative!important;
+    inset:auto!important;
+    top:auto!important;
+    right:auto!important;
+    width:100%!important;
+    height:66px!important;
+    min-height:66px!important;
+    display:grid!important;
+    grid-template-columns:42px minmax(0,1fr) 42px!important;
+    align-items:center!important;
+    place-items:initial!important;
+    gap:11px!important;
+    padding:0 4px 0 2px!important;
+    margin:0!important;
+    border:0!important;
+    border-radius:16px!important;
+    background:transparent!important;
+    box-shadow:none!important;
+    text-align:left!important;
+    transform:none!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryIcon,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileSummaryIcon{
+    width:42px!important;
+    height:42px!important;
+    display:grid!important;
+    place-items:center!important;
+    border-radius:50%!important;
+    background:linear-gradient(145deg,#e4faf7,#f7fffe)!important;
+    color:#0a978c!important;
+    box-shadow:inset 0 0 0 1px rgba(8,126,117,.08)!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileSummaryCopy{
+    min-width:0!important;
+    display:grid!important;
+    gap:4px!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy strong{color:#087e75!important;font-size:13px!important;line-height:1.05!important;font-weight:950!important;letter-spacing:.035em!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy small{color:#697b79!important;font-size:11px!important;line-height:1.25!important;font-weight:650!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileChevron,
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileChevron{
+    width:42px!important;
+    height:42px!important;
+    display:grid!important;
+    place-items:center!important;
+    border:1px solid rgba(8,126,117,.18)!important;
+    border-radius:50%!important;
+    background:#fff!important;
+    color:#0a978c!important;
+    box-shadow:0 7px 18px rgba(8,126,117,.12)!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileChevron svg{transform:rotate(180deg)!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded{padding:10px 12px 16px!important;max-height:1100px!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileToggle{margin-bottom:10px!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .slLiveTopline{display:none!important}
 }
 
 @media(max-width:560px){
