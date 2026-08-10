@@ -1,6 +1,13 @@
 (() => {
   'use strict';
 
+  if (!document.querySelector('link[href*="home-nearby-mobile-summary.css"]')) {
+    const style = document.createElement('link');
+    style.rel = 'stylesheet';
+    style.href = 'assets/home-nearby-mobile-summary.css?v=20260810-1';
+    document.head.appendChild(style);
+  }
+
   const panel = document.querySelector('.heroNearbyPanel');
   if (!panel) return;
 
@@ -14,8 +21,16 @@
   toggle.setAttribute('aria-label', 'Rozbalit hledání obchodů poblíž');
   toggle.setAttribute('aria-expanded', 'false');
   toggle.innerHTML = `
-    <span class="nearbyMobileToggleLabel"><i aria-hidden="true"></i>POBLÍŽ VÁS</span>
-    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+    <span class="nearbyMobileSummaryIcon" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>
+    </span>
+    <span class="nearbyMobileSummaryCopy">
+      <strong>POBLÍŽ VÁS</strong>
+      <small>Najdi obchody a akce ve svém okolí</small>
+    </span>
+    <span class="nearbyMobileChevron" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+    </span>
   `;
   panel.appendChild(toggle);
   panel.classList.add('nearbyMobileCollapsible');
@@ -31,7 +46,7 @@
     });
   }
 
-  function setExpanded(expanded, focusToggle = false) {
+  function setExpanded(expanded) {
     if (!mobile.matches) {
       panel.classList.remove('is-nearby-collapsed');
       panel.classList.add('is-nearby-expanded');
@@ -46,7 +61,6 @@
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     toggle.setAttribute('aria-label', expanded ? 'Sbalit hledání obchodů poblíž' : 'Rozbalit hledání obchodů poblíž');
     setContentInteractive(expanded);
-    if (focusToggle) toggle.focus({ preventScroll: true });
   }
 
   function togglePanel() {
@@ -63,13 +77,6 @@
   panel.addEventListener('click', (event) => {
     if (!mobile.matches || !panel.classList.contains('is-nearby-collapsed')) return;
     if (event.target.closest('a,button,input,select,textarea,label')) return;
-    togglePanel();
-  });
-
-  panel.addEventListener('keydown', (event) => {
-    if (!mobile.matches || !panel.classList.contains('is-nearby-collapsed')) return;
-    if (event.key !== 'Enter' && event.key !== ' ') return;
-    event.preventDefault();
     togglePanel();
   });
 
