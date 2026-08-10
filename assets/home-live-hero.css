@@ -80,6 +80,56 @@
   .slLiveHeroResult .slLiveNearbyDeals{display:flex;overflow-x:auto;overflow-y:hidden;gap:8px;scroll-snap-type:x proximity;scrollbar-width:none}
   .slLiveHeroResult .slLiveNearbyDeals::-webkit-scrollbar{display:none}
   .slLiveNearbyRow{flex:0 0 min(78vw,320px);scroll-snap-align:start}
+
+  /* Pevný mobilní sbalený stav: pouze POBLÍŽ VÁS + popisek + šipka. */
+  .heroNearbyPanel.is-nearby-collapsed{
+    min-height:86px!important;
+    max-height:86px!important;
+    padding:10px 12px!important;
+    gap:0!important;
+    overflow:hidden!important;
+    justify-content:center!important;
+    background:linear-gradient(145deg,rgba(255,255,255,.97),rgba(239,251,249,.96))!important;
+  }
+  .heroNearbyPanel.is-nearby-collapsed > :not(.nearbyMobileToggle){display:none!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggle{
+    position:relative!important;inset:auto!important;width:100%!important;height:66px!important;
+    display:grid!important;grid-template-columns:42px minmax(0,1fr) 40px;align-items:center;gap:10px;
+    padding:0 4px 0 2px!important;border:0!important;border-radius:16px!important;background:transparent!important;
+    box-shadow:none!important;transform:none!important;text-align:left!important;color:#087e75!important
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon{
+    width:42px;height:42px;display:grid!important;place-items:center;border-radius:50%;
+    background:linear-gradient(145deg,#e4faf7,#f5fffd);color:#0a978c;box-shadow:inset 0 0 0 1px rgba(8,126,117,.08)
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon svg{
+    width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy{min-width:0;display:grid!important;gap:4px}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy strong{color:#087e75;font-size:13px;line-height:1.05;font-weight:950;letter-spacing:.035em}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy small{color:#697b79;font-size:11px;line-height:1.25;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron{
+    width:40px;height:40px;display:grid!important;place-items:center;border:1px solid rgba(8,126,117,.20);
+    border-radius:50%;background:#fff;color:#0a978c;box-shadow:0 7px 18px rgba(8,126,117,.12)
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round}
+
+  /* Záloha pro starší verzi tlačítka v cache. */
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggleLabel{
+    position:relative;min-width:0;display:grid!important;gap:4px;padding-left:52px;color:#087e75;
+    font-size:13px;line-height:1.05;font-weight:950;letter-spacing:.035em
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggleLabel::before{
+    content:"⌖";position:absolute;left:0;top:50%;width:42px;height:42px;display:grid;place-items:center;
+    border-radius:50%;background:linear-gradient(145deg,#e4faf7,#f5fffd);color:#0a978c;font-size:21px;transform:translateY(-50%)
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggleLabel::after{
+    content:"Najdi obchody a akce ve svém okolí";color:#697b79;font-size:11px;line-height:1.25;font-weight:650;letter-spacing:0;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggle > svg{
+    width:20px;height:20px;justify-self:center;fill:none;stroke:currentColor;stroke-width:2.3;stroke-linecap:round;stroke-linejoin:round
+  }
 }
 
 @media(max-width:480px){
