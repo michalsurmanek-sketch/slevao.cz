@@ -2,9 +2,8 @@
   'use strict';
 
   /*
-   * Jediný zdroj pravdy pro tlačítko „Letáky“ v mobilní navigaci.
-   * Na webu existují dvě mobilní navigace (.mobileNav a .slevaoBottomNav),
-   * proto opravujeme obě a nenecháváme žádný handler scrollovat na #leafletsSection.
+   * Mobilní navigace homepage: Letáky vždy otevírají /letaky.html,
+   * Hledat na homepage pouze posune stránku k hornímu vyhledávání.
    */
   const mobile = window.matchMedia('(max-width: 800px)');
   const LEAFLETS_URL = '/letaky.html';
@@ -14,6 +13,11 @@
     .replace(/[\u0300-\u036f]/g, '')
     .toLowerCase()
     .trim();
+
+  function isHomePage() {
+    const path = location.pathname.replace(/\/+$/, '');
+    return path === '' || path === '/' || path.endsWith('/index.html');
+  }
 
   function isLeafletsLink(link) {
     if (!link) return false;
@@ -25,6 +29,12 @@
       || href === 'letaky.html'
       || href === '/letaky.html'
       || href.endsWith('/letaky.html');
+  }
+
+  function isSearchLink(link) {
+    if (!link) return false;
+    const text = fold(`${link.textContent || ''} ${link.getAttribute('aria-label') || ''} ${link.getAttribute('title') || ''}`);
+    return text.includes('hledat');
   }
 
   function installVisualFix() {
@@ -55,19 +65,43 @@
     document.head.appendChild(style);
   }
 
-  function patchLeafletsLinks(root = document) {
+  function patchNavigationLinks(root = document) {
     root.querySelectorAll?.('.mobileNav a, .slevaoBottomNav a').forEach((link) => {
-      if (!isLeafletsLink(link)) return;
-      link.setAttribute('href', LEAFLETS_URL);
-      link.dataset.slevaoLeafletsPage = '1';
-      link.removeAttribute('aria-current');
-      link.classList.remove('active');
+      if (isLeafletsLink(link)) {
+        link.setAttribute('href', LEAFLETS_URL);
+        link.dataset.slevaoLeafletsPage = '1';
+        link.removeAttribute('aria-current');
+        link.classList.remove('active');
+        return;
+      }
+
+      if (isHomePage() && isSearchLink(link)) {
+        link.setAttribute('href', '#top');
+        link.dataset.slevaoHomeSearch = '1';
+        link.removeAttribute('aria-current');
+        link.classList.remove('active');
+      }
     });
   }
 
+  function scrollToHomeSearch() {
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const input = document.getElementById('q');
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: reducedMotion ? 'auto' : 'smooth'
+    });
+
+    window.setTimeout(() => {
+      if (!input) return;
+      try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+    }, reducedMotion ? 0 : 320);
+  }
+
   function installHomeScrollTop() {
-    const path = location.pathname.replace(/\/+$/, '');
-    if (path && !path.endsWith('/index.html')) return;
+    if (!isHomePage()) return;
     if (document.getElementById('leafletsScrollTop')) return;
 
     if (!document.querySelector('link[href*="leaflets-scroll-top.css"]')) {
@@ -120,26 +154,36 @@
   }
 
   installVisualFix();
-  patchLeafletsLinks();
+  patchNavigationLinks();
   installHomeScrollTop();
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
       for (const node of record.addedNodes) {
         if (!(node instanceof Element)) continue;
-        if (node.matches('.mobileNav,.slevaoBottomNav,.mobileNav a,.slevaoBottomNav a')) patchLeafletsLinks(node.parentElement || node);
-        else patchLeafletsLinks(node);
+        if (node.matches('.mobileNav,.slevaoBottomNav,.mobileNav a,.slevaoBottomNav a')) patchNavigationLinks(node.parentElement || node);
+        else patchNavigationLinks(node);
       }
     }
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
-  /* Capture fáze: proběhne před běžnými click handlery, které dříve dělaly scroll. */
+  /* Capture fáze proběhne před staršími handlery, které měnily URL nebo scroll. */
   document.addEventListener('click', (event) => {
     if (!mobile.matches) return;
 
     const link = event.target.closest('.mobileNav a, .slevaoBottomNav a');
-    if (!link || !isLeafletsLink(link)) return;
+    if (!link) return;
+
+    if (isHomePage() && isSearchLink(link)) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      link.blur?.();
+      scrollToHomeSearch();
+      return;
+    }
+
+    if (!isLeafletsLink(link)) return;
 
     event.preventDefault();
     event.stopImmediatePropagation();
