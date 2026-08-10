@@ -10,6 +10,10 @@
 .sqIntelBadge.buy{background:#e7f7ef;color:#13734f;border-color:#c3e6d3}.sqIntelBadge.wait{background:#fff8e9;color:#895b04;border-color:#ecdcb5}.sqIntelBadge.skip{background:#fff0f1;color:#a32d34;border-color:#efc7ca}.sqIntelBadge.neutral{background:#f2f5f4;color:#64716f;border-color:#dfe6e5}
 .sqIntelMethod{margin-top:8px;font-size:10px!important;color:#87918f!important}
 
+/* Stejné hlavní logo Slevao.cz jako na homepage. */
+.sfTop .sfLogo{display:block!important;width:245px!important;height:58px!important;min-width:245px!important;padding:0!important;background:url('slevao-logo.svg?v=20260802-1') left center/contain no-repeat!important;font-size:0!important;line-height:0!important}
+.sfTop .sfLogo>*{display:none!important}
+
 /* Správné logo obchodu v detailu produktu a v porovnání cen. */
 .sfOfferStoreRow{display:flex;align-items:center;gap:10px;margin-bottom:10px;min-width:0}
 .sfOfferStoreRow .sfOfferStore{min-width:0;margin:0}
@@ -22,6 +26,7 @@
 
 @media(max-width:700px){
   .sqIntelSummary{grid-template-columns:auto 1fr;padding:15px;gap:12px}.sqIntelDecision{grid-column:1/-1;width:100%}.sqIntelScore{width:68px;height:68px;border-radius:20px}.sqIntelScore strong{font-size:22px}
+  .sfTop .sfLogo{width:50px!important;height:50px!important;min-width:50px!important;background-image:url('slevao-mark.svg?v=20260802-1')!important;background-position:center!important}
   .sfStoreLogo{width:43px;height:32px}.sfCurrentStoreLogo{width:48px;height:36px}
   .sfCurrentStore{align-items:flex-start}
 }
