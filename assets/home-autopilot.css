@@ -123,7 +123,7 @@
   }
   .sqAutopilotCard.is-autopilot-expanded .sqAutopilotBody{pointer-events:auto}
 
-  /* Poblíž vás: stejná persistentní hlavička jako Nákupní autopilot. */
+  /* Poblíž vás: přesně stejná osa hlavičky jako Nákupní autopilot. */
   body .heroNearbyPanel.nearbyMobileCollapsible{
     padding:10px 12px!important;
     border-radius:21px!important;
@@ -146,7 +146,8 @@
     display:grid!important;
     grid-template-columns:42px minmax(0,1fr) 42px!important;
     align-items:center!important;
-    place-items:initial!important;
+    justify-items:stretch!important;
+    align-content:center!important;
     gap:11px!important;
     padding:0 4px 0 2px!important;
     margin:0!important;
@@ -163,6 +164,7 @@
     height:42px!important;
     display:grid!important;
     place-items:center!important;
+    align-self:center!important;
     border-radius:50%!important;
     background:linear-gradient(145deg,#e4faf7,#f7fffe)!important;
     color:#0a978c!important;
@@ -171,17 +173,22 @@
   body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy,
   body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileSummaryCopy{
     min-width:0!important;
+    height:auto!important;
+    align-self:center!important;
     display:grid!important;
+    grid-auto-rows:max-content!important;
+    align-content:center!important;
     gap:4px!important;
   }
-  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy strong{color:#087e75!important;font-size:13px!important;line-height:1.05!important;font-weight:950!important;letter-spacing:.035em!important}
-  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy small{color:#697b79!important;font-size:11px!important;line-height:1.25!important;font-weight:650!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy strong{margin:0!important;padding:0!important;color:#087e75!important;font-size:13px!important;line-height:1.05!important;font-weight:950!important;letter-spacing:.035em!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy small{margin:0!important;padding:0!important;color:#697b79!important;font-size:11px!important;line-height:1.25!important;font-weight:650!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
   body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileChevron,
   body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileChevron{
     width:42px!important;
     height:42px!important;
     display:grid!important;
     place-items:center!important;
+    align-self:center!important;
     border:1px solid rgba(8,126,117,.18)!important;
     border-radius:50%!important;
     background:#fff!important;
