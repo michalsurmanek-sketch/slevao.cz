@@ -46,6 +46,15 @@
     return storeFormat ? `${storeName} · ${storeFormat}` : storeName;
   }
 
+  function storeLogoHtml(store, wrapperClass = 'sfStoreLogo') {
+    const slug = String(store?.slug || '').trim();
+    const dbLogo = String(store?.logo_url || '').trim();
+    const localLogo = slug ? `assets/logos/${encodeURIComponent(slug)}.svg` : '';
+    const src = dbLogo || localLogo;
+    if (!src) return '';
+    return `<span class="${esc(wrapperClass)}"><img src="${esc(src)}"${dbLogo && localLogo ? ` data-logo-fallback="${esc(localLogo)}"` : ''} alt="${esc(store?.name || 'Obchod')}" loading="lazy"></span>`;
+  }
+
   function statWindow(days) {
     const from = Date.now() - days * 86400000;
     const values = history.filter((row) => new Date(row.recorded_at).getTime() >= from).map((row) => Number(row.price));
@@ -100,7 +109,7 @@
       ? `začíná ${date(offer.valid_from)} · platí do ${date(offer.valid_to)}`
       : `platí do ${date(offer.valid_to)}`;
     return `<article class="sfCard sfOffer ${index === 0 ? 'best' : ''}">
-      <div class="sfOfferStore">${esc(offerStoreLabel(offer))}${index === 0 ? ' · nejnižší cena' : ''}</div>
+      <div class="sfOfferStoreRow">${storeLogoHtml(store)}<div class="sfOfferStore">${esc(offerStoreLabel(offer))}${index === 0 ? ' · nejnižší cena' : ''}</div></div>
       <div><span class="sfPrice">${money(offer.price)} Kč</span>${offer.old_price ? `<span class="sfOldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>
       <div class="sfMuted">${offer.unit_price ? `${money(offer.unit_price)} Kč/${esc(offer.unit_price_unit || 'jednotka')} · ` : ''}${validity}</div>
       <div style="margin-top:9px"><span class="sfBadge ${label.className}">${esc(label.label)}</span>${isUpcoming(offer) ? ' <span class="sfBadge warn">Od zítřka / brzy</span>' : ''}${discount ? ` <span class="sfBadge">−${discount} %</span>` : ''}</div>
@@ -124,8 +133,8 @@
     $('productMeta').textContent = [product.brand, product.quantity_text, product.ean ? `EAN ${product.ean}` : ''].filter(Boolean).join(' · ');
     $('productImage').innerHTML = product.image_url ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}">` : '<div class="sfEmpty">Fotografie zatím není ověřena.</div>';
     $('currentPrice').textContent = cheapest ? `${money(cheapest.price)} Kč` : 'Bez viditelné ceny';
-    $('currentStore').textContent = cheapest
-      ? `${isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)}` : 'Právě teď'} nejlevněji v ${offerStoreLabel(cheapest)}`
+    $('currentStore').innerHTML = cheapest
+      ? `<span class="sfCurrentStore">${storeLogoHtml(cheapest.stores, 'sfCurrentStoreLogo')}<span>${esc(isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)} nejlevněji v ${offerStoreLabel(cheapest)}` : `Právě teď nejlevněji v ${offerStoreLabel(cheapest)}`)}</span></span>`
       : 'Aktuální ani nadcházející nabídka není dostupná';
     $('stat30').textContent = statWindow(30) == null ? '–' : `${money(statWindow(30))} Kč`;
     $('stat90').textContent = statWindow(90) == null ? '–' : `${money(statWindow(90))} Kč`;
@@ -140,8 +149,8 @@
     if (!productId) throw new Error('V odkazu chybí identifikátor produktu.');
     const [productResult, offersResult, historyResult, locationResult] = await Promise.all([
       db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id').eq('id', productId).maybeSingle(),
-      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,stores(id,name,slug)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
-      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug)').eq('product_id', productId).order('recorded_at').limit(1000),
+      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,stores(id,name,slug,logo_url)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
+      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug,logo_url)').eq('product_id', productId).order('recorded_at').limit(1000),
       db.from('public_product_leaflet_locations').select('*').eq('product_id', productId).order('valid_to', { ascending:false }).limit(30)
     ]);
     if (productResult.error) throw productResult.error;
@@ -184,6 +193,14 @@
     if (error) throw error;
     window.SlevaoPublic?.toast('Děkujeme. Hlášení bylo uloženo ke kontrole.');
   }
+
+  document.addEventListener('error', (event) => {
+    const image = event.target.closest?.('img[data-logo-fallback]');
+    if (!image) return;
+    const fallback = image.dataset.logoFallback;
+    delete image.dataset.logoFallback;
+    if (fallback) image.src = fallback;
+  }, true);
 
   document.addEventListener('click', async (event) => {
     const add = event.target.closest('[data-add-offer]');
