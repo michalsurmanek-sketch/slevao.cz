@@ -34,12 +34,12 @@
   if (!document.querySelector('link[href*="home-autopilot.css"]')) {
     const autopilotStyle = document.createElement('link');
     autopilotStyle.rel = 'stylesheet';
-    autopilotStyle.href = 'assets/home-autopilot.css?v=20260808-1';
+    autopilotStyle.href = 'assets/home-autopilot.css?v=20260810-1';
     document.head.appendChild(autopilotStyle);
   }
   if (!document.querySelector('script[src*="home-autopilot.js"]')) {
     const autopilotScript = document.createElement('script');
-    autopilotScript.src = 'assets/home-autopilot.js?v=20260807-1';
+    autopilotScript.src = 'assets/home-autopilot.js?v=20260810-1';
     autopilotScript.defer = true;
     document.head.appendChild(autopilotScript);
   }
