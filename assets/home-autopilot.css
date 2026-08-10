@@ -123,7 +123,7 @@
   }
   .sqAutopilotCard.is-autopilot-expanded .sqAutopilotBody{pointer-events:auto}
 
-  /* Poblíž vás: přesně stejná osa hlavičky jako Nákupní autopilot. */
+  /* Poblíž vás: stejná osa a stejná dvouřádková hlavička jako Nákupní autopilot. */
   body .heroNearbyPanel.nearbyMobileCollapsible{
     padding:10px 12px!important;
     border-radius:21px!important;
@@ -174,14 +174,39 @@
   body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileSummaryCopy{
     min-width:0!important;
     height:auto!important;
+    min-height:0!important;
     align-self:center!important;
-    display:grid!important;
-    grid-auto-rows:max-content!important;
-    align-content:center!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:center!important;
+    align-items:flex-start!important;
     gap:4px!important;
+    margin:0!important;
+    padding:0!important;
+    line-height:normal!important;
   }
-  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy strong{margin:0!important;padding:0!important;color:#087e75!important;font-size:13px!important;line-height:1.05!important;font-weight:950!important;letter-spacing:.035em!important}
-  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy small{margin:0!important;padding:0!important;color:#697b79!important;font-size:11px!important;line-height:1.25!important;font-weight:650!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy strong{
+    display:block!important;
+    margin:0!important;
+    padding:0!important;
+    color:#087e75!important;
+    font-size:13px!important;
+    line-height:13.65px!important;
+    font-weight:950!important;
+    letter-spacing:.035em!important;
+  }
+  body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileSummaryCopy small{
+    display:block!important;
+    margin:0!important;
+    padding:0!important;
+    color:#697b79!important;
+    font-size:11px!important;
+    line-height:13.75px!important;
+    font-weight:650!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
   body .heroNearbyPanel.nearbyMobileCollapsible .nearbyMobileChevron,
   body .heroNearbyPanel.nearbyMobileCollapsible.is-nearby-expanded .nearbyMobileChevron{
     width:42px!important;
