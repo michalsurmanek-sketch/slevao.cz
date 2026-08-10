@@ -7,6 +7,10 @@
     max-width:100%;
   }
 
+  #storesSection>.container{
+    position:relative;
+  }
+
   #storesSection .storeGrid{
     display:flex!important;
     flex-wrap:nowrap!important;
@@ -15,16 +19,52 @@
     min-width:0!important;
     margin-left:0!important;
     margin-right:0!important;
-    padding:4px 0 10px!important;
+    padding:4px 0 8px!important;
     overflow-x:auto!important;
     overflow-y:hidden!important;
     box-sizing:border-box!important;
     scroll-padding-inline:0!important;
     overscroll-behavior-x:contain;
     -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+  }
+
+  #storesSection .storeGrid::-webkit-scrollbar{
+    display:none;
   }
 
   #storesSection .storeCard{
     max-width:none!important;
+    scroll-snap-align:start;
+  }
+
+  #storesSection>.container::after{
+    content:"←  Posuň do stran pro další obchod  →";
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:max-content;
+    max-width:calc(100% - 28px);
+    margin:2px auto 0;
+    padding:5px 13px 6px;
+    border-radius:999px;
+    background:linear-gradient(90deg,rgba(21,158,148,0),rgba(21,158,148,.10) 20%,rgba(21,158,148,.10) 80%,rgba(21,158,148,0));
+    color:#657775;
+    font-size:11px;
+    line-height:1.2;
+    font-weight:800;
+    letter-spacing:.01em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+  }
+}
+
+@media(max-width:380px){
+  #storesSection>.container::after{
+    max-width:calc(100% - 16px);
+    padding-inline:8px;
+    font-size:10px;
   }
 }
