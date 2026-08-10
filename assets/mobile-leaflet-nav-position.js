@@ -4,13 +4,13 @@
   if (!document.querySelector('link[href*="home-nearby-mobile-collapse.css"]')) {
     const nearbyStyle = document.createElement('link');
     nearbyStyle.rel = 'stylesheet';
-    nearbyStyle.href = 'assets/home-nearby-mobile-collapse.css?v=20260810-1';
+    nearbyStyle.href = 'assets/home-nearby-mobile-collapse.css?v=20260810-2';
     document.head.appendChild(nearbyStyle);
   }
 
   if (!document.querySelector('script[src*="home-nearby-mobile-collapse.js"]')) {
     const nearbyScript = document.createElement('script');
-    nearbyScript.src = 'assets/home-nearby-mobile-collapse.js?v=20260810-1';
+    nearbyScript.src = 'assets/home-nearby-mobile-collapse.js?v=20260810-2';
     nearbyScript.defer = true;
     document.head.appendChild(nearbyScript);
   }
