@@ -2,7 +2,7 @@
   'use strict';
 
   const LEAFLETS_URL = 'letaky.html';
-  const HOME_SEARCH_TARGET = '#top';
+  const HOME_SEARCH_TARGET = '#dealsSection';
   const isHomePage = () => {
     const path = location.pathname.replace(/\/+$/, '');
     return path === '' || path === '/' || path.endsWith('/index.html');
@@ -116,20 +116,23 @@
     return true;
   }
 
-  function scrollToHomeSearch() {
-    const input = document.getElementById('q');
+  function scrollToHomeSearchPosition() {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: reducedMotion ? 'auto' : 'smooth'
-    });
+    const align = (behavior = 'auto') => {
+      const target = document.querySelector('.sqFoodDock') || document.getElementById('dealsSection');
+      if (!target) return;
 
-    window.setTimeout(() => {
-      if (!input) return;
-      try { input.focus({ preventScroll: true }); } catch { input.focus(); }
-    }, reducedMotion ? 0 : 320);
+      const topbar = document.querySelector('.topbar');
+      const topbarHeight = Math.ceil(topbar?.getBoundingClientRect().height || 0);
+      const absoluteTop = window.scrollY + target.getBoundingClientRect().top;
+      const targetTop = Math.max(0, Math.round(absoluteTop - topbarHeight - 14));
+
+      window.scrollTo({ top: targetTop, left: 0, behavior });
+    };
+
+    align(reducedMotion ? 'auto' : 'smooth');
+    window.setTimeout(() => align('auto'), reducedMotion ? 0 : 380);
   }
 
   document.addEventListener('click', (event) => {
@@ -147,7 +150,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       link.blur?.();
-      scrollToHomeSearch();
+      scrollToHomeSearchPosition();
     }
   }, true);
 
