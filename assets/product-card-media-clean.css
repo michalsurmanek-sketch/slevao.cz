@@ -1,9 +1,26 @@
-/* Produktová karta: fotka bez bílého media boxu, ostatní části karty beze změny. */
+/* Produktová karta: fotka bez tvrdého bílého media boxu a s plynulým vytracením okrajů. */
 .dealCard[data-mobile-product-card="1"] .dealMedia{
+  position:relative!important;
   background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+}
+.dealCard[data-mobile-product-card="1"] .dealMedia>img{
+  background:transparent!important;
+  border:0!important;
+  box-shadow:none!important;
+  mix-blend-mode:multiply;
+  -webkit-mask-image:radial-gradient(ellipse 92% 86% at 50% 50%,#000 0 58%,rgba(0,0,0,.98) 66%,rgba(0,0,0,.78) 76%,rgba(0,0,0,.38) 87%,transparent 100%);
+  mask-image:radial-gradient(ellipse 92% 86% at 50% 50%,#000 0 58%,rgba(0,0,0,.98) 66%,rgba(0,0,0,.78) 76%,rgba(0,0,0,.38) 87%,transparent 100%);
+  -webkit-mask-repeat:no-repeat;
+  mask-repeat:no-repeat;
+  -webkit-mask-position:center;
+  mask-position:center;
+  -webkit-mask-size:100% 100%;
+  mask-size:100% 100%;
 }
 
-/* Vrácení předchozího omylem upraveného spodního panelu přesně na původní vzhled. */
+/* Spodní informační panel zůstává přesně v původním funkčním vzhledu. */
 .dealCard[data-mobile-product-card="1"] .dealUtilityPanel{
   border:1px solid #e0e9e8!important;
   border-radius:16px!important;
