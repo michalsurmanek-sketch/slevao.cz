@@ -20,6 +20,7 @@ const statusNode = document.getElementById('viewerStatus');
 const countNode = document.getElementById('viewerPageCount');
 const titleNode = document.getElementById('viewerTitle');
 const storeNode = document.getElementById('viewerStore');
+const mobileViewer = window.matchMedia('(max-width: 800px)').matches;
 
 if (titleNode) titleNode.textContent = title;
 if (storeNode) storeNode.textContent = store;
@@ -39,6 +40,28 @@ function safeHttpsUrl(value) {
   }
 }
 
+class DirectDocumentOpen extends Error {
+  constructor(url) {
+    super('Dokument se má otevřít přímo v prohlížeči.');
+    this.name = 'DirectDocumentOpen';
+    this.url = url;
+  }
+}
+
+function isExternalDocument(url) {
+  return Boolean(url && url.origin !== location.origin && url.hostname !== SUPABASE_HOST);
+}
+
+function openDocumentDirectly(value) {
+  const url = safeHttpsUrl(value);
+  if (!url) return false;
+  statusNode.textContent = 'Otevírám leták…';
+  countNode.textContent = '';
+  pagesRoot.innerHTML = '<div class="viewerPage"><div class="viewerSpinner" aria-hidden="true"></div></div>';
+  location.replace(url.href);
+  return true;
+}
+
 async function fetchWithTimeout(url, options = {}, timeoutMs = 30000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -53,6 +76,11 @@ async function fetchDocument(urlString) {
   const url = safeHttpsUrl(urlString);
   if (!url) throw new Error('Adresa letáku není platná.');
 
+  // Mobilní prohlížeče často blokují JS fetch cizího PDF kvůli CORS.
+  // Navigace na samotný PDF dokument CORS nepodléhá, proto externí dokument
+  // na mobilu otevřeme přímo a nesnažíme se z něj vyrábět Blob.
+  if (mobileViewer && isExternalDocument(url)) throw new DirectDocumentOpen(url.href);
+
   const headers = { accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8' };
   if (url.hostname === SUPABASE_HOST) headers.apikey = SUPABASE_KEY;
 
@@ -64,6 +92,12 @@ async function fetchDocument(urlString) {
     const payload = await response.json();
     const redirected = safeHttpsUrl(String(payload?.url || ''));
     if (!redirected) throw new Error(payload?.error || 'Zdroj nevrátil platný dokument.');
+
+    // Typický případ: Supabase endpoint vrátí skutečné PDF na serveru obchodu.
+    // Na mobilu ho otevřeme přímo, protože druhý cross-origin fetch je právě
+    // zdrojem chyby "Failed to fetch".
+    if (mobileViewer && isExternalDocument(redirected)) throw new DirectDocumentOpen(redirected.href);
+
     response = await fetchWithTimeout(redirected, {
       headers: { accept: 'application/pdf,image/webp,image/png,image/jpeg,*/*;q=0.8' },
       cache: 'default',
@@ -213,6 +247,7 @@ async function boot() {
     }
     throw new Error('Zdroj neposlal PDF ani obrázek letáku.');
   } catch (error) {
+    if (error instanceof DirectDocumentOpen && openDocumentDirectly(error.url)) return;
     showError(error instanceof Error ? error.message : 'Neznámá chyba.');
   }
 }
