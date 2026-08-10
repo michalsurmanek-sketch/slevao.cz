@@ -1,13 +1,6 @@
 (() => {
   'use strict';
 
-  if (!document.querySelector('link[href*="home-nearby-mobile-summary.css"]')) {
-    const style = document.createElement('link');
-    style.rel = 'stylesheet';
-    style.href = 'assets/home-nearby-mobile-summary.css?v=20260810-1';
-    document.head.appendChild(style);
-  }
-
   const panel = document.querySelector('.heroNearbyPanel');
   if (!panel) return;
 
@@ -15,27 +8,30 @@
   const topline = panel.querySelector('.slLiveTopline');
   if (!topline) return;
 
-  const toggle = document.createElement('button');
-  toggle.type = 'button';
-  toggle.className = 'nearbyMobileToggle';
+  let toggle = panel.querySelector('.nearbyMobileToggle');
+  if (!toggle) {
+    toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'nearbyMobileToggle';
+    toggle.innerHTML = `
+      <span class="nearbyMobileSummaryIcon" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>
+      </span>
+      <span class="nearbyMobileSummaryCopy">
+        <strong>POBLÍŽ VÁS</strong>
+        <small>Najdi obchody a akce ve svém okolí</small>
+      </span>
+      <span class="nearbyMobileChevron" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+      </span>`;
+    panel.prepend(toggle);
+  }
+
   toggle.setAttribute('aria-label', 'Rozbalit hledání obchodů poblíž');
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.innerHTML = `
-    <span class="nearbyMobileSummaryIcon" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="M12 21s6-5.2 6-11a6 6 0 1 0-12 0c0 5.8 6 11 6 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>
-    </span>
-    <span class="nearbyMobileSummaryCopy">
-      <strong>POBLÍŽ VÁS</strong>
-      <small>Najdi obchody a akce ve svém okolí</small>
-    </span>
-    <span class="nearbyMobileChevron" aria-hidden="true">
-      <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
-    </span>
-  `;
-  panel.appendChild(toggle);
   panel.classList.add('nearbyMobileCollapsible');
 
-  const contentNodes = [...panel.children].filter((node) => node !== topline && node !== toggle);
+  const contentNodes = [...panel.children].filter((node) => node !== toggle);
 
   function setContentInteractive(enabled) {
     contentNodes.forEach((node) => {
@@ -71,6 +67,7 @@
   toggle.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
+    toggle.blur();
     togglePanel();
   });
 
