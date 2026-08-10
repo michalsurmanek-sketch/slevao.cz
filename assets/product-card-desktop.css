@@ -76,3 +76,26 @@
 .dealCard[data-mobile-product-card="1"] .dealMedia{
   background:rgba(255,255,255,.72)!important;
 }
+
+/* Čistá karta: pomocný panel zůstává funkčně v DOM, ale bez vlastního boxu. */
+.dealCard[data-mobile-product-card="1"] .dealUtilityPanel{
+  margin-top:10px!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  overflow:visible!important;
+  box-shadow:none!important;
+}
+.dealCard[data-mobile-product-card="1"] .dealFacts{
+  border-top:0!important;
+  gap:8px!important;
+}
+.dealCard[data-mobile-product-card="1"] .validity,
+.dealCard[data-mobile-product-card="1"] .leafletLocationButton{
+  border:0!important;
+  border-radius:12px!important;
+  background:rgba(255,255,255,.58)!important;
+}
+.dealCard[data-mobile-product-card="1"] .leafletLocationButton{
+  border-left:0!important;
+}
