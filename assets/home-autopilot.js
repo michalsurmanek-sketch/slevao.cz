@@ -3,6 +3,7 @@
 
   const LIST_KEY = 'slevao-shopping-list-v1';
   const MAX_IDS_PER_QUERY = 50;
+  const mobile = window.matchMedia('(max-width: 800px)');
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
@@ -130,6 +131,37 @@
       <p class="sqAutopilotNote">Započítáno ${metrics.linked} položek.${metrics.missing ? ` U ${metrics.missing} položek chybí propojení nebo dnešní cena.` : ''} Úspora se počítá jen tam, kde nabídka obsahuje doloženou původní cenu.</p>`;
   }
 
+  function installAccordion(section) {
+    const card = section.querySelector('.sqAutopilotCard');
+    const toggle = section.querySelector('.sqAutopilotToggle');
+    if (!card || !toggle) return;
+
+    const setExpanded = (expanded) => {
+      if (!mobile.matches) expanded = true;
+      card.classList.toggle('is-autopilot-expanded', expanded);
+      card.classList.toggle('is-autopilot-collapsed', !expanded);
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      toggle.setAttribute('aria-label', expanded ? 'Sbalit Nákupní autopilot' : 'Rozbalit Nákupní autopilot');
+    };
+
+    toggle.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setExpanded(!card.classList.contains('is-autopilot-expanded'));
+      toggle.blur();
+    });
+
+    card.addEventListener('click', (event) => {
+      if (!mobile.matches || !card.classList.contains('is-autopilot-collapsed')) return;
+      if (event.target.closest('a,button,input,select,textarea,label')) return;
+      setExpanded(true);
+    });
+
+    const onViewportChange = () => setExpanded(!mobile.matches);
+    if (typeof mobile.addEventListener === 'function') mobile.addEventListener('change', onViewportChange);
+    setExpanded(!mobile.matches);
+  }
+
   function inject() {
     if (document.getElementById('homeAutopilot')) return;
     const hero = document.querySelector('.hero');
@@ -140,20 +172,34 @@
     section.className = 'sqAutopilotSection';
     section.innerHTML = `
       <div class="container">
-        <div class="sqAutopilotCard">
-          <div class="sqAutopilotCopy">
-            <span class="sqAutopilotEyebrow">Nákupní autopilot</span>
-            <h2>Kolik stojí tvůj nákup dnes?</h2>
-            <p>Vezme položky z tvého existujícího seznamu a z právě platných nabídek spočítá nejnižší dostupné ceny. Bez vymyšlené AI.</p>
-            <div class="sqAutopilotActions">
-              <button id="sqAutopilotRun" class="sqAutopilotRun" type="button">Spočítat dnešní nákup</button>
-              <a class="sqAutopilotOpen" href="seznam.html">Otevřít můj seznam →</a>
+        <div class="sqAutopilotCard is-autopilot-collapsed">
+          <button class="sqAutopilotToggle" type="button" aria-expanded="false" aria-label="Rozbalit Nákupní autopilot">
+            <span class="sqAutopilotToggleIcon" aria-hidden="true">✦</span>
+            <span class="sqAutopilotToggleCopy">
+              <strong>NÁKUPNÍ AUTOPILOT</strong>
+              <small>Spočítej nejlevnější cenu svého nákupního seznamu</small>
+            </span>
+            <span class="sqAutopilotChevron" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+            </span>
+          </button>
+          <div class="sqAutopilotBody">
+            <div class="sqAutopilotCopy">
+              <span class="sqAutopilotEyebrow">Nákupní autopilot</span>
+              <h2>Kolik stojí tvůj nákup dnes?</h2>
+              <p>Vezme položky z tvého existujícího seznamu a z právě platných nabídek spočítá nejnižší dostupné ceny. Bez vymyšlené AI.</p>
+              <div class="sqAutopilotActions">
+                <button id="sqAutopilotRun" class="sqAutopilotRun" type="button">Spočítat dnešní nákup</button>
+                <a class="sqAutopilotOpen" href="seznam.html">Otevřít můj seznam →</a>
+              </div>
             </div>
+            <div id="sqAutopilotResult" class="sqAutopilotResult" aria-live="polite">${initialHtml(count)}</div>
           </div>
-          <div id="sqAutopilotResult" class="sqAutopilotResult" aria-live="polite">${initialHtml(count)}</div>
         </div>
       </div>`;
     hero.after(section);
+
+    installAccordion(section);
 
     const button = section.querySelector('#sqAutopilotRun');
     const result = section.querySelector('#sqAutopilotResult');
