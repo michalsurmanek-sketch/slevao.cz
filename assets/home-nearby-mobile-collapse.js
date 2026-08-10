@@ -13,7 +13,10 @@
   toggle.className = 'nearbyMobileToggle';
   toggle.setAttribute('aria-label', 'Rozbalit hledání obchodů poblíž');
   toggle.setAttribute('aria-expanded', 'false');
-  toggle.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+  toggle.innerHTML = `
+    <span class="nearbyMobileToggleLabel"><i aria-hidden="true"></i>POBLÍŽ VÁS</span>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+  `;
   panel.appendChild(toggle);
   panel.classList.add('nearbyMobileCollapsible');
 
