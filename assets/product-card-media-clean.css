@@ -1,23 +1,30 @@
-/* Produktová karta: fotka bez tvrdého bílého media boxu a s plynulým vytracením okrajů. */
+/* Produktová karta: produkt leží přímo na společném pozadí karty. */
 .dealCard[data-mobile-product-card="1"] .dealMedia{
   position:relative!important;
   background:transparent!important;
+  background-image:none!important;
   border:0!important;
+  border-radius:0!important;
   box-shadow:none!important;
+  overflow:visible!important;
+}
+.dealCard[data-mobile-product-card="1"] .dealTop,
+.dealCard[data-mobile-product-card="1"] .dealInfo{
+  background:transparent!important;
 }
 .dealCard[data-mobile-product-card="1"] .dealMedia>img{
+  position:relative!important;
+  z-index:1!important;
   background:transparent!important;
+  background-image:none!important;
   border:0!important;
+  border-radius:0!important;
   box-shadow:none!important;
-  mix-blend-mode:multiply;
-  -webkit-mask-image:radial-gradient(ellipse 92% 86% at 50% 50%,#000 0 58%,rgba(0,0,0,.98) 66%,rgba(0,0,0,.78) 76%,rgba(0,0,0,.38) 87%,transparent 100%);
-  mask-image:radial-gradient(ellipse 92% 86% at 50% 50%,#000 0 58%,rgba(0,0,0,.98) 66%,rgba(0,0,0,.78) 76%,rgba(0,0,0,.38) 87%,transparent 100%);
-  -webkit-mask-repeat:no-repeat;
-  mask-repeat:no-repeat;
-  -webkit-mask-position:center;
-  mask-position:center;
-  -webkit-mask-size:100% 100%;
-  mask-size:100% 100%;
+  mix-blend-mode:multiply!important;
+  opacity:1!important;
+  -webkit-mask-image:none!important;
+  mask-image:none!important;
+  filter:drop-shadow(0 10px 16px rgba(23,34,34,.10))!important;
 }
 
 /* Spodní informační panel zůstává přesně v původním funkčním vzhledu. */
