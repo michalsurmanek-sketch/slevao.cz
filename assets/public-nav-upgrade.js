@@ -2,6 +2,11 @@
   'use strict';
 
   const LEAFLETS_URL = 'letaky.html';
+  const HOME_SEARCH_TARGET = '#top';
+  const isHomePage = () => {
+    const path = location.pathname.replace(/\/+$/, '');
+    return path === '' || path === '/' || path.endsWith('/index.html');
+  };
 
   function loadPersonalization() {
     if (!document.querySelector('link[href*="product-personalization.css"]')) {
@@ -87,8 +92,16 @@
     const leaflets = links.find((link) => /Letáky/i.test(link.textContent || '')) || links[2];
 
     if (search) {
-      search.href = 'hledat.html';
-      search.classList.toggle('active', location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html');
+      if (isHomePage()) {
+        search.href = HOME_SEARCH_TARGET;
+        search.dataset.homeSearchScroll = '1';
+        search.classList.remove('active');
+        search.removeAttribute('aria-current');
+      } else {
+        search.href = 'hledat.html';
+        search.removeAttribute('data-home-search-scroll');
+        search.classList.toggle('active', location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html');
+      }
     }
 
     if (leaflets) {
@@ -103,12 +116,39 @@
     return true;
   }
 
+  function scrollToHomeSearch() {
+    const input = document.getElementById('q');
+    const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+    window.scrollTo({
+      top: 0,
+      left: 0,
+      behavior: reducedMotion ? 'auto' : 'smooth'
+    });
+
+    window.setTimeout(() => {
+      if (!input) return;
+      try { input.focus({ preventScroll: true }); } catch { input.focus(); }
+    }, reducedMotion ? 0 : 320);
+  }
+
   document.addEventListener('click', (event) => {
     const link = event.target.closest('.slevaoBottomNav a');
-    if (!link || !/Letáky/i.test(link.textContent || '')) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    window.location.assign(LEAFLETS_URL);
+    if (!link) return;
+
+    if (/Letáky/i.test(link.textContent || '')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      window.location.assign(LEAFLETS_URL);
+      return;
+    }
+
+    if (isHomePage() && /Hledat/i.test(link.textContent || '')) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      link.blur?.();
+      scrollToHomeSearch();
+    }
   }, true);
 
   loadPersonalization();
