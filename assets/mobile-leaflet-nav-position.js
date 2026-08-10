@@ -10,7 +10,7 @@
 
   if (!document.querySelector('script[src*="home-nearby-mobile-collapse.js"]')) {
     const nearbyScript = document.createElement('script');
-    nearbyScript.src = 'assets/home-nearby-mobile-collapse.js?v=20260810-2';
+    nearbyScript.src = 'assets/home-nearby-mobile-collapse.js?v=20260810-3';
     nearbyScript.defer = true;
     document.head.appendChild(nearbyScript);
   }
@@ -186,7 +186,6 @@
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
-  /* Capture fáze proběhne před staršími handlery, které měnily URL nebo scroll. */
   document.addEventListener('click', (event) => {
     if (!mobile.matches) return;
 
