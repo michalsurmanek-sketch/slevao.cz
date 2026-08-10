@@ -131,6 +131,49 @@
       <p class="sqAutopilotNote">Započítáno ${metrics.linked} položek.${metrics.missing ? ` U ${metrics.missing} položek chybí propojení nebo dnešní cena.` : ''} Úspora se počítá jen tam, kde nabídka obsahuje doloženou původní cenu.</p>`;
   }
 
+  function installMobileNearbyPlacement(hero) {
+    const panel = document.querySelector('.heroNearbyPanel');
+    const heroCard = hero?.querySelector('.heroCard');
+    if (!panel || !heroCard) return () => null;
+
+    const originalParent = panel.parentElement;
+    const originalNextSibling = panel.nextSibling;
+    let section = document.getElementById('homeNearbyMobile');
+
+    const place = () => {
+      if (mobile.matches) {
+        if (!section || !section.isConnected) {
+          section = document.createElement('section');
+          section.id = 'homeNearbyMobile';
+          section.className = 'sqNearbyMobileSection';
+          section.innerHTML = '<div class="container sqNearbyMobileContainer"></div>';
+          hero.after(section);
+        } else if (section.previousElementSibling !== hero) {
+          hero.after(section);
+        }
+
+        const host = section.querySelector('.sqNearbyMobileContainer');
+        if (host && panel.parentElement !== host) host.appendChild(panel);
+        section.hidden = false;
+        return;
+      }
+
+      if (panel.parentElement !== originalParent) {
+        if (originalNextSibling && originalNextSibling.parentNode === originalParent) {
+          originalParent.insertBefore(panel, originalNextSibling);
+        } else {
+          originalParent.appendChild(panel);
+        }
+      }
+      if (section?.isConnected) section.remove();
+      section = null;
+    };
+
+    place();
+    if (typeof mobile.addEventListener === 'function') mobile.addEventListener('change', place);
+    return () => section;
+  }
+
   function installAccordion(section) {
     const card = section.querySelector('.sqAutopilotCard');
     const toggle = section.querySelector('.sqAutopilotToggle');
@@ -166,6 +209,8 @@
     if (document.getElementById('homeAutopilot')) return;
     const hero = document.querySelector('.hero');
     if (!hero) return;
+
+    const getNearbySection = installMobileNearbyPlacement(hero);
     const count = activeRows().length;
     const section = document.createElement('section');
     section.id = 'homeAutopilot';
@@ -197,7 +242,10 @@
           </div>
         </div>
       </div>`;
-    hero.after(section);
+
+    const nearbySection = getNearbySection();
+    const anchor = mobile.matches && nearbySection?.isConnected ? nearbySection : hero;
+    anchor.after(section);
 
     installAccordion(section);
 
