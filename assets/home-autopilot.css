@@ -124,6 +124,7 @@
     pointer-events:none;
   }
   .sqAutopilotCard.is-autopilot-expanded .sqAutopilotBody{pointer-events:auto}
+  .sqAutopilotCard.is-autopilot-expanded .sqAutopilotEyebrow{display:none}
 
   /* Poblíž vás: stejná osa a stejná dvouřádková hlavička jako Nákupní autopilot. */
   body .heroNearbyPanel.nearbyMobileCollapsible{
