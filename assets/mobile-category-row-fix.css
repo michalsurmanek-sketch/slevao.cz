@@ -1,0 +1,60 @@
+/* Slevao.cz – mobile category row swipe cue */
+@media(max-width:800px){
+  #categoriesSection,
+  #categoriesSection>.container{
+    min-width:0;
+    max-width:100%;
+  }
+
+  #categoriesSection>.container{
+    position:relative;
+  }
+
+  #categoriesSection .categoryChips{
+    flex-wrap:nowrap!important;
+    overflow-x:auto!important;
+    overflow-y:hidden!important;
+    overscroll-behavior-x:contain;
+    -webkit-overflow-scrolling:touch;
+    scroll-snap-type:x proximity;
+    scrollbar-width:none;
+  }
+
+  #categoriesSection .categoryChips::-webkit-scrollbar{
+    display:none;
+  }
+
+  #categoriesSection .categoryChip{
+    flex:0 0 auto;
+    scroll-snap-align:start;
+  }
+
+  #categoriesSection>.container::after{
+    content:"←  Posuň do stran pro další kategorii  →";
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    width:max-content;
+    max-width:calc(100% - 28px);
+    margin:2px auto 0;
+    padding:5px 13px 6px;
+    border-radius:999px;
+    background:linear-gradient(90deg,rgba(21,158,148,0),rgba(21,158,148,.10) 20%,rgba(21,158,148,.10) 80%,rgba(21,158,148,0));
+    color:#657775;
+    font-size:11px;
+    line-height:1.2;
+    font-weight:800;
+    letter-spacing:.01em;
+    text-align:center;
+    white-space:nowrap;
+    pointer-events:none;
+  }
+}
+
+@media(max-width:380px){
+  #categoriesSection>.container::after{
+    max-width:calc(100% - 16px);
+    padding-inline:8px;
+    font-size:10px;
+  }
+}
