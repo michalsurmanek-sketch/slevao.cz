@@ -59,6 +59,62 @@
     }
   }
 
+  function setupMobileScroller(dock) {
+    const scroller = dock.querySelector('.sqFoodDockItems');
+    const previous = dock.querySelector('[data-sq-food-scroll="prev"]');
+    const next = dock.querySelector('[data-sq-food-scroll="next"]');
+    const cue = dock.querySelector('.sqFoodSwipeCue');
+    if (!scroller || !previous || !next || !cue) return;
+
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      const max = Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+      const left = scroller.scrollLeft;
+      const canLeft = left > 6;
+      const canRight = left < max - 6;
+
+      previous.disabled = !canLeft;
+      next.disabled = !canRight;
+      dock.classList.toggle('can-scroll-left', canLeft);
+      dock.classList.toggle('can-scroll-right', canRight);
+      cue.hidden = max < 12;
+    };
+
+    const scheduleUpdate = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(update);
+    };
+
+    const move = (direction) => {
+      const amount = Math.max(150, Math.min(scroller.clientWidth * .72, 320));
+      scroller.scrollBy({ left: direction * amount, behavior: 'smooth' });
+      dock.classList.add('sqFoodInteracted');
+      window.setTimeout(scheduleUpdate, 320);
+    };
+
+    previous.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      move(-1);
+    });
+
+    next.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      move(1);
+    });
+
+    scroller.addEventListener('scroll', () => {
+      dock.classList.add('sqFoodInteracted');
+      scheduleUpdate();
+    }, { passive: true });
+
+    window.addEventListener('resize', scheduleUpdate, { passive: true });
+    requestAnimationFrame(update);
+    window.setTimeout(update, 250);
+  }
+
   function createDock() {
     if (document.querySelector('.sqFoodDock')) return;
     const deals = document.getElementById('dealsSection');
@@ -72,9 +128,12 @@
         <span class="sqFoodDockTitle">Rychlý<br>nákup</span>
         <button class="sqFoodDockToggle" type="button" aria-label="Sbalit rychlý filtr" aria-expanded="true">‹</button>
       </div>
+      <button class="sqFoodScrollArrow sqFoodScrollArrowPrev" type="button" data-sq-food-scroll="prev" aria-label="Předchozí kategorie">‹</button>
       <div class="sqFoodDockItems">
         ${ITEMS.map(([term, icon, label]) => `<button class="sqFoodQuick" type="button" data-sq-food="${term}" aria-pressed="false" title="Filtrovat: ${label}"><span class="sqFoodIcon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('')}
       </div>
+      <button class="sqFoodScrollArrow sqFoodScrollArrowNext" type="button" data-sq-food-scroll="next" aria-label="Další kategorie">›</button>
+      <div class="sqFoodSwipeCue" aria-hidden="true"><span>←</span><strong>Posuň do stran pro další kategorie</strong><span>→</span></div>
       <button class="sqFoodClear" type="button" aria-pressed="false">Zrušit rychlý filtr</button>`;
 
     if (localStorage.getItem(STORAGE_KEY) === '1') dock.classList.add('collapsed');
@@ -113,6 +172,7 @@
 
     deals.parentNode.insertBefore(dock, deals);
     syncActive(dock);
+    setupMobileScroller(dock);
   }
 
   function init() {
