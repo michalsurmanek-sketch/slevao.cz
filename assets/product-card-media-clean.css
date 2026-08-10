@@ -1,0 +1,32 @@
+/* Produktová karta: fotka bez bílého media boxu, ostatní části karty beze změny. */
+.dealCard[data-mobile-product-card="1"] .dealMedia{
+  background:transparent!important;
+}
+
+/* Vrácení předchozího omylem upraveného spodního panelu přesně na původní vzhled. */
+.dealCard[data-mobile-product-card="1"] .dealUtilityPanel{
+  border:1px solid #e0e9e8!important;
+  border-radius:16px!important;
+  background:#fff!important;
+  overflow:hidden!important;
+  box-shadow:none!important;
+}
+.dealCard[data-mobile-product-card="1"] .dealFacts{
+  border-top:1px solid #edf2f1!important;
+  gap:0!important;
+}
+.dealCard[data-mobile-product-card="1"] .validity,
+.dealCard[data-mobile-product-card="1"] .leafletLocationButton{
+  border:0!important;
+  border-radius:0!important;
+  background:#fff!important;
+}
+.dealCard[data-mobile-product-card="1"] .leafletLocationButton{
+  border-left:1px solid #edf2f1!important;
+}
+@media(max-width:800px){
+  .dealCard[data-mobile-product-card="1"] .dealUtilityPanel{margin-top:13px!important}
+}
+@media(min-width:801px){
+  .dealCard[data-mobile-product-card="1"] .dealUtilityPanel{margin-top:14px!important}
+}
