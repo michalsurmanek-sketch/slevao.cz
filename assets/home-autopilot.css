@@ -1,4 +1,5 @@
 /* Slevao.cz – Nákupní autopilot na homepage + mobilní rozbalovací karta. */
+.sqNearbyMobileSection{display:none}
 .sqAutopilotSection{padding:12px 0 8px}
 .sqAutopilotSection>.container{width:min(1450px,calc(100% - 48px))}
 .sqAutopilotCard{position:relative;overflow:hidden;padding:24px 26px;border:1px solid #cfeae7;border-radius:26px;background:linear-gradient(120deg,#ffffff 0%,#f2fcfa 58%,#e2f9f5 100%);box-shadow:0 14px 42px rgba(23,34,34,.08)}
@@ -38,6 +39,10 @@
 }
 
 @media(max-width:800px){
+  .sqNearbyMobileSection{display:block;padding:7px 0 5px}
+  .sqNearbyMobileSection>.container{width:calc(100% - 20px);margin-left:auto;margin-right:auto}
+  .sqNearbyMobileSection .heroNearbyPanel{width:100%!important;max-width:none!important;margin:0!important;box-sizing:border-box!important}
+
   .sqAutopilotCard{
     padding:10px 12px;
     border-radius:21px;
