@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260809-4';
+const CACHE_NAME = 'slevao-shell-20260810-1';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -91,8 +91,6 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const cache = await caches.open(CACHE_NAME);
 
-      // CSS/JS/manifest musí při nasazení obejít HTTP cache, aby se opravy
-      // projevily okamžitě i při nezměněném query stringu.
       if (isCriticalStatic(url)) {
         try {
           const freshRequest = new Request(request, { cache: 'reload' });
@@ -104,7 +102,6 @@ self.addEventListener('fetch', (event) => {
         }
       }
 
-      // Obrázky/fonty mohou zůstat stale-while-revalidate pro rychlejší opakované návštěvy.
       const cached = await caches.match(request);
       const network = fetch(request).then(async (response) => {
         if (response.ok) cache.put(request, response.clone()).catch(() => {});
