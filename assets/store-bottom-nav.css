@@ -57,3 +57,14 @@
 /* Stejné logo jako na homepage i v patičce detailů obchodů. */
 footer strong:first-child{display:block;width:232px;height:58px;margin:0 0 10px;background:url('slevao-logo.svg?v=20260802-1') left center/contain no-repeat;font-size:0;line-height:0}
 @media(max-width:650px){footer strong:first-child{width:210px;height:54px}}
+
+/* Stejné pozadí produktových karet jako hlavní mobilní sekce. */
+.deal{
+  background:linear-gradient(rgba(255,255,255,.20),rgba(255,255,255,.20)),url('/assets/nearby-panel-uploaded-bg.svg?v=20260808-1') center center/cover no-repeat!important;
+}
+.deal>.media{
+  background:rgba(255,255,255,.72)!important;
+}
+.deal>.body{
+  background:rgba(255,255,255,.72)!important;
+}
