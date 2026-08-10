@@ -34,7 +34,7 @@
   if (!document.querySelector('link[href*="home-autopilot.css"]')) {
     const autopilotStyle = document.createElement('link');
     autopilotStyle.rel = 'stylesheet';
-    autopilotStyle.href = 'assets/home-autopilot.css?v=20260810-3';
+    autopilotStyle.href = 'assets/home-autopilot.css?v=20260810-4';
     document.head.appendChild(autopilotStyle);
   }
   if (!document.querySelector('script[src*="home-autopilot.js"]')) {
