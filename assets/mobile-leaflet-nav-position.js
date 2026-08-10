@@ -3,7 +3,8 @@
 
   /*
    * Mobilní navigace homepage: Letáky vždy otevírají /letaky.html,
-   * Hledat na homepage pouze posune stránku k hornímu vyhledávání.
+   * Hledat na homepage pouze posune stránku na řádek rychlých potravin
+   * nad sekcí Nejvýhodnější právě teď. Vyhledávací pole se samo neaktivuje.
    */
   const mobile = window.matchMedia('(max-width: 800px)');
   const LEAFLETS_URL = '/letaky.html';
@@ -76,7 +77,7 @@
       }
 
       if (isHomePage() && isSearchLink(link)) {
-        link.setAttribute('href', '#top');
+        link.setAttribute('href', '#dealsSection');
         link.dataset.slevaoHomeSearch = '1';
         link.removeAttribute('aria-current');
         link.classList.remove('active');
@@ -84,20 +85,23 @@
     });
   }
 
-  function scrollToHomeSearch() {
+  function scrollToHomeSearchPosition() {
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const input = document.getElementById('q');
 
-    window.scrollTo({
-      top: 0,
-      left: 0,
-      behavior: reducedMotion ? 'auto' : 'smooth'
-    });
+    const align = (behavior = 'auto') => {
+      const target = document.querySelector('.sqFoodDock') || document.getElementById('dealsSection');
+      if (!target) return;
 
-    window.setTimeout(() => {
-      if (!input) return;
-      try { input.focus({ preventScroll: true }); } catch { input.focus(); }
-    }, reducedMotion ? 0 : 320);
+      const topbar = document.querySelector('.topbar');
+      const topbarHeight = Math.ceil(topbar?.getBoundingClientRect().height || 0);
+      const absoluteTop = window.scrollY + target.getBoundingClientRect().top;
+      const targetTop = Math.max(0, Math.round(absoluteTop - topbarHeight - 14));
+
+      window.scrollTo({ top: targetTop, left: 0, behavior });
+    };
+
+    align(reducedMotion ? 'auto' : 'smooth');
+    window.setTimeout(() => align('auto'), reducedMotion ? 0 : 380);
   }
 
   function installHomeScrollTop() {
@@ -179,7 +183,7 @@
       event.preventDefault();
       event.stopImmediatePropagation();
       link.blur?.();
-      scrollToHomeSearch();
+      scrollToHomeSearchPosition();
       return;
     }
 
