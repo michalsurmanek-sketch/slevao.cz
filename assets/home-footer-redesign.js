@@ -31,6 +31,18 @@
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }
+  if (!document.querySelector('link[href*="home-quick-food-personalize.css"]')) {
+    const quickFoodPersonalizeStyle = document.createElement('link');
+    quickFoodPersonalizeStyle.rel = 'stylesheet';
+    quickFoodPersonalizeStyle.href = 'assets/home-quick-food-personalize.css?v=20260811-1';
+    document.head.appendChild(quickFoodPersonalizeStyle);
+  }
+  if (!document.querySelector('script[src*="home-quick-food-personalize.js"]')) {
+    const quickFoodPersonalizeScript = document.createElement('script');
+    quickFoodPersonalizeScript.src = 'assets/home-quick-food-personalize.js?v=20260811-1';
+    quickFoodPersonalizeScript.defer = true;
+    document.head.appendChild(quickFoodPersonalizeScript);
+  }
   if (!document.querySelector('link[href*="home-autopilot.css"]')) {
     const autopilotStyle = document.createElement('link');
     autopilotStyle.rel = 'stylesheet';
