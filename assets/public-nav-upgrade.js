@@ -50,7 +50,7 @@
     }
     if (document.querySelector('script[src*="store-arrival-alerts.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/store-arrival-alerts.js?v=20260811-1';
+    script.src = 'assets/store-arrival-alerts.js?v=20260811-2';
     script.defer = true;
     document.head.appendChild(script);
   }
