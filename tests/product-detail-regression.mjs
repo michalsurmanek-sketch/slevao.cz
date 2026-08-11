@@ -11,6 +11,7 @@ const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
 const leaflet = read('assets/product-leaflet-location-global.js');
 const premiumRuntime = read('assets/product-premium-runtime.js');
+const serviceWorker = read('service-worker.js');
 const html = read('produkt.html');
 
 for (const [path, source] of [
@@ -20,6 +21,7 @@ for (const [path, source] of [
   ['assets/product-intelligence.js', intelligence],
   ['assets/product-leaflet-location-global.js', leaflet],
   ['assets/product-premium-runtime.js', premiumRuntime],
+  ['service-worker.js', serviceWorker],
 ]) {
   new Script(source, { filename:path });
 }
@@ -80,10 +82,23 @@ assert.match(premiumRuntime, /sfOffersTitleIcon/, 'Sekce porovnání postrádá 
 // Produkční HTML musí načítat opravené verze bez staré cache.
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
+  /public-nav-upgrade\.js\?v=20260811-5/,
+  /store-arrival-alerts\.js\?v=20260811-2/,
   /product-detail\.js\?v=20260811-7/,
   /product-seo\.js\?v=20260811-2/,
   /product-premium-runtime\.js\?v=20260811-1/,
   /product-intelligence\.js\?v=20260811-2/,
 ]) assert.match(html, pattern, `produkt.html nemá očekávanou verzi assetu ${pattern}.`);
+
+// PWA fallback musí obsahovat stejné kritické assety jako ostrý detail.
+assert.match(serviceWorker, /slevao-shell-20260811-7/, 'Service worker nemá novou cache detailu produktu.');
+for (const pattern of [
+  /public-features\.js\?v=20260811-3/,
+  /product-detail\.js\?v=20260811-7/,
+  /product-leaflet-location-global\.js\?v=20260811-2/,
+  /product-seo\.js\?v=20260811-2/,
+  /product-premium-runtime\.js\?v=20260811-1/,
+  /product-intelligence\.js\?v=20260811-2/,
+]) assert.match(serviceWorker, pattern, `PWA cache postrádá kritický asset ${pattern}.`);
 
 console.log('Detail produktu: regresní diagnostika prošla.');
