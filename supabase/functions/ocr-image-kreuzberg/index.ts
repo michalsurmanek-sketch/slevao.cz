@@ -28,6 +28,19 @@ function json(body: unknown, status = 200) {
   return Response.json(body, { status, headers: CORS });
 }
 
+function processingImageUrl(input: string) {
+  try {
+    const url = new URL(input);
+    if ((url.hostname === 'www.jip-potraviny.cz' || url.hostname === 'jip-potraviny.cz') && /\/files\/mobile\/\d+\.jpg$/i.test(url.pathname)) {
+      url.pathname = url.pathname.replace('/files/mobile/', '/files/thumb/');
+      return url.toString();
+    }
+    return input;
+  } catch {
+    return input;
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
@@ -41,7 +54,8 @@ Deno.serve(async (req) => {
 
     await ensureReady();
 
-    const response = await fetch(imageUrl, {
+    const processedImageUrl = processingImageUrl(imageUrl);
+    const response = await fetch(processedImageUrl, {
       headers: { 'user-agent': 'Mozilla/5.0', accept: 'image/jpeg,image/png,image/webp,*/*' },
       redirect: 'follow',
     });
@@ -84,6 +98,8 @@ Deno.serve(async (req) => {
       engine: 'kreuzberg-tesseract-wasm',
       language,
       image_url: imageUrl,
+      processed_image_url: processedImageUrl,
+      used_lightweight_variant: processedImageUrl !== imageUrl,
       bytes: bytes.length,
       elapsed_ms: Date.now() - startedAt,
       content: String(result?.content || ''),
