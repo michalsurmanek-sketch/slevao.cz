@@ -19,7 +19,7 @@ const FETCH_HEADERS = {
 const MIN_SAFE = 220;
 const MAX_SAFE = 900;
 const PARSER = 'albert-publitas-text-v4';
-const CODE_REV = 'strong-identity-20260811-2';
+const CODE_REV = 'strong-identity-20260811-3';
 const PUBLISHER = 'publish_albert_publitas_text_offers_v4_strong';
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
@@ -31,13 +31,13 @@ function quantityKey(value: string | null | undefined) { return String(value || 
 function median(values: number[]) { const sorted = values.filter(Number.isFinite).sort((a, b) => a - b); if (!sorted.length) return null; const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2; }
 
 const PRICE = /^[•▼]\s*(\d{1,4}(?:[,.]\d{1,2})?|\d{1,4},-)\s*Kč(?:\s|$)/iu;
-const BAD = /(?:AKČNÍ NABÍDKA|Z BĚŽNÝCH CEN|BĚŽNÁ CENA|NEPORAZITELNÉ|APLIKACE|PŘI KOUPI|POSLEDNÍ ŠANCE|SOUTĚŽ|KREDITY|CO KUPUJETE|NAVÍC|VÍCE AKCÍ|EXTRA LETÁK|AKCE PLATÍ|informací|www\.|Galerie|Arkády|Forum|neplatí pro hypermarket|vybrané druhy|ušetříte|sleva s aplikací|cena s aplikací)/iu;
+const BAD = /(?:AKČNÍ NABÍDKA|Z BĚŽNÝCH CEN|BĚŽNÁ CENA|NEPORAZITELNÉ|APLIKACE|PŘI KOUPI|POSLEDNÍ ŠANCE|SOUTĚŽ|KREDITY|CO KUPUJETE|NAVÍC|VÍCE AKCÍ|EXTRA LETÁK|AKCE PLATÍ|důkladné odstranění|zubního plaku|informací|www\.|Galerie|Arkády|Forum|neplatí pro hypermarket|vybrané druhy|ušetříte|sleva s aplikací|cena s aplikací)/iu;
 const START_BAD = /^(?:BEZ|CENA|CENY|BOD|NOVINKA|VÝBĚRU|PŘI|POUZE|DĚLÍ|SOUTĚŽ|AKČNÍ|EXTRA|VÍCE|NAVÍC|APLIKACE|PLATÍ|Od\b|www\.)/iu;
 const DESC = /^(?:ochucen[áé]|přírodní|instantní|světl[ýé]|tmav[ýé]|dětský|funkční|masný|chlazen[áé]|zrnková|prostředek|odmašťovač|vermut|Itálie|Francie|Chile|Španělsko|Austrálie|skládané|z podestýlky|druhu|druhy|různé druhy|mix druhů|balení)$/iu;
 const ONLY_NUM = /^(?:-?\d+\s*%|\d+(?:[,.]\d+)?(?:\s*,-)?|\d+\s*[a-z]{1,3})$/iu;
 const GENERIC_BANNER = /^(?:A NATURE.?S PROMISE|Active PRO|Bag in Box|Barva|BARVY|Aviváž|Austrálie|Care Pánský|CENY|BĚŽNÁ CENA|Aplikace|Výběru|Při koupi|A VYHRAJ|KUPÓNY PRO VÁS|KREDIT)$/iu;
-const PRODUCT_WORD = /(?:mléko|krém|vodka|gin|rum|whisk|pivo|ležák|nealko|becherovk|fernet|slivovic|oplat|chips|káva|čaj|olej|omáčk|sýr|jogurt|zmrzlin|prací|kapsl|tablet|papír|kapesník|ubrousk|plenk|nápoj|sirup|bonbon|čokolád|těstovin|rýž|mouka|cukr|máslo|maso|kuř|burger|brokolic|rajč|banán|jabl|mandl|kukuřic|nudl|steliv|krmiv|kapsič|konzerv|pochout|deodorant|šampon|zubní|sprchov|aviváž|prostředek|mýdlo|pastelk|pánev|mop|houbičk|džus|voda|minerální|sekt|víno|frizzante|primitivo|prosecco|aperitivo|likér|tyčink|kaše|müsli|krekry|grissini|kořen|paprika|bujón|paštik|granule|toaletní|gel|barva na vlasy|sprej|sérum|šunka|salám|klobás|pečivo|chléb|rohlík|vejce|smetan|tvaroh|pomazán|majon|tatarsk|tuňák|losos|sardin|šprot|hranol|brambor|fazol|hrášek|kečup|hořčic|med|džem|cereál|sušenk|piškot|čistič|wc blok|kartáček|pasta|stelivo)/iu;
-const EXPLICIT_GENERIC = /^(?:frizzante|primitivo|vodka|mouka(?: hladká| polohrubá| hrubá)?|mandle|mini|bonb[oó]ny|cukr(?: bílý(?: krupice| krystal)?)?|sirup|sýr|jogurt|zmrzlina|pivo|oplatka|deodorant(?: sprej)?|granule(?: pro (?:psy|kočky))?|gran reserva|víno|sekt|prosecco|rum|gin|whisky|káva|čaj|máslo|mléko|tvaroh|smetana|šunka|salám|klobása|rýže|těstoviny)$/iu;
+const PRODUCT_WORD = /(?:mléko|krém|vodka|gin|rum|whisk|pivo|ležák|nealko|becherovk|fernet|slivovic|dort|moučník|dezert|oplat|chips|káva|čaj|olej|omáčk|sýr|jogurt|zmrzlin|prací|kapsl|tablet|papír|kapesník|ubrousk|plenk|nápoj|sirup|bonbon|čokolád|těstovin|rýž|mouka|cukr|máslo|maso|kuř|burger|brokolic|rajč|banán|jabl|mandl|kukuřic|nudl|steliv|krmiv|kapsič|konzerv|pochout|deodorant|šampon|zubní|sprchov|aviváž|prostředek|mýdlo|pastelk|pánev|mop|houbičk|džus|voda|minerální|sekt|víno|frizzante|primitivo|prosecco|aperitivo|likér|tyčink|kaše|müsli|krekry|grissini|kořen|paprika|bujón|paštik|granule|toaletní|gel|barva na vlasy|sprej|sérum|šunka|salám|klobás|pečivo|chléb|rohlík|vejce|smetan|tvaroh|pomazán|majon|tatarsk|tuňák|losos|sardin|šprot|hranol|brambor|fazol|hrášek|kečup|hořčic|med|džem|cereál|sušenk|piškot|čistič|wc blok|kartáček|pasta|stelivo)/iu;
+const EXPLICIT_GENERIC = /^(?:frizzante|primitivo|vodka|mouka(?: hladká| polohrubá| hrubá)?|mandle(?: natural)?|mini|(?:želé )?bonb[oó]ny|cukr(?: bílý(?: krupice| krystal)?)?|třtinový cukr|sirup|sýr|jogurt|zmrzlina|pivo|oplatka|deodorant(?: sprej)?|granule(?: pro (?:psy|kočky))?|gran reserva|víno|sekt|prosecco|rum|gin|whisky|káva|(?:černý|zelený|ovocný|bylinný) čaj|čaj|máslo|mléko|tvaroh|smetana|šunka|salám|klobása|rýže|těstoviny)$/iu;
 const UNSAFE_GENERIC_ALWAYS = /^(?:mini)$/iu;
 const BRAND_STOP = /(?:akční|nabídka|běžn|sleva|cena|aplikac|platí|různé|druh|balení|obsah|kusů|procent|ušetříte|více|extra|pouze|výběru|novinka|potraviny|drogerie|kosmetika|nápoje|kupón|kredit|podestýl)/iu;
 const QTY_UNIT = '(?:kg|g|ml|l|cl|ks|kus(?:y|ů)?|bal(?:ení)?|rol(?:e|í)|dáv(?:ka|ek))';
@@ -53,6 +53,7 @@ function clean(value: string) {
     .replace(/^\d{1,2}\s+(?:potraviny|drogerie|kosmetika|nápoje)\s+/iu, '')
     .replace(/^\d{1,4}[,.]?\s+(?=[A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ])/u, '')
     .replace(/^(?:EXTRA LETÁK|VÍCE AKCÍ|CO KUPUJETE NEJRADĚJI)\s+/iu, '')
+    .replace(/\s*[•·]\s*$/u, '')
     .trim();
 }
 function allCaps(line: string) { const letters = line.replace(/[^A-Za-zÁ-ž]/gu, ''); return letters.length >= 5 && letters === letters.toLocaleUpperCase('cs'); }
@@ -79,6 +80,8 @@ function quantitySane(title: string, quantity: string | null) {
   if (/(?:mouka|cukr|rýže|těstovin|mandl)/iu.test(t) && !/(?:kg|\bg\b)/iu.test(q)) return null;
   if (/deodorant|sprej/iu.test(t) && !/ml\b/iu.test(q)) return null;
   if (/granule/iu.test(t) && (!/(?:kg|\bg\b)/iu.test(q) || /[x×]/u.test(q))) return null;
+  if (/plenk|pants/iu.test(t) && !/(?:ks|kus)/iu.test(q)) return null;
+  if (/(?:nápoj|sirup|omáčk|kečup|džus|cola|pulpy)/iu.test(t) && /(?:ks|kus)/iu.test(q)) return null;
   if (/(?:vodka|primitivo|frizzante|prosecco|víno|sekt|rum|gin|whisk)/iu.test(t) && !/(?:ml|cl|\bl\b)/iu.test(q)) return null;
   if (/pivo|ležák/iu.test(t) && !/(?:ml|cl|\bl\b)/iu.test(q)) return null;
   return quantity;
@@ -144,6 +147,7 @@ function parsePage(text: string, page: number, document: any) {
     if (!normalizedTitle || normalizedTitle.length < 3) continue;
     const strength = identityStrength(title, rawTitle, brand, quantity);
     if (strength !== 'strong') continue;
+    if (/vodka/iu.test(title) && /(?:becherovk|fernet|slivovic|likér)/iu.test(title)) continue;
     if (/(?:vodka|(^| )gin($| )|(^| )rum($| )|whisk|likér|aperitivo)/iu.test(title) && price < 80) continue;
 
     const viewer = String(document.metadata?.viewer_url || '').replace(/\/+$/u, '');
@@ -190,15 +194,9 @@ function removeExtremeIdentityPrices(rows: any[]) {
   const keep = new Set<any>();
   let dropped = 0;
   for (const group of groups.values()) {
-    if (group.length < 3) {
-      group.forEach((row) => keep.add(row));
-      continue;
-    }
+    if (group.length < 3) { group.forEach((row) => keep.add(row)); continue; }
     const med = median(group.map((row) => Number(row.price)));
-    if (!(Number(med) > 0)) {
-      group.forEach((row) => keep.add(row));
-      continue;
-    }
+    if (!(Number(med) > 0)) { group.forEach((row) => keep.add(row)); continue; }
     for (const row of group) {
       const ratio = Number(row.price) / Number(med);
       if (ratio < 0.4 || ratio > 2.5) dropped++;
@@ -326,25 +324,7 @@ Deno.serve(async (request) => {
 
     if (dryRun) {
       const sample = (r: any) => ({ title: r.title, brand: r.brand, quantity: r.quantity_text, identity_strength: r.identity_strength, price: r.price, matched: Boolean(r.product_id), has_image: Boolean(r.image_url), page: r.source_page, location_type: r.location_type, valid_from: r.valid_from, valid_to: r.valid_to });
-      return json({
-        ok: true,
-        dry_run: true,
-        parser: PARSER,
-        parser_revision: CODE_REV,
-        store: 'Albert',
-        documents: documents.length,
-        raw_candidates: built.raw,
-        deduped_candidates: built.deduped,
-        dropped_price_outliers: built.outlierDropped,
-        publishable: built.rows.length,
-        strong_identity: built.rows.length,
-        catalog_matches: built.matched,
-        strict_new: built.newStrict,
-        with_images: built.withImages,
-        signature,
-        suspect_samples: built.rows.filter((r: any) => SUSPECT.test(r.title)).slice(0, 150).map(sample),
-        samples: built.rows.slice(0, 80).map(sample),
-      });
+      return json({ ok: true, dry_run: true, parser: PARSER, parser_revision: CODE_REV, store: 'Albert', documents: documents.length, raw_candidates: built.raw, deduped_candidates: built.deduped, dropped_price_outliers: built.outlierDropped, publishable: built.rows.length, strong_identity: built.rows.length, catalog_matches: built.matched, strict_new: built.newStrict, with_images: built.withImages, signature, suspect_samples: built.rows.filter((r: any) => SUSPECT.test(r.title)).slice(0, 150).map(sample), samples: built.rows.slice(0, 80).map(sample) });
     }
 
     const { data: state } = await db.from('store_product_sync_state').select('last_source_signature,health_status,last_offer_count,parser_version').eq('store_id', store.id).maybeSingle();
