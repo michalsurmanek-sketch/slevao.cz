@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260811-1';
+const CACHE_NAME = 'slevao-shell-20260811-2';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -13,7 +13,7 @@ const SHELL = [
   '/favicon.svg',
   '/assets/public-features.css?v=20260804-2',
   '/assets/public-features.js?v=20260804-2',
-  '/assets/public-nav-upgrade.js?v=20260809-1',
+  '/assets/public-nav-upgrade.js?v=20260811-2',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260810-1',
@@ -22,6 +22,9 @@ const SHELL = [
   '/assets/home-personal-deals.css?v=20260804-1',
   '/assets/home-personal-deals.js?v=20260804-1',
   '/assets/pwa-install.js?v=20260804-1',
+  '/assets/location-service.js?v=20260811-4',
+  '/assets/store-arrival-alerts.css?v=20260811-1',
+  '/assets/store-arrival-alerts.js?v=20260811-1',
   '/assets/search-notifications.css?v=20260804-1',
   '/assets/product-search.js?v=20260804-2',
   '/assets/shopping-list.js?v=20260804-3',
@@ -47,6 +50,24 @@ self.addEventListener('activate', (event) => {
     const names = await caches.keys();
     await Promise.all(names.filter((name) => name.startsWith('slevao-shell-') && name !== CACHE_NAME).map((name) => caches.delete(name)));
     await self.clients.claim();
+  })());
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const requested = event.notification?.data?.url || '/';
+  const targetUrl = new URL(requested, self.location.origin).href;
+
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type:'window', includeUncontrolled:true });
+    for (const client of windows) {
+      try {
+        if ('navigate' in client && client.url !== targetUrl) await client.navigate(targetUrl);
+        if ('focus' in client) return await client.focus();
+      } catch {}
+    }
+    if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    return null;
   })());
 });
 
