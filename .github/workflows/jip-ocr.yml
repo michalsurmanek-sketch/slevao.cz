@@ -1,0 +1,39 @@
+name: JIP OCR
+
+on:
+  schedule:
+    - cron: '17,47 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/jip-ocr.yml'
+      - '.github/scripts/jip_ocr_sync.py'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jip-ocr-production
+  cancel-in-progress: false
+
+jobs:
+  jip-ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      SUPABASE_PROJECT_REF: uhampjdqjxmbhaptgitn
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Czech Tesseract
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces
+          tesseract --version | head -n 1
+          tesseract --list-langs | grep -x ces
+
+      - name: OCR and publish JIP offers
+        run: python3 .github/scripts/jip_ocr_sync.py
