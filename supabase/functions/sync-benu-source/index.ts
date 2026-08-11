@@ -20,6 +20,14 @@ function money(value:string){ const n=Number(String(value||'').replace(/\s/g,'')
 function pragueToday(){ const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()); const v=Object.fromEntries(parts.map(p=>[p.type,p.value])); return `${v.year}-${v.month}-${v.day}`; }
 async function sha(value:string){ const digest=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join(''); }
 
+function packageQuantity(title:string){
+  const normalized=String(title||'').trim();
+  const medicineCount=normalized.match(/(?:tableta|tablety|tablet|pastilka|pastilky|tobolka|tobolky|kapsle|dražé)\s+(\d{1,4})\s*$/i)?.[1];
+  if(medicineCount) return `${medicineCount} ks`;
+  const trailingPack=normalized.match(/(?:\d+\s*[x×]\s*)?\d+(?:[,.]\d+)?\s*(?:g|kg|ml|l|ks|tbl|tob|cps|sáčků|dávek)\s*$/i)?.[0]||null;
+  return trailingPack;
+}
+
 function parse(html:string,pageUrl:string){
   const blocks=html.split(/<section class="product-box[^>]*>/i).slice(1);
   const out:any[]=[];
@@ -34,7 +42,7 @@ function parse(html:string,pageUrl:string){
     const oldPrice=money(oldText);
     const price=money(curText)||money(oldText);
     if(!price) continue;
-    const quantity=title.match(/\b\d+(?:[,.]\d+)?\s*(?:mg|g|kg|ml|l|ks|tbl|tob|cps|sáčků|dávek)\b/i)?.[0]||null;
+    const quantity=packageQuantity(title);
     out.push({
       title,
       price,
@@ -42,7 +50,7 @@ function parse(html:string,pageUrl:string){
       quantity_text:quantity,
       image_url:img,
       confidence:.98,
-      raw_data:{ parser:'benu-html-v2', product_url:href?new URL(href,pageUrl).toString():pageUrl, page_url:pageUrl },
+      raw_data:{ parser:'benu-html-v3', product_url:href?new URL(href,pageUrl).toString():pageUrl, page_url:pageUrl },
     });
   }
   return out;
@@ -112,7 +120,7 @@ Deno.serve(async req=>{
 
     const validFrom=pragueToday();
     const validTo=validFrom;
-    const sourceHash=await sha(`${source.id}|${validFrom}|${items.length}|${items.slice(0,80).map(x=>`${x.title}:${x.price}`).join('|')}|benu-html-v2`);
+    const sourceHash=await sha(`${source.id}|${validFrom}|${items.length}|${items.slice(0,80).map(x=>`${x.title}:${x.price}`).join('|')}|benu-html-v3`);
     const {data:old,error:oldError}=await db.from('leaflet_imports').select('id,status').eq('source_hash',sourceHash).maybeSingle();
     if(oldError) throw oldError;
     if(old){
@@ -131,7 +139,7 @@ Deno.serve(async req=>{
       detected_valid_from:validFrom,
       detected_valid_to:validTo,
       finished_at:now,
-      metadata:{adapter:'benu-html-v1',parser_version:'benu-html-v2',ai_used:false,source_type:'structured_html',validity_strategy:'live_catalog_same_day_snapshot',pages_fetched:pages},
+      metadata:{adapter:'benu-html-v1',parser_version:'benu-html-v3',ai_used:false,source_type:'structured_html',validity_strategy:'live_catalog_same_day_snapshot',pages_fetched:pages},
     }).select('id').single();
     if(importError) throw importError;
 
