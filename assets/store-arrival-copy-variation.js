@@ -43,7 +43,7 @@
         body: `Dnešní základní nákup: ${facts}.`,
       },
       {
-        title: `3 ceny, které dnes stojí za pozornost · ${storeName}`,
+        title: `Ceny, které dnes stojí za pozornost · ${storeName}`,
         body: `Základní potraviny právě teď: ${facts}.`,
       },
       {
