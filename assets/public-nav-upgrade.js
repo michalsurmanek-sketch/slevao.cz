@@ -55,6 +55,14 @@
     document.head.appendChild(script);
   }
 
+  function loadStoreArrivalTest() {
+    if (document.querySelector('script[src*="store-arrival-test.js"]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/store-arrival-test.js?v=20260811-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadHomePersonalDeals() {
     if (!/\/(?:index\.html)?$/i.test(location.pathname)) return;
     if (document.querySelector('script[src*="home-personal-deals.js"]')) return;
@@ -171,6 +179,7 @@
   loadPersonalization();
   loadPwa();
   loadStoreArrivalAlerts();
+  loadStoreArrivalTest();
   loadHomePersonalDeals();
   installMobileNavVisualFix();
 
