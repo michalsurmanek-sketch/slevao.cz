@@ -183,12 +183,10 @@
   }
 
   function leafletCard(leaflet) {
-    let url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
+    const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
     const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
-    const structuredHtmlSource = config.slug === 'teta' && !/\.(?:pdf|webp|png|jpe?g)(?:\?|$)/i.test(url);
-    if (structuredHtmlSource) url = 'https://www.tetadrogerie.cz/akce/letak';
-    const canPreview = !externalViewer && !structuredHtmlSource && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const canPreview = !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
