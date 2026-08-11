@@ -132,19 +132,23 @@
     content:"→";
     position:absolute;
     left:50%;
-    bottom:9px;
-    width:31px;
-    height:31px;
+    bottom:11px;
+    width:26px;
+    height:26px;
     transform:translateX(-50%);
-    display:grid;
-    place-items:center;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    box-sizing:border-box;
+    padding:0 0 1px 1px;
     border-radius:50%;
     background:#fff;
     color:#0b968d;
-    font-size:21px;
+    font-size:17px;
     line-height:1;
     font-weight:950;
-    box-shadow:0 6px 14px rgba(0,84,77,.18);
+    text-align:center;
+    box-shadow:0 5px 12px rgba(0,84,77,.16);
     pointer-events:none;
   }
 
