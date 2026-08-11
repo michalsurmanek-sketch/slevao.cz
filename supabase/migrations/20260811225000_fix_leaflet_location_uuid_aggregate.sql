@@ -15,3 +15,5 @@ begin
   execute function_sql;
 end;
 $$;
+
+revoke all on function public.attach_leaflet_location_to_offer() from public, anon, authenticated;
