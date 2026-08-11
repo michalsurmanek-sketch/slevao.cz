@@ -72,7 +72,7 @@ Deno.serve(async (req) => {
       outputFormat: 'plain',
       resultFormat: 'element_based',
       ocr: {
-        backend: 'tesseract-wasm',
+        backend: 'tesseract',
         language,
         tesseractConfig: { psm: 11, oem: 3 },
         elementConfig: {
@@ -95,7 +95,7 @@ Deno.serve(async (req) => {
 
     return json({
       ok: true,
-      engine: 'kreuzberg-tesseract-wasm',
+      engine: 'kreuzberg-tesseract',
       language,
       image_url: imageUrl,
       processed_image_url: processedImageUrl,
