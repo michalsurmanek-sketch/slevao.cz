@@ -2,6 +2,7 @@
   'use strict';
 
   const TEST_ID = 'slArrivalTest';
+  const TEST_LABEL = '🔔 TEST bez polohy – vyzkoušet';
 
   function setStatus(text, type = '') {
     const node = document.getElementById('slArrivalStatus');
@@ -31,9 +32,9 @@
     if (permission === 'default') permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Nejdřív povol oznámení pro Slevao.cz.');
 
-    const title = 'Jsi v Kauflandu 🛒';
+    const title = '[TEST] Jsi v Kauflandu 🛒';
     const options = {
-      body: '3 položky z tvého seznamu jsou dnes v akci. Můžeš ušetřit přibližně 86 Kč.',
+      body: 'Simulace bez kontroly polohy: 3 položky z tvého seznamu jsou dnes v akci. Můžeš ušetřit přibližně 86 Kč.',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       tag: `slevao-arrival-test-${Date.now()}`,
@@ -62,17 +63,16 @@
     const button = document.getElementById(TEST_ID);
     if (!button) return;
     button.disabled = true;
-    const original = button.textContent;
-    button.textContent = 'Odesílám test…';
-    setStatus('Připravuji testovací systémové upozornění…', 'checking');
+    button.textContent = 'Odesílám test bez polohy…';
+    setStatus('TEST: GPS se nekontroluje. Odesílám simulované upozornění.', 'checking');
 
     try {
       await sendNotification();
       button.textContent = '✓ Test odeslán';
-      setStatus('Testovací upozornění bylo odesláno. Podívej se mezi systémová oznámení.', 'ok');
-      window.setTimeout(() => { if (button.isConnected) button.textContent = original; }, 2600);
+      setStatus('Test odeslán bez kontroly polohy. Pro skutečné upozornění musíš být opravdu u pobočky.', 'ok');
+      window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3000);
     } catch (error) {
-      button.textContent = '🔔 Vyzkoušet upozornění';
+      button.textContent = TEST_LABEL;
       setStatus(error?.message || 'Testovací upozornění se nepodařilo odeslat.', 'error');
     } finally {
       button.disabled = false;
@@ -89,7 +89,8 @@
     button.id = TEST_ID;
     button.className = 'slArrivalTest';
     button.type = 'button';
-    button.textContent = '🔔 Vyzkoušet upozornění';
+    button.textContent = TEST_LABEL;
+    button.title = 'Simulace oznámení bez kontroly GPS – nemusíš být v obchodě';
     button.addEventListener('click', testFromUser);
 
     const status = document.getElementById('slArrivalStatus');
