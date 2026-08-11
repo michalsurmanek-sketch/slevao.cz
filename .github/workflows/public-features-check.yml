@@ -17,6 +17,8 @@ on:
       - 'assets/product-intelligence.js'
       - 'assets/product-leaflet-location-global.js'
       - 'assets/product-premium-runtime.js'
+      - 'assets/product-equivalence.js'
+      - 'assets/product-equivalence.css'
       - 'assets/home-personal-deals.js'
       - 'assets/pwa-install.js'
       - 'assets/account.js'
@@ -53,6 +55,7 @@ jobs:
           node --check assets/product-intelligence.js
           node --check assets/product-leaflet-location-global.js
           node --check assets/product-premium-runtime.js
+          node --check assets/product-equivalence.js
           node --check assets/home-personal-deals.js
           node --check assets/pwa-install.js
           node --check assets/account.js
