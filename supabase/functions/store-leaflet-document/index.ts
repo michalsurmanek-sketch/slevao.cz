@@ -75,7 +75,9 @@ function officialPublicDocument(value: string): string | null {
       && /^\/PennyIntLeaflet\/CZ\/[^/]+\/files\/assets\/common\/downloads\/[^/]+\.pdf$/i.test(url.pathname);
     const globusDocument = isGlobusPdfUrl(url.toString());
     const tetaViewer = isTetaViewerUrl(url.toString());
-    return tescoDocument || pennyDocument || globusDocument || tetaViewer ? url.toString() : null;
+    const lidlDocument = (url.hostname === 'endpoints.leaflets.schwarz' || url.hostname.endsWith('.leaflets.schwarz'))
+      && /\.pdf$/i.test(url.pathname);
+    return tescoDocument || pennyDocument || globusDocument || tetaViewer || lidlDocument ? url.toString() : null;
   } catch {
     return null;
   }
@@ -158,6 +160,7 @@ async function resolveTetaPdf(viewerUrl: string): Promise<{ pdfUrl: string; refe
 function upstreamContext(sourceUrl: string, fallbackReferer = ''): { referer: string; origin?: string } {
   if (sourceUrl.includes('files.rewe.co.at')) return { referer: 'https://www.penny.cz/', origin: 'https://www.penny.cz' };
   if (sourceUrl.includes('digitalcontent.api.tesco.com')) return { referer: 'https://www.itesco.cz/', origin: 'https://www.itesco.cz' };
+  if (sourceUrl.includes('leaflets.schwarz')) return { referer: 'https://www.lidl.cz/', origin: 'https://www.lidl.cz' };
   if (isGlobusPdfUrl(sourceUrl)) return { referer: fallbackReferer || 'https://www.globus.cz/' };
   if (sourceUrl.includes('liveecpaperdmp.blob.core.windows.net')) return { referer: fallbackReferer || 'https://letak.tetadrogerie.cz/' };
   return { referer: fallbackReferer || sourceUrl };
