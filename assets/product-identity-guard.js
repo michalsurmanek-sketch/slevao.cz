@@ -29,6 +29,39 @@
     throw new Error('Datová služba identity není dostupná.');
   }
 
+  function updateDynamicCopy(exact) {
+    const statLabels = root.querySelectorAll('.sfStats .sfStat small');
+    if (statLabels[0]) statLabels[0].textContent = exact ? 'Nejnižší za 30 dní' : 'Minimum srovnatelných cen za 30 dní';
+    if (statLabels[1]) statLabels[1].textContent = exact ? 'Nejnižší za 90 dní' : 'Minimum srovnatelných cen za 90 dní';
+    if (statLabels[2]) statLabels[2].textContent = exact ? 'Obvyklá akční cena' : 'Typická srovnatelná cena';
+    if (statLabels[3]) statLabels[3].textContent = exact ? 'Obchody s nabídkou' : 'Srovnávané obchody';
+
+    const historySection = document.getElementById('priceChart')?.closest('.sfSection');
+    const historyEyebrow = historySection?.querySelector('.sfSectionHead .sfEyebrow');
+    const historyTitle = historySection?.querySelector('.sfSectionHead h2');
+    if (historyEyebrow) historyEyebrow.textContent = exact ? 'Historie cen' : 'Historie srovnatelných cen';
+    if (historyTitle) historyTitle.textContent = exact ? 'Jak se cena měnila' : 'Jak se měnily srovnatelné ceny';
+
+    if (!exact) {
+      const currentCopy = document.querySelector('#currentStore .sfCurrentStore > span:last-child');
+      if (currentCopy) {
+        currentCopy.textContent = currentCopy.textContent
+          .replace(/^Právě teď nejlevněji v /, 'Nejnižší srovnatelná nabídka nyní v ')
+          .replace(/^(Od .+?) nejlevněji v /, '$1 nejnižší srovnatelná nabídka v ');
+      }
+
+      document.querySelectorAll('#offers .sfOfferStore').forEach((node) => {
+        node.textContent = node.textContent
+          .replace(' · nejnižší cena dnes', ' · nejnižší srovnatelná cena dnes')
+          .replace(' · nejnižší nadcházející cena', ' · nejnižší srovnatelná nadcházející cena');
+      });
+      document.querySelectorAll('#offers [data-alert-offer]').forEach((button) => {
+        button.textContent = 'Hlídat srovnatelné ceny';
+        button.setAttribute('aria-label', 'Hlídat cenu v této skupině srovnatelných nabídek');
+      });
+    }
+  }
+
   function apply(mode) {
     const exact = mode === 'exact';
     root.dataset.identityMode = mode;
@@ -54,9 +87,6 @@
       }
     }
 
-    const storeLabel = root.querySelector('.sfStats .sfStat:nth-child(4) small');
-    if (storeLabel) storeLabel.textContent = exact ? 'Obchody s nabídkou' : 'Srovnávané obchody';
-
     const offerSection = document.getElementById('offers')?.closest('.sfSection');
     const offerEyebrow = offerSection?.querySelector('.sfSectionHead .sfEyebrow');
     if (offerEyebrow) {
@@ -64,6 +94,9 @@
         ? 'Platí nyní nebo začne do 7 dnů'
         : 'Srovnatelné nabídky · platí nyní nebo začnou do 7 dnů';
     }
+
+    updateDynamicCopy(exact);
+    window.addEventListener('slevao:product-offers-rendered', () => updateDynamicCopy(exact));
 
     window.dispatchEvent(new CustomEvent('slevao:product-identity-ready', {
       detail:{ productId, mode, exact },
