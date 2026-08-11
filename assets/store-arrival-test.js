@@ -32,15 +32,15 @@
     if (permission === 'default') permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Nejdřív povol oznámení pro Slevao.cz.');
 
-    const title = '[TEST] Jsi v Kauflandu 🛒';
+    const title = '[TEST] Základní potraviny v akci · Kaufland 🛒';
     const options = {
-      body: 'Simulace bez kontroly polohy: 3 položky z tvého seznamu jsou dnes v akci. Můžeš ušetřit přibližně 86 Kč.',
+      body: 'Bez nákupního seznamu: Kuřecí maso 44,90 Kč (−50 %) · Mléko 19,90 Kč (−50 %) · Brambory 9,90 Kč (−60 %).',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
-      image: '/assets/nearby-panel-uploaded-bg.svg?v=20260808-1',
+      image: 'https://uhampjdqjxmbhaptgitn.supabase.co/storage/v1/object/public/product-images/manual/c5f264f1-9fbf-49b7-a606-fa744e6e0615/brambory-chatgpt-1b151632.webp',
       tag: `slevao-arrival-test-${Date.now()}`,
       renotify: false,
-      data: { url: '/seznam.html?route=1', test: true },
+      data: { url: '/index.html#dealsSection', test: true, scenario: 'no-list-staples' },
       vibrate: [90, 45, 90],
     };
 
@@ -64,14 +64,14 @@
     const button = document.getElementById(TEST_ID);
     if (!button) return;
     button.disabled = true;
-    button.textContent = 'Odesílám test s obrázkem…';
-    setStatus('TEST: GPS se nekontroluje. Odesílám upozornění s obrázkem.', 'checking');
+    button.textContent = 'Odesílám test bez seznamu…';
+    setStatus('TEST: GPS ani nákupní seznam se nekontrolují. Simuluji základní potraviny v akci.', 'checking');
 
     try {
       await sendNotification();
-      button.textContent = '✓ Test s obrázkem odeslán';
-      setStatus('Test s obrázkem byl odeslán bez kontroly polohy. Zobrazení velkého obrázku závisí na systému/prohlížeči.', 'ok');
-      window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3000);
+      button.textContent = '✓ Test bez seznamu odeslán';
+      setStatus('Test scénáře bez nákupního seznamu byl odeslán. Ve skutečnosti se ceny vyberou z aktuálních akcí konkrétní pobočky.', 'ok');
+      window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3200);
     } catch (error) {
       button.textContent = TEST_LABEL;
       setStatus(error?.message || 'Testovací upozornění se nepodařilo odeslat.', 'error');
@@ -91,7 +91,7 @@
     button.className = 'slArrivalTest';
     button.type = 'button';
     button.textContent = TEST_LABEL;
-    button.title = 'Simulace oznámení s obrázkem bez kontroly GPS – nemusíš být v obchodě';
+    button.title = 'Simulace upozornění bez GPS a bez nákupního seznamu';
     button.addEventListener('click', testFromUser);
 
     const status = document.getElementById('slArrivalStatus');
