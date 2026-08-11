@@ -18,3 +18,50 @@
 @media(max-width:900px){.footer{margin-top:44px;padding-bottom:0}.footerShell{width:calc(100% - 20px);border-radius:24px}.footerMain{grid-template-columns:1fr 1fr;padding:38px 26px 28px}.footerIdentity{grid-column:1/-1}.footer .footerBrand{width:270px!important;height:68px!important}.footerLead{max-width:520px}.footerFeatures{grid-template-columns:repeat(3,1fr);gap:10px}.footerFeature{min-height:92px;flex-direction:column;justify-content:center;text-align:center;border:1px solid rgba(145,224,216,.14)!important;border-radius:14px;padding:12px;font-size:13px}.footerWatch{grid-template-columns:1fr;gap:10px}.footerWatchForm{grid-column:auto;grid-row:auto}.footerBottom{margin:0 20px!important}.footerBottomInner{grid-template-columns:1fr;justify-items:center;text-align:center}.footerTrust{justify-self:center}.footerBadges{grid-column:auto;justify-content:center}}
 @media(max-width:620px){.footerMain{grid-template-columns:1fr;padding:32px 20px 24px}.footerIdentity,.footerWatch{grid-column:auto}.footer .footerBrand{width:235px!important;height:60px!important}.footerLead{font-size:14px!important}.footerFeatures{grid-template-columns:1fr}.footerFeature{min-height:62px;flex-direction:row;justify-content:flex-start;text-align:left}.footerColumn h3{margin-top:18px;margin-bottom:30px}.footerWatch{padding:23px 20px}.footerWatch h3{font-size:20px}.footerBottom{margin:0 12px!important;padding:20px 14px!important}.footerBadge{padding:0 9px;font-size:11px}}
 @media(prefers-reduced-motion:reduce){.footerLinks a,.footerLinks button,.footerQuickIcons a,.footerWatchForm button{transition:none}.footerLinks a:hover,.footerLinks button:hover,.footerQuickIcons a:hover,.footerWatchForm button:hover{transform:none}}
+
+/* Oblíbené obchody – rozložení podle schváleného vizuálu */
+@media(min-width:901px){
+  .footerMain{align-items:start;row-gap:18px}
+  .footerIdentity{grid-column:1;grid-row:1 / span 2}
+  .footerColumnSlevao{grid-column:2;grid-row:1}
+  .footerColumnHelp{grid-column:3;grid-row:1}
+  .footerColumnUseful{grid-column:4;grid-row:1 / span 2}
+  .footerWatch{grid-column:5;grid-row:1 / span 2}
+  .footerFavorite{grid-column:2 / 4;grid-row:2;margin-top:-6px}
+}
+.footerFavorite{min-width:0;align-self:start}
+.footerFavoriteTitle{margin:0 0 14px;color:#fff;font-size:16px;line-height:1.2;font-weight:950}
+.footerFavoriteGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.footerFavoriteStore{min-width:0;height:62px;display:flex;align-items:center;justify-content:center;gap:7px;padding:0 12px;border:1px solid rgba(55,216,200,.62);border-radius:10px;color:#fff;text-decoration:none;background:linear-gradient(145deg,rgba(17,102,101,.18),rgba(0,22,26,.3));box-shadow:inset 0 1px 0 rgba(255,255,255,.045),0 0 0 1px rgba(0,0,0,.04);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
+.footerFavoriteStore:hover{transform:translateY(-2px);border-color:#47dfcf;background:linear-gradient(145deg,rgba(40,190,176,.18),rgba(0,27,31,.34));box-shadow:0 9px 22px rgba(0,0,0,.14),inset 0 1px 0 rgba(255,255,255,.06)}
+.footerStoreWord{display:inline-flex;align-items:center;justify-content:center;color:#fff;white-space:nowrap;text-shadow:0 1px 1px rgba(0,0,0,.2)}
+.footerStoreWordTesco{font-size:19px;font-weight:950;font-style:italic;letter-spacing:.5px;text-decoration:underline;text-decoration-thickness:2px;text-underline-offset:4px}
+.footerStoreLidlBadge{width:43px;height:43px;display:grid;place-items:center;border:3px solid rgba(255,255,255,.82);border-radius:50%;color:#fff;background:rgba(255,255,255,.08);font-size:11px;font-weight:950;letter-spacing:-.7px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.16)}
+.footerStoreKBox{width:25px;height:25px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.85);font-size:14px;font-weight:950;line-height:1}
+.footerStoreKaufland{font-size:14px;font-weight:850;letter-spacing:-.35px}
+.footerStoreAlbert{font-size:20px;font-weight:850;letter-spacing:-1.1px}.footerStoreAlbert:before{content:"◆";margin-right:3px;font-size:10px;vertical-align:4px}
+.footerStorePenny{font-size:20px;font-weight:950;font-style:italic;letter-spacing:-.8px}
+.footerStoreBilla{font-size:22px;font-weight:950;letter-spacing:-1px}
+.footerFavoriteAll{width:max-content;max-width:100%;display:flex;align-items:center;gap:9px;margin:10px 0 0 auto;color:#42dacb;text-decoration:none;font-size:12px;font-weight:750;transition:color .16s ease,transform .16s ease}
+.footerFavoriteAll:hover{color:#74eadf;transform:translateX(2px)}.footerFavoriteAll span{font-size:18px;line-height:1}
+@media(max-width:1260px) and (min-width:901px){
+  .footerIdentity{grid-column:1;grid-row:1 / span 2}
+  .footerColumnSlevao{grid-column:2;grid-row:1}
+  .footerColumnHelp{grid-column:3;grid-row:1}
+  .footerColumnUseful{grid-column:4;grid-row:1 / span 2}
+  .footerFavorite{grid-column:2 / 4;grid-row:2}
+  .footerWatch{grid-column:1 / -1;grid-row:3}
+}
+@media(max-width:900px){
+  .footerIdentity,.footerColumnSlevao,.footerColumnHelp,.footerColumnUseful,.footerFavorite,.footerWatch{grid-column:auto;grid-row:auto}
+  .footerIdentity,.footerFavorite,.footerWatch{grid-column:1 / -1}
+  .footerFavorite{margin-top:4px}
+  .footerFavoriteGrid{max-width:640px}
+}
+@media(max-width:620px){
+  .footerIdentity,.footerFavorite,.footerWatch{grid-column:auto}
+  .footerFavoriteGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  .footerFavoriteStore{height:58px}
+  .footerFavoriteAll{margin-top:12px}
+}
+@media(prefers-reduced-motion:reduce){.footerFavoriteStore,.footerFavoriteAll{transition:none}.footerFavoriteStore:hover,.footerFavoriteAll:hover{transform:none}}
