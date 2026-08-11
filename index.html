@@ -26,7 +26,7 @@
   <link rel="stylesheet" href="assets/home-radius-select.css?v=20260809-4">
   <link rel="stylesheet" href="assets/home-leaflet-covers.css?v=20260809-4">
   <link rel="stylesheet" href="assets/home-overview.css?v=20260803-3">
-  <link rel="stylesheet" href="assets/home-footer-redesign.css?v=20260806-2">
+  <link rel="stylesheet" href="assets/home-footer-redesign.css?v=20260811-3">
   <link rel="stylesheet" href="assets/footer-generated-bg.css?v=20260808-6">
   <link rel="stylesheet" href="assets/mobile-ux.css?v=20260809-10" data-mobile-ux-version="20260809-10">
   <link rel="stylesheet" href="assets/mobile-store-row-fix.css?v=20260810-1">
@@ -185,7 +185,7 @@
           </ul>
         </section>
 
-        <nav class="footerColumn" aria-label="Slevao.cz">
+        <nav class="footerColumn footerColumnSlevao" aria-label="Slevao.cz">
           <h3>Slevao.cz</h3>
           <div class="footerLinks">
             <a href="#dealsSection">Aktuální nabídky</a>
@@ -195,7 +195,7 @@
           </div>
         </nav>
 
-        <nav class="footerColumn" aria-label="Pomoc">
+        <nav class="footerColumn footerColumnHelp" aria-label="Pomoc">
           <h3>Pomoc</h3>
           <div class="footerLinks">
             <a href="kontakt.html">Kontakt</a>
@@ -205,7 +205,20 @@
           </div>
         </nav>
 
-        <section class="footerColumn" aria-label="Užitečné informace">
+        <section class="footerFavorite" aria-labelledby="footerFavoriteTitle">
+          <h3 id="footerFavoriteTitle" class="footerFavoriteTitle">Oblíbené obchody</h3>
+          <div class="footerFavoriteGrid">
+            <a class="footerFavoriteStore" href="tesco.html" aria-label="Tesco"><span class="footerStoreWord footerStoreWordTesco">TESCO</span></a>
+            <a class="footerFavoriteStore" href="lidl.html" aria-label="Lidl"><span class="footerStoreLidlBadge">LIDL</span></a>
+            <a class="footerFavoriteStore" href="kaufland.html" aria-label="Kaufland"><span class="footerStoreKBox">K</span><span class="footerStoreWord footerStoreKaufland">Kaufland</span></a>
+            <a class="footerFavoriteStore" href="albert.html" aria-label="Albert"><span class="footerStoreWord footerStoreAlbert">albert</span></a>
+            <a class="footerFavoriteStore" href="penny.html" aria-label="Penny"><span class="footerStoreWord footerStorePenny">PENNY.</span></a>
+            <a class="footerFavoriteStore" href="billa.html" aria-label="Billa"><span class="footerStoreWord footerStoreBilla">BILLA</span></a>
+          </div>
+          <a class="footerFavoriteAll" href="#storesSection">Všechny obchody <span aria-hidden="true">→</span></a>
+        </section>
+
+        <section class="footerColumn footerColumnUseful" aria-label="Užitečné informace">
           <h3>Užitečné</h3>
           <p class="footerUsefulText">Ceny a dostupnost se mohou v jednotlivých prodejnách lišit. Před nákupem ověř podmínky akce v oficiálním letáku obchodu.</p>
           <div class="footerQuickIcons">
