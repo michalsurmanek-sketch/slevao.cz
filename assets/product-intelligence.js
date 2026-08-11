@@ -36,6 +36,13 @@
     throw new Error('Datové služby nejsou dostupné.');
   }
 
+  function exactIdentity(product) {
+    const ean = String(product?.ean || '').trim();
+    const brand = String(product?.brand || '').trim();
+    const quantity = String(product?.quantity_text || '').trim();
+    return Boolean(ean || (product?.is_verified === true && brand && quantity));
+  }
+
   function scoreLabel(score) {
     if (score >= 90) return 'Mimořádná nabídka';
     if (score >= 75) return 'Velmi dobrá';
@@ -70,7 +77,7 @@
     return [...byStore.values()];
   }
 
-  function buildContext(offers, history) {
+  function buildContext(offers, history, identityExact) {
     const now = Date.now();
     const today = pragueDate();
     const history90 = history.filter((row) => new Date(row.recorded_at).getTime() >= now - 90 * 86400000 && Number(row.price) > 0);
@@ -85,6 +92,7 @@
     const marketMax = marketPrices.length ? Math.max(...marketPrices) : null;
     const marketMinCurrent = currentMarketPrices.length ? Math.min(...currentMarketPrices) : null;
     return {
+      identityExact,
       history90, history30, typical, min30,
       marketOffers, currentMarketOffers,
       storeCount:marketOffers.length,
@@ -95,7 +103,10 @@
 
   function intelligenceFor(offer, context) {
     const price = Number(offer.price || 0);
-    if (!(price > 0)) return { sufficient:false, score:null, label:'Málo dat', decision:'NEUTRÁLNÍ', decisionClass:'neutral', reasons:[] };
+    if (!context.identityExact) {
+      return { sufficient:false, identityWeak:true, score:null, label:'Srovnatelná nabídka', decision:'BEZ DOPORUČENÍ', decisionClass:'neutral', reasons:[] };
+    }
+    if (!(price > 0)) return { sufficient:false, identityWeak:false, score:null, label:'Málo dat', decision:'NEUTRÁLNÍ', decisionClass:'neutral', reasons:[] };
 
     const signals = [];
     if (context.history90.length >= 3 && context.typical > 0) {
@@ -116,7 +127,7 @@
     }
 
     const sufficient = signals.length >= 2 && (context.history90.length >= 3 || context.storeCount >= 2);
-    if (!sufficient) return { sufficient:false, score:null, label:'Málo dat', decision:'NEUTRÁLNÍ', decisionClass:'neutral', reasons:[] };
+    if (!sufficient) return { sufficient:false, identityWeak:false, score:null, label:'Málo dat', decision:'NEUTRÁLNÍ', decisionClass:'neutral', reasons:[] };
 
     const weight = signals.reduce((sum, signal) => sum + signal.weight, 0);
     const score = Math.round(signals.reduce((sum, signal) => sum + signal.value * signal.weight, 0) / weight);
@@ -142,7 +153,7 @@
     if (discount != null) reasons.push(`sleva ${Math.round(discount)} %`);
     if (!availableToday) reasons.push('nabídka ještě nezačala');
 
-    return { sufficient:true, score, label:scoreLabel(score), decision, decisionClass, reasons };
+    return { sufficient:true, identityWeak:false, score, label:scoreLabel(score), decision, decisionClass, reasons };
   }
 
   function decorateCards(offers, context) {
@@ -157,7 +168,9 @@
       badges.className = 'sqIntelBadges';
       badges.innerHTML = intel.sufficient
         ? `<span class="sqIntelBadge">Slevao skóre ${intel.score}/100 · ${intel.label}</span><span class="sqIntelBadge ${intel.decisionClass}">${intel.decision}</span>`
-        : '<span class="sqIntelBadge neutral">Slevao skóre: zatím málo dat</span><span class="sqIntelBadge neutral">Bez doporučení</span>';
+        : intel.identityWeak
+          ? '<span class="sqIntelBadge neutral">Srovnatelná nabídka</span><span class="sqIntelBadge neutral">Bez doporučení SKU</span>'
+          : '<span class="sqIntelBadge neutral">Slevao skóre: zatím málo dat</span><span class="sqIntelBadge neutral">Bez doporučení</span>';
       const anchor = card.querySelector('.sfOfferStore');
       if (anchor) anchor.after(badges); else card.prepend(badges);
       card.dataset.sqIntel = '1';
@@ -177,10 +190,18 @@
     const summary = document.createElement('section');
     summary.id = 'sqIntelSummary';
     summary.className = 'sqIntelSummary';
-    summary.innerHTML = `
-      <div class="sqIntelScore"><strong>${intel.sufficient ? intel.score : '—'}</strong><small>${intel.sufficient ? '/ 100' : 'málo dat'}</small></div>
-      <div><h3>${intel.sufficient ? `Slevao skóre: ${intel.label}` : 'Slevao skóre zatím nezobrazujeme'}</h3><p>${intel.sufficient ? `Nejlevnější dostupná nabídka ${money(best.price)} Kč vychází z reálného srovnání. ${intel.reasons.join(' · ')}.` : 'Pro spolehlivé hodnocení potřebujeme alespoň dva nezávislé cenové signály, například historii a srovnání více různých obchodů.'}</p><p class="sqIntelMethod">Skóre používá pouze dostupná data: historii ceny, porovnání různých obchodních řetězců, doloženou původní cenu a 30denní minimum. Více formátů stejného řetězce se nepočítá jako více obchodů.</p></div>
-      <div class="sqIntelDecision ${intel.decisionClass}">${intel.sufficient ? intel.decision : 'BEZ DOPORUČENÍ'}</div>`;
+
+    if (intel.identityWeak) {
+      summary.innerHTML = `
+        <div class="sqIntelScore"><strong>—</strong><small>bez SKU</small></div>
+        <div><h3>Slevao skóre záměrně nezobrazujeme</h3><p>U tohoto záznamu chybí dostatečně silná identita stejného výrobku. Nabídky můžeš porovnat cenově, ale systém z nich nevytváří doporučení „kup teď / počkej“.</p><p class="sqIntelMethod">Přesné cenové doporučení zapneme až tehdy, když je produkt jednoznačně určen EANem nebo ověřenou kombinací značky a balení.</p></div>
+        <div class="sqIntelDecision neutral">SROVNATELNÉ</div>`;
+    } else {
+      summary.innerHTML = `
+        <div class="sqIntelScore"><strong>${intel.sufficient ? intel.score : '—'}</strong><small>${intel.sufficient ? '/ 100' : 'málo dat'}</small></div>
+        <div><h3>${intel.sufficient ? `Slevao skóre: ${intel.label}` : 'Slevao skóre zatím nezobrazujeme'}</h3><p>${intel.sufficient ? `Nejlevnější dostupná nabídka ${money(best.price)} Kč vychází z reálného srovnání. ${intel.reasons.join(' · ')}.` : 'Pro spolehlivé hodnocení potřebujeme alespoň dva nezávislé cenové signály, například historii a srovnání více různých obchodů.'}</p><p class="sqIntelMethod">Skóre používá pouze dostupná data: historii ceny, porovnání různých obchodních řetězců, doloženou původní cenu a 30denní minimum. Více formátů stejného řetězce se nepočítá jako více obchodů.</p></div>
+        <div class="sqIntelDecision ${intel.decisionClass}">${intel.sufficient ? intel.decision : 'BEZ DOPORUČENÍ'}</div>`;
+    }
     stats.after(summary);
   }
 
@@ -190,7 +211,11 @@
       const today = pragueDate();
       const upcomingTo = addDays(today, 7);
       const since = new Date(Date.now() - 120 * 86400000).toISOString();
-      const [offersResult, historyResult] = await Promise.all([
+      const [productResult, offersResult, historyResult] = await Promise.all([
+        db.from('products')
+          .select('id,brand,ean,quantity_text,is_verified')
+          .eq('id', productId)
+          .maybeSingle(),
         db.from('offers')
           .select('id,product_id,store_id,price,old_price,unit_price,valid_from,valid_to')
           .eq('product_id', productId)
@@ -205,11 +230,12 @@
           .order('recorded_at', { ascending:true })
           .limit(1000)
       ]);
+      if (productResult.error) throw productResult.error;
       if (offersResult.error) throw offersResult.error;
       if (historyResult.error) throw historyResult.error;
       const offers = offersResult.data || [];
       const history = historyResult.data || [];
-      const context = buildContext(offers, history);
+      const context = buildContext(offers, history, exactIdentity(productResult.data));
       renderSummary(offers, context);
       decorateCards(offers, context);
       const target = document.getElementById('offers');
