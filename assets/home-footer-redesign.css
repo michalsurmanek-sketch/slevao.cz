@@ -65,3 +65,9 @@
   .footerFavoriteAll{margin-top:12px}
 }
 @media(prefers-reduced-motion:reduce){.footerFavoriteStore,.footerFavoriteAll{transition:none}.footerFavoriteStore:hover,.footerFavoriteAll:hover{transform:none}}
+
+/* Mobil: stejné tyrkysové podtržení i u Oblíbených obchodů a Sledujte nás */
+@media(max-width:620px){
+  .footerFavoriteTitle,.footer .footerSocialTitle{position:relative;margin-bottom:30px!important}
+  .footerFavoriteTitle:after,.footer .footerSocialTitle:after{content:"";position:absolute;left:0;bottom:-15px;width:38px;height:3px;border-radius:999px;background:#39d8c7}
+}
