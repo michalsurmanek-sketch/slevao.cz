@@ -44,7 +44,7 @@
   function loadStoreArrivalCopyVariation() {
     if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/store-arrival-copy-variation.js?v=20260811-1';
+    script.src = 'assets/store-arrival-copy-variation.js?v=20260811-2';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -66,7 +66,7 @@
   function loadStoreArrivalTest() {
     if (document.querySelector('script[src*="store-arrival-test.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/store-arrival-test.js?v=20260811-4';
+    script.src = 'assets/store-arrival-test.js?v=20260811-5';
     script.defer = true;
     document.head.appendChild(script);
   }
