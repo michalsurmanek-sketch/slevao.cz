@@ -174,6 +174,8 @@ async function tetaOfficialLeaflets(): Promise<Leaflet[]> {
   });
   if (!response.ok) throw new Error(`Teta HTTP ${response.status}`);
   const html = await response.text();
+  const listingText = visibleText(html);
+  const listingRanges = [...listingText.matchAll(/(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})\s*[-–]\s*(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/g)];
   const matches = [...html.matchAll(/href=["'](https:\/\/letak\.tetadrogerie\.cz\/[^"'?#]+\/?)(?:[?#][^"']*)?["']/gi)];
   const seen = new Set<string>();
   const leaflets: Leaflet[] = [];
@@ -185,7 +187,7 @@ async function tetaOfficialLeaflets(): Promise<Leaflet[]> {
     const slug = new URL(url).pathname.split('/').filter(Boolean).pop() || `teta-${leaflets.length + 1}`;
     const context = visibleText(html.slice(Math.max(0, (match.index || 0) - 2200), (match.index || 0) + match[0].length));
     const ranges = [...context.matchAll(/(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})\s*[-–]\s*(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/g)];
-    const range = ranges.at(-1);
+    const range = listingRanges[leaflets.length] || ranges.at(-1);
     const number = slug.match(/(?:letak|te)[-_]?(\d{1,2})(?:-|$)/i)?.[1] || '';
     const title = /technick/i.test(slug)
       ? `Technický leták${number ? ` č. ${number}` : ''}`
