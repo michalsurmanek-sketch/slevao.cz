@@ -15,7 +15,7 @@
   }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260804-4';
+    navScript.src = 'assets/public-nav-upgrade.js?v=20260811-5';
     navScript.defer = true;
     document.head.appendChild(navScript);
   }
@@ -75,13 +75,13 @@
   }
   if (!document.querySelector('script[src*="location-service.js"]')) {
     const locationScript = document.createElement('script');
-    locationScript.src = 'assets/location-service.js?v=20260807-3';
+    locationScript.src = 'assets/location-service.js?v=20260811-4';
     locationScript.defer = true;
     document.head.appendChild(locationScript);
   }
   if (!document.querySelector('script[src*="home-live.js"]')) {
     const liveScript = document.createElement('script');
-    liveScript.src = 'assets/home-live.js?v=20260808-2';
+    liveScript.src = 'assets/home-live.js?v=20260811-1';
     liveScript.defer = true;
     document.head.appendChild(liveScript);
   }
