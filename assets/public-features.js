@@ -55,9 +55,18 @@
     const store = Array.isArray(offer.stores) ? offer.stores[0] : offer.stores;
     const key = offer.product_id ? `p:${offer.product_id}` : `o:${offer.id}`;
     const found = rows.find((row) => row.key === key && !row.completed);
+    const now = new Date().toISOString();
     if (found) {
       found.quantity = Number(found.quantity || 1) + 1;
-      found.updated_at = new Date().toISOString();
+      found.selected_offer_id = offer.id || found.selected_offer_id || null;
+      found.price = Number(offer.price || 0);
+      found.store_id = offer.store_id || store?.id || null;
+      found.store_name = store?.name || null;
+      found.store_slug = store?.slug || null;
+      found.image_url = offer.image_url || product?.image_url || found.image_url || null;
+      found.brand = product?.brand || found.brand || null;
+      found.quantity_text = product?.quantity_text || found.quantity_text || null;
+      found.updated_at = now;
     } else {
       rows.push({
         local_id: uid(), key, product_id: offer.product_id || null, selected_offer_id: offer.id,
@@ -66,7 +75,7 @@
         quantity: 1, unit: 'ks', completed: false, price: Number(offer.price || 0),
         store_id: offer.store_id || store?.id || null, store_name: store?.name || null,
         store_slug: store?.slug || null, image_url: offer.image_url || product?.image_url || null,
-        added_at: new Date().toISOString(), updated_at: new Date().toISOString()
+        added_at: now, updated_at: now
       });
     }
     write(rows);
@@ -231,7 +240,8 @@
         addItemFromOffer(offer);
         toast('Produkt byl přidán do nákupního seznamu.');
       } else if (detail) {
-        if (!offer.product_id) throw new Error('Produkt zatím nemá samostatný detail.');
+        const detailProduct = Array.isArray(offer.products) ? offer.products[0] : offer.products;
+        if (!offer.product_id || !detailProduct?.id) throw new Error('Produkt zatím nemá dostupný samostatný detail.');
         location.href = `produkt.html?id=${encodeURIComponent(offer.product_id)}`;
       } else {
         await alertForOffer(offer);
