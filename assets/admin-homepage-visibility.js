@@ -251,11 +251,11 @@
     section.innerHTML = `
       <div>
         <h2>Přidat další obchod</h2>
-        <p>Ručně přidaný obchod se ukáže i bez automaticky nalezeného letáku.</p>
+        <p>Vlastní karta umožní zobrazit obchod i bez automaticky nalezeného letáku.</p>
         <select id="manualStoreSelect" aria-label="Vyber další obchod"><option value="">Načítám obchody…</option></select>
       </div>
       <button id="manualStoreAdd" class="btn primary" type="button" disabled>${icon('plus')}Přidat do sekce</button>
-      <p class="manualStoreHint">Má-li obchod vlastní obrázek, použije se. Jinak se zobrazí karta s logem obchodu.</p>
+      <p class="manualStoreHint">Má-li obchod vlastní titulní stranu, použije se. Jinak se vytvoří čistá značková titulní strana.</p>
     `;
     panel.insertBefore(section, toolbar);
     $('manualStoreSelect').addEventListener('change', () => {
@@ -300,7 +300,7 @@
           <h2>${esc(store.name)}</h2>
           <div class="visibilityMeta">
             <span class="visibilityPill">${esc(store.slug)}</span>
-            <span class="visibilityPill ${forced ? 'warn' : 'ok'}">${forced && !automatic ? 'Ručně přidaná karta' : forced ? 'Automatická + ručně připnutá' : 'Má aktuální kartu letáku'}</span>
+            <span class="visibilityPill ${forced ? 'warn' : 'ok'}">${forced && !automatic ? 'Vlastní karta nabídky' : forced ? 'Automatická + vlastní karta' : 'Má aktuální kartu letáku'}</span>
             <span class="visibilityPill ${isHidden ? 'bad' : 'ok'}">${isHidden ? 'Na hlavní stránce skrytý' : 'Na hlavní stránce zobrazený'}</span>
           </div>
         </div>
@@ -308,7 +308,7 @@
           <button class="btn ${isHidden ? 'successBtn' : 'dangerBtn'}" type="button" data-toggle="${esc(store.slug)}" ${waiting ? 'disabled' : ''}>
             ${waiting ? 'Ukládám…' : isHidden ? `${icon('eye')}Zobrazit v sekci` : `${icon('eyeOff')}Skrýt ze sekce`}
           </button>
-          ${forced ? `<button class="btn light manualRemoveBtn" type="button" data-remove-force="${esc(store.slug)}" ${waiting ? 'disabled' : ''}>${icon('remove')}Odebrat ruční přidání</button>` : ''}
+          ${forced ? `<button class="btn light manualRemoveBtn" type="button" data-remove-force="${esc(store.slug)}" ${waiting ? 'disabled' : ''}>${icon('remove')}Odebrat vlastní kartu</button>` : ''}
         </div>
       </article>`;
     }).join('') : '<div class="visibilityEmpty">Žádná karta neodpovídá filtru.</div>';
@@ -395,8 +395,8 @@
       rebuildHidden();
       announceChange(saved.slug);
       show(automaticSlugs.has(slug)
-        ? `${saved.name} už není ručně připnutý, ale zůstává jako automatická karta.`
-        : `${saved.name} byl z ručně přidaných obchodů odebrán.`);
+        ? `${saved.name} už nemá vlastní připnutí, ale zůstává jako automatická karta.`
+        : `${saved.name} byl z vlastních karet odebrán.`);
     } catch (error) {
       show(error?.message || 'Ruční přidání se nepodařilo odebrat.', 'err');
     } finally {
