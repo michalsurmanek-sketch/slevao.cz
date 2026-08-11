@@ -9,9 +9,11 @@
   const MAX_CARDS = 12;
   const STORE_BATCH_SIZE = 12;
   const COVER_CONCURRENCY = 5;
-  const CACHE_NAME = 'slevao-homepage-leaflet-covers-v5';
-  const META_CACHE_KEY = 'slevao-homepage-leaflets-meta-v5';
+  const CACHE_NAME = 'slevao-homepage-leaflet-covers-v6';
+  const META_CACHE_KEY = 'slevao-homepage-leaflets-meta-v6';
   const META_CACHE_TTL = 30 * 60 * 1000;
+  const FORCE_KEY = 'slevao-leaflet-force';
+  const VISIBILITY_KEY = 'slevao-leaflet-visibility';
   const PRIORITY_SLUGS = [
     'penny', 'kaufland', 'lidl', 'tesco', 'makro', 'albert', 'billa', 'globus',
     'coop', 'hruska', 'norma', 'terno', 'action', 'dm', 'rossmann', 'teta',
@@ -39,6 +41,17 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
   }[character]));
+
+  function marker(store, key) {
+    for (const value of [store?.website_url, store?.logo_url]) {
+      try {
+        const url = new URL(String(value || ''), location.href);
+        const params = new URLSearchParams(url.hash.replace(/^#/, ''));
+        if (params.has(key)) return params.get(key) || '';
+      } catch {}
+    }
+    return '';
+  }
 
   function readMetaCache() {
     try {
@@ -87,17 +100,20 @@
 
   async function activeStores() {
     const stores = await rest('stores', {
-      select: 'id,slug,name,logo_url',
+      select: 'id,slug,name,logo_url,website_url',
       is_active: 'eq.true',
       order: 'name.asc',
     });
     const priority = new Map(PRIORITY_SLUGS.map((slug, index) => [slug, index]));
     return stores
       .filter((store) => store?.slug)
+      .filter((store) => marker(store, VISIBILITY_KEY) !== 'hidden')
       .sort((a, b) => {
+        const aForced = marker(a, FORCE_KEY) === '1' ? 0 : 1;
+        const bForced = marker(b, FORCE_KEY) === '1' ? 0 : 1;
         const aPriority = priority.has(a.slug) ? priority.get(a.slug) : 999;
         const bPriority = priority.has(b.slug) ? priority.get(b.slug) : 999;
-        return aPriority - bPriority || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
+        return aForced - bForced || aPriority - bPriority || String(a.name || '').localeCompare(String(b.name || ''), 'cs');
       });
   }
 
@@ -109,7 +125,9 @@
       .sort((a, b) => {
         const aPriority = a.key === 'hypermarket' ? 0 : a.key === 'supermarket' ? 1 : 2;
         const bPriority = b.key === 'hypermarket' ? 0 : b.key === 'supermarket' ? 1 : 2;
-        return aPriority - bPriority || String(a.valid_to || '9999-12-31').localeCompare(String(b.valid_to || '9999-12-31'));
+        return aPriority - bPriority
+          || String(b.valid_from || '').localeCompare(String(a.valid_from || ''))
+          || String(b.valid_to || '').localeCompare(String(a.valid_to || ''));
       })[0] || null;
   }
 
