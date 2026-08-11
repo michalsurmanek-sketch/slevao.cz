@@ -10,12 +10,9 @@
     const form = document.createElement('form');
     form.className = 'sfPremiumSearch';
     form.setAttribute('role', 'search');
+    form.action = 'hledat.html';
+    form.method = 'get';
     form.innerHTML = '<input type="search" name="q" autocomplete="off" aria-label="Hledat na Slevao.cz" placeholder="Hledat produkt, kategorii nebo obchod…"><button type="submit" aria-label="Hledat">⌕</button>';
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const query = form.elements.q.value.trim();
-      location.href = query ? `hledat.html?q=${encodeURIComponent(query)}` : 'hledat.html';
-    });
 
     const nav = $('.sfTopLinks', inner);
     inner.insertBefore(form, nav || null);
@@ -37,7 +34,7 @@
 
     const name = $('#productName')?.textContent?.trim();
     const current = $('.current', crumbs);
-    if (name && !/^Načítám/i.test(name) && current && current.textContent !== name) current.textContent = name;
+    if (name && !/^Načítám/i.test(name) && current) current.textContent = name;
   }
 
   function enhanceHeroPrice() {
@@ -52,6 +49,7 @@
     const badge = document.createElement('span');
     badge.className = 'sfCurrentBestBadge';
     badge.textContent = 'Nejnižší cena právě teď';
+    badge.hidden = !price.textContent.trim() || price.textContent.trim() === '—' || /^Bez/i.test(price.textContent.trim());
     price.insertAdjacentElement('afterend', badge);
   }
 
@@ -122,20 +120,12 @@
     }
   }
 
-  function updateDynamicText() {
-    enhanceBreadcrumbs();
-    const badge = $('.sfCurrentBestBadge');
-    const price = $('#currentPrice')?.textContent?.trim();
-    if (badge) badge.hidden = !price || /^Bez/i.test(price) || price === '—';
-  }
-
   function enhance() {
     enhanceHeader();
     enhanceBreadcrumbs();
     enhanceHeroPrice();
     enhanceHeroActions();
     enhanceOffersSection();
-    updateDynamicText();
   }
 
   function safeEnhance() {
@@ -146,14 +136,11 @@
     }
   }
 
-  const scheduleEnhancements = () => {
-    safeEnhance();
-    [250, 800, 1600, 3000].forEach((delay) => window.setTimeout(safeEnhance, delay));
+  const runAfterLoad = () => {
+    window.setTimeout(safeEnhance, 0);
+    window.setTimeout(safeEnhance, 900);
   };
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', scheduleEnhancements, { once:true });
-  } else {
-    scheduleEnhancements();
-  }
+  if (document.readyState === 'complete') runAfterLoad();
+  else window.addEventListener('load', runAfterLoad, { once:true });
 })();
