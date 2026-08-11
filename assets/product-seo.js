@@ -18,8 +18,11 @@
   function build() {
     const name = $('#productName')?.textContent?.trim();
     const offersRoot = $('#offers');
-    if (!name || name === 'Načítám produkt…' || !offersRoot || offersRoot.dataset.loaded !== '1') return false;
+    const detailRoot = $('#productContent');
+    if (!name || name === 'Načítám produkt…' || !offersRoot || !detailRoot
+      || offersRoot.dataset.loaded !== '1' || detailRoot.dataset.identityReady !== '1') return false;
 
+    const exactIdentity = detailRoot.dataset.identityMode === 'exact';
     const metaText = $('#productMeta')?.textContent?.trim() || '';
     const image = $('#productImage img')?.src || '';
     const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
@@ -37,15 +40,22 @@
     }).filter(Boolean);
 
     const prices = offerRows.map((row) => row.price);
+    const comparisonText = exactIdentity
+      ? 'Porovnání akčních cen stejného produktu na Slevao.cz.'
+      : 'Přehled srovnatelných akčních nabídek na Slevao.cz; identita stejného SKU není garantovaná.';
     const product = {
       '@context':'https://schema.org',
       '@type':'Product',
       name,
-      description: metaText ? `${name} – ${metaText}. Porovnání akčních cen na Slevao.cz.` : `${name} – porovnání akčních cen na Slevao.cz.`,
+      description: metaText ? `${name} – ${metaText}. ${comparisonText}` : `${name} – ${comparisonText}`,
       url:canonical
     };
     if (image) product.image = [image];
-    if (offerRows.length) {
+
+    // AggregateOffer smí popisovat pouze nabídky, u kterých máme dostatečně
+    // silnou identitu stejného SKU. U generických/srovnatelných záznamů by
+    // společný cenový rozsah byl pro vyhledávač zavádějící.
+    if (exactIdentity && offerRows.length) {
       product.offers = {
         '@type':'AggregateOffer',
         priceCurrency:'CZK',
@@ -86,10 +96,19 @@
   window.addEventListener('slevao:product-offers-rendered', () => {
     if (tryBuild()) observer.disconnect();
   });
+  window.addEventListener('slevao:product-identity-ready', () => {
+    if (tryBuild()) observer.disconnect();
+  });
 
   const observer = new MutationObserver(() => {
     if (tryBuild()) observer.disconnect();
   });
-  observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['data-loaded'] });
+  observer.observe(document.documentElement, {
+    childList:true,
+    subtree:true,
+    characterData:true,
+    attributes:true,
+    attributeFilter:['data-loaded','data-identity-ready','data-identity-mode']
+  });
   window.setTimeout(() => observer.disconnect(), 15000);
 })();
