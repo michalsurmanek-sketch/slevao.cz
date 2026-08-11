@@ -5,7 +5,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OFFER_URL = 'https://prodejny.kaufland.cz/nabidka/prehled.html?kloffer-week=current';
 const SOURCE_URL = 'https://prodejny.kaufland.cz/letak.html';
-const ADAPTER = 'kaufland-products-v3-ssr';
+const ADAPTER = 'kaufland-products-v4-ssr';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -62,6 +62,39 @@ function safeImage(value: unknown) {
     return null;
   }
 }
+function normalize(value: string) {
+  return decodeHtml(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .trim();
+}
+function escapeRegExp(value: string) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+function productTitle(description: string, detailTitle: string, title: string, subtitle: string, unit: string) {
+  let value = description || detailTitle || [title, subtitle].filter(Boolean).join(' ');
+  if (!value) return '';
+  if (unit) {
+    const exactUnit = new RegExp(`\\s+${escapeRegExp(unit)}$`, 'i');
+    value = value.replace(exactUnit, '').trim();
+  }
+  return value || description || detailTitle || title;
+}
+function sameIdentity(left: string, right: string) {
+  const a = normalize(left);
+  const b = normalize(right);
+  return a === b || (a.length >= 8 && b.length >= 8 && (a.includes(b) || b.includes(a)));
+}
+function pragueDate(offsetDays = 0) {
+  const target = new Date(Date.now() + offsetDays * 86400000);
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(target);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
@@ -116,6 +149,8 @@ function parseProducts(html: string) {
 
   const result: any[] = [];
   const seen = new Set<string>();
+  const klIdentities = new Map<string, string>();
+
   for (const cycle of Array.isArray(template.props?.offerData?.cycles) ? template.props.offerData.cycles : []) {
     for (const category of Array.isArray(cycle?.categories) ? cycle.categories : []) {
       for (const item of Array.isArray(category?.offers) ? category.offers : []) {
@@ -130,10 +165,20 @@ function parseProducts(html: string) {
 
         const title = decodeHtml(String(item?.title || '').trim());
         const subtitle = decodeHtml(String(item?.subtitle || '').trim());
-        const detailTitle = decodeHtml(
-          String(item?.detailTitle || [title, subtitle].filter(Boolean).join(' ')).replace(/\\n/g, ' '),
-        );
-        if (!detailTitle) continue;
+        const detailTitle = decodeHtml(String(item?.detailTitle || '').replace(/\\n/g, ' '));
+        const detailDescription = decodeHtml(String(item?.detailDescription || '').replace(/\\n/g, ' '));
+        const unit = decodeHtml(String(item?.unit || '').trim());
+        const identityTitle = productTitle(detailDescription, detailTitle, title, subtitle, unit);
+        const klNr = String(item?.klNr || '').trim() || null;
+        if (!identityTitle) continue;
+
+        if (klNr) {
+          const previous = klIdentities.get(klNr);
+          if (previous && !sameIdentity(previous, identityTitle)) {
+            throw new Error(`Kaufland klNr ${klNr} má dvě rozdílné identity: "${previous}" a "${identityTitle}".`);
+          }
+          klIdentities.set(klNr, identityTitle);
+        }
 
         result.push({
           offerId,
@@ -142,14 +187,15 @@ function parseProducts(html: string) {
           title,
           subtitle,
           detailTitle,
-          detailDescription: decodeHtml(String(item?.detailDescription || '').replace(/\\n/g, ' ')),
+          productTitle: identityTitle,
+          detailDescription,
           price: Number(price),
           oldPrice: parseMoney(item?.formattedOldPrice),
           discount: Number.isFinite(Number(item?.discount)) ? Number(item.discount) : null,
-          unit: decodeHtml(String(item?.unit || '').trim()),
+          unit,
           basePrice: decodeHtml(String(item?.formattedBasePrice || item?.basePrice || '').trim()),
-          imageUrl: safeImage(item?.listImage || item?.detailImages?.[0]),
-          klNr: String(item?.klNr || '').trim() || null,
+          imageUrl: safeImage(item?.detailImages?.[0] || item?.listImage),
+          klNr,
           label: String(item?.label || '').trim() || null,
           categoryName: String(category?.name || '').trim(),
           categoryDisplayName: decodeHtml(String(category?.displayName || '').trim()),
@@ -159,10 +205,14 @@ function parseProducts(html: string) {
     }
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  const today = pragueDate();
   const current = result.filter((product) => product.dateTo >= today);
   if (current.length < 50) {
     throw new Error(`Kaufland vrátil pouze ${current.length} platných produktů; stará data zůstala zachována.`);
+  }
+  const meaningful = current.filter((row) => row.klNr && row.productTitle).length;
+  if (meaningful < Math.floor(current.length * 0.9)) {
+    throw new Error(`Kaufland má jen ${meaningful}/${current.length} produktů s klNr a skutečným názvem.`);
   }
   return current;
 }
@@ -220,14 +270,14 @@ Deno.serve(async (request) => {
     stage = 'parse_products';
     const products = parseProducts(html);
     const signature = await sha256(
-      products.map((product) => `${product.offerId}|${product.dateFrom}|${product.dateTo}|${product.price}|${product.oldPrice || ''}`)
+      products.map((product) => `${ADAPTER}|${product.offerId}|${product.klNr || ''}|${product.productTitle}|${product.unit || ''}|${product.dateFrom}|${product.dateTo}|${product.price}|${product.oldPrice || ''}`)
         .sort().join('\n'),
     );
     const validFrom = products.map((product) => product.dateFrom).sort()[0];
     const validTo = products.map((product) => product.dateTo).sort().at(-1)!;
 
     stage = 'check_existing';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = pragueDate();
     const { count: currentOfferCount, error: countError } = await db.from('offers')
       .select('id', { count: 'exact', head: true })
       .eq('store_id', store.id)
@@ -271,6 +321,9 @@ Deno.serve(async (request) => {
         last_published_count: published,
         last_valid_from: validFrom,
         last_valid_to: validTo,
+        parser_version: ADAPTER,
+        adapter_name: 'sync-kaufland-source',
+        adapter_version: ADAPTER,
         last_audit_id: auditId,
         last_http_status: response.status,
         last_html_length: html.length,
@@ -404,7 +457,7 @@ Deno.serve(async (request) => {
       last_error: null,
       last_parser_error: null,
       health_status: 'ok',
-      health_reason: `Automaticky publikováno ${published}/${products.length} produktů.`,
+      health_reason: `Automaticky publikováno ${published}/${products.length} produktů přes ${ADAPTER}.`,
     }, { onConflict: 'store_id' });
     await db.from('leaflet_sources').update({
       last_checked_at: checkedAt,
@@ -419,6 +472,7 @@ Deno.serve(async (request) => {
       self_published: true,
       no_changes: false,
       store: store.name,
+      adapter: ADAPTER,
       import_id: importId,
       parsed_products: products.length,
       published_products: published,
@@ -430,10 +484,7 @@ Deno.serve(async (request) => {
     const message = `${stage}: ${formatError(error)}`;
     console.error('sync-kaufland-source failed', { stage, error: formatError(error) });
     if (auditId) {
-      await db.from('kaufland_product_sync_audit').update({
-        status: 'failed',
-        error_message: message,
-      }).eq('id', auditId);
+      await db.from('kaufland_product_sync_audit').update({ status: 'failed', error_message: message }).eq('id', auditId);
     }
     if (storeId) {
       await db.from('store_product_sync_state').upsert({
