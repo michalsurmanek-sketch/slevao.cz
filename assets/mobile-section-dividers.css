@@ -1,0 +1,71 @@
+/* Slevao.cz – subtilni mobilni oddelovace hlavnich sekci. */
+.mobileSectionDivider{display:none}
+
+@media(max-width:800px){
+  .mobileSectionDivider{
+    display:flex;
+    position:relative;
+    align-items:center;
+    justify-content:center;
+    width:calc(100% - 38px);
+    height:30px;
+    margin:8px auto 7px;
+    pointer-events:none;
+    user-select:none;
+  }
+
+  .mobileSectionDivider::before,
+  .mobileSectionDivider::after{
+    content:"";
+    flex:1 1 auto;
+    height:1px;
+    background:repeating-linear-gradient(
+      90deg,
+      rgba(117,139,137,.34) 0 5px,
+      transparent 5px 10px
+    );
+  }
+
+  .mobileSectionDividerIcon{
+    position:relative;
+    z-index:1;
+    flex:0 0 28px;
+    width:28px;
+    height:28px;
+    margin:0 11px;
+    border:1px solid rgba(255,255,255,.76);
+    border-radius:50%;
+    background:linear-gradient(145deg,#1dbbad,#0d9d93);
+    color:#fff;
+    display:grid;
+    place-items:center;
+    font-size:14px;
+    line-height:1;
+    font-weight:900;
+    box-shadow:0 4px 10px rgba(13,157,147,.16);
+  }
+
+  .mobileSectionDividerIcon svg{
+    width:15px;
+    height:15px;
+    display:block;
+    stroke:currentColor;
+    fill:none;
+    stroke-width:2;
+    stroke-linecap:round;
+    stroke-linejoin:round;
+  }
+
+  /* Oddelovac nema pusobit jako dalsi ovladaci prvek. */
+  .mobileSectionDivider,
+  .mobileSectionDivider *{
+    cursor:default!important;
+    -webkit-tap-highlight-color:transparent!important;
+  }
+
+  /* Prvni nadpis po oddelovaci ma zustat vizualne tesne navazany. */
+  .mobileSectionDivider + .section,
+  .mobileSectionDivider + section{
+    margin-top:0!important;
+  }
+}
