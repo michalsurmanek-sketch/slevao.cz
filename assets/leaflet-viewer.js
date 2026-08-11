@@ -232,9 +232,99 @@ async function showPdf(blob) {
   }, { once: true });
 }
 
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (character) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;',
+  })[character]);
+}
+
+function isPepcoCollectionSource() {
+  const url = safeHttpsUrl(source);
+  return store.toLowerCase() === 'pepco'
+    && url?.hostname.endsWith('pepco.cz')
+    && url.pathname.includes('/kolekce/letaky');
+}
+
+async function showPepcoCollection() {
+  statusNode.textContent = 'Načítám aktuální nabídku Pepco…';
+  const today = new Date().toISOString().slice(0, 10);
+  const query = new URLSearchParams({
+    select: 'title,price,old_price,image_url,valid_from,valid_to,stores!inner(slug)',
+    'stores.slug': 'eq.pepco',
+    status: 'eq.published',
+    valid_to: `gte.${today}`,
+    order: 'price.asc',
+    limit: '100',
+  });
+  const response = await fetchWithTimeout(
+    `https://${SUPABASE_HOST}/rest/v1/offers?${query}`,
+    { headers: { apikey: SUPABASE_KEY }, cache: 'no-store' },
+  );
+  if (!response.ok) throw new Error(`Nabídku Pepco se nepodařilo načíst (${response.status}).`);
+  const offers = await response.json();
+  if (!Array.isArray(offers) || !offers.length) throw new Error('Aktuální nabídka Pepco je prázdná.');
+
+  const unique = [...new Map(offers.map((offer) => [
+    `${offer.title}|${offer.price}|${offer.image_url}`,
+    offer,
+  ])).values()];
+
+  if (!document.getElementById('pepcoCollectionStyles')) {
+    const style = document.createElement('style');
+    style.id = 'pepcoCollectionStyles';
+    style.textContent = `
+      .pepcoCollectionIntro{width:min(1120px,calc(100% - 24px));margin:10px auto 18px;padding:18px 20px;border-radius:18px;background:linear-gradient(135deg,#0757a6,#126dbb);color:#fff;box-sizing:border-box}
+      .pepcoCollectionIntro strong{display:block;font-size:clamp(20px,3vw,28px);margin-bottom:5px}
+      .pepcoCollectionIntro span{font-size:14px;opacity:.9}
+      .pepcoCollectionGrid{width:min(1120px,calc(100% - 24px));margin:0 auto 36px;display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+      .pepcoOfferCard{overflow:hidden;border:1px solid #d9e4ee;border-radius:18px;background:#fff;box-shadow:0 8px 24px rgba(15,43,67,.08)}
+      .pepcoOfferImage{aspect-ratio:1/1;background:#f7fafc;display:flex;align-items:center;justify-content:center}
+      .pepcoOfferImage img{width:100%;height:100%;object-fit:contain}
+      .pepcoOfferBody{padding:13px 14px 15px}
+      .pepcoOfferBody h3{min-height:42px;margin:0 0 12px;color:#10253b;font-size:15px;line-height:1.35}
+      .pepcoOfferPrice{display:flex;align-items:baseline;gap:8px;color:#0757a6;font-size:23px;font-weight:800}
+      .pepcoOfferOld{color:#7b8792;font-size:13px;font-weight:500;text-decoration:line-through}
+      @media(max-width:600px){.pepcoCollectionGrid{grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;width:calc(100% - 16px)}.pepcoCollectionIntro{width:calc(100% - 16px)}.pepcoOfferBody{padding:10px}.pepcoOfferBody h3{font-size:13px}.pepcoOfferPrice{font-size:19px}}
+    `;
+    document.head.appendChild(style);
+  }
+
+  const price = (value) => new Intl.NumberFormat('cs-CZ', {
+    style: 'currency', currency: 'CZK', maximumFractionDigits: 0,
+  }).format(Number(value));
+  const dates = unique[0]?.valid_from && unique[0]?.valid_to
+    ? `Platí ${new Date(unique[0].valid_from + 'T12:00:00').toLocaleDateString('cs-CZ')}–${new Date(unique[0].valid_to + 'T12:00:00').toLocaleDateString('cs-CZ')}`
+    : 'Aktuální nabídka';
+
+  pagesRoot.innerHTML = `
+    <section class="pepcoCollectionIntro">
+      <strong>Aktuální nabídka Pepco</strong>
+      <span>${escapeHtml(dates)} · nabídku prohlížíte přímo na Slevao.cz</span>
+    </section>
+    <section class="pepcoCollectionGrid">
+      ${unique.map((offer) => {
+        const image = safeHttpsUrl(offer.image_url);
+        return `<article class="pepcoOfferCard">
+          <div class="pepcoOfferImage">${image ? `<img src="${escapeHtml(image.href)}" alt="${escapeHtml(offer.title)}" loading="lazy" decoding="async">` : ''}</div>
+          <div class="pepcoOfferBody">
+            <h3>${escapeHtml(offer.title)}</h3>
+            <div class="pepcoOfferPrice">${escapeHtml(price(offer.price))}${offer.old_price ? `<span class="pepcoOfferOld">${escapeHtml(price(offer.old_price))}</span>` : ''}</div>
+          </div>
+        </article>`;
+      }).join('')}
+    </section>`;
+  statusNode.textContent = 'Nabídka Pepco je otevřená – posouvej dolů';
+  countNode.textContent = `${unique.length} produktů`;
+}
+
 async function boot() {
   try {
     if (!source) throw new Error('Chybí adresa letáku.');
+    if (isPepcoCollectionSource()) {
+      await showPepcoCollection();
+      return;
+    }
     const blob = await fetchDocument(source);
     const head = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
     if (String(blob.type || '').toLowerCase().includes('pdf') || hasPdfMagic(head)) {
