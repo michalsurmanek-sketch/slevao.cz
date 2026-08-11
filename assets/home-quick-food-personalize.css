@@ -1,6 +1,7 @@
 /* Uživatelské přizpůsobení lišty Rychlý nákup. */
 .sqFoodCustomize,.sqFoodMobileCustomize,.sqFoodEditor button{-webkit-tap-highlight-color:transparent}
-.sqFoodCustomize{width:25px;height:25px;display:grid;place-items:center;padding:0;border:0;border-radius:9px;background:#f0f8f7;color:#0b776f;font-size:13px;line-height:1;cursor:pointer}
+.sqFoodCustomize{width:25px;height:25px;display:grid;place-items:center;flex:0 0 25px;padding:0;border:0;border-radius:9px;background:#f0f8f7;color:#0b776f;line-height:1;cursor:pointer}
+.sqFoodCustomize svg{width:15px;height:15px;display:block}
 .sqFoodCustomize:hover{background:#def5f1}
 .sqFoodMobileBar{display:none}
 
@@ -38,6 +39,12 @@
 .sqFoodEditorReset{border:1px solid #dbe7e5;background:#fff;color:#5d706d}
 .sqFoodEditorSave{min-width:130px;border:0;background:linear-gradient(135deg,#159e94,#0b877e);color:#fff;box-shadow:0 10px 24px rgba(21,158,148,.22)}
 .sqFoodCustomize:focus-visible,.sqFoodMobileCustomize:focus-visible,.sqFoodEditor button:focus-visible{outline:3px solid rgba(21,158,148,.24);outline-offset:2px}
+
+@media(min-width:901px){
+  .sqFoodDockHead{justify-content:space-between;gap:6px;padding:0 1px 0 2px}
+  .sqFoodDockTitle{text-align:left}
+  .sqFoodDockToggle{display:none!important}
+}
 
 @media(max-width:900px){
   .sqFoodMobileBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 4px}
