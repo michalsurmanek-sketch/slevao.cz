@@ -30,6 +30,15 @@
     if (metric) metric.hidden = value === '—';
   }
 
+  function resetLocateButton() {
+    const button = document.getElementById('slLiveLocate');
+    if (!button) return;
+    button.disabled = false;
+    button.removeAttribute('aria-busy');
+    if (button.textContent === 'Určuji polohu…') button.textContent = 'Použít moji polohu';
+    delete button.dataset.locating;
+  }
+
   function createUi() {
     const heroCard = document.querySelector('.heroCard');
     const host = heroCard?.querySelector('.heroLocation');
@@ -78,6 +87,7 @@
       heroCard.insertBefore(result, host);
     }
 
+    resetLocateButton();
     bind();
     const saved = localStorage.getItem(PLACE_KEY) || '';
     const place = document.getElementById('slLivePlace');
@@ -226,26 +236,46 @@
   async function usePosition() {
     const api = loc();
     const button = document.getElementById('slLiveLocate');
-    if (!api || !button) return;
+    if (!api || !button || button.dataset.locating === '1') return;
+
     showResult(true);
     setResultMessage('Zjišťuji polohu a hledám nejbližší obchody…');
-    button.disabled = true;
     const old = button.textContent;
+    button.dataset.locating = '1';
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
     button.textContent = 'Určuji polohu…';
     setStatus('Zjišťuji polohu a hledám skutečné pobočky…');
+
+    let position = null;
+    let radius = 15;
+    let branches = null;
+
     try {
-      const position = await api.getPosition();
-      const radius = Number(document.getElementById('slLiveRadius').value || 15);
-      const branches = await api.fetchNearbyBranches(position.latitude, position.longitude, radius);
-      await evaluate(branches, { position, radius });
+      position = await api.getPosition();
+      radius = Number(document.getElementById('slLiveRadius')?.value || 15);
+      branches = await api.fetchNearbyBranches(position.latitude, position.longitude, radius);
     } catch (error) {
       setSaving('—');
       setResultMessage(error.message || 'Polohu se nepodařilo použít. Zadejte město nebo PSČ.');
-      document.getElementById('slLiveDeals').hidden = true;
+      const deals = document.getElementById('slLiveDeals');
+      if (deals) deals.hidden = true;
       setStatus(error.message || 'Polohu se nepodařilo použít. Zadejte město nebo PSČ.', 'bad');
+      return;
     } finally {
       button.disabled = false;
+      button.removeAttribute('aria-busy');
       button.textContent = old;
+      delete button.dataset.locating;
+    }
+
+    setStatus('Poloha nalezena. Načítám obchody a dnešní nabídky…', 'good');
+    try {
+      await evaluate(branches || [], { position, radius });
+    } catch (error) {
+      setSaving('—');
+      setResultMessage(error?.message || 'Pobočky se podařilo najít, ale nabídky se právě nepodařilo načíst.');
+      setStatus(error?.message || 'Pobočky se podařilo najít, ale nabídky se právě nepodařilo načíst.', 'bad');
     }
   }
 
@@ -274,6 +304,7 @@
     const panel = document.querySelector('.heroNearbyPanel');
     if (!panel || panel.dataset.liveBound === '1') return;
     panel.dataset.liveBound = '1';
+    resetLocateButton();
     document.getElementById('slLiveLocate')?.addEventListener('click', usePosition);
     document.getElementById('slLiveManual')?.addEventListener('submit', useManual);
     document.getElementById('slLiveClose')?.addEventListener('click', () => {
@@ -294,6 +325,7 @@
   }
 
   function init() {
+    window.addEventListener('pageshow', resetLocateButton);
     if (!loc()) {
       let attempts = 0;
       const timer = setInterval(() => {
@@ -303,6 +335,7 @@
           createUi();
         } else if (attempts >= 50) {
           clearInterval(timer);
+          resetLocateButton();
           console.warn('SLEVAO LIVE: geolokační vrstva nebyla načtena.');
         }
       }, 100);
