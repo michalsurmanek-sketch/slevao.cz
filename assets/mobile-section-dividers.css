@@ -1,32 +1,30 @@
-/* Slevao.cz – subtilní mobilní oddělovače mezi všemi hlavními sekcemi. */
-.mobileSectionDivider{display:none}
-
+/* Slevao.cz – subtilní mobilní oddělovače mezi všemi hlavními částmi stránky. */
 @media(max-width:800px){
-  .mobileSectionDivider{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:calc(100% - 42px);
-    height:30px;
-    margin:7px auto 6px;
-    pointer-events:none;
-    user-select:none;
-    -webkit-tap-highlight-color:transparent;
+  main#top > section:not(.hero):not(#desktopOverview){
+    position:relative;
   }
 
-  .mobileSectionDivider::before,
-  .mobileSectionDivider::after{
+  main#top > section:not(.hero):not(#desktopOverview)::before{
     content:"";
-    flex:1 1 auto;
+    position:absolute;
+    z-index:20;
+    top:9px;
+    left:28px;
+    right:28px;
     height:1px;
     background:repeating-linear-gradient(90deg,rgba(117,139,137,.34) 0 5px,transparent 5px 10px);
+    pointer-events:none;
   }
 
-  .mobileSectionDividerIcon{
-    flex:0 0 28px;
+  main#top > section:not(.hero):not(#desktopOverview)::after{
+    content:"";
+    position:absolute;
+    z-index:21;
+    top:-5px;
+    left:50%;
     width:28px;
     height:28px;
-    margin:0 11px;
+    transform:translateX(-50%);
     border:1px solid rgba(255,255,255,.82);
     border-radius:50%;
     background-color:#12a69b;
@@ -34,30 +32,54 @@
     background-position:center;
     background-size:15px 15px;
     box-shadow:0 4px 10px rgba(13,157,147,.16);
+    pointer-events:none;
   }
 
-  .mobileSectionDivider[data-divider-kind="location"] .mobileSectionDividerIcon{
+  /* Poblíž vás */
+  #homeNearbyMobile::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 10c0 5-8 11-8 11S4 15 4 10a8 8 0 1 1 16 0Z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="sparkle"] .mobileSectionDividerIcon{
+
+  /* Nákupní autopilot a neznámé dynamické sekce */
+  #homeAutopilot::after,
+  main#top > section:not(.hero):not(#desktopOverview):not(#homeNearbyMobile):not(#myDealsSection):not(#categoriesSection):not(#storesSection):not(#leafletsSection):not(#dealsSection)::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 1.7 4.3L18 9l-4.3 1.7L12 15l-1.7-4.3L6 9l4.3-1.7L12 3Z'/%3E%3Cpath d='m19 15 .8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15Z'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="heart"] .mobileSectionDividerIcon{
+
+  /* Moje slevy */
+  #myDealsSection::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8Z'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="categories"] .mobileSectionDividerIcon{
+
+  /* Kategorie */
+  #categoriesSection::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='6' height='6' rx='1'/%3E%3Crect x='14' y='4' width='6' height='6' rx='1'/%3E%3Crect x='4' y='14' width='6' height='6' rx='1'/%3E%3Crect x='14' y='14' width='6' height='6' rx='1'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="stores"] .mobileSectionDividerIcon{
+
+  /* Obchody */
+  #storesSection::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10h16v10H4z'/%3E%3Cpath d='M3 10 5 4h14l2 6'/%3E%3Cpath d='M8 20v-5h4v5'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="leaflet"] .mobileSectionDividerIcon{
+
+  /* Letáky */
+  #leafletsSection::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h9l3 3v15H6z'/%3E%3Cpath d='M15 3v4h4'/%3E%3Cpath d='M9 12h6M9 16h6'/%3E%3C/svg%3E");
   }
-  .mobileSectionDivider[data-divider-kind="cart"] .mobileSectionDividerIcon{
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 8H7'/%3E%3Ccircle cx='10' cy='20' r='1'/%3E%3Ccircle cx='17' cy='20' r='1'/%3E%3C/svg%3E");
-  }
-  .mobileSectionDivider[data-divider-kind="tag"] .mobileSectionDividerIcon{
+
+  /* Aktuální ceny */
+  #dealsSection::after{
     background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 13 13 20 4 11V4h7l9 9Z'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.25'/%3E%3C/svg%3E");
+  }
+
+  /* Rychlý nákup je technicky <aside>, takže dostává stejný oddělovač jako pozadí. */
+  main#top > .sqFoodDock{
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 8H7'/%3E%3Ccircle cx='10' cy='20' r='1'/%3E%3Ccircle cx='17' cy='20' r='1'/%3E%3C/svg%3E"),
+      radial-gradient(circle,#12a69b 0 13px,rgba(255,255,255,.82) 13px 14px,transparent 14px),
+      repeating-linear-gradient(90deg,rgba(117,139,137,.34) 0 5px,transparent 5px 10px)!important;
+    background-repeat:no-repeat!important;
+    background-position:center 9px,center 2px,center 16px!important;
+    background-size:15px 15px,28px 28px,calc(100% - 56px) 1px!important;
+    padding-top:36px!important;
   }
 }
