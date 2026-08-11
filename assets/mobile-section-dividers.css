@@ -1,71 +1,56 @@
 /* Slevao.cz – subtilni mobilni oddelovace hlavnich sekci. */
-.mobileSectionDivider{display:none}
-
 @media(max-width:800px){
-  .mobileSectionDivider{
-    display:flex;
+  #dealsSection,
+  #dealsSection + section{
     position:relative;
-    align-items:center;
-    justify-content:center;
-    width:calc(100% - 38px);
-    height:30px;
-    margin:8px auto 7px;
-    pointer-events:none;
-    user-select:none;
   }
 
-  .mobileSectionDivider::before,
-  .mobileSectionDivider::after{
+  /* Jemna prerusovana linka pred sekci. */
+  #dealsSection::before,
+  #dealsSection + section::before{
     content:"";
-    flex:1 1 auto;
+    position:absolute;
+    z-index:3;
+    top:9px;
+    left:28px;
+    right:28px;
     height:1px;
     background:repeating-linear-gradient(
       90deg,
       rgba(117,139,137,.34) 0 5px,
       transparent 5px 10px
     );
+    pointer-events:none;
   }
 
-  .mobileSectionDividerIcon{
-    position:relative;
-    z-index:1;
-    flex:0 0 28px;
+  /* Tyrkysovy medailonek – vizualni, neklikaci. */
+  #dealsSection::after,
+  #dealsSection + section::after{
+    content:"";
+    position:absolute;
+    z-index:4;
+    top:-5px;
+    left:50%;
     width:28px;
     height:28px;
-    margin:0 11px;
-    border:1px solid rgba(255,255,255,.76);
+    transform:translateX(-50%);
+    border:1px solid rgba(255,255,255,.8);
     border-radius:50%;
-    background:linear-gradient(145deg,#1dbbad,#0d9d93);
-    color:#fff;
-    display:grid;
-    place-items:center;
-    font-size:14px;
-    line-height:1;
-    font-weight:900;
+    background-color:#12a69b;
+    background-repeat:no-repeat;
+    background-position:center;
+    background-size:15px 15px;
     box-shadow:0 4px 10px rgba(13,157,147,.16);
+    pointer-events:none;
   }
 
-  .mobileSectionDividerIcon svg{
-    width:15px;
-    height:15px;
-    display:block;
-    stroke:currentColor;
-    fill:none;
-    stroke-width:2;
-    stroke-linecap:round;
-    stroke-linejoin:round;
+  /* Rychly nakup -> Aktualni ceny: cenovka. */
+  #dealsSection::after{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 13 13 20 4 11V4h7l9 9Z'/%3E%3Ccircle cx='8.5' cy='8.5' r='1.25'/%3E%3C/svg%3E");
   }
 
-  /* Oddelovac nema pusobit jako dalsi ovladaci prvek. */
-  .mobileSectionDivider,
-  .mobileSectionDivider *{
-    cursor:default!important;
-    -webkit-tap-highlight-color:transparent!important;
-  }
-
-  /* Prvni nadpis po oddelovaci ma zustat vizualne tesne navazany. */
-  .mobileSectionDivider + .section,
-  .mobileSectionDivider + section{
-    margin-top:0!important;
+  /* Aktualni ceny -> nasledujici hlavni sekce: kategorie. */
+  #dealsSection + section::after{
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='4' width='6' height='6' rx='1'/%3E%3Crect x='14' y='4' width='6' height='6' rx='1'/%3E%3Crect x='4' y='14' width='6' height='6' rx='1'/%3E%3Crect x='14' y='14' width='6' height='6' rx='1'/%3E%3C/svg%3E");
   }
 }
