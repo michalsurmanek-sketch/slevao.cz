@@ -68,12 +68,11 @@
     return slug ? `${encodeURIComponent(slug)}.html` : 'index.html#storesSection';
   }
 
-  function applyToCard(card, offer, locationRow) {
+  function destinationFor(card) {
     const actions = card.querySelector('.sfOfferActions');
-    if (!actions) return;
+    if (!actions) return null;
     const anchors = [...actions.querySelectorAll('a.sfButton')];
-    let destination = anchors.find((anchor) => /^(Leták|Stránka obchodu)/i.test(anchor.textContent.trim()));
-
+    let destination = anchors.find((anchor) => /^(Leták|Stránka obchodu|Ověřuji leták)/i.test(anchor.textContent.trim()));
     if (!destination) {
       destination = document.createElement('a');
       destination.className = 'sfButton';
@@ -81,6 +80,27 @@
       if (report) actions.insertBefore(destination, report);
       else actions.appendChild(destination);
     }
+    return destination;
+  }
+
+  function neutralizeUnverifiedLeaflet(card) {
+    const destination = destinationFor(card);
+    if (!destination || !/^Leták/i.test(destination.textContent.trim())) return;
+    destination.removeAttribute('href');
+    destination.removeAttribute('target');
+    destination.removeAttribute('rel');
+    destination.setAttribute('aria-disabled', 'true');
+    destination.setAttribute('aria-label', 'Ověřuji přesnou stranu produktu v letáku');
+    destination.textContent = 'Ověřuji leták…';
+    destination.dataset.leafletVerifying = '1';
+    delete destination.dataset.exactLeafletLocation;
+  }
+
+  function applyToCard(card, offer, locationRow) {
+    const destination = destinationFor(card);
+    if (!destination) return;
+    destination.removeAttribute('aria-disabled');
+    delete destination.dataset.leafletVerifying;
 
     if (locationRow) {
       const page = Math.max(1, Number(locationRow.source_page || 1));
@@ -121,25 +141,49 @@
     return { offers, locations };
   }
 
-  function install({ offers, locations }) {
-    const apply = () => {
-      offersRoot.querySelectorAll('.sfOffer').forEach((card) => {
-        const id = card.querySelector('[data-add-offer]')?.dataset.addOffer;
-        if (!id) return;
-        const offer = offers.get(String(id));
-        if (!offer) return;
-        const locationRow = metadataLocation(offer) || exactLocation(offer, locations);
-        applyToCard(card, offer, locationRow);
-      });
-    };
+  let resolved = null;
+  let failed = false;
 
-    apply();
-    const observer = new MutationObserver(apply);
-    observer.observe(offersRoot, { childList: true, subtree: true });
-    window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
+  function syncCards() {
+    offersRoot.querySelectorAll('.sfOffer').forEach((card) => {
+      if (!resolved) {
+        neutralizeUnverifiedLeaflet(card);
+        if (failed) {
+          const destination = destinationFor(card);
+          if (destination?.dataset.leafletVerifying === '1') {
+            destination.href = 'index.html#storesSection';
+            destination.removeAttribute('aria-disabled');
+            destination.textContent = 'Stránka obchodu';
+            destination.setAttribute('aria-label', 'Otevřít přehled obchodů');
+            delete destination.dataset.leafletVerifying;
+          }
+        }
+        return;
+      }
+
+      const id = card.querySelector('[data-add-offer]')?.dataset.addOffer;
+      if (!id) return;
+      const offer = resolved.offers.get(String(id));
+      if (!offer) return;
+      const locationRow = metadataLocation(offer) || exactLocation(offer, resolved.locations);
+      applyToCard(card, offer, locationRow);
+    });
   }
 
-  loadData().then(install).catch((error) => {
+  // Observer se instaluje okamžitě. Jakmile základní detail vytvoří kartu, žádný
+  // neověřený odkaz na konkrétní stranu PDF nezůstane ani krátce kliknutelný.
+  const observer = new MutationObserver(syncCards);
+  observer.observe(offersRoot, { childList: true, subtree: true });
+  syncCards();
+
+  loadData().then((data) => {
+    resolved = data;
+    syncCards();
+  }).catch((error) => {
+    failed = true;
+    syncCards();
     console.warn('Přesná poloha produktu v letáku není dostupná:', error);
   });
+
+  window.addEventListener('pagehide', () => observer.disconnect(), { once: true });
 })();
