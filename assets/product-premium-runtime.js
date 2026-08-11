@@ -3,6 +3,24 @@
 
   if (!/produkt\.html$/i.test(location.pathname)) return;
 
+  function toast(message) {
+    if (window.SlevaoPublic?.toast) {
+      window.SlevaoPublic.toast(message);
+      return;
+    }
+    let box = document.querySelector('.sfToast');
+    if (!box) {
+      box = document.createElement('div');
+      box.className = 'sfToast';
+      box.setAttribute('role', 'status');
+      box.setAttribute('aria-live', 'polite');
+      document.body.appendChild(box);
+    }
+    box.textContent = message;
+    box.classList.add('show');
+    window.setTimeout(() => box.classList.remove('show'), 2800);
+  }
+
   function ensureSearch() {
     const header = document.querySelector('.sfTopInner');
     if (!header || header.querySelector('.sfPremiumSearch')) return;
@@ -44,7 +62,23 @@
       link.className = 'sfButton sfPremiumBestOffer';
       link.href = '#offers';
       link.textContent = 'Přejít na nejlepší nabídku';
+      link.addEventListener('click', (event) => {
+        const best = document.querySelector('#offers .sfOffer.best');
+        if (!best) return;
+        event.preventDefault();
+        best.scrollIntoView({ behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block:'center' });
+      });
       actions.prepend(link);
+    }
+
+    if (!actions.querySelector('.sfShareProduct')) {
+      const share = document.createElement('button');
+      share.className = 'sfButton sfShareProduct';
+      share.type = 'button';
+      share.textContent = 'Sdílet';
+      share.setAttribute('aria-label', 'Sdílet tento produkt');
+      share.addEventListener('click', shareProduct);
+      actions.appendChild(share);
     }
 
     if (!hero.querySelector('.sfHeroTrustChips')) {
@@ -54,6 +88,41 @@
       actions.after(chips);
     }
     return true;
+  }
+
+  async function shareProduct() {
+    const name = document.getElementById('productName')?.textContent?.trim() || 'Produkt na Slevao.cz';
+    const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
+    const price = document.getElementById('currentPrice')?.textContent?.trim() || '';
+    const data = {
+      title:`${name} | Slevao.cz`,
+      text:price && !/Bez viditelné ceny/i.test(price) ? `${name} – nejlepší aktuální cena ${price}` : `${name} – porovnání cen na Slevao.cz`,
+      url:canonical
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(data);
+        return;
+      }
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(canonical);
+        toast('Odkaz na produkt byl zkopírován.');
+        return;
+      }
+      const input = document.createElement('textarea');
+      input.value = canonical;
+      input.setAttribute('readonly', '');
+      input.style.position = 'fixed';
+      input.style.opacity = '0';
+      document.body.appendChild(input);
+      input.select();
+      document.execCommand('copy');
+      input.remove();
+      toast('Odkaz na produkt byl zkopírován.');
+    } catch (error) {
+      if (error?.name !== 'AbortError') toast('Sdílení se nepodařilo dokončit.');
+    }
   }
 
   function ensureOffersHeading() {
