@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const detail = read('assets/product-detail.js');
+const safety = read('assets/product-detail-safety.js');
 const publicFeatures = read('assets/public-features.js');
 const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
@@ -18,6 +19,7 @@ const html = read('produkt.html');
 
 for (const [path, source] of [
   ['assets/product-detail.js', detail],
+  ['assets/product-detail-safety.js', safety],
   ['assets/public-features.js', publicFeatures],
   ['assets/product-seo.js', seo],
   ['assets/product-intelligence.js', intelligence],
@@ -63,6 +65,13 @@ for (const pattern of [
 ]) assert.match(publicFeatures, pattern, `Nákupní seznam neaktualizuje vybranou nabídku: ${pattern}`);
 assert.match(publicFeatures, /!offer\.product_id \|\| !detailProduct\?\.id/, 'Detail produktu nesmí otevřít neaktivní/nečitelný produkt.');
 
+// Ochranná vrstva nesmí potvrdit akci, pokud se nenačetla její závislost, a umí odlišit prázdná data od chyby načtení.
+assert.match(safety, /typeof window\.SlevaoPublic\?\.addItemFromOffer !== 'function'/, 'Chybí ochrana tlačítka Přidat do seznamu.');
+assert.match(safety, /data-product-retry/, 'Detail nemá možnost zopakovat neúspěšné načtení.');
+assert.match(safety, /\.select\('id', \{ count:'exact', head:true \}\)/, 'Ochranná vrstva neověřuje, zda data skutečně existují.');
+assert.match(safety, /image\.closest\('#productImage'\)/, 'Chybí fallback při chybě produktové fotografie.');
+assert.match(safety, /timeZone:'Europe\/Prague'/, 'Ochranná vrstva nepoužívá české datum nabídek.');
+
 // Slevao skóre smí považovat za nezávislé srovnání jen různé obchodní řetězce.
 assert.match(intelligence, /function bestOfferPerStore\(/, 'Slevao skóre nesjednocuje nabídky podle obchodního řetězce.');
 assert.match(intelligence, /context\.storeCount >= 2/, 'Slevao skóre nevyžaduje dva různé obchody pro market signál.');
@@ -98,6 +107,7 @@ for (const pattern of [
   /public-nav-upgrade\.js\?v=20260811-5/,
   /store-arrival-alerts\.js\?v=20260811-2/,
   /product-detail\.js\?v=20260811-7/,
+  /product-detail-safety\.js\?v=20260811-1/,
   /product-seo\.js\?v=20260811-2/,
   /product-premium-runtime\.js\?v=20260811-1/,
   /product-intelligence\.js\?v=20260811-2/,
@@ -110,6 +120,7 @@ assert.match(serviceWorker, /const CACHE_NAME = 'slevao-shell-[^']+'/, 'Service 
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
   /product-detail\.js\?v=20260811-7/,
+  /product-detail-safety\.js\?v=20260811-1/,
   /product-leaflet-location-global\.js\?v=20260811-2/,
   /product-seo\.js\?v=20260811-2/,
   /product-premium-runtime\.js\?v=20260811-1/,
