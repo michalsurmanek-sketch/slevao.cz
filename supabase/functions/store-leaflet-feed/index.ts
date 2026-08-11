@@ -5,6 +5,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const TESCO_LISTING_URL = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 const PENNY_LISTING_URL = 'https://www.penny.cz/letaky';
 const ACTION_LISTING_URL = 'https://www.action.com/cs-cz/letak/';
+const TETA_LISTING_URL = 'https://www.tetadrogerie.cz/akce/letak';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -162,6 +163,53 @@ async function pennyOfficialLeaflet(): Promise<Leaflet> {
   };
 }
 
+async function tetaOfficialLeaflets(): Promise<Leaflet[]> {
+  const response = await fetch(TETA_LISTING_URL, {
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+      accept: 'text/html,application/xhtml+xml',
+      'accept-language': 'cs-CZ,cs;q=0.9',
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) throw new Error(`Teta HTTP ${response.status}`);
+  const html = await response.text();
+  const matches = [...html.matchAll(/href=["'](https:\/\/letak\.tetadrogerie\.cz\/[^"'?#]+\/?)(?:[?#][^"']*)?["']/gi)];
+  const seen = new Set<string>();
+  const leaflets: Leaflet[] = [];
+
+  for (const match of matches) {
+    const url = match[1].replace(/&amp;/gi, '&');
+    if (seen.has(url)) continue;
+    seen.add(url);
+    const slug = new URL(url).pathname.split('/').filter(Boolean).pop() || `teta-${leaflets.length + 1}`;
+    const context = visibleText(html.slice(Math.max(0, (match.index || 0) - 2200), (match.index || 0) + match[0].length));
+    const ranges = [...context.matchAll(/(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})\s*[-–]\s*(\d{1,2}\.\s*\d{1,2}\.\s*\d{4})/g)];
+    const range = ranges.at(-1);
+    const number = slug.match(/(?:letak|te)[-_]?(\d{1,2})(?:-|$)/i)?.[1] || '';
+    const title = /technick/i.test(slug)
+      ? `Technický leták${number ? ` č. ${number}` : ''}`
+      : /klub/i.test(slug)
+        ? `Klubový leták${number ? ` č. ${number}` : ''}`
+        : /cenovy-tresk/i.test(slug)
+          ? 'Cenový třesk'
+          : `Akční leták${number ? ` č. ${number}` : ''}`;
+
+    leaflets.push({
+      key: `teta-${slug}`,
+      title,
+      subtitle: 'Teta drogerie',
+      valid_from: range ? isoDate(range[1]) : null,
+      valid_to: range ? isoDate(range[2], true) : null,
+      url,
+      direct: true,
+      preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?source_url=${encodeURIComponent(url)}`,
+    });
+  }
+  if (!leaflets.length) throw new Error('Teta nevrátila žádný aktuální leták.');
+  return leaflets;
+}
+
 async function attachDirectDocuments(leaflets: Leaflet[], officialHtml: string): Promise<Leaflet[]> {
   const officialDocuments = documentsFromOfficialHtml(officialHtml);
   if (leaflets.every((leaflet) => officialDocuments.has(leaflet.key))) {
@@ -269,6 +317,10 @@ Deno.serve(async (request) => {
     if (!/^[a-z0-9-]{2,64}$/.test(storeSlug)) throw new Error('Neplatný obchod.');
     if (storeSlug === 'action') {
       return Response.json({ ok: true, store: storeSlug, source: ACTION_LISTING_URL, leaflets: [actionOfficialLeaflet()] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'teta') {
+      const leaflets = await tetaOfficialLeaflets();
+      return Response.json({ ok: true, store: storeSlug, source: TETA_LISTING_URL, leaflets }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
