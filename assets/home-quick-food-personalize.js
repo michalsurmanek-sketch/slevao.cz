@@ -69,15 +69,20 @@
 
     const head = dock.querySelector('.sqFoodDockHead');
     const toggle = head?.querySelector('.sqFoodDockToggle');
+
+    /* Desktop už nemá samostatné tlačítko pro sbalení. V hlavičce zůstává jen editace. */
+    if (toggle) toggle.remove();
+    dock.classList.remove('collapsed');
+    try { localStorage.removeItem('slevao-quick-food-collapsed'); } catch {}
+
     if (head && !head.querySelector('.sqFoodCustomize')) {
       const button = document.createElement('button');
       button.className = 'sqFoodCustomize';
       button.type = 'button';
       button.setAttribute('aria-label', 'Upravit Rychlý nákup');
       button.title = 'Upravit Rychlý nákup';
-      button.textContent = '⚙';
-      if (toggle) head.insertBefore(button, toggle);
-      else head.appendChild(button);
+      button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h4.2L19.6 8.6a2 2 0 0 0 0-2.8l-1.4-1.4a2 2 0 0 0-2.8 0L4 15.8V20Zm3.3-2H6v-1.3l8.8-8.8 1.3 1.3L7.3 18Zm8.9-11.5 1.1-1.1 1.3 1.3-1.1 1.1-1.3-1.3Z" fill="currentColor"/></svg>';
+      head.appendChild(button);
     }
 
     if (!dock.querySelector('.sqFoodMobileBar')) {
