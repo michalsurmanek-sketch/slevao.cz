@@ -186,8 +186,9 @@
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
     const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
-    const isPepcoWebOffer = String(config.slug || '').toLowerCase() === 'pepco';
-    const canPreview = !isPepcoWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const storeSlug = String(config.slug || '').toLowerCase();
+    const isExternalWebOffer = ['pepco', 'petcenter'].includes(storeSlug);
+    const canPreview = !isExternalWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
@@ -208,7 +209,7 @@
         <h3>${esc(leaflet.subtitle || leaflet.title || `${config.name || 'Obchod'} leták`)}</h3>
         <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
         <div class="leafletValidity">Platí ${esc(validity)}</div>
-        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : (isPepcoWebOffer ? 'Prohlédnout nabídku na Pepco.cz ↗' : 'Otevřít oficiální leták')}</span>
+        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : (storeSlug === 'pepco' ? 'Prohlédnout nabídku na Pepco.cz ↗' : (storeSlug === 'petcenter' ? 'Prohlédnout výprodej na PetCenter.cz ↗' : 'Otevřít oficiální leták'))}</span>
       </div>
     ${close}`;
   }
