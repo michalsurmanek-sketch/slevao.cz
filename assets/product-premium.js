@@ -126,8 +126,7 @@
     enhanceBreadcrumbs();
     const badge = $('.sfCurrentBestBadge');
     const price = $('#currentPrice')?.textContent?.trim();
-    if (badge && (!price || /^Bez/i.test(price) || price === '—')) badge.hidden = true;
-    else if (badge) badge.hidden = false;
+    if (badge) badge.hidden = !price || /^Bez/i.test(price) || price === '—';
   }
 
   function enhance() {
@@ -139,20 +138,22 @@
     updateDynamicText();
   }
 
-  let queued = false;
-  const queue = () => {
-    if (queued) return;
-    queued = true;
-    requestAnimationFrame(() => {
-      queued = false;
+  function safeEnhance() {
+    try {
       enhance();
-    });
+    } catch (error) {
+      console.warn('Slevao product premium enhancement skipped:', error);
+    }
+  }
+
+  const scheduleEnhancements = () => {
+    safeEnhance();
+    [250, 800, 1600, 3000].forEach((delay) => window.setTimeout(safeEnhance, delay));
   };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', queue, { once:true });
-  else queue();
-
-  const observer = new MutationObserver(queue);
-  observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true });
-  window.setTimeout(() => observer.disconnect(), 15000);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scheduleEnhancements, { once:true });
+  } else {
+    scheduleEnhancements();
+  }
 })();
