@@ -28,6 +28,19 @@
 
   const keyOf = (row) => `${Number(row.source_page || 0)}|${String(row.document_url || '')}`;
 
+  function metadataLocation(offer) {
+    const page = Number(offer?.metadata?.leaflet_page || 0);
+    const documentUrl = String(offer?.metadata?.leaflet_document_url || '');
+    if (!Number.isInteger(page) || page < 1 || page > 500 || !validPdf(documentUrl)) return null;
+    return {
+      store_id: offer.store_id,
+      source_page: page,
+      document_url: documentUrl,
+      valid_from: offer.valid_from || null,
+      valid_to: offer.valid_to || null,
+    };
+  }
+
   function exactLocation(offer, locations) {
     const candidates = locations.filter((row) =>
       row.store_id === offer.store_id
@@ -91,7 +104,7 @@
   async function loadData() {
     const [offersResult, locationsResult] = await Promise.all([
       db.from('offers')
-        .select('id,store_id,valid_from,valid_to,stores(slug)')
+        .select('id,store_id,valid_from,valid_to,metadata,stores(slug)')
         .eq('product_id', productId)
         .eq('status', 'published')
         .limit(100),
@@ -115,7 +128,8 @@
         if (!id) return;
         const offer = offers.get(String(id));
         if (!offer) return;
-        applyToCard(card, offer, exactLocation(offer, locations));
+        const locationRow = metadataLocation(offer) || exactLocation(offer, locations);
+        applyToCard(card, offer, locationRow);
       });
     };
 
