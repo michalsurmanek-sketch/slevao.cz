@@ -17,14 +17,15 @@
     const data = options?.data || {};
     const branch = data.branchId || data.storeId || 'slevao';
     const timeSlot = Math.floor(Date.now() / WINDOW_MS);
-    return hash(`${kind}|${branch}|${timeSlot}`) % count;
+    const start = hash(`${kind}|${branch}`) % count;
+    return (start + timeSlot) % count;
   }
 
   function cleanStoreName(title) {
     const text = String(title || '').replace(/🛒/g, '').trim();
     if (/^Jsi v\s+/i.test(text)) return text.replace(/^Jsi v\s+/i, '').trim();
     if (text.includes('·')) return text.split('·').pop().trim();
-    return 'obchodě';
+    return 'obchod';
   }
 
   function transformStaples(title, body, options) {
@@ -47,7 +48,7 @@
         body: `Základní potraviny právě teď: ${facts}.`,
       },
       {
-        title: `Co se dnes vyplatí v ${storeName} 🛒`,
+        title: `Co se dnes vyplatí · ${storeName} 🛒`,
         body: `Slevao vybralo z aktuálních akcí: ${facts}.`,
       },
       {
@@ -69,9 +70,9 @@
 
     const variants = [
       { title: `Jsi v ${storeName} 🛒`, body: facts },
-      { title: `Tvůj nákup v ${storeName} právě zlevnil`, body: `Slevao našlo shody s tvým seznamem. ${facts}` },
+      { title: `Tvůj nákup právě zlevnil · ${storeName}`, body: `Slevao našlo shody s tvým seznamem. ${facts}` },
       { title: `Slevy z tvého seznamu · ${storeName}`, body: `Právě tady se vyplatí zkontrolovat seznam. ${facts}` },
-      { title: 'Dobrá zpráva pro tvůj nákup 🛒', body: `${facts} Platí právě v ${storeName}.` },
+      { title: 'Dobrá zpráva pro tvůj nákup 🛒', body: `${facts} Platí právě pro ${storeName}.` },
       { title: `Mrkni na svůj seznam · ${storeName}`, body: `Některé tvoje položky jsou právě ve slevě. ${facts}` },
     ];
     return variants[variantIndex(options, 'list', variants.length)];
@@ -82,9 +83,9 @@
     const facts = String(body || '').trim();
     const variants = [
       { title: `Jsi v ${storeName} 🛒`, body: facts },
-      { title: `Nejlepší tip právě v ${storeName}`, body: facts },
+      { title: `Nejlepší tip právě tady · ${storeName}`, body: facts },
       { title: `Akce, která stojí za pozornost · ${storeName}`, body: facts },
-      { title: `Rychlý tip z ${storeName} 🛒`, body: facts },
+      { title: `Rychlý tip · ${storeName} 🛒`, body: facts },
     ];
     return variants[variantIndex(options, 'generic', variants.length)];
   }
