@@ -26,7 +26,7 @@
       }
       if (!window.supabase) return;
       const script = document.createElement('script');
-      script.src = 'assets/product-personalization.js?v=20260804-2';
+      script.src = 'assets/product-personalization.js?v=20260811-1';
       script.defer = true;
       document.head.appendChild(script);
     };
@@ -37,6 +37,20 @@
     if (document.querySelector('script[src*="pwa-install.js"]')) return;
     const script = document.createElement('script');
     script.src = 'assets/pwa-install.js?v=20260804-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
+  function loadStoreArrivalAlerts() {
+    if (!document.querySelector('link[href*="store-arrival-alerts.css"]')) {
+      const style = document.createElement('link');
+      style.rel = 'stylesheet';
+      style.href = 'assets/store-arrival-alerts.css?v=20260811-1';
+      document.head.appendChild(style);
+    }
+    if (document.querySelector('script[src*="store-arrival-alerts.js"]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/store-arrival-alerts.js?v=20260811-1';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -156,6 +170,7 @@
 
   loadPersonalization();
   loadPwa();
+  loadStoreArrivalAlerts();
   loadHomePersonalDeals();
   installMobileNavVisualFix();
 
