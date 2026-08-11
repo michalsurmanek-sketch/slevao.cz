@@ -43,6 +43,17 @@ function isGlobusPdfUrl(value: string): boolean {
   }
 }
 
+function isTetaViewerUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return url.protocol === 'https:'
+      && url.hostname === 'letak.tetadrogerie.cz'
+      && /^\/[a-z0-9-]+\/?$/i.test(url.pathname);
+  } catch {
+    return false;
+  }
+}
+
 function globusPdfFromHtml(html: string): string | null {
   const source = normalizedEscapes(html);
   const candidates = source.match(/https:\/\/gapi\.globus\.cz\/OnlineAsset\/3\/asset\?assetID=[0-9a-f-]{36}(?:&[^\s"'<>]*)?/gi) || [];
@@ -63,7 +74,8 @@ function officialPublicDocument(value: string): string | null {
     const pennyDocument = url.hostname === 'files.rewe.co.at'
       && /^\/PennyIntLeaflet\/CZ\/[^/]+\/files\/assets\/common\/downloads\/[^/]+\.pdf$/i.test(url.pathname);
     const globusDocument = isGlobusPdfUrl(url.toString());
-    return tescoDocument || pennyDocument || globusDocument ? url.toString() : null;
+    const tetaViewer = isTetaViewerUrl(url.toString());
+    return tescoDocument || pennyDocument || globusDocument || tetaViewer ? url.toString() : null;
   } catch {
     return null;
   }
@@ -126,10 +138,28 @@ async function resolveGlobusPdf(sourcePageUrl: string): Promise<{ pdfUrl: string
   return { pdfUrl, referer: pageResponse.url };
 }
 
+async function resolveTetaPdf(viewerUrl: string): Promise<{ pdfUrl: string; referer: string }> {
+  if (!isTetaViewerUrl(viewerUrl)) throw new Error('Teta má nepovolený zdroj letáku.');
+  const pageResponse = await fetch(viewerUrl, {
+    headers: {
+      ...BROWSER_HEADERS,
+      accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+    },
+    redirect: 'follow',
+  });
+  if (!pageResponse.ok) throw new Error(`Prohlížeč Teta vrátil HTTP ${pageResponse.status}.`);
+  const html = normalizedEscapes(await pageResponse.text());
+  const candidates = html.match(/https:\/\/liveecpaperdmp\.blob\.core\.windows\.net\/[^\s"'<>]+\.pdf(?:\?[^\s"'<>]*)?/gi) || [];
+  const pdfUrl = candidates[0]?.replace(/[),.;]+$/, '') || '';
+  if (!pdfUrl) throw new Error('Teta v prohlížeči nevrátila odkaz ke stažení PDF.');
+  return { pdfUrl: new URL(pdfUrl).toString(), referer: pageResponse.url };
+}
+
 function upstreamContext(sourceUrl: string, fallbackReferer = ''): { referer: string; origin?: string } {
   if (sourceUrl.includes('files.rewe.co.at')) return { referer: 'https://www.penny.cz/', origin: 'https://www.penny.cz' };
   if (sourceUrl.includes('digitalcontent.api.tesco.com')) return { referer: 'https://www.itesco.cz/', origin: 'https://www.itesco.cz' };
   if (isGlobusPdfUrl(sourceUrl)) return { referer: fallbackReferer || 'https://www.globus.cz/' };
+  if (sourceUrl.includes('liveecpaperdmp.blob.core.windows.net')) return { referer: fallbackReferer || 'https://letak.tetadrogerie.cz/' };
   return { referer: fallbackReferer || sourceUrl };
 }
 
@@ -164,6 +194,8 @@ Deno.serve(async (request) => {
     sourceDocumentUrl = String(job.source_document_url || '');
   } else if (isGlobusPdfUrl(officialSourceUrl)) {
     storeSlug = 'globus';
+  } else if (isTetaViewerUrl(officialSourceUrl)) {
+    storeSlug = 'teta';
   }
 
   const bucket = typeof job?.metadata?.storage_bucket === 'string' ? job.metadata.storage_bucket : '';
@@ -196,6 +228,10 @@ Deno.serve(async (request) => {
   try {
     if (storeSlug === 'globus') {
       const resolved = await resolveGlobusPdf(sourceDocumentUrl);
+      sourceDocumentUrl = resolved.pdfUrl;
+      sourceReferer = resolved.referer;
+    } else if (storeSlug === 'teta') {
+      const resolved = await resolveTetaPdf(sourceDocumentUrl);
       sourceDocumentUrl = resolved.pdfUrl;
       sourceReferer = resolved.referer;
     }
