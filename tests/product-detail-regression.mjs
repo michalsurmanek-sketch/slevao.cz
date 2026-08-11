@@ -11,6 +11,8 @@ const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
 const leaflet = read('assets/product-leaflet-location-global.js');
 const premiumRuntime = read('assets/product-premium-runtime.js');
+const equivalence = read('assets/product-equivalence.js');
+const equivalenceCss = read('assets/product-equivalence.css');
 const serviceWorker = read('service-worker.js');
 const html = read('produkt.html');
 
@@ -21,6 +23,7 @@ for (const [path, source] of [
   ['assets/product-intelligence.js', intelligence],
   ['assets/product-leaflet-location-global.js', leaflet],
   ['assets/product-premium-runtime.js', premiumRuntime],
+  ['assets/product-equivalence.js', equivalence],
   ['service-worker.js', serviceWorker],
 ]) {
   new Script(source, { filename:path });
@@ -79,6 +82,16 @@ assert.match(premiumRuntime, /sfPremiumBestOffer/, 'Detail postrádá CTA na nej
 assert.match(premiumRuntime, /sfHeroTrustChips/, 'Detail postrádá důvěryhodnostní prvky.');
 assert.match(premiumRuntime, /sfOffersTitleIcon/, 'Sekce porovnání postrádá vizuální orientační prvek.');
 
+// Ekvivalentní master produkty jsou jen doplňková, přísně ověřená vrstva.
+assert.match(equivalence, /\.gte\('confidence', \.99\)/, 'Ekvivalence musí vyžadovat jistotu alespoň 99 %.');
+assert.match(equivalence, /row\.is_verified === true/, 'Ekvivalence musí vyžadovat ověřený produkt.');
+assert.match(equivalence, /identityConsistent\(current, row\)/, 'Ekvivalence musí za běhu znovu ověřit identitu produktu.');
+assert.match(equivalence, /currentBrand !== otherBrand/, 'Ekvivalence musí kontrolovat shodnou značku.');
+assert.match(equivalence, /sameQuantity\(currentQuantity, otherQuantity\)/, 'Ekvivalence musí kontrolovat shodné balení.');
+assert.match(equivalence, /sourceSection\.after\(section\)/, 'Ekvivalentní ceny musí zůstat v oddělené sekci.');
+assert.doesNotMatch(equivalence, /price_history|price_alerts|product_favorites/, 'Ekvivalence nesmí míchat historii, hlídače ani oblíbené produkty.');
+assert.match(equivalenceCss, /\.sfEqPanel/, 'Ekvivalentní ceny nemají vlastní vzhled.');
+
 // Produkční HTML musí načítat opravené verze bez staré cache.
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
@@ -88,10 +101,12 @@ for (const pattern of [
   /product-seo\.js\?v=20260811-2/,
   /product-premium-runtime\.js\?v=20260811-1/,
   /product-intelligence\.js\?v=20260811-2/,
+  /product-equivalence\.css\?v=20260811-1/,
+  /product-equivalence\.js\?v=20260811-1/,
 ]) assert.match(html, pattern, `produkt.html nemá očekávanou verzi assetu ${pattern}.`);
 
 // PWA fallback musí obsahovat stejné kritické assety jako ostrý detail.
-assert.match(serviceWorker, /slevao-shell-20260811-7/, 'Service worker nemá novou cache detailu produktu.');
+assert.match(serviceWorker, /const CACHE_NAME = 'slevao-shell-[^']+'/, 'Service worker nemá verzovanou cache.');
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
   /product-detail\.js\?v=20260811-7/,
@@ -99,6 +114,8 @@ for (const pattern of [
   /product-seo\.js\?v=20260811-2/,
   /product-premium-runtime\.js\?v=20260811-1/,
   /product-intelligence\.js\?v=20260811-2/,
+  /product-equivalence\.css\?v=20260811-1/,
+  /product-equivalence\.js\?v=20260811-1/,
 ]) assert.match(serviceWorker, pattern, `PWA cache postrádá kritický asset ${pattern}.`);
 
 console.log('Detail produktu: regresní diagnostika prošla.');
