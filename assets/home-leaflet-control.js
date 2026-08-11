@@ -134,7 +134,7 @@
     image.style.removeProperty('object-fit');
     const forced = card.dataset.forcedLeafletCard === '1';
     const badge = card.querySelector('.leafletCurrentBadge');
-    if (badge) badge.textContent = forced ? 'Ručně přidaný' : 'Aktuální leták';
+    if (badge) badge.textContent = forced ? 'Aktuální nabídky' : 'Aktuální leták';
     const meta = card.querySelector('.leafletMeta span:first-child');
     if (meta) meta.textContent = forced ? 'Nabídky obchodu' : 'Titulní strana';
   }
@@ -187,20 +187,33 @@
 
   function forcedCoverSource(settings) {
     if (/^https:\/\//i.test(settings.cover || '')) return settings.cover;
-    if (settings.logoUrl) return settings.logoUrl;
-    return 'data:image/svg+xml;charset=UTF-8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22600%22 height=%22750%22 viewBox=%220 0 600 750%22%3E%3Crect width=%22600%22 height=%22750%22 fill=%22%23f3f8f8%22/%3E%3Ctext x=%22300%22 y=%22390%22 text-anchor=%22middle%22 font-size=%22130%22 font-family=%22Arial%22 font-weight=%22700%22 fill=%22%23159e94%22%3E%25%3C/text%3E%3C/svg%3E';
+    const obi = settings.slug === 'obi';
+    const background = obi ? '#f56600' : '#087e75';
+    const accent = obi ? '#ffffff' : '#67ddd3';
+    const name = esc(settings.name || settings.slug || 'Obchod');
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="750" viewBox="0 0 600 750">
+      <rect width="600" height="750" rx="34" fill="${background}"/>
+      <circle cx="510" cy="90" r="150" fill="${accent}" opacity=".14"/>
+      <circle cx="85" cy="690" r="190" fill="${accent}" opacity=".1"/>
+      <rect x="48" y="48" width="504" height="654" rx="28" fill="none" stroke="#fff" stroke-width="4" opacity=".5"/>
+      <text x="300" y="315" text-anchor="middle" font-family="Arial,sans-serif" font-size="${name.length > 12 ? 62 : 92}" font-weight="900" fill="#fff">${name}</text>
+      <rect x="135" y="365" width="330" height="4" rx="2" fill="#fff" opacity=".7"/>
+      <text x="300" y="430" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#fff">AKTUÁLNÍ NABÍDKY</text>
+      <text x="300" y="490" text-anchor="middle" font-family="Arial,sans-serif" font-size="22" fill="#fff" opacity=".85">Prohlédněte si nabídku obchodu</text>
+    </svg>`;
+    return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
   }
 
   function forcedCardMarkup(settings) {
     const source = forcedCoverSource(settings);
     return `<article class="leafletCard" data-direct-leaflet-card="1" data-forced-leaflet-card="1" data-store-slug="${esc(settings.slug)}">
       <a class="leafletCover leafletCoverLink" href="${esc(settings.slug)}.html" aria-label="Otevřít nabídky ${esc(settings.name)}">
-        <img class="leafletFrontPage" src="${esc(source)}" data-automatic-leaflet-src="${esc(source)}" alt="Nabídky obchodu ${esc(settings.name)}" style="object-fit:${settings.cover ? 'cover' : 'contain'};background:#fff">
-        <span class="leafletCurrentBadge">Ručně přidaný</span>
+        <img class="leafletFrontPage" src="${esc(source)}" data-automatic-leaflet-src="${esc(source)}" alt="Nabídky obchodu ${esc(settings.name)}" style="object-fit:cover;background:#fff">
+        <span class="leafletCurrentBadge">Aktuální nabídky</span>
       </a>
       <div class="leafletBody">
         <div class="leafletStoreIdentity">${logoMarkup(settings)}<h3>${esc(settings.name)}</h3></div>
-        <div class="leafletMeta"><span>Nabídky obchodu</span><span>ručně přidaná karta</span></div>
+        <div class="leafletMeta"><span>Nabídky obchodu</span><span>Aktuálně online</span></div>
         <div class="leafletAction">
           <button class="textButton" type="button" data-store="${esc(settings.slug)}">Zobrazit akce</button>
           <a href="${esc(settings.slug)}.html">Otevřít obchod ↗</a>
