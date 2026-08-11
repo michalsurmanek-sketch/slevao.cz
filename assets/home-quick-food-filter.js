@@ -63,8 +63,7 @@
     const scroller = dock.querySelector('.sqFoodDockItems');
     const previous = dock.querySelector('[data-sq-food-scroll="prev"]');
     const next = dock.querySelector('[data-sq-food-scroll="next"]');
-    const cue = dock.querySelector('.sqFoodSwipeCue');
-    if (!scroller || !previous || !next || !cue) return;
+    if (!scroller || !previous || !next) return;
 
     let frame = 0;
     const update = () => {
@@ -78,7 +77,6 @@
       next.disabled = !canRight;
       dock.classList.toggle('can-scroll-left', canLeft);
       dock.classList.toggle('can-scroll-right', canRight);
-      cue.hidden = max < 12;
     };
 
     const scheduleUpdate = () => {
@@ -133,7 +131,6 @@
         ${ITEMS.map(([term, icon, label]) => `<button class="sqFoodQuick" type="button" data-sq-food="${term}" aria-pressed="false" title="Filtrovat: ${label}"><span class="sqFoodIcon" aria-hidden="true">${icon}</span><span>${label}</span></button>`).join('')}
       </div>
       <button class="sqFoodScrollArrow sqFoodScrollArrowNext" type="button" data-sq-food-scroll="next" aria-label="Další kategorie">›</button>
-      <div class="sqFoodSwipeCue" aria-hidden="true"><span>←</span><strong>Posuň do stran pro další kategorie</strong><span>→</span></div>
       <button class="sqFoodClear" type="button" aria-pressed="false">Zrušit rychlý filtr</button>`;
 
     if (localStorage.getItem(STORAGE_KEY) === '1') dock.classList.add('collapsed');
