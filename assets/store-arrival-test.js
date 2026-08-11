@@ -4,9 +4,36 @@
   const TEST_ID = 'slArrivalTest';
   const PREVIEW_ID = 'slArrivalTestPreview';
   const TEST_LABEL = '🔔 Poslat tuto ukázku';
-  const EXAMPLE_TITLE = '[TEST] Základní potraviny v akci · Kaufland 🛒';
-  const EXAMPLE_BODY = 'Kuřecí maso 44,90 Kč (−50 %) · Mléko 19,90 Kč (−50 %) · Brambory 9,90 Kč (−60 %).';
+  const EXAMPLE_FACTS = 'Kuřecí maso 44,90 Kč (−50 %) · Mléko 19,90 Kč (−50 %) · Brambory 9,90 Kč (−60 %).';
   const EXAMPLE_IMAGE = 'https://uhampjdqjxmbhaptgitn.supabase.co/storage/v1/object/public/product-images/manual/c5f264f1-9fbf-49b7-a606-fa744e6e0615/brambory-chatgpt-1b151632.webp';
+  const EXAMPLES = [
+    {
+      title: '[TEST] Základní potraviny v akci · Kaufland 🛒',
+      body: `Dnešní základní nákup: ${EXAMPLE_FACTS}`,
+    },
+    {
+      title: '[TEST] Ceny, které dnes stojí za pozornost · Kaufland',
+      body: `Základní potraviny právě teď: ${EXAMPLE_FACTS}`,
+    },
+    {
+      title: '[TEST] Co se dnes vyplatí v Kauflandu 🛒',
+      body: `Slevao vybralo z aktuálních akcí: ${EXAMPLE_FACTS}`,
+    },
+    {
+      title: '[TEST] Rychlý tip před nákupem · Kaufland',
+      body: `Mrkni hlavně na tyto ceny: ${EXAMPLE_FACTS}`,
+    },
+    {
+      title: '[TEST] Dnešní základní nákup · Kaufland',
+      body: `Z nejdůležitějších potravin jsou právě v akci: ${EXAMPLE_FACTS}`,
+    },
+  ];
+
+  let exampleIndex = 0;
+
+  function currentExample() {
+    return EXAMPLES[exampleIndex % EXAMPLES.length];
+  }
 
   function setStatus(text, type = '') {
     const node = document.getElementById('slArrivalStatus');
@@ -21,7 +48,8 @@
     style.id = 'slArrivalTestStyle';
     style.textContent = `
       .slArrivalTestPreview{margin-top:8px;padding:10px;border:1px solid rgba(8,126,117,.16);border-radius:13px;background:#fff;box-shadow:0 8px 22px rgba(8,126,117,.08)}
-      .slArrivalTestPreviewLabel{display:block;margin-bottom:7px;color:#6f7d7b;font:800 9px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+      .slArrivalTestPreviewLabel{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;color:#6f7d7b;font:800 9px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase}
+      .slArrivalTestPreviewCounter{color:#0a8b80;letter-spacing:0;text-transform:none}
       .slArrivalTestPreviewCard{display:grid;grid-template-columns:54px minmax(0,1fr);gap:9px;align-items:center}
       .slArrivalTestPreviewImage{width:54px;height:54px;display:block;object-fit:contain;border-radius:10px;background:#f4faf9;border:1px solid rgba(8,126,117,.1)}
       .slArrivalTestPreviewCopy{min-width:0;display:grid;gap:3px}
@@ -37,6 +65,18 @@
     document.head.appendChild(style);
   }
 
+  function renderPreview() {
+    const preview = document.getElementById(PREVIEW_ID);
+    if (!preview) return;
+    const example = currentExample();
+    const title = preview.querySelector('[data-preview-title]');
+    const body = preview.querySelector('[data-preview-body]');
+    const counter = preview.querySelector('[data-preview-counter]');
+    if (title) title.textContent = example.title.replace(/^\[TEST\]\s*/, '');
+    if (body) body.textContent = example.body;
+    if (counter) counter.textContent = `${exampleIndex + 1}/${EXAMPLES.length}`;
+  }
+
   async function sendNotification() {
     if (!('Notification' in window)) throw new Error('Tento prohlížeč nepodporuje oznámení.');
 
@@ -44,26 +84,27 @@
     if (permission === 'default') permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Nejdřív povol oznámení pro Slevao.cz.');
 
+    const example = currentExample();
     const options = {
-      body: `Ukázka bez nákupního seznamu: ${EXAMPLE_BODY}`,
+      body: example.body,
       icon: '/favicon.svg',
       badge: '/favicon.svg',
       image: EXAMPLE_IMAGE,
       tag: `slevao-arrival-test-${Date.now()}`,
       renotify: false,
-      data: { url: '/index.html#dealsSection', test: true, scenario: 'no-list-staples' },
+      data: { url: '/index.html#dealsSection', test: true, scenario: 'no-list-staples', variant: exampleIndex },
       vibrate: [90, 45, 90],
     };
 
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.ready;
-        await registration.showNotification(EXAMPLE_TITLE, options);
+        await registration.showNotification(example.title, options);
         return;
       } catch {}
     }
 
-    const notification = new Notification(EXAMPLE_TITLE, options);
+    const notification = new Notification(example.title, options);
     notification.onclick = () => {
       window.focus();
       window.location.href = options.data.url;
@@ -76,12 +117,14 @@
     if (!button) return;
     button.disabled = true;
     button.textContent = 'Odesílám ukázku…';
-    setStatus('TEST: GPS ani nákupní seznam se nekontrolují. Odesílám ukázku výše.', 'checking');
+    setStatus(`TEST: odesílám variantu ${exampleIndex + 1} z ${EXAMPLES.length}. GPS ani nákupní seznam se nekontrolují.`, 'checking');
 
     try {
       await sendNotification();
       button.textContent = '✓ Ukázka odeslána';
-      setStatus('Ukázka byla odeslána jako systémové upozornění. Ve skutečnosti se produkty a ceny vyberou z aktuálních akcí konkrétního obchodu.', 'ok');
+      exampleIndex = (exampleIndex + 1) % EXAMPLES.length;
+      renderPreview();
+      setStatus('Ukázka byla odeslána. Nad tlačítkem je už připravená další formulace se stejnými cenovými fakty.', 'ok');
       window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3200);
     } catch (error) {
       button.textContent = TEST_LABEL;
@@ -96,13 +139,13 @@
     preview.id = PREVIEW_ID;
     preview.className = 'slArrivalTestPreview';
     preview.innerHTML = `
-      <span class="slArrivalTestPreviewLabel">Ukázka upozornění bez seznamu</span>
+      <span class="slArrivalTestPreviewLabel">Ukázka upozornění bez seznamu <b class="slArrivalTestPreviewCounter" data-preview-counter>1/${EXAMPLES.length}</b></span>
       <div class="slArrivalTestPreviewCard">
         <img class="slArrivalTestPreviewImage" src="${EXAMPLE_IMAGE}" alt="Ukázka produktu Brambory" loading="lazy">
         <div class="slArrivalTestPreviewCopy">
-          <strong>Základní potraviny v akci · Kaufland 🛒</strong>
-          <span>${EXAMPLE_BODY}</span>
-          <small>Skutečné upozornění použije právě platné ceny v obchodě.</small>
+          <strong data-preview-title></strong>
+          <span data-preview-body></span>
+          <small>Po odeslání se automaticky připraví další textová varianta.</small>
         </div>
       </div>`;
     return preview;
@@ -120,7 +163,7 @@
     button.className = 'slArrivalTest';
     button.type = 'button';
     button.textContent = TEST_LABEL;
-    button.title = 'Pošle zobrazenou ukázku bez kontroly GPS a bez nákupního seznamu';
+    button.title = 'Pošle zobrazenou ukázku bez kontroly GPS a potom připraví další formulaci';
     button.addEventListener('click', testFromUser);
 
     const status = document.getElementById('slArrivalStatus');
@@ -130,6 +173,7 @@
     } else {
       control.append(preview, button);
     }
+    renderPreview();
     return true;
   }
 
