@@ -1,31 +1,36 @@
 /* Slevao.cz – finální upgrade patičky podle schváleného vizuálu. */
 
-.footerFavorite{display:none!important}
-
+/* Čtvrtá výhoda v levém sloupci – vizuálně stejná jako ostatní položky. */
 .footerFeatures::after{
-  content:"🔔  Upozornění na slevy";
+  content:"Upozornění na slevy";
   min-height:70px;
   display:flex;
   align-items:center;
-  padding-left:10px;
+  padding-left:62px;
   border-top:1px dashed rgba(145,224,216,.18);
   color:#e4efee;
   font-size:15px;
   font-weight:500;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='0.5' y='0.5' width='47' height='47' rx='14' fill='%230f5d5d' fill-opacity='.48' stroke='%2331d6c5' stroke-opacity='.32'/%3E%3Cpath d='M18 29h12l-1.8-2.4V21a4.2 4.2 0 0 0-8.4 0v5.6L18 29Zm4 3h4' fill='none' stroke='%2331d6c5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:left center;
+  background-size:48px 48px;
 }
 
 @media(min-width:1261px){
   .footerMain{
     grid-template-columns:1.28fr .72fr .78fr 1fr 1.18fr!important;
     gap:34px!important;
+    row-gap:18px!important;
     padding:52px 50px 30px!important;
     align-items:start!important;
   }
-  .footerIdentity{grid-column:1!important;grid-row:1!important}
+  .footerIdentity{grid-column:1!important;grid-row:1 / span 2!important}
   .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
   .footerColumnHelp{grid-column:3!important;grid-row:1!important}
-  .footerColumnUseful{grid-column:4!important;grid-row:1!important}
-  .footerWatch{grid-column:5!important;grid-row:1!important}
+  .footerColumnUseful{grid-column:4!important;grid-row:1 / span 2!important}
+  .footerWatch{grid-column:5!important;grid-row:1 / span 2!important}
+  .footerFavorite{display:block!important;grid-column:2 / 4!important;grid-row:2!important;margin-top:-6px!important}
 }
 
 .footerBottom{
@@ -66,6 +71,9 @@
   font-size:0!important;
   white-space:normal!important;
 }
+
+/* První text má větší odstup od velké ikony štítu. */
+.footerCopyright{padding-left:92px!important}
 
 .footerTrust,
 .footerBadge{border-left:1px solid rgba(91,218,206,.25)!important}
@@ -137,20 +145,34 @@
   .footerMain{
     grid-template-columns:1.2fr .8fr .9fr 1.1fr!important;
     gap:28px!important;
+    row-gap:18px!important;
   }
   .footerIdentity{grid-column:1!important;grid-row:1 / span 2!important}
   .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
   .footerColumnHelp{grid-column:3!important;grid-row:1!important}
   .footerColumnUseful{grid-column:4!important;grid-row:1 / span 2!important}
-  .footerWatch{grid-column:2 / 4!important;grid-row:2!important}
+  .footerFavorite{display:block!important;grid-column:2 / 4!important;grid-row:2!important;margin-top:-6px!important}
+  .footerWatch{grid-column:1 / -1!important;grid-row:3!important}
   .footerBottom{margin-left:28px!important;margin-right:28px!important}
   .footerBottomInner{grid-template-columns:1.35fr 1fr 1fr 1fr!important}
   .footerCopyright,.footerTrust,.footerBadge{padding-left:62px!important;padding-right:14px!important}
+  .footerCopyright{padding-left:78px!important}
   .footerCopyright::before,.footerTrust::before,.footerBadge::before{left:14px}
 }
 
 @media(max-width:900px){
-  .footerFeatures::after{min-height:92px;justify-content:center;padding:12px;border:1px solid rgba(145,224,216,.14);border-radius:14px;text-align:center;font-size:13px}
+  .footerFeatures::after{
+    min-height:92px;
+    justify-content:center;
+    padding:56px 12px 12px;
+    border:1px solid rgba(145,224,216,.14);
+    border-radius:14px;
+    text-align:center;
+    font-size:13px;
+    background-position:center 10px;
+    background-size:40px 40px;
+  }
+  .footerFavorite{display:block!important}
   .footerBottom{margin:0 20px 64px!important;border-radius:18px!important}
   .footerBottomInner{grid-template-columns:1fr 1fr!important}
   .footerCopyright{grid-column:1 / -1!important}
@@ -162,11 +184,18 @@
 }
 
 @media(max-width:620px){
-  .footerFeatures::after{min-height:62px;justify-content:flex-start;text-align:left}
+  .footerFeatures::after{
+    min-height:62px;
+    justify-content:flex-start;
+    padding:12px 12px 12px 72px;
+    text-align:left;
+    background-position:12px center;
+    background-size:42px 42px;
+  }
   .footerBottom{margin:0 12px 68px!important}
   .footerBottomInner{grid-template-columns:1fr!important}
   .footerCopyright,.footerTrust,.footerBadge{grid-column:auto!important;min-height:78px!important;border-left:0!important;border-top:1px solid rgba(91,218,206,.18)!important;padding:15px 14px 15px 64px!important}
-  .footerCopyright{border-top:0!important}
+  .footerCopyright{border-top:0!important;padding-left:72px!important}
   .footerCopyright::before,.footerTrust::before,.footerBadge::before{left:14px;width:36px;height:36px;font-size:18px}
   .footerCopyright::before{width:42px;height:42px;border-radius:14px;font-size:22px}
   .footerCopyright::after,.footerTrust::after,.footerBadge::after{font-size:12.5px}
