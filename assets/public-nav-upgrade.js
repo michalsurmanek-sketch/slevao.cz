@@ -58,7 +58,7 @@
   function loadStoreArrivalTest() {
     if (document.querySelector('script[src*="store-arrival-test.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/store-arrival-test.js?v=20260811-2';
+    script.src = 'assets/store-arrival-test.js?v=20260811-3';
     script.defer = true;
     document.head.appendChild(script);
   }
