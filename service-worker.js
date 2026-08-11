@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260811-6';
+const CACHE_NAME = 'slevao-shell-20260811-7';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -12,13 +12,20 @@ const SHELL = [
   '/manifest.webmanifest',
   '/favicon.svg',
   '/assets/public-features.css?v=20260804-2',
-  '/assets/public-features.js?v=20260804-2',
+  '/assets/public-features.js?v=20260811-3',
   '/assets/public-nav-upgrade.js?v=20260811-5',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260810-1',
   '/assets/product-personalization.css?v=20260804-2',
   '/assets/product-personalization.js?v=20260811-1',
+  '/assets/product-intelligence.css?v=20260810-2',
+  '/assets/product-premium.css?v=20260811-2',
+  '/assets/product-detail.js?v=20260811-7',
+  '/assets/product-leaflet-location-global.js?v=20260811-2',
+  '/assets/product-seo.js?v=20260811-2',
+  '/assets/product-premium-runtime.js?v=20260811-1',
+  '/assets/product-intelligence.js?v=20260811-2',
   '/assets/home-personal-deals.css?v=20260804-1',
   '/assets/home-personal-deals.js?v=20260804-1',
   '/assets/pwa-install.js?v=20260804-1',
@@ -31,9 +38,7 @@ const SHELL = [
   '/assets/shopping-list.js?v=20260804-3',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights.js?v=20260804-2',
-  '/assets/account.js?v=20260804-3',
-  '/assets/product-detail.js?v=20260811-5',
-  '/assets/product-seo.js?v=20260804-1'
+  '/assets/account.js?v=20260804-3'
 ];
 
 self.addEventListener('install', (event) => {
