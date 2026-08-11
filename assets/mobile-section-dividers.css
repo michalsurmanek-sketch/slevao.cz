@@ -2,13 +2,14 @@
 @media(max-width:800px){
   main#top > section:not(.hero):not(#desktopOverview){
     position:relative;
+    margin-top:48px!important;
   }
 
   main#top > section:not(.hero):not(#desktopOverview)::before{
     content:"";
     position:absolute;
     z-index:20;
-    top:9px;
+    top:-24px;
     left:28px;
     right:28px;
     height:1px;
@@ -20,7 +21,7 @@
     content:"";
     position:absolute;
     z-index:21;
-    top:-5px;
+    top:-38px;
     left:50%;
     width:28px;
     height:28px;
