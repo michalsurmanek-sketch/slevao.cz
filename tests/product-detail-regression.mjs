@@ -7,6 +7,8 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const detail = read('assets/product-detail.js');
 const safety = read('assets/product-detail-safety.js');
+const identityGuard = read('assets/product-identity-guard.js');
+const identityCss = read('assets/product-identity-guard.css');
 const publicFeatures = read('assets/public-features.js');
 const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
@@ -20,6 +22,7 @@ const html = read('produkt.html');
 for (const [path, source] of [
   ['assets/product-detail.js', detail],
   ['assets/product-detail-safety.js', safety],
+  ['assets/product-identity-guard.js', identityGuard],
   ['assets/public-features.js', publicFeatures],
   ['assets/product-seo.js', seo],
   ['assets/product-intelligence.js', intelligence],
@@ -42,6 +45,8 @@ assert.match(detail, /const current = visible\.filter\(\(row\) => !isUpcoming\(r
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
 assert.match(seo, /offersRoot\.dataset\.loaded !== '1'/, 'SEO nečeká na kompletní nabídky.');
+assert.match(seo, /detailRoot\.dataset\.identityReady !== '1'/, 'SEO nečeká na rozhodnutí o přesnosti identity.');
+assert.match(seo, /if \(exactIdentity && offerRows\.length\)/, 'AggregateOffer není omezen jen na přesnou identitu.');
 assert.doesNotMatch(seo, /schema\.org\/InStock/, 'SEO nesmí tvrdit skladovou dostupnost, kterou neznáme.');
 
 assert.doesNotMatch(detail, /\bprompt\s*\(/, 'Detail stále používá prompt() místo modalu.');
@@ -63,9 +68,16 @@ assert.match(safety, /\.select\('id', \{ count:'exact', head:true \}\)/, 'Ochran
 assert.match(safety, /image\.closest\('#productImage'\)/, 'Chybí fallback při chybě produktové fotografie.');
 assert.match(safety, /timeZone:'Europe\/Prague'/, 'Ochranná vrstva nepoužívá české datum nabídek.');
 
+assert.match(identityGuard, /ean \|\| \(product\?\.is_verified === true && brand && quantity\)/, 'Přesná identita není dostatečně konzervativní.');
+assert.match(identityGuard, /apply\('comparable'\)/, 'Při chybě identity se musí zvolit bezpečnější srovnatelný režim.');
+assert.match(identityGuard, /Srovnatelný produkt:/, 'Srovnatelný režim uživateli nevysvětluje omezení.');
+assert.match(identityGuard, /slevao:product-identity-ready/, 'Identity guard nevysílá dokončovací událost.');
+assert.match(identityCss, /\.sfIdentityNotice/, 'Srovnatelný režim nemá vlastní vizuální upozornění.');
+
 assert.match(intelligence, /function bestOfferPerStore\(/, 'Slevao skóre nesjednocuje nabídky podle obchodního řetězce.');
 assert.match(intelligence, /context\.storeCount >= 2/, 'Slevao skóre nevyžaduje dva různé obchody pro market signál.');
-assert.match(intelligence, /porovnáno \$\{context\.storeCount\} obchodů/, 'Slevao skóre nekomunikuje počet skutečných obchodů.');
+assert.match(intelligence, /if \(!context\.identityExact\)/, 'Slevao skóre neblokuje doporučení u nejisté identity.');
+assert.match(intelligence, /BEZ DOPORUČENÍ/, 'Nejistá identita nemá bezpečný stav bez doporučení.');
 assert.doesNotMatch(intelligence, /offers\.length >= 2/, 'Slevao skóre stále používá počet řádků nabídek místo počtu obchodů.');
 assert.match(intelligence, /timeZone:'Europe\/Prague'/, 'Slevao skóre nepoužívá české datum pro platnost nabídek.');
 
@@ -93,13 +105,15 @@ assert.match(equivalenceCss, /\.sfEqPanel/, 'Ekvivalentní ceny nemají vlastní
 
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
-  /public-nav-upgrade\.js\?v=20260811-5/,
-  /store-arrival-alerts\.js\?v=20260811-2/,
+  /public-nav-upgrade\.js\?v=20260811-6/,
+  /store-arrival-alerts\.js\?v=20260811-3/,
   /product-detail\.js\?v=20260811-7/,
   /product-detail-safety\.js\?v=20260811-1/,
-  /product-seo\.js\?v=20260811-2/,
+  /product-identity-guard\.css\?v=20260811-1/,
+  /product-identity-guard\.js\?v=20260811-1/,
+  /product-seo\.js\?v=20260811-3/,
   /product-premium-runtime\.js\?v=20260811-2/,
-  /product-intelligence\.js\?v=20260811-2/,
+  /product-intelligence\.js\?v=20260811-3/,
   /product-equivalence\.css\?v=20260811-1/,
   /product-equivalence\.js\?v=20260811-1/,
 ]) assert.match(html, pattern, `produkt.html nemá očekávanou verzi assetu ${pattern}.`);
@@ -109,10 +123,12 @@ for (const pattern of [
   /public-features\.js\?v=20260811-3/,
   /product-detail\.js\?v=20260811-7/,
   /product-detail-safety\.js\?v=20260811-1/,
+  /product-identity-guard\.css\?v=20260811-1/,
+  /product-identity-guard\.js\?v=20260811-1/,
   /product-leaflet-location-global\.js\?v=20260811-2/,
-  /product-seo\.js\?v=20260811-2/,
+  /product-seo\.js\?v=20260811-3/,
   /product-premium-runtime\.js\?v=20260811-2/,
-  /product-intelligence\.js\?v=20260811-2/,
+  /product-intelligence\.js\?v=20260811-3/,
   /product-equivalence\.css\?v=20260811-1/,
   /product-equivalence\.js\?v=20260811-1/,
 ]) assert.match(serviceWorker, pattern, `PWA cache postrádá kritický asset ${pattern}.`);
