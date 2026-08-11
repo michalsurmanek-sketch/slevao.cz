@@ -44,6 +44,17 @@
   .sqFoodDockHead{justify-content:space-between;gap:6px;padding:0 1px 0 2px}
   .sqFoodDockTitle{text-align:left}
   .sqFoodDockToggle{display:none!important}
+  /* Starý uložený stav „sbaleno“ nesmí po odstranění šipky lištu zamknout. */
+  .sqFoodDock.collapsed{width:88px;padding:8px 7px}
+  .sqFoodDock.collapsed .sqFoodDockTitle{display:block}
+  .sqFoodDock.collapsed .sqFoodDockItems{display:grid}
+  .sqFoodDock.collapsed .sqFoodClear{display:block}
+  .sqFoodDock.collapsed .sqFoodDockHead{margin-bottom:6px;padding:0 1px 0 2px;justify-content:space-between}
+}
+
+@media(max-width:1460px) and (min-width:901px){
+  .sqFoodDock.collapsed{width:76px;padding:7px 6px}
+  .sqFoodDock.collapsed .sqFoodDockHead{margin-bottom:5px}
 }
 
 @media(max-width:900px){
