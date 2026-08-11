@@ -11,6 +11,26 @@
   const COOLDOWN_MS = 4 * 60 * 60 * 1000;
   const CHECK_THROTTLE_MS = 12000;
 
+  const STAPLE_GROUPS = [
+    { key:'milk', label:'Mléko', priority:100, pattern:/\bmleko\b/ },
+    { key:'butter', label:'Máslo', priority:99, pattern:/\bmaslo\b/ },
+    { key:'eggs', label:'Vejce', priority:98, pattern:/\bvejce\b/ },
+    { key:'bread', label:'Pečivo', priority:96, pattern:/\b(chleb\w*|rohlik\w*|housk\w*|peciv\w*)\b/ },
+    { key:'chicken', label:'Kuřecí maso', priority:95, pattern:/\b(kure\w*|kureci\w*)\b/ },
+    { key:'pork', label:'Vepřové maso', priority:93, pattern:/\b(vepr\w*|veprove\w*|veprova\w*|veprovy\w*)\b/ },
+    { key:'potatoes', label:'Brambory', priority:92, pattern:/\bbrambor\w*\b/ },
+    { key:'cheese', label:'Sýr', priority:90, pattern:/\b(syr\w*|eidam\w*|gouda\w*)\b/ },
+    { key:'rice', label:'Rýže', priority:88, pattern:/\bryze\b/ },
+    { key:'pasta', label:'Těstoviny', priority:87, pattern:/\b(testovin\w*|spaget\w*|kolink\w*)\b/ },
+    { key:'oil', label:'Olej', priority:86, pattern:/\bolej\b/ },
+    { key:'flour', label:'Mouka', priority:85, pattern:/\bmouka\b/ },
+    { key:'sugar', label:'Cukr', priority:84, pattern:/\bcukr\b/ },
+    { key:'apples', label:'Jablka', priority:82, pattern:/\bjablk\w*\b/ },
+    { key:'bananas', label:'Banány', priority:81, pattern:/\bbanan\w*\b/ },
+    { key:'onion', label:'Cibule', priority:80, pattern:/\bcibul\w*\b/ },
+    { key:'tomatoes', label:'Rajčata', priority:79, pattern:/\brajcat\w*\b/ },
+  ];
+
   let watchId = null;
   let checking = false;
   let lastCheckAt = 0;
@@ -103,7 +123,7 @@
     control.innerHTML = `
       <button id="slArrivalToggle" class="slArrivalToggle" type="button" aria-pressed="false">
         <span class="slArrivalIcon" aria-hidden="true">◎</span>
-        <span class="slArrivalCopy"><strong>Upozornit mě v obchodě</strong><small>Po příchodu ukážeme akce z tvého seznamu</small></span>
+        <span class="slArrivalCopy"><strong>Upozornit mě v obchodě</strong><small>Seznam má přednost, jinak ukážeme základní potraviny v akci</small></span>
         <span class="slArrivalSwitch" aria-hidden="true"><i></i></span>
       </button>
       <p id="slArrivalStatus" class="slArrivalStatus" role="status" aria-live="polite"></p>`;
@@ -131,7 +151,9 @@
     const title = button.querySelector('strong');
     const note = button.querySelector('small');
     if (title) title.textContent = enabled ? 'Upozornění v obchodě zapnuté' : 'Upozornit mě v obchodě';
-    if (note) note.textContent = enabled ? 'Hlídám příchod k pobočce bez zbytečného spamu' : 'Po příchodu ukážeme akce z tvého seznamu';
+    if (note) note.textContent = enabled
+      ? 'Hlídám tvůj seznam nebo základní potraviny v akci'
+      : 'Seznam má přednost, jinak ukážeme základní potraviny v akci';
   }
 
   async function requestNotificationPermission() {
@@ -146,7 +168,7 @@
   async function showNotification(title, body, data) {
     const options = {
       body,
-      icon: '/favicon.svg',
+      icon: data.icon || '/favicon.svg',
       badge: '/favicon.svg',
       tag: `slevao-store-arrival-${data.branchId}`,
       renotify: false,
@@ -154,6 +176,7 @@
       data,
       vibrate: [90, 45, 90],
     };
+    if (data.image) options.image = data.image;
 
     if ('serviceWorker' in navigator) {
       try {
@@ -178,12 +201,51 @@
     return Math.max(.01, Number(row?.quantity || 1));
   }
 
+  function stapleGroupFor(offer, a) {
+    const folded = a.fold ? a.fold(offer?.title || '') : String(offer?.title || '').toLowerCase();
+    return STAPLE_GROUPS.find((group) => group.pattern.test(folded)) || null;
+  }
+
+  function offerSavingScore(offer, a) {
+    const discount = Number(a.documentedDiscount?.(offer) || 0);
+    const price = Number(offer?.price || 0);
+    const oldPrice = Number(offer?.old_price || 0);
+    const absoluteSaving = oldPrice > price && price > 0 ? Math.min(80, oldPrice - price) : 0;
+    return discount * 2 + absoluteSaving;
+  }
+
+  function selectStapleOffers(offers, a, limit = 3) {
+    const bestByGroup = new Map();
+    for (const offer of offers || []) {
+      if (!(Number(offer?.price) > 0)) continue;
+      const group = stapleGroupFor(offer, a);
+      if (!group) continue;
+      const score = group.priority * 4 + offerSavingScore(offer, a);
+      const current = bestByGroup.get(group.key);
+      if (!current || score > current.score) bestByGroup.set(group.key, { offer, group, score });
+    }
+    return [...bestByGroup.values()]
+      .sort((left, right) => right.score - left.score)
+      .slice(0, Math.max(1, Number(limit) || 3));
+  }
+
+  function stapleBody(items, a) {
+    const parts = items.map(({ offer, group }) => {
+      const discount = Number(a.documentedDiscount?.(offer) || 0);
+      const suffix = discount >= 10 ? ` (−${discount} %)` : '';
+      return `${group.label} ${money(offer.price)} Kč${suffix}`;
+    });
+    if (parts.length === 1) return `${parts[0]} je dnes mezi hlavními akcemi.`;
+    return `Dnešní základní nákup: ${parts.join(' · ')}.`;
+  }
+
   async function notificationCopy(branch) {
     const a = api();
     const storeName = branch.stores?.name || branch.name || 'obchodě';
     const list = a.readList?.().filter((row) => !row.completed && row.product_id) || [];
     let matchedCount = 0;
     let saving = 0;
+    let listImage = '';
     let url = '/index.html#dealsSection';
 
     if (list.length) {
@@ -191,6 +253,7 @@
         const rows = await a.fetchOffersForList(list, [branch.store_id], [branch]);
         const current = (rows || []).filter((offer) => String(offer.store_id) === String(branch.store_id));
         const products = new Set();
+        let bestImageSaving = -1;
         for (const offer of current) {
           const productId = String(offer.product_id || '');
           if (!productId || products.has(productId)) continue;
@@ -198,7 +261,12 @@
           matchedCount += 1;
           const oldPrice = Number(offer.old_price || 0);
           const price = Number(offer.price || 0);
-          if (oldPrice > price && price > 0) saving += (oldPrice - price) * quantityForProduct(list, productId);
+          const itemSaving = oldPrice > price && price > 0 ? (oldPrice - price) * quantityForProduct(list, productId) : 0;
+          saving += itemSaving;
+          if (offer.image_url && itemSaving >= bestImageSaving) {
+            bestImageSaving = itemSaving;
+            listImage = offer.image_url;
+          }
         }
         if (matchedCount) url = '/seznam.html?route=1';
       } catch {}
@@ -210,11 +278,22 @@
         title: `Jsi v ${storeName} 🛒`,
         body: `${matchedCount} ${matchedCount === 1 ? 'položka z tvého seznamu je' : matchedCount < 5 ? 'položky z tvého seznamu jsou' : 'položek z tvého seznamu je'} dnes v akci.${suffix}`,
         url,
+        image: listImage,
       };
     }
 
     try {
       const offers = await a.fetchOffersForStores([branch.store_id], [branch]);
+      const staples = selectStapleOffers(offers, a, 3);
+      if (staples.length) {
+        return {
+          title: `Základní potraviny v akci · ${storeName} 🛒`,
+          body: stapleBody(staples, a),
+          url,
+          image: staples.find((item) => item.offer?.image_url)?.offer?.image_url || '',
+        };
+      }
+
       const top = a.rankOffers?.(offers, 1)?.[0] || offers?.[0];
       if (top) {
         const discount = a.documentedDiscount?.(top) || 0;
@@ -222,13 +301,14 @@
           title: `Jsi v ${storeName} 🛒`,
           body: `${offers.length} dnešních akcí. ${top.title || 'Výhodná nabídka'} za ${money(top.price)} Kč${discount ? ` (−${discount} %)` : ''}.`,
           url,
+          image: top.image_url || '',
         };
       }
     } catch {}
 
     return {
       title: `Jsi v ${storeName} 🛒`,
-      body: 'Otevři Slevao a zkontroluj dnešní akce a svůj nákupní seznam.',
+      body: 'Dnes tu nemáme dost spolehlivých cen základních potravin. Otevři Slevao a zkontroluj aktuální nabídky.',
       url,
     };
   }
@@ -248,6 +328,8 @@
       url: copy.url,
       branchId: String(branch.id || ''),
       storeId: String(branch.store_id || ''),
+      image: copy.image || '',
+      icon: branch.stores?.logo_url || '/favicon.svg',
     });
 
     window.dispatchEvent(new CustomEvent('slevao:store-arrival', {
@@ -368,7 +450,7 @@
     setEnabled(true);
     patchState({ enabledAt: Date.now() });
     updateUi();
-    setStatus('Zapnuto · upozorním tě až po potvrzeném příchodu k pobočce.', 'ok');
+    setStatus('Zapnuto · při příchodu zkontroluji seznam nebo základní potraviny v akci.', 'ok');
     await startWatch(position);
   }
 
