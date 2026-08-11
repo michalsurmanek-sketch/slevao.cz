@@ -1,8 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 // This deployed slug is intentionally reused because the Supabase project has
-// reached its Edge Function slot limit. It is not scheduled or used as a
-// Kaufland debugger anymore; it now performs expired leaflet storage cleanup.
+// reached its Edge Function slot limit. POST performs expired leaflet storage
+// cleanup. Restricted GET proxies JIP leaflet page images for native GitHub OCR.
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
@@ -15,7 +15,7 @@ const HEADERS = {
   'content-type': 'application/json; charset=utf-8',
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
-  'access-control-allow-methods': 'POST,OPTIONS',
+  'access-control-allow-methods': 'GET,POST,OPTIONS',
 };
 
 function response(body: unknown, status = 200) {
@@ -26,6 +26,56 @@ async function isAuthorized(req: Request) {
   const auth = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (auth && auth === SERVICE_ROLE) return true;
   return Boolean(CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET);
+}
+
+function allowedJipPage(raw: string) {
+  try {
+    const url = new URL(raw);
+    if (url.protocol !== 'https:' || url.hostname !== 'www.jip-potraviny.cz') return null;
+    if (!/^\/wp-content\/uploads\/file\/[A-Za-z0-9._%-]+\/files\/(?:mobile|thumb)\/\d+\.jpg$/i.test(url.pathname)) return null;
+    url.search = '';
+    url.hash = '';
+    return url;
+  } catch {
+    return null;
+  }
+}
+
+async function proxyJipPage(req: Request) {
+  const requestUrl = new URL(req.url);
+  const source = allowedJipPage(requestUrl.searchParams.get('url') || '');
+  if (!source) return response({ error: 'Invalid JIP page URL' }, 400);
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 25_000);
+  try {
+    const upstream = await fetch(source, {
+      headers: {
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+        accept: 'image/jpeg,image/*;q=0.9,*/*;q=0.5',
+        'accept-language': 'cs-CZ,cs;q=0.9',
+      },
+      redirect: 'follow',
+      signal: controller.signal,
+    });
+    if (!upstream.ok || !upstream.body) return response({ error: `JIP upstream HTTP ${upstream.status}` }, 502);
+    const contentType = upstream.headers.get('content-type') || 'image/jpeg';
+    if (!contentType.toLowerCase().startsWith('image/')) return response({ error: 'JIP upstream did not return an image' }, 502);
+
+    return new Response(upstream.body, {
+      status: 200,
+      headers: {
+        'access-control-allow-origin': '*',
+        'content-type': contentType,
+        'cache-control': 'public, max-age=1800',
+        'x-content-type-options': 'nosniff',
+      },
+    });
+  } catch (error) {
+    return response({ error: error instanceof Error ? error.message : String(error) }, 502);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function numberInRange(value: unknown, fallback: number, min: number, max: number) {
@@ -45,6 +95,7 @@ async function removeInChunks(bucket: string, paths: string[]) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: HEADERS });
+  if (req.method === 'GET') return proxyJipPage(req);
   if (req.method !== 'POST') return response({ error: 'Method not allowed' }, 405);
   if (!(await isAuthorized(req))) return response({ error: 'Unauthorized' }, 401);
 
