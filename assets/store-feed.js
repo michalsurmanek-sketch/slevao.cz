@@ -186,7 +186,8 @@
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
     const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
-    const canPreview = !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const structuredHtmlSource = config.slug === 'teta' && !/\.(?:pdf|webp|png|jpe?g)(?:\?|$)/i.test(url);
+    const canPreview = !externalViewer && !structuredHtmlSource && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
@@ -260,6 +261,16 @@
       }
       const documentBlob = await response.blob();
       if (!documentBlob.size) throw new Error('Stažený leták je prázdný.');
+      const contentType = String(response.headers.get('content-type') || documentBlob.type || '').toLowerCase();
+      const signature = new Uint8Array(await documentBlob.slice(0, 12).arrayBuffer());
+      const isPdf = signature[0] === 0x25 && signature[1] === 0x50 && signature[2] === 0x44 && signature[3] === 0x46;
+      const isPng = signature[0] === 0x89 && signature[1] === 0x50 && signature[2] === 0x4e && signature[3] === 0x47;
+      const isJpeg = signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+      const isWebp = signature[0] === 0x52 && signature[1] === 0x49 && signature[2] === 0x46 && signature[3] === 0x46
+        && signature[8] === 0x57 && signature[9] === 0x45 && signature[10] === 0x42 && signature[11] === 0x50;
+      if (/text\/html|application\/xhtml\+xml|text\/plain/.test(contentType) || (!isPdf && !isPng && !isJpeg && !isWebp)) {
+        throw new Error('Zdroj nevrátil skutečný PDF nebo obrázkový leták.');
+      }
       leafletObjectUrl = URL.createObjectURL(documentBlob);
       frame.src = `${leafletObjectUrl}#page=1&zoom=page-fit`;
       frame.hidden = false;
