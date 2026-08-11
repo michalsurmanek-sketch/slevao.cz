@@ -1,0 +1,156 @@
+/* Slevao.cz – prémiový spodní důvěryhodnostní panel patičky podle schváleného vizuálu. */
+
+@media(min-width:1261px){
+  .footerMain{
+    grid-template-columns:1.28fr .72fr .78fr 1fr 1.18fr!important;
+    gap:34px!important;
+    padding:52px 50px 30px!important;
+    align-items:start!important;
+  }
+  .footerIdentity{grid-column:1!important;grid-row:1!important}
+  .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
+  .footerColumnHelp{grid-column:3!important;grid-row:1!important}
+  .footerColumnUseful{grid-column:4!important;grid-row:1!important}
+  .footerWatch{grid-column:5!important;grid-row:1!important}
+}
+
+.footerFeatures .footerFeature:last-child{border-bottom:0}
+
+.footerTrustStrip{
+  position:relative;
+  z-index:2;
+  display:grid;
+  grid-template-columns:minmax(310px,1.45fr) repeat(3,minmax(170px,1fr));
+  align-items:stretch;
+  gap:0;
+  margin:0 44px 18px;
+  border:1px solid rgba(69,219,204,.48);
+  border-radius:22px;
+  background:linear-gradient(135deg,rgba(5,62,65,.78),rgba(4,42,46,.66));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 12px 32px rgba(0,20,23,.13);
+  overflow:hidden;
+  backdrop-filter:blur(8px);
+}
+
+.footerTrustLead,
+.footerTrustPoint{
+  min-width:0;
+  display:flex;
+  align-items:center;
+  gap:14px;
+  padding:21px 24px;
+}
+
+.footerTrustPoint{
+  position:relative;
+  border-left:1px solid rgba(91,218,206,.25);
+}
+
+.footerTrustIcon,
+.footerTrustPointIcon{
+  display:grid;
+  place-items:center;
+  flex:0 0 auto;
+  border:1px solid rgba(83,226,211,.3);
+  color:#5be4d5;
+  background:radial-gradient(circle at 35% 30%,rgba(77,233,218,.2),rgba(9,85,85,.26));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 20px rgba(0,20,23,.12);
+}
+
+.footerTrustIcon{
+  width:58px;
+  height:58px;
+  border-radius:18px;
+  font-size:28px;
+  font-weight:950;
+}
+
+.footerTrustPointIcon{
+  width:42px;
+  height:42px;
+  border-radius:50%;
+  font-size:21px;
+  font-weight:950;
+}
+
+.footerTrustCopy,
+.footerTrustPointCopy{min-width:0}
+
+.footerTrustCopy strong,
+.footerTrustPointCopy strong{
+  display:block;
+  margin:0 0 5px;
+  color:#fff;
+  font-weight:950;
+  line-height:1.18;
+}
+
+.footerTrustCopy strong{font-size:17px}
+.footerTrustPointCopy strong{font-size:14px}
+
+.footerTrustCopy span,
+.footerTrustPointCopy span{
+  display:block;
+  color:#bcd0cd;
+  line-height:1.35;
+}
+
+.footerTrustCopy span{font-size:13px}
+.footerTrustPointCopy span{font-size:12px}
+
+.footerBottom{
+  margin:0 44px!important;
+  padding:18px 26px 22px!important;
+  border:0!important;
+  border-top:1px solid rgba(153,225,219,.16)!important;
+  border-radius:0!important;
+  background:transparent!important;
+}
+
+.footerBottomInner{
+  grid-template-columns:1fr auto!important;
+  gap:24px!important;
+}
+
+.footerBadges{display:none!important}
+.footerTrust{justify-self:end}
+
+@media(max-width:1260px) and (min-width:901px){
+  .footerMain{
+    grid-template-columns:1.2fr .8fr .9fr 1.1fr!important;
+    gap:28px!important;
+  }
+  .footerIdentity{grid-column:1!important;grid-row:1 / span 2!important}
+  .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
+  .footerColumnHelp{grid-column:3!important;grid-row:1!important}
+  .footerColumnUseful{grid-column:4!important;grid-row:1 / span 2!important}
+  .footerWatch{grid-column:2 / 4!important;grid-row:2!important}
+  .footerTrustStrip{grid-template-columns:1.35fr 1fr 1fr 1fr;margin-left:28px;margin-right:28px}
+  .footerTrustLead,.footerTrustPoint{padding:18px 17px;gap:11px}
+  .footerTrustIcon{width:50px;height:50px;font-size:24px}
+  .footerTrustPointIcon{width:38px;height:38px;font-size:19px}
+}
+
+@media(max-width:900px){
+  .footerTrustStrip{
+    grid-template-columns:1fr 1fr;
+    margin:0 20px 16px;
+    border-radius:18px;
+  }
+  .footerTrustLead{grid-column:1 / -1}
+  .footerTrustPoint{border-top:1px solid rgba(91,218,206,.2)}
+  .footerTrustPoint:nth-child(2){border-left:0}
+  .footerTrustPoint:nth-child(4){grid-column:1 / -1;border-left:0}
+  .footerBottom{margin:0 20px!important;padding:18px 8px 20px!important}
+  .footerBottomInner{grid-template-columns:1fr!important;justify-items:center!important;text-align:center}
+  .footerTrust{justify-self:center}
+}
+
+@media(max-width:620px){
+  .footerTrustStrip{grid-template-columns:1fr;margin:0 12px 14px}
+  .footerTrustLead,.footerTrustPoint{grid-column:auto!important;padding:16px 15px;border-left:0!important;border-top:1px solid rgba(91,218,206,.18)}
+  .footerTrustLead{border-top:0}
+  .footerTrustIcon{width:48px;height:48px;border-radius:15px;font-size:23px}
+  .footerTrustPointIcon{width:36px;height:36px;font-size:18px}
+  .footerBottom{margin:0 12px!important}
+}
