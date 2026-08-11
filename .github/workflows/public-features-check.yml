@@ -11,6 +11,7 @@ on:
       - 'assets/shopping-insights.js'
       - 'assets/shopping-insights.css'
       - 'assets/product-detail.js'
+      - 'assets/product-detail-safety.js'
       - 'assets/product-search.js'
       - 'assets/product-seo.js'
       - 'assets/product-personalization.js'
@@ -49,6 +50,7 @@ jobs:
           node --check assets/shopping-list.js
           node --check assets/shopping-insights.js
           node --check assets/product-detail.js
+          node --check assets/product-detail-safety.js
           node --check assets/product-search.js
           node --check assets/product-seo.js
           node --check assets/product-personalization.js
