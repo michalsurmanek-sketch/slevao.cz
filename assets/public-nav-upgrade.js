@@ -41,6 +41,14 @@
     document.head.appendChild(script);
   }
 
+  function loadStoreArrivalCopyVariation() {
+    if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/store-arrival-copy-variation.js?v=20260811-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadStoreArrivalAlerts() {
     if (!document.querySelector('link[href*="store-arrival-alerts.css"]')) {
       const style = document.createElement('link');
@@ -50,7 +58,7 @@
     }
     if (document.querySelector('script[src*="store-arrival-alerts.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/store-arrival-alerts.js?v=20260811-2';
+    script.src = 'assets/store-arrival-alerts.js?v=20260811-3';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -178,6 +186,7 @@
 
   loadPersonalization();
   loadPwa();
+  loadStoreArrivalCopyVariation();
   loadStoreArrivalAlerts();
   loadStoreArrivalTest();
   loadHomePersonalDeals();
