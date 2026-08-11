@@ -1,5 +1,5 @@
 /* Slevao.cz – rychlý filtr základních potravin. Izolovaná vrstva nad stávajícím filtrováním. */
-.sqFoodDock{position:fixed;z-index:58;right:14px;top:116px;width:88px;padding:8px 7px 8px;border:1px solid rgba(21,158,148,.18);border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(23,34,34,.12);backdrop-filter:blur(18px);transition:width .2s ease,transform .2s ease,opacity .2s ease}
+.sqFoodDock{position:fixed;z-index:58;right:14px;top:96px;width:88px;padding:8px 7px 8px;border:1px solid rgba(21,158,148,.18);border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(23,34,34,.12);backdrop-filter:blur(18px);transition:width .2s ease,transform .2s ease,opacity .2s ease}
 .sqFoodDockHead{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:6px;padding:0 1px}
 .sqFoodDockTitle{font-size:9px;line-height:1.08;font-weight:950;letter-spacing:.05em;text-transform:uppercase;color:#0c786f;text-align:center;flex:1}
 .sqFoodDockToggle{width:25px;height:25px;display:grid;place-items:center;border:0;border-radius:9px;background:#e7faf7;color:#087e75;font-weight:950;padding:0}
@@ -47,7 +47,7 @@
 
 @media(max-width:1460px) and (min-width:901px){
   :root{--sqFoodDockSafeSpace:98px}
-  .sqFoodDock{right:8px;top:110px;width:76px;padding:7px 6px}
+  .sqFoodDock{right:8px;top:94px;width:76px;padding:7px 6px}
   .sqFoodDockHead{margin-bottom:5px}
   .sqFoodDockItems{gap:4px}
   .sqFoodQuick{min-height:52px;border-radius:15px;padding:3px 2px 4px;font-size:8.5px}
@@ -93,7 +93,6 @@
   .sqFoodQuick{flex-basis:69px;width:69px;min-height:65px}
   .sqFoodScrollArrow{top:17px;width:36px;height:36px;font-size:25px}
   .sqFoodSwipeCue{margin-top:0;font-size:10.5px;gap:7px}
-  .sqFoodSwipeCue strong{font-size:10.5px}
 }
 
 @media(prefers-reduced-motion:reduce){.sqFoodDock,.sqFoodQuick,.sqFoodClear,.sqFoodScrollArrow,.sqFoodDock::before,.sqFoodDock::after{transition:none!important}.sqFoodScrollArrow{animation:none!important}}
