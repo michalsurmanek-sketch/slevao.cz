@@ -17,6 +17,7 @@ import sys
 import tempfile
 import time
 import urllib.error
+import urllib.parse
 import urllib.request
 from collections import defaultdict
 from pathlib import Path
@@ -25,6 +26,7 @@ from typing import Any
 PROJECT_REF = os.environ.get("SUPABASE_PROJECT_REF", "uhampjdqjxmbhaptgitn")
 ACCESS_TOKEN = os.environ.get("SUPABASE_ACCESS_TOKEN", "").strip()
 API_URL = f"https://api.supabase.com/v1/projects/{PROJECT_REF}/database/query"
+JIP_PROXY_URL = f"https://{PROJECT_REF}.supabase.co/functions/v1/debug-kaufland-source"
 ENGINE = "tesseract-cli-ces-jip-v2"
 
 
@@ -97,15 +99,23 @@ def existing_pages(import_id: str) -> set[int]:
 
 
 def download(url: str, destination: Path) -> bytes:
+    parsed = urllib.parse.urlparse(url)
+    fetch_url = url
+    if parsed.hostname == "www.jip-potraviny.cz" and "/files/mobile/" in parsed.path:
+        fetch_url = f"{JIP_PROXY_URL}?url={urllib.parse.quote(url, safe='')}"
     request = urllib.request.Request(
-        url,
+        fetch_url,
         headers={
             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/150 Safari/537.36",
             "Accept": "image/jpeg,image/png,image/webp,*/*",
         },
     )
-    with urllib.request.urlopen(request, timeout=60) as response:
-        data = response.read()
+    try:
+        with urllib.request.urlopen(request, timeout=75) as response:
+            data = response.read()
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")
+        raise RuntimeError(f"Stažení JIP stránky selhalo HTTP {exc.code}: {detail[:500]}") from exc
     if len(data) < 10_000:
         raise RuntimeError(f"JIP stránka je podezřele malá: {url} ({len(data)} B)")
     destination.write_bytes(data)
