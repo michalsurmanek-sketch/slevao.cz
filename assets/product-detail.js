@@ -44,13 +44,35 @@
   const isUpcoming = (offer) => String(offer?.valid_from || '') > today;
 
   function offerStoreKey(offer) {
-    return `${offer?.store_id || ''}|${String(offer?.store_location_name || '').trim().toLowerCase()}`;
+    return String(offer?.store_id || '').trim();
   }
 
   function offerStoreLabel(offer) {
     const storeName = offer?.stores?.name || 'Obchod';
     const storeFormat = String(offer?.store_location_name || '').trim();
     return storeFormat ? `${storeName} · ${storeFormat}` : storeName;
+  }
+
+  function offerIdentityKey(offer) {
+    return [
+      offer?.store_id || '',
+      String(offer?.store_location_name || '').trim().toLowerCase(),
+      Number(offer?.price || 0).toFixed(4),
+      Number(offer?.old_price || 0).toFixed(4),
+      Number(offer?.unit_price || 0).toFixed(4),
+      String(offer?.unit_price_unit || '').trim().toLowerCase(),
+      String(offer?.valid_from || ''),
+      String(offer?.valid_to || '')
+    ].join('|');
+  }
+
+  function dedupeOffers(rows) {
+    const unique = new Map();
+    for (const row of rows || []) {
+      const key = offerIdentityKey(row);
+      if (!unique.has(key)) unique.set(key, row);
+    }
+    return [...unique.values()];
   }
 
   function storeLogoHtml(store, wrapperClass = 'sfStoreLogo') {
@@ -105,7 +127,7 @@
       || null;
   }
 
-  function offerHtml(offer, index) {
+  function offerHtml(offer, isBest) {
     const label = dealLabel(offer);
     const store = offer.stores;
     const discount = Number(offer.old_price) > Number(offer.price)
@@ -115,8 +137,9 @@
     const validity = isUpcoming(offer)
       ? `začíná ${date(offer.valid_from)} · platí do ${date(offer.valid_to)}`
       : `platí do ${date(offer.valid_to)}`;
-    return `<article class="sfCard sfOffer ${index === 0 ? 'best' : ''}">
-      <div class="sfOfferStoreRow">${storeLogoHtml(store)}<div class="sfOfferStore">${esc(offerStoreLabel(offer))}${index === 0 ? ' · nejnižší cena' : ''}</div></div>
+    const bestText = isBest ? (isUpcoming(offer) ? ' · nejnižší nadcházející cena' : ' · nejnižší cena dnes') : '';
+    return `<article class="sfCard sfOffer ${isBest ? 'best' : ''}">
+      <div class="sfOfferStoreRow">${storeLogoHtml(store)}<div class="sfOfferStore">${esc(offerStoreLabel(offer))}${bestText}</div></div>
       <div><span class="sfPrice">${money(offer.price)} Kč</span>${offer.old_price ? `<span class="sfOldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>
       <div class="sfMuted">${offer.unit_price ? `${money(offer.unit_price)} Kč/${esc(offer.unit_price_unit || 'jednotka')} · ` : ''}${validity}</div>
       <div style="margin-top:9px"><span class="sfBadge ${label.className}">${esc(label.label)}</span>${isUpcoming(offer) ? ' <span class="sfBadge warn">Od zítřka / brzy</span>' : ''}${discount ? ` <span class="sfBadge">−${discount} %</span>` : ''}</div>
@@ -140,15 +163,19 @@
   }
 
   function renderOffers() {
-    const visible = offers.slice().sort((a,b) => Number(isUpcoming(a)) - Number(isUpcoming(b)) || Number(a.price) - Number(b.price));
-    const cheapest = visible.slice().sort((a,b) => Number(a.price) - Number(b.price))[0];
+    const visible = dedupeOffers(offers).sort((a,b) => Number(isUpcoming(a)) - Number(isUpcoming(b)) || Number(a.price) - Number(b.price));
+    const current = visible.filter((row) => !isUpcoming(row));
+    const comparable = current.length ? current : visible;
+    const cheapest = comparable.slice().sort((a,b) => Number(a.price) - Number(b.price))[0] || null;
     $('currentPrice').textContent = cheapest ? `${money(cheapest.price)} Kč` : 'Bez viditelné ceny';
     $('currentStore').innerHTML = cheapest
       ? `<span class="sfCurrentStore">${storeLogoHtml(cheapest.stores, 'sfCurrentStoreLogo')}<span>${esc(isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)} nejlevněji v ${offerStoreLabel(cheapest)}` : `Právě teď nejlevněji v ${offerStoreLabel(cheapest)}`)}</span></span>`
       : 'Aktuální ani nadcházející nabídka není dostupná';
-    $('statStores').textContent = String(new Set(visible.map(offerStoreKey)).size);
+    $('statStores').textContent = String(new Set(visible.map(offerStoreKey).filter(Boolean)).size);
     $('statTypical').textContent = typicalPrice() == null ? '–' : `${money(typicalPrice())} Kč`;
-    $('offers').innerHTML = visible.length ? visible.map(offerHtml).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
+    $('offers').innerHTML = visible.length ? visible.map((offer) => offerHtml(offer, cheapest && String(offer.id) === String(cheapest.id))).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
+    $('offers').dataset.loaded = '1';
+    window.dispatchEvent(new CustomEvent('slevao:product-offers-rendered', { detail:{ productId, offerCount:visible.length } }));
   }
 
   function renderHistory() {
