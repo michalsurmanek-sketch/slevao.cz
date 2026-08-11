@@ -8,6 +8,7 @@ const ACTION_LISTING_URL = 'https://www.action.com/cs-cz/letak/';
 const TETA_LISTING_URL = 'https://www.tetadrogerie.cz/akce/letak';
 const LIDL_LISTING_URL = 'https://www.lidl.cz/c/akcni-letak/s10008644';
 const LIDL_API_URL = 'https://endpoints.leaflets.schwarz/v4/overview?client_locale=lidl%2Fcs-CZ';
+const ROSSMANN_LISTING_URL = 'https://www.rossmann.cz/obsah/akce-a-letaky';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -27,6 +28,7 @@ type Leaflet = {
   url: string;
   direct: boolean;
   preview_url?: string;
+  embed_url?: string;
   logo_url?: string | null;
 };
 
@@ -211,6 +213,41 @@ async function lidlOfficialLeaflets(): Promise<Leaflet[]> {
   });
 }
 
+
+async function rossmannOfficialLeaflet(): Promise<Leaflet> {
+  const headers = {
+    'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+    accept: 'text/html,application/xhtml+xml',
+    'accept-language': 'cs-CZ,cs;q=0.9',
+  };
+  const listingResponse = await fetch(ROSSMANN_LISTING_URL, { headers, redirect: 'follow' });
+  if (!listingResponse.ok) throw new Error(`ROSSMANN HTTP ${listingResponse.status}`);
+  const listingHtml = await listingResponse.text();
+  const detailPath = listingHtml.match(/href=["']([^"']*\/obsah\/publitas\/[^"']*\/akcni-letak[^"']*)["']/i)?.[1];
+  if (!detailPath) throw new Error('ROSSMANN nevrátil aktuální akční leták.');
+  const detailUrl = new URL(detailPath.replace(/&amp;/gi, '&'), listingResponse.url).toString();
+
+  const detailResponse = await fetch(detailUrl, { headers, redirect: 'follow' });
+  if (!detailResponse.ok) throw new Error(`ROSSMANN leták HTTP ${detailResponse.status}`);
+  const detailHtml = await detailResponse.text();
+  const embedRaw = detailHtml.match(/<iframe\b[^>]*\bsrc=["'](https:\/\/publikace\.rossmann\.cz\/[^"']+)["']/i)?.[1];
+  if (!embedRaw) throw new Error('ROSSMANN nevrátil adresu listovacího letáku.');
+  const embedUrl = embedRaw.replace(/&amp;/gi, '&');
+  const range = embedUrl.match(/akcni-letak-(\d{1,2})-(\d{1,2})-(\d{1,2})-(\d{1,2})-(\d{4})/i);
+
+  return {
+    key: 'rossmann-current',
+    title: 'Akční leták',
+    subtitle: 'ROSSMANN',
+    valid_from: range ? isoDate(`${range[1]}.${range[2]}.${range[5]}`) : null,
+    valid_to: range ? isoDate(`${range[3]}.${range[4]}.${range[5]}`, true) : null,
+    url: detailUrl,
+    direct: true,
+    preview_url: embedUrl,
+    embed_url: embedUrl,
+  };
+}
+
 async function tetaOfficialLeaflets(): Promise<Leaflet[]> {
   const response = await fetch(TETA_LISTING_URL, {
     headers: {
@@ -375,6 +412,10 @@ Deno.serve(async (request) => {
     if (storeSlug === 'teta') {
       const leaflets = await tetaOfficialLeaflets();
       return Response.json({ ok: true, store: storeSlug, source: TETA_LISTING_URL, leaflets }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'rossmann') {
+      const leaflet = await rossmannOfficialLeaflet();
+      return Response.json({ ok: true, store: storeSlug, source: ROSSMANN_LISTING_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
