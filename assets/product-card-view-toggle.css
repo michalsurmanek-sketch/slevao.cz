@@ -1,0 +1,361 @@
+/* Přepínač zobrazení produktových karet: klasické / letákové. */
+.dealViewControl{
+  display:flex;
+  align-items:center;
+  gap:9px;
+  margin-left:auto;
+  color:#40504f;
+}
+.dealViewLabel{
+  font-size:12px;
+  font-weight:900;
+  color:#5f6d6c;
+  white-space:nowrap;
+}
+.dealViewSwitch{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  padding:4px;
+  border:1px solid #d9e7e5;
+  border-radius:14px;
+  background:rgba(255,255,255,.96);
+  box-shadow:0 7px 20px rgba(23,34,34,.06);
+}
+.dealViewButton{
+  min-height:34px;
+  border:1px solid transparent;
+  border-radius:10px;
+  background:transparent;
+  color:#354241;
+  padding:0 11px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  font-size:11.5px;
+  font-weight:900;
+  white-space:nowrap;
+  transition:background .18s ease,border-color .18s ease,color .18s ease,box-shadow .18s ease;
+}
+.dealViewButton:hover{
+  background:#f1faf8;
+  color:#087e75;
+}
+.dealViewButton.active,
+.dealViewButton[aria-pressed="true"]{
+  border-color:#79d8d0;
+  background:#eefaf8;
+  color:#087e75;
+  box-shadow:0 3px 9px rgba(7,140,130,.10);
+}
+.dealViewButton svg{
+  width:17px;
+  height:17px;
+  flex:0 0 17px;
+}
+.dealViewHint{
+  position:absolute;
+  left:50%;
+  top:100%;
+  transform:translateX(-50%);
+  margin-top:4px;
+  font-size:10px;
+  font-weight:650;
+  color:#899492;
+  white-space:nowrap;
+  pointer-events:none;
+}
+.toolbar{
+  position:relative;
+}
+
+@media(min-width:801px){
+  .toolbar{
+    flex-wrap:wrap;
+    row-gap:10px;
+    padding-bottom:4px;
+  }
+  .toolbar #resultText{
+    margin-right:auto;
+  }
+  .toolbar #sortSelect{
+    flex:0 0 auto;
+  }
+
+  /* Letákové zobrazení – klasické karty zůstávají beze změny. */
+  #dealGrid[data-card-view="leaflet"]{
+    gap:20px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealCard[data-mobile-product-card="1"]{
+    position:relative;
+    isolation:isolate;
+    border:1px solid #d9e4e1!important;
+    border-radius:18px!important;
+    background:
+      radial-gradient(circle at 8% 22%,rgba(37,181,169,.12),transparent 24%),
+      radial-gradient(circle at 92% 84%,rgba(37,181,169,.08),transparent 24%),
+      linear-gradient(145deg,#fff 0%,#fffefa 54%,#f5fbfa 100%)!important;
+    box-shadow:0 14px 34px rgba(23,34,34,.10)!important;
+    overflow:hidden!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealCard[data-mobile-product-card="1"]::before{
+    content:"";
+    position:absolute;
+    inset:0;
+    z-index:-1;
+    pointer-events:none;
+    opacity:.22;
+    background-image:
+      repeating-linear-gradient(0deg,rgba(30,65,62,.025) 0,rgba(30,65,62,.025) 1px,transparent 1px,transparent 4px),
+      radial-gradient(circle at 24% 68%,rgba(11,150,139,.14) 0 2px,transparent 2px);
+  }
+  #dealGrid[data-card-view="leaflet"] .dealCard[data-mobile-product-card="1"]::after{
+    content:"AKCE";
+    position:absolute;
+    z-index:8;
+    top:24px;
+    right:-43px;
+    width:170px;
+    height:39px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    transform:rotate(45deg);
+    background:linear-gradient(180deg,#f43128,#d90f12);
+    color:#fff;
+    font-size:17px;
+    font-weight:950;
+    letter-spacing:.04em;
+    text-shadow:0 1px 0 rgba(0,0,0,.12);
+    box-shadow:0 7px 14px rgba(155,15,18,.22);
+    pointer-events:none;
+  }
+
+  #dealGrid[data-card-view="leaflet"] .dealTop{
+    grid-template-columns:minmax(180px,48%) minmax(0,1fr)!important;
+    gap:16px!important;
+    padding:20px 20px 0!important;
+    align-items:start!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealMedia{
+    min-height:315px!important;
+    padding:36px 4px 10px!important;
+    align-self:stretch;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealMedia::before{
+    content:"";
+    position:absolute;
+    left:2%;
+    right:2%;
+    bottom:4%;
+    height:58%;
+    border-radius:48% 52% 40% 60%;
+    background:radial-gradient(ellipse at center,rgba(64,207,194,.22),rgba(64,207,194,.07) 58%,transparent 72%);
+    transform:rotate(-4deg);
+    pointer-events:none;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealMedia>img{
+    z-index:2!important;
+    width:100%!important;
+    height:100%!important;
+    max-height:285px!important;
+    object-fit:contain!important;
+    filter:drop-shadow(0 14px 18px rgba(23,34,34,.14))!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .discountBadge{
+    display:flex!important;
+    align-items:center;
+    justify-content:center;
+    z-index:5;
+    left:auto!important;
+    right:2px!important;
+    top:64px!important;
+    min-width:66px;
+    min-height:38px;
+    padding:7px 10px!important;
+    border-radius:10px!important;
+    background:linear-gradient(135deg,#087e75,#16aa9f)!important;
+    color:#fff!important;
+    font-size:19px!important;
+    font-weight:950!important;
+    box-shadow:0 7px 15px rgba(7,126,117,.22);
+  }
+  #dealGrid[data-card-view="leaflet"] .endingBadge{
+    display:none!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealMenu{
+    z-index:7;
+    left:0!important;
+    top:0!important;
+    background:rgba(255,255,255,.9)!important;
+    border:1px solid #e2e9e7!important;
+  }
+
+  #dealGrid[data-card-view="leaflet"] .dealInfo{
+    align-self:start!important;
+    padding:2px 38px 10px 0!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .saveOffer{
+    z-index:7;
+    right:0!important;
+    top:0!important;
+    width:38px!important;
+    height:38px!important;
+    border:1px solid #e2e9e7!important;
+    border-radius:11px!important;
+    background:rgba(255,255,255,.94)!important;
+    font-size:24px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .storeLine{
+    width:max-content;
+    max-width:calc(100% - 10px);
+    min-height:30px!important;
+    margin:0 0 11px!important;
+    padding:5px 10px!important;
+    border-radius:9px;
+    background:var(--deal-store-color,#087e75);
+    color:#fff!important;
+    box-shadow:0 4px 10px rgba(7,126,117,.15);
+  }
+  #dealGrid[data-card-view="leaflet"] .storeLine>span:not(.dealBrandName){
+    color:#fff!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealBrandName{
+    color:rgba(255,255,255,.80)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealInfo h3{
+    margin:0 0 14px!important;
+    font-size:25px!important;
+    line-height:1.08!important;
+    letter-spacing:-.55px!important;
+    color:#172124!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealChips{
+    margin:0 0 12px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealChips>span{
+    min-height:29px!important;
+    border-color:#c8e8e4!important;
+    background:rgba(255,255,255,.72)!important;
+    border-radius:8px!important;
+    font-size:10.5px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .priceRow{
+    margin:0!important;
+    padding:12px 12px 10px!important;
+    border:1px solid #e1e7e5;
+    border-radius:12px;
+    background:rgba(255,255,255,.88);
+    box-shadow:0 7px 18px rgba(23,34,34,.06);
+  }
+  #dealGrid[data-card-view="leaflet"] .price{
+    color:#df171d!important;
+    font-size:43px!important;
+    line-height:.95!important;
+    letter-spacing:-1.5px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .oldPrice{
+    order:3!important;
+    width:100%!important;
+    margin-top:2px!important;
+    font-size:14px!important;
+    color:#777f7d!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealPriceBadge{
+    display:none!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .saving{
+    margin:8px 0 0!important;
+    padding:7px 9px!important;
+    border-radius:8px!important;
+    background:#ffd342!important;
+    color:#2a2717!important;
+    font-size:12px!important;
+    font-weight:950!important;
+    text-transform:uppercase;
+    box-shadow:0 3px 0 rgba(184,135,0,.10);
+  }
+
+  #dealGrid[data-card-view="leaflet"] .dealBody{
+    padding:0 20px 18px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealActions{
+    gap:9px!important;
+    margin:14px 0 0!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealActions>.compareButton,
+  #dealGrid[data-card-view="leaflet"] .dealActions>.storeButton{
+    height:43px!important;
+    border-radius:11px!important;
+    font-size:11.5px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealUtilityPanel{
+    margin-top:12px!important;
+    border:0!important;
+    border-radius:13px!important;
+    background:linear-gradient(135deg,#087e75,#0e9489)!important;
+    overflow:hidden!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealToolsSlot .slevaoExtraActions{
+    background:#fff!important;
+    border:1px solid #dfe9e7!important;
+    border-bottom:0!important;
+    border-radius:13px 13px 0 0!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealFacts{
+    border-top:0!important;
+    background:transparent!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .validity,
+  #dealGrid[data-card-view="leaflet"] .leafletLocationButton{
+    min-height:66px!important;
+    background:transparent!important;
+    color:#fff!important;
+    border:0!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .leafletLocationButton{
+    border-left:1px dashed rgba(255,255,255,.28)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealFactIcon{
+    color:#fff!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealFactText small{
+    color:rgba(255,255,255,.72)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealFactText strong{
+    color:#fff!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .leafletMiniPreview{
+    background:#fff!important;
+    border-color:rgba(255,255,255,.5)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealNotice{
+    margin-top:11px!important;
+    padding:10px 12px!important;
+    border:1px solid #dceae7;
+    background:rgba(255,255,255,.72)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .sourceLine{
+    display:none!important;
+  }
+}
+
+@media(min-width:801px) and (max-width:1080px){
+  .dealViewHint{display:none}
+  .dealViewLabel{display:none}
+  .dealViewButton{padding:0 9px}
+  #dealGrid[data-card-view="leaflet"] .dealTop{
+    grid-template-columns:minmax(160px,42%) minmax(0,1fr)!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealMedia{
+    min-height:270px!important;
+  }
+  #dealGrid[data-card-view="leaflet"] .dealInfo h3{
+    font-size:23px!important;
+  }
+}
+
+@media(max-width:800px){
+  .dealViewControl{display:none!important}
+}
