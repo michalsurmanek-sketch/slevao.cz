@@ -130,3 +130,8 @@
     box-shadow:0 12px 30px rgba(13,154,145,.28)!important;
   }
 }
+
+/* Textová nápověda „Posuň do stran“ už na mobilu není potřeba. */
+@media(max-width:900px){
+  .sqFoodSwipeCue{display:none!important}
+}
