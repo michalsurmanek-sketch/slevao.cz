@@ -84,17 +84,18 @@
   }
 }
 
-/* Desktop: stejný vizuální rytmus, jen širší a o něco vzdušnější. */
+/* Desktop: stejný vizuální rytmus, s větší mezerou kolem oddělovače. */
 @media(min-width:801px){
   main#top > section:not(.hero){
     position:relative;
+    margin-top:48px!important;
   }
 
   main#top > section:not(.hero)::before{
     content:"";
     position:absolute;
     z-index:20;
-    top:0;
+    top:-24px;
     left:max(64px,calc((100vw - 1240px)/2 + 16px));
     right:max(64px,calc((100vw - 1240px)/2 + 16px));
     height:1px;
@@ -106,7 +107,7 @@
     content:"";
     position:absolute;
     z-index:21;
-    top:-16px;
+    top:-40px;
     left:50%;
     width:32px;
     height:32px;
