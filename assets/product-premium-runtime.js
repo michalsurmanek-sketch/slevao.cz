@@ -21,6 +21,10 @@
     window.setTimeout(() => box.classList.remove('show'), 2800);
   }
 
+  function isComparable() {
+    return document.getElementById('productContent')?.dataset.identityMode === 'comparable';
+  }
+
   function ensureSearch() {
     const header = document.querySelector('.sfTopInner');
     if (!header || header.querySelector('.sfPremiumSearch')) return;
@@ -49,6 +53,17 @@
     const name = document.getElementById('productName')?.textContent?.trim();
     const current = breadcrumbs.querySelector('.current');
     if (current && name && !/^Načítám/i.test(name)) current.textContent = name;
+  }
+
+  function updateIdentityAwareControls() {
+    const comparable = isComparable();
+    const best = document.querySelector('.sfPremiumBestOffer');
+    if (best) {
+      best.textContent = comparable ? 'Přejít na nejnižší srovnatelnou nabídku' : 'Přejít na nejlepší nabídku';
+      best.setAttribute('aria-label', comparable ? 'Přejít na nejnižší srovnatelnou nabídku' : 'Přejít na nejlepší nabídku');
+    }
+    const share = document.querySelector('.sfShareProduct');
+    if (share) share.setAttribute('aria-label', comparable ? 'Sdílet toto porovnání srovnatelných nabídek' : 'Sdílet tento produkt');
   }
 
   function ensureHeroExtras() {
@@ -87,6 +102,7 @@
       chips.innerHTML = '<span class="sfHeroTrustChip">Ověřené akční ceny</span><span class="sfHeroTrustChip">Průběžná aktualizace</span><span class="sfHeroTrustChip">Porovnání bez registrace</span>';
       actions.after(chips);
     }
+    updateIdentityAwareControls();
     return true;
   }
 
@@ -94,9 +110,13 @@
     const name = document.getElementById('productName')?.textContent?.trim() || 'Produkt na Slevao.cz';
     const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
     const price = document.getElementById('currentPrice')?.textContent?.trim() || '';
+    const comparable = isComparable();
+    const hasPrice = price && !/Bez viditelné ceny/i.test(price);
     const data = {
       title:`${name} | Slevao.cz`,
-      text:price && !/Bez viditelné ceny/i.test(price) ? `${name} – nejlepší aktuální cena ${price}` : `${name} – porovnání cen na Slevao.cz`,
+      text:comparable
+        ? (hasPrice ? `${name} – nejnižší srovnatelná nabídka ${price}` : `${name} – srovnatelné nabídky na Slevao.cz`)
+        : (hasPrice ? `${name} – nejlepší aktuální cena ${price}` : `${name} – porovnání cen na Slevao.cz`),
       url:canonical
     };
 
@@ -165,6 +185,7 @@
       ensureBreadcrumbs();
       ensureHeroExtras();
     });
+    window.addEventListener('slevao:product-identity-ready', updateIdentityAwareControls);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
