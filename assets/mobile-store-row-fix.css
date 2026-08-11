@@ -60,35 +60,6 @@
     scroll-snap-align:start;
   }
 
-  #storesSection>.container::after,
-  #categoriesSection>.container::after{
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    width:max-content;
-    max-width:calc(100% - 28px);
-    margin:2px auto 0;
-    padding:5px 13px 6px;
-    border-radius:999px;
-    background:linear-gradient(90deg,rgba(21,158,148,0),rgba(21,158,148,.10) 20%,rgba(21,158,148,.10) 80%,rgba(21,158,148,0));
-    color:#657775;
-    font-size:11px;
-    line-height:1.2;
-    font-weight:800;
-    letter-spacing:.01em;
-    text-align:center;
-    white-space:nowrap;
-    pointer-events:none;
-  }
-
-  #storesSection>.container::after{
-    content:"←  Posuň do stran pro další obchod  →";
-  }
-
-  #categoriesSection>.container::after{
-    content:"←  Posuň do stran pro další kategorii  →";
-  }
-
   /* Zvýrazněná první karta „Všechny obchody“ podle schváleného mobilního vizuálu. */
   #storesSection .storeGrid > .storeCard:first-child{
     position:relative!important;
@@ -157,14 +128,5 @@
   #storesSection .storeGrid > .storeCard:first-child.active{
     border-color:rgba(255,255,255,.55)!important;
     box-shadow:0 12px 30px rgba(13,154,145,.28)!important;
-  }
-}
-
-@media(max-width:380px){
-  #storesSection>.container::after,
-  #categoriesSection>.container::after{
-    max-width:calc(100% - 16px);
-    padding-inline:8px;
-    font-size:10px;
   }
 }
