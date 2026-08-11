@@ -414,6 +414,35 @@
     box.hidden = false;
   }
 
+  function scrollToDealsAfterStoreLayout() {
+    const target = $('dealsSection');
+    if (!target) return;
+
+    const storesSection = $('storesSection');
+    let observer = null;
+    let correctionFrame = 0;
+    const correctPosition = () => {
+      window.cancelAnimationFrame(correctionFrame);
+      correctionFrame = window.requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior:'auto', block:'start' });
+      });
+    };
+
+    if ('ResizeObserver' in window && storesSection) {
+      observer = new ResizeObserver(correctPosition);
+      observer.observe(storesSection);
+      window.setTimeout(() => observer?.disconnect(), 700);
+    }
+
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        target.scrollIntoView({ behavior:'smooth', block:'start' });
+      });
+    });
+    window.setTimeout(correctPosition, 80);
+    window.setTimeout(correctPosition, 180);
+  }
+
   function bindEvents() {
     $('searchButton').addEventListener('click', () => applySearch($('q').value));
     $('q').addEventListener('keydown', (event) => { if (event.key === 'Enter') applySearch(event.target.value); if (event.key === 'Escape') $('searchSuggestions').hidden = true; });
@@ -427,7 +456,7 @@
     $('clearCategory').addEventListener('click', () => { state.category = 'all'; renderCategories(); renderDeals(); });
     document.addEventListener('click', (event) => {
       const storeButton = event.target.closest('[data-store]');
-      if (storeButton) { state.store = storeButton.dataset.store; state.visible = PAGE_SIZE; renderStores(); renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); }
+      if (storeButton) { state.store = storeButton.dataset.store; state.visible = PAGE_SIZE; renderStores(); renderDeals(); scrollToDealsAfterStoreLayout(); }
       const saveButton = event.target.closest('[data-save-id]'); if (saveButton) toggleSaved(saveButton.dataset.saveId);
       const compareButton = event.target.closest('[data-compare-id]'); if (compareButton && !compareButton.disabled) openCompare(compareButton.dataset.compareId);
       const reportButton = event.target.closest('[data-report-id]'); if (reportButton) openReport(reportButton.dataset.reportId);
