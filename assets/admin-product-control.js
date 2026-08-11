@@ -5,7 +5,6 @@
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const HISTORY_KEY = 'slevao-product-audit-v2';
   const TRASH_KEY = 'slevao-product-trash-v2';
-  const MAX_ROWS = 10000;
   const TRASH_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 
   window.addEventListener('DOMContentLoaded', async () => {
@@ -203,7 +202,7 @@
         const { data, error } = await db.from('offers').select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,status,published_at,stores(name,slug,is_active),products(name,image_url)').order('published_at', { ascending:false, nullsFirst:false }).range(from, from + 999);
         if (error) throw error;
         result.push(...(data || []));
-        if (!data || data.length < 1000 || result.length >= MAX_ROWS) break;
+        if (!data || data.length < 1000) break;
       }
       return result;
     }
