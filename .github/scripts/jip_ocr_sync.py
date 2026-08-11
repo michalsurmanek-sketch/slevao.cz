@@ -181,9 +181,8 @@ def save_page(import_id: str, page_number: int, image_url: str, image_bytes: byt
         ) values (
           $1::uuid,$2::integer,$3,$4,'ces',$5,$6::jsonb,$7::numeric,$8::integer,$9,now(),now()
         )
-        on conflict(import_id,page_number) do update set
+        on conflict(import_id,page_number,engine) do update set
           image_url=excluded.image_url,
-          engine=excluded.engine,
           language=excluded.language,
           text_content=excluded.text_content,
           words=excluded.words,
