@@ -44,8 +44,8 @@
   .sqFoodMobileBar>strong{color:#0b776f;font-size:12px;font-weight:950;letter-spacing:.025em}
   .sqFoodMobileCustomize{min-height:30px;padding:0 11px;border:1px solid #cfe8e4;border-radius:999px;background:rgba(255,255,255,.88);color:#0b776f;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(20,80,73,.07)}
   .sqFoodDock.collapsed .sqFoodMobileBar{display:flex}
-  /* Šipky jsou opticky vycentrované na střed mobilní karty rychlého nákupu. */
-  .sqFoodDock .sqFoodScrollArrow{top:49px!important}
+  /* Šipka je svisle vycentrovaná přesně vůči kartám Rychlého nákupu. */
+  .sqFoodDock .sqFoodScrollArrow{top:88px!important}
   .sqFoodEditor{align-items:end;padding:10px}
   .sqFoodEditorSheet{width:100%;max-height:88vh;padding:18px 15px calc(18px + env(safe-area-inset-bottom));border-radius:24px 24px 14px 14px;transform:translateY(24px)}
   .sqFoodEditorHead h2{font-size:25px}
@@ -54,7 +54,7 @@
 }
 
 @media(max-width:520px){
-  .sqFoodDock .sqFoodScrollArrow{top:49px!important}
+  .sqFoodDock .sqFoodScrollArrow{top:88px!important}
   .sqFoodEditorRow{grid-template-columns:36px minmax(0,1fr) auto 34px;gap:7px;padding:7px}
   .sqFoodEditorRowIcon{width:34px;height:34px;font-size:18px}
   .sqFoodEditorMove button,.sqFoodEditorRemove{width:31px;height:31px;border-radius:10px}
