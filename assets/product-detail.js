@@ -186,6 +186,23 @@
     $('historyInfo').textContent = history.length ? `${history.length} cenových záznamů · poslední kontrola ${date(history.at(-1)?.recorded_at)}` : 'Historie cen zatím není dostupná.';
   }
 
+  function openModal(title, eyebrow = 'Slevao.cz') {
+    const modal = document.createElement('div');
+    modal.className = 'sfModal';
+    modal.innerHTML = `<div class="sfModalBox" role="dialog" aria-modal="true" aria-labelledby="sfDetailModalTitle"><div class="sfModalHead"><div><small>${esc(eyebrow)}</small><h2 id="sfDetailModalTitle">${esc(title)}</h2></div><button class="sfModalClose" type="button" aria-label="Zavřít">×</button></div><div class="sfModalBody"></div></div>`;
+    const close = () => {
+      document.removeEventListener('keydown', onKeydown);
+      modal.remove();
+    };
+    const onKeydown = (event) => { if (event.key === 'Escape') close(); };
+    modal.querySelector('.sfModalClose').addEventListener('click', close);
+    modal.addEventListener('click', (event) => { if (event.target === modal) close(); });
+    document.addEventListener('keydown', onKeydown);
+    document.body.appendChild(modal);
+    window.setTimeout(() => modal.querySelector('input,select,textarea,button')?.focus(), 0);
+    return { modal, body:modal.querySelector('.sfModalBody'), close };
+  }
+
   function withTimeout(request, label, ms = 8000) {
     let timer;
     const timeout = new Promise((_, reject) => {
@@ -234,34 +251,65 @@
     renderOffers();
   }
 
-  async function createAlert(offer) {
-    const targetInput = prompt(`Upozornit, až bude ${product.name} nejvýše za kolik Kč?`, String(Math.max(1, Math.floor(Number(offer.price || 0) * .9))));
-    if (targetInput == null) return;
-    const target = Number(String(targetInput).replace(',', '.'));
-    if (!(target > 0)) { window.SlevaoPublic?.toast('Zadej platnou cílovou cenu.'); return; }
-    const { data: { session } } = await db.auth.getSession();
-    if (!session) {
-      localStorage.setItem(PENDING_ALERT_KEY, JSON.stringify({ product_id: product.id, search_term: product.name, target_price: target, store_id: null, return_url: location.href }));
-      location.href = `ucet.html?redirect=${encodeURIComponent(location.href)}`;
-      return;
-    }
-    const { error } = await db.from('price_alerts').insert({ user_id:session.user.id, product_id:product.id, search_term:product.name, target_price:target, is_active:true });
-    if (error) throw error;
-    window.SlevaoPublic?.toast(`Hlídač ceny do ${money(target)} Kč je aktivní.`);
+  function createAlert(offer) {
+    const storeName = offerStoreLabel(offer);
+    const suggested = Math.max(1, Math.floor(Number(offer.price || 0) * .9));
+    const { body, close } = openModal('Hlídat cenu produktu', 'Cenový hlídač');
+    body.innerHTML = `<p><strong>${esc(product.name)}</strong></p><p class="sfMuted">Aktuální cena této nabídky: ${money(offer.price)} Kč · ${esc(storeName)}</p><label>Upozorni mě při ceně nejvýše<input id="sfDetailTargetPrice" type="number" min="0.01" step="0.1" inputmode="decimal" value="${suggested}"></label><label><span><input id="sfDetailOnlyStore" type="checkbox" style="width:auto;margin-right:8px">Pouze v tomto obchodě</span></label><div class="sfModalActions"><button class="sfButton" type="button" data-cancel>Zrušit</button><button class="sfButton primary" type="button" data-save>Zapnout hlídač</button></div>`;
+    body.querySelector('[data-cancel]').addEventListener('click', close);
+    body.querySelector('[data-save]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      const target = Number(String(body.querySelector('#sfDetailTargetPrice')?.value || '').replace(',', '.'));
+      if (!(target > 0)) { window.SlevaoPublic?.toast('Zadej platnou cílovou cenu.'); return; }
+      button.disabled = true;
+      try {
+        const onlyStore = Boolean(body.querySelector('#sfDetailOnlyStore')?.checked);
+        const storeId = onlyStore ? offer.store_id : null;
+        const { data: { session } } = await db.auth.getSession();
+        if (!session) {
+          localStorage.setItem(PENDING_ALERT_KEY, JSON.stringify({ product_id:product.id, search_term:product.name, target_price:target, store_id:storeId, return_url:location.href }));
+          location.href = `ucet.html?redirect=${encodeURIComponent(location.href)}`;
+          return;
+        }
+        const { error } = await db.from('price_alerts').insert({ user_id:session.user.id, product_id:product.id, search_term:product.name, target_price:target, store_id:storeId, is_active:true });
+        if (error) throw error;
+        close();
+        window.SlevaoPublic?.toast(`Hlídač ceny do ${money(target)} Kč je aktivní.`);
+      } catch (error) {
+        button.disabled = false;
+        window.SlevaoPublic?.toast(error.message || 'Hlídač se nepodařilo vytvořit.');
+      }
+    });
   }
 
-  async function reportOffer(offer) {
-    const type = prompt('Napiš typ problému: cena, obrázek, gramáž, skončená akce, nedostupnost nebo jiný problém.', 'cena');
-    if (type == null) return;
-    const map = { cena:'wrong_price', obrázek:'wrong_image', obrazek:'wrong_image', gramáž:'wrong_quantity', gramaz:'wrong_quantity', 'skončená akce':'expired', 'skoncena akce':'expired', nedostupnost:'unavailable' };
-    const note = prompt('Doplň krátkou poznámku.', '') ?? '';
-    const { data: { session } } = await db.auth.getSession();
-    const { error } = await db.from('offer_reports').insert({
-      offer_id:offer.id, product_id:product.id, user_id:session?.user?.id || null,
-      report_type:map[type.trim().toLowerCase()] || 'other', note:note.slice(0,2000), page_url:location.href, status:'new'
+  function reportOffer(offer) {
+    const { body, close } = openModal('Nahlásit problém s nabídkou', 'Kontrola nabídky');
+    body.innerHTML = `<p><strong>${esc(product.name)}</strong></p><p class="sfMuted">${esc(offerStoreLabel(offer))} · ${money(offer.price)} Kč</p><label>Typ problému<select id="sfDetailReportType"><option value="wrong_price">Cena neplatí</option><option value="wrong_image">Špatná fotografie</option><option value="wrong_quantity">Nesprávná gramáž</option><option value="expired">Akce skončila</option><option value="unavailable">Produkt není dostupný</option><option value="other">Jiný problém</option></select></label><label>Poznámka<textarea id="sfDetailReportNote" rows="4" maxlength="2000" placeholder="Krátce popiš, co nesedí…"></textarea></label><div class="sfModalActions"><button class="sfButton" type="button" data-cancel>Zrušit</button><button class="sfButton primary" type="button" data-save>Odeslat hlášení</button></div>`;
+    body.querySelector('[data-cancel]').addEventListener('click', close);
+    body.querySelector('[data-save]').addEventListener('click', async (event) => {
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        const reportType = body.querySelector('#sfDetailReportType')?.value || 'other';
+        const note = String(body.querySelector('#sfDetailReportNote')?.value || '').slice(0,2000);
+        const { data: { session } } = await db.auth.getSession();
+        const { error } = await db.from('offer_reports').insert({
+          offer_id:offer.id,
+          product_id:product.id,
+          user_id:session?.user?.id || null,
+          report_type:reportType,
+          note,
+          page_url:location.href,
+          status:'new'
+        });
+        if (error) throw error;
+        close();
+        window.SlevaoPublic?.toast('Děkujeme. Hlášení bylo uloženo ke kontrole.');
+      } catch (error) {
+        button.disabled = false;
+        window.SlevaoPublic?.toast(error.message || 'Hlášení se nepodařilo uložit.');
+      }
     });
-    if (error) throw error;
-    window.SlevaoPublic?.toast('Děkujeme. Hlášení bylo uloženo ke kontrole.');
   }
 
   document.addEventListener('error', (event) => {
@@ -282,8 +330,8 @@
     if (!offer) return;
     try {
       if (add) { window.SlevaoPublic?.addItemFromOffer({ ...offer, products:product }); window.SlevaoPublic?.toast('Produkt byl přidán do seznamu.'); }
-      if (alert) await createAlert(offer);
-      if (report) await reportOffer(offer);
+      if (alert) createAlert(offer);
+      if (report) reportOffer(offer);
     } catch (error) { window.SlevaoPublic?.toast(error.message || 'Akci se nepodařilo dokončit.'); }
   });
 
