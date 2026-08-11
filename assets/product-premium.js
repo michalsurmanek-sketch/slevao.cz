@@ -36,7 +36,8 @@
     }
 
     const name = $('#productName')?.textContent?.trim();
-    if (name && !/^Načítám/i.test(name)) $('.current', crumbs).textContent = name;
+    const current = $('.current', crumbs);
+    if (name && !/^Načítám/i.test(name) && current && current.textContent !== name) current.textContent = name;
   }
 
   function enhanceHeroPrice() {
