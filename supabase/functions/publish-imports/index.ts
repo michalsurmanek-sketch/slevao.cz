@@ -282,6 +282,19 @@ async function publishImport(job: any) {
   if (error) throw error;
   if (!loadedItems?.length) throw new Error('Import nemá žádné produkty k publikaci.');
 
+  const adapter = String(job.metadata?.adapter || '').toLowerCase();
+  if (adapter === 'obi-bonial-v1') {
+    const unsafeItems = loadedItems.filter((item: any) => {
+      const parser = String(item.raw_data?.parser || '').toLowerCase();
+      return parser === 'pdf-text-v3' && Number(item.confidence || 0) < 0.8;
+    });
+    if (unsafeItems.length) {
+      throw new Error(
+        `OBI import nebyl publikován: ${unsafeItems.length} položek pochází z nízko spolehlivého PDF textu. Vyžaduje strukturovanou extrakci nebo ruční schválení.`,
+      );
+    }
+  }
+
   if (!isIsoDate(job.detected_valid_from) || !isIsoDate(job.detected_valid_to)) {
     throw new Error('Import nemá spolehlivě rozpoznanou platnost letáku.');
   }
