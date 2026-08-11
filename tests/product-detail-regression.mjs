@@ -10,6 +10,7 @@ const publicFeatures = read('assets/public-features.js');
 const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
 const leaflet = read('assets/product-leaflet-location-global.js');
+const premiumRuntime = read('assets/product-premium-runtime.js');
 const html = read('produkt.html');
 
 for (const [path, source] of [
@@ -18,6 +19,7 @@ for (const [path, source] of [
   ['assets/product-seo.js', seo],
   ['assets/product-intelligence.js', intelligence],
   ['assets/product-leaflet-location-global.js', leaflet],
+  ['assets/product-premium-runtime.js', premiumRuntime],
 ]) {
   new Script(source, { filename:path });
 }
@@ -68,11 +70,19 @@ assert.match(leaflet, /function exactLocation\(/, 'Detail nemá přesné párov�
 assert.match(leaflet, /unique\.length === 1/, 'Leták se nesmí otevřít na nejednoznačné stránce.');
 assert.match(leaflet, /validPdf\(row\.document_url\)/, 'Odkaz do letáku musí ověřovat PDF adresu.');
 
+// Prémiový runtime musí doplnit navigaci bez zásahu do datové logiky.
+assert.match(premiumRuntime, /function ensureSearch\(/, 'Detail postrádá desktopové vyhledávání.');
+assert.match(premiumRuntime, /function ensureBreadcrumbs\(/, 'Detail postrádá drobečkovou navigaci.');
+assert.match(premiumRuntime, /sfPremiumBestOffer/, 'Detail postrádá CTA na nejlepší nabídku.');
+assert.match(premiumRuntime, /sfHeroTrustChips/, 'Detail postrádá důvěryhodnostní prvky.');
+assert.match(premiumRuntime, /sfOffersTitleIcon/, 'Sekce porovnání postrádá vizuální orientační prvek.');
+
 // Produkční HTML musí načítat opravené verze bez staré cache.
 for (const pattern of [
   /public-features\.js\?v=20260811-3/,
   /product-detail\.js\?v=20260811-7/,
   /product-seo\.js\?v=20260811-2/,
+  /product-premium-runtime\.js\?v=20260811-1/,
   /product-intelligence\.js\?v=20260811-2/,
 ]) assert.match(html, pattern, `produkt.html nemá očekávanou verzi assetu ${pattern}.`);
 
