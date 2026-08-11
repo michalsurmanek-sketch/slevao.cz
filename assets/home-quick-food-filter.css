@@ -93,6 +93,7 @@
   .sqFoodQuick{flex-basis:69px;width:69px;min-height:65px}
   .sqFoodScrollArrow{top:17px;width:36px;height:36px;font-size:25px}
   .sqFoodSwipeCue{margin-top:0;font-size:10.5px;gap:7px}
+  .sqFoodSwipeCue strong{font-size:10.5px}
 }
 
 @media(prefers-reduced-motion:reduce){.sqFoodDock,.sqFoodQuick,.sqFoodClear,.sqFoodScrollArrow,.sqFoodDock::before,.sqFoodDock::after{transition:none!important}.sqFoodScrollArrow{animation:none!important}}
