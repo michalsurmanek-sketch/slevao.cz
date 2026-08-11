@@ -2,7 +2,6 @@
   'use strict';
 
   const TEST_ID = 'slArrivalTest';
-  const PREVIEW_ID = 'slArrivalTestPreview';
   const TEST_LABEL = '🔔 Poslat tuto ukázku';
   const EXAMPLE_FACTS = 'Kuřecí maso 44,90 Kč (−50 %) · Mléko 19,90 Kč (−50 %) · Brambory 9,90 Kč (−60 %).';
   const EXAMPLE_IMAGE = 'https://uhampjdqjxmbhaptgitn.supabase.co/storage/v1/object/public/product-images/manual/c5f264f1-9fbf-49b7-a606-fa744e6e0615/brambory-chatgpt-1b151632.webp';
@@ -47,34 +46,13 @@
     const style = document.createElement('style');
     style.id = 'slArrivalTestStyle';
     style.textContent = `
-      .slArrivalTestPreview{margin-top:8px;padding:10px;border:1px solid rgba(8,126,117,.16);border-radius:13px;background:#fff;box-shadow:0 8px 22px rgba(8,126,117,.08)}
-      .slArrivalTestPreviewLabel{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:7px;color:#6f7d7b;font:800 9px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;letter-spacing:.06em;text-transform:uppercase}
-      .slArrivalTestPreviewCounter{color:#0a8b80;letter-spacing:0;text-transform:none}
-      .slArrivalTestPreviewCard{display:grid;grid-template-columns:54px minmax(0,1fr);gap:9px;align-items:center}
-      .slArrivalTestPreviewImage{width:54px;height:54px;display:block;object-fit:contain;border-radius:10px;background:#f4faf9;border:1px solid rgba(8,126,117,.1)}
-      .slArrivalTestPreviewCopy{min-width:0;display:grid;gap:3px}
-      .slArrivalTestPreviewCopy strong{color:#12202d;font:900 11.5px/1.25 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-      .slArrivalTestPreviewCopy span{color:#53615f;font:700 10.5px/1.35 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
-      .slArrivalTestPreviewCopy small{color:#0a8b80;font:800 9.5px/1.25 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
       .slArrivalTest{width:100%;margin-top:7px;min-height:38px;border:1px dashed #9ed9d2;border-radius:11px;background:rgba(240,252,250,.86);color:#087c72;font:900 11px/1.2 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;transition:background .16s ease,border-color .16s ease,transform .16s ease}
       .slArrivalTest:hover{background:#fff;border-color:#37b8aa;transform:translateY(-1px)}
       .slArrivalTest:disabled{opacity:.65;cursor:wait;transform:none}
-      @media(max-width:620px){.slArrivalTest{min-height:36px;font-size:10.5px}.slArrivalTestPreviewCard{grid-template-columns:48px minmax(0,1fr)}.slArrivalTestPreviewImage{width:48px;height:48px}}
+      @media(max-width:620px){.slArrivalTest{min-height:36px;font-size:10.5px}}
       @media(prefers-reduced-motion:reduce){.slArrivalTest{transition:none}.slArrivalTest:hover{transform:none}}
     `;
     document.head.appendChild(style);
-  }
-
-  function renderPreview() {
-    const preview = document.getElementById(PREVIEW_ID);
-    if (!preview) return;
-    const example = currentExample();
-    const title = preview.querySelector('[data-preview-title]');
-    const body = preview.querySelector('[data-preview-body]');
-    const counter = preview.querySelector('[data-preview-counter]');
-    if (title) title.textContent = example.title.replace(/^\[TEST\]\s*/, '');
-    if (body) body.textContent = example.body;
-    if (counter) counter.textContent = `${exampleIndex + 1}/${EXAMPLES.length}`;
   }
 
   async function sendNotification() {
@@ -123,8 +101,7 @@
       await sendNotification();
       button.textContent = '✓ Ukázka odeslána';
       exampleIndex = (exampleIndex + 1) % EXAMPLES.length;
-      renderPreview();
-      setStatus('Ukázka byla odeslána. Nad tlačítkem je už připravená další formulace se stejnými cenovými fakty.', 'ok');
+      setStatus('Ukázka byla odeslána. Pro další odeslání je připravená nová textová varianta.', 'ok');
       window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3200);
     } catch (error) {
       button.textContent = TEST_LABEL;
@@ -134,30 +111,12 @@
     }
   }
 
-  function createPreview() {
-    const preview = document.createElement('div');
-    preview.id = PREVIEW_ID;
-    preview.className = 'slArrivalTestPreview';
-    preview.innerHTML = `
-      <span class="slArrivalTestPreviewLabel">Ukázka upozornění bez seznamu <b class="slArrivalTestPreviewCounter" data-preview-counter>1/${EXAMPLES.length}</b></span>
-      <div class="slArrivalTestPreviewCard">
-        <img class="slArrivalTestPreviewImage" src="${EXAMPLE_IMAGE}" alt="Ukázka produktu Brambory" loading="lazy">
-        <div class="slArrivalTestPreviewCopy">
-          <strong data-preview-title></strong>
-          <span data-preview-body></span>
-          <small>Po odeslání se automaticky připraví další textová varianta.</small>
-        </div>
-      </div>`;
-    return preview;
-  }
-
   function install() {
     ensureStyle();
     const control = document.getElementById('slArrivalControl');
     if (!control) return false;
     if (document.getElementById(TEST_ID)) return true;
 
-    const preview = createPreview();
     const button = document.createElement('button');
     button.id = TEST_ID;
     button.className = 'slArrivalTest';
@@ -168,12 +127,10 @@
 
     const status = document.getElementById('slArrivalStatus');
     if (status) {
-      status.before(preview);
       status.before(button);
     } else {
-      control.append(preview, button);
+      control.append(button);
     }
-    renderPreview();
     return true;
   }
 
