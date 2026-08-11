@@ -6,6 +6,8 @@ const TESCO_LISTING_URL = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy
 const PENNY_LISTING_URL = 'https://www.penny.cz/letaky';
 const ACTION_LISTING_URL = 'https://www.action.com/cs-cz/letak/';
 const TETA_LISTING_URL = 'https://www.tetadrogerie.cz/akce/letak';
+const LIDL_LISTING_URL = 'https://www.lidl.cz/c/akcni-letak/s10008644';
+const LIDL_API_URL = 'https://endpoints.leaflets.schwarz/v4/overview?client_locale=lidl%2Fcs-CZ';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -165,6 +167,50 @@ async function pennyOfficialLeaflet(): Promise<Leaflet> {
   };
 }
 
+async function lidlOfficialLeaflets(): Promise<Leaflet[]> {
+  const response = await fetch(LIDL_API_URL, {
+    headers: {
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
+      accept: 'application/json,*/*;q=0.8',
+      'accept-language': 'cs-CZ,cs;q=0.9',
+    },
+    redirect: 'follow',
+  });
+  if (!response.ok) throw new Error(`Lidl API HTTP ${response.status}`);
+  const overview = await response.json();
+  const today = new Date().toISOString().slice(0, 10);
+  const flyers = (overview.categories || []).flatMap((category: any) =>
+    (category.subcategories || []).flatMap((subcategory: any) =>
+      String(subcategory.name || '').toLocaleLowerCase('cs').includes('akční letáky')
+        ? (subcategory.flyers || [])
+        : []
+    )
+  ).filter((flyer: any) =>
+    flyer.isActive !== false
+    && typeof flyer.pdfUrl === 'string'
+    && flyer.pdfUrl.startsWith('https://')
+    && String(flyer.offerStartDate || flyer.startDate || '') <= today
+    && String(flyer.offerEndDate || flyer.endDate || '') >= today
+  ).sort((a: any, b: any) =>
+    String(a.offerStartDate || a.startDate || '').localeCompare(String(b.offerStartDate || b.startDate || ''))
+  );
+  if (!flyers.length) throw new Error('Oficiální Lidl API nevrátilo aktuální akční leták.');
+
+  return flyers.map((flyer: any, index: number) => {
+    const pdfUrl = String(flyer.pdfUrl);
+    return {
+      key: `lidl-${String(flyer.id || index + 1)}`,
+      title: String(flyer.title || flyer.name || (index === 0 ? 'Akční leták' : 'Další akční leták')),
+      subtitle: 'Lidl',
+      valid_from: String(flyer.offerStartDate || flyer.startDate || '').slice(0, 10) || null,
+      valid_to: String(flyer.offerEndDate || flyer.endDate || '').slice(0, 10) || null,
+      url: LIDL_LISTING_URL,
+      direct: true,
+      preview_url: `${SUPABASE_URL}/functions/v1/store-leaflet-document?source_url=${encodeURIComponent(pdfUrl)}`,
+    };
+  });
+}
+
 async function tetaOfficialLeaflets(): Promise<Leaflet[]> {
   const response = await fetch(TETA_LISTING_URL, {
     headers: {
@@ -321,6 +367,10 @@ Deno.serve(async (request) => {
     if (!/^[a-z0-9-]{2,64}$/.test(storeSlug)) throw new Error('Neplatný obchod.');
     if (storeSlug === 'action') {
       return Response.json({ ok: true, store: storeSlug, source: ACTION_LISTING_URL, leaflets: [actionOfficialLeaflet()] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'lidl') {
+      const leaflets = await lidlOfficialLeaflets();
+      return Response.json({ ok: true, store: storeSlug, source: LIDL_API_URL, leaflets }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'teta') {
       const leaflets = await tetaOfficialLeaflets();
