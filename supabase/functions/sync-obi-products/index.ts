@@ -15,6 +15,9 @@ const BROWSER_HEADERS = {
   accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
+const PARSER = 'obi-pdf-spatial-v1';
+type Token = { text: string; x: number; y: number; width: number; height: number };
+type Page = { page: number; tokens: Token[] };
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
 
@@ -52,10 +55,50 @@ function productTitle(html: string) {
   return (decodeHtml(heading) || metaContent(html, 'og:title')).replace(/\s*[|–-]\s*OBI\s*$/i, '').trim();
 }
 
-function extractSkus(value: string) {
-  const result = new Set<string>();
-  for (const match of String(value || '').matchAll(/\b(\d{7})\b/g)) result.add(match[1]);
-  return [...result];
+function clean(value: unknown) { return String(value || '').replace(/\s+/g, ' ').trim(); }
+function normalize(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function parseSku(text: string) { return text.match(/^OBI č\.\s*(\d{7})(?:\s|$)/i)?.[1] || null; }
+function parsePrice(text: string) {
+  const match = text.match(/^(\d{1,3}(?:[ .]\d{3})*),-$/);
+  if (!match) return null;
+  const value = Number(match[1].replace(/[ .]/g, ''));
+  return Number.isFinite(value) && value >= 20 && value <= 100000 ? value : null;
+}
+function badContext(text: string) { return /(bez aplikace heyOBI|heyOBI|paletov[aá] cena|při koupi|od \d|za \d+ ks|pronájem|Kč\/(?:kg|m|m2|m²|l)|\bAKCE\b.*\bden)/i.test(text); }
+function badTitle(text: string) {
+  return text.length < 6 || text.length > 100 || !/[A-Za-zÁ-ž]/u.test(text) || /[*]|OBI č\.|cena|nabídka|sleva|aplikace|palet/i.test(text)
+    || /^(?:bez|pro|při|od|včetně|barva|rozměr|balení|výhodné)/i.test(text);
+}
+function extract(pages: Page[], validFrom: string, validTo: string, sourceUrl: string) {
+  const candidates: any[] = [];
+  const rejected: any[] = [];
+  for (const page of pages) {
+    const tokens = (page.tokens || []).map((token) => ({ ...token, text: clean(token.text) }));
+    for (const skuToken of tokens) {
+      const sku = parseSku(skuToken.text);
+      if (!sku || /\baj\./i.test(skuToken.text)) continue;
+      const local = tokens.filter((t) => Math.abs(t.x - skuToken.x) <= 105 && Math.abs(t.y - skuToken.y) <= 150);
+      const context = local.map((t) => t.text).join(' ');
+      if (badContext(context)) { rejected.push({ page: page.page, sku, reason: 'conditional_context' }); continue; }
+      const prices = local.filter((t) => parsePrice(t.text) !== null && Number(t.height) >= 14)
+        .sort((a, b) => Math.abs(a.x - skuToken.x) + Math.abs(a.y - skuToken.y) - Math.abs(b.x - skuToken.x) - Math.abs(b.y - skuToken.y));
+      if (prices.length !== 1) { rejected.push({ page: page.page, sku, reason: prices.length ? 'ambiguous_price' : 'missing_price' }); continue; }
+      const priceToken = prices[0];
+      const price = parsePrice(priceToken.text)!;
+      const titleTokens = local.filter((t) => Number(t.height) >= 9.5 && Number(t.height) <= 15 && !badTitle(t.text)
+        && t.y > skuToken.y && t.y <= skuToken.y + 90 && Math.abs(t.x - skuToken.x) <= 35).sort((a, b) => b.y - a.y);
+      if (!titleTokens.length) { rejected.push({ page: page.page, sku, reason: 'missing_title' }); continue; }
+      const anchor = titleTokens[0];
+      const title = clean(tokens.filter((t) => Number(t.height) >= 9.5 && Number(t.height) <= 15 && Math.abs(t.x - anchor.x) <= 7 && Math.abs(t.y - anchor.y) <= 20 && !badTitle(t.text)).sort((a, b) => b.y - a.y).map((t) => t.text).join(' '));
+      if (badTitle(title)) continue;
+      candidates.push({ external_id: `obi:${sku}:${validFrom}:${validTo}`, title, normalized_title: normalize(title), price, old_price: null,
+        valid_from: validFrom, valid_to: validTo, source_url: sourceUrl, source_page: Number(page.page),
+        metadata: { adapter: PARSER, parser_version: PARSER, obi_sku: sku } });
+    }
+  }
+  const unique = new Map<string, any>();
+  for (const row of candidates) if (!unique.has(row.external_id)) unique.set(row.external_id, row);
+  return { rows: [...unique.values()].sort((a, b) => a.source_page - b.source_page), rejected };
 }
 
 async function fetchProduct(sku: string) {
@@ -117,19 +160,11 @@ Deno.serve(async (request) => {
     if (storeError || !store) throw storeError || new Error('OBI nebylo nalezeno.');
     const { data: importRow, error: importError } = await db.from('leaflet_imports').select('*').eq('store_id', store.id).eq('metadata->>adapter', 'obi-bonial-v1').gte('detected_valid_to', today).order('detected_valid_from', { ascending: false }).order('created_at', { ascending: false }).limit(1).single();
     if (importError || !importRow) throw importError || new Error('Aktuální OBI leták nebyl nalezen.');
-    const { data: items, error: itemError } = await db.from('leaflet_import_items').select('id,title,price,old_price,source_page,raw_data').eq('import_id', importRow.id).gt('price', 0).order('source_page');
-    if (itemError) throw itemError;
-
-    const candidates = new Map<string, any>();
-    for (const item of items || []) {
-      const text = `${item.title || ''} ${item.raw_data?.price_line || ''}`;
-      for (const sku of extractSkus(text)) {
-        const current = candidates.get(sku);
-        const explicitlyNamed = new RegExp(`OBI\\s*č\\.\\s*${sku}`, 'i').test(item.title || '');
-        if (!current || (explicitlyNamed && !current.explicitlyNamed)) candidates.set(sku, { ...item, explicitlyNamed });
-      }
-    }
-    if (!candidates.size) throw new Error('V OBI letáku nebyla nalezena čísla výrobků.');
+    const { data: extracted, error: textError } = await db.from('leaflet_extracted_text').select('parser,pages').eq('import_id', importRow.id).single();
+    if (textError || !extracted || extracted.parser !== 'pdf-text-v3') throw textError || new Error('Chybí textová vrstva OBI letáku.');
+    const parsed = extract(extracted.pages as Page[], String(importRow.detected_valid_from), String(importRow.detected_valid_to), String(importRow.metadata?.viewer_url || importRow.source_document_url));
+    const candidates = new Map<string, any>(parsed.rows.map((item: any) => [item.metadata.obi_sku, item]));
+    if (!candidates.size) throw new Error('V OBI letáku nebyly nalezeny jednoznačné výrobky s cenou.');
 
     const entries = [...candidates.entries()];
     const products: any[] = [];
@@ -143,6 +178,12 @@ Deno.serve(async (request) => {
         else failures.push({ sku, error: result.reason instanceof Error ? result.reason.message : String(result.reason) });
       });
     }
+
+    if (!products.length) throw new Error('Nepodařilo se ověřit žádný OBI produkt.');
+
+    // Replace the previous OBI result only after official pages were successfully verified.
+    const { error: deleteError } = await db.from('offers').delete().eq('store_id', store.id).eq('metadata->>import_id', importRow.id);
+    if (deleteError) throw deleteError;
 
     let published = 0;
     const publishedSkus: string[] = [];
@@ -158,10 +199,9 @@ Deno.serve(async (request) => {
 
     await db.from('leaflet_imports').update({
       status: 'published', product_count: published, error_message: failures.length ? `${failures.length} OBI produktů se nepodařilo ověřit.` : null, finished_at: new Date().toISOString(),
-      metadata: { ...(importRow.metadata || {}), structured_product_adapter: 'obi-product-page-v1', structured_product_count: published, structured_product_failures: failures.length, structured_product_synced_at: new Date().toISOString() },
+      metadata: { ...(importRow.metadata || {}), structured_product_adapter: 'obi-spatial-official-v1', structured_product_count: published, structured_product_failures: failures.length, structured_product_rejected: parsed.rejected.length, structured_product_synced_at: new Date().toISOString() },
     }).eq('id', importRow.id);
 
-    return json({ ok: true, import_id: importRow.id, candidates: candidates.size, published, failed: failures.length, published_skus: publishedSkus, failures });
+    return json({ ok: true, import_id: importRow.id, candidates: candidates.size, rejected: parsed.rejected.length, published, failed: failures.length, published_skus: publishedSkus, failures });
   } catch (error) { return json({ error: error instanceof Error ? error.message : String(error) }, 500); }
 });
-
