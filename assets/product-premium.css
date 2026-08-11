@@ -41,7 +41,7 @@
 .sfCurrentPriceRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .sfCurrentBestBadge{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 13px;border:1px solid #bfe8e2;border-radius:12px;background:#f0fbf9;color:#087c72;font-size:12px;font-weight:900}
 .sfCurrentBestBadge:before{content:"♢";font-size:18px}
-.sfHero #currentStore{margin:18px 0 0!important;color:#667774;font-size:16px}
+.sfHero #currentStore{flex:0 0 100%;width:100%;margin:18px 0 0!important;color:#667774;font-size:16px}
 .sfCurrentStore{gap:12px!important}
 .sfCurrentStoreLogo{width:48px!important;height:44px!important;border-radius:12px!important;box-shadow:0 5px 15px rgba(20,55,50,.06)!important}
 
