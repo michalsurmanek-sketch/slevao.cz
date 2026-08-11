@@ -17,21 +17,21 @@
 
   function build() {
     const name = $('#productName')?.textContent?.trim();
-    if (!name || name === 'Načítám produkt…') return false;
+    const offersRoot = $('#offers');
+    if (!name || name === 'Načítám produkt…' || !offersRoot || offersRoot.dataset.loaded !== '1') return false;
 
     const metaText = $('#productMeta')?.textContent?.trim() || '';
     const image = $('#productImage img')?.src || '';
-    const cards = [...document.querySelectorAll('#offers .sfOffer')];
+    const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
+    const cards = [...offersRoot.querySelectorAll('.sfOffer')];
     const offerRows = cards.map((card) => {
       const price = money(card.querySelector('.sfPrice')?.textContent);
       const store = (card.querySelector('.sfOfferStore')?.textContent || 'Obchod').split(' · ')[0].trim();
-      const link = card.querySelector('a[href]')?.href || location.href;
       return Number.isFinite(price) && price > 0 ? {
         '@type':'Offer',
         price,
         priceCurrency:'CZK',
-        availability:'https://schema.org/InStock',
-        url:link,
+        url:canonical,
         seller:{ '@type':'Organization', name:store }
       } : null;
     }).filter(Boolean);
@@ -42,7 +42,7 @@
       '@type':'Product',
       name,
       description: metaText ? `${name} – ${metaText}. Porovnání akčních cen na Slevao.cz.` : `${name} – porovnání akčních cen na Slevao.cz.`,
-      url:location.href
+      url:canonical
     };
     if (image) product.image = [image];
     if (offerRows.length) {
@@ -69,15 +69,27 @@
     ensureMeta('og:type', 'product');
     ensureMeta('og:title', `${name} – ceny a historie | Slevao.cz`);
     ensureMeta('og:description', description);
-    ensureMeta('og:url', location.href);
+    ensureMeta('og:url', canonical);
     if (image) ensureMeta('og:image', image);
     return true;
   }
 
-  if (build()) return;
-  const observer = new MutationObserver(() => {
-    if (build()) observer.disconnect();
+  let completed = false;
+  const tryBuild = () => {
+    if (completed) return true;
+    completed = build();
+    return completed;
+  };
+
+  if (tryBuild()) return;
+
+  window.addEventListener('slevao:product-offers-rendered', () => {
+    if (tryBuild()) observer.disconnect();
   });
-  observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true });
-  window.setTimeout(() => observer.disconnect(), 12000);
+
+  const observer = new MutationObserver(() => {
+    if (tryBuild()) observer.disconnect();
+  });
+  observer.observe(document.documentElement, { childList:true, subtree:true, characterData:true, attributes:true, attributeFilter:['data-loaded'] });
+  window.setTimeout(() => observer.disconnect(), 15000);
 })();
