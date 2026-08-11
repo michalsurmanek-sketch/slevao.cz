@@ -97,10 +97,13 @@
     document.querySelectorAll('[data-favorite-product]').forEach((button) => {
       const productId = button.dataset.favoriteProduct;
       const active = isFavorite(productId);
+      const pressed = String(active);
+      const label = buttonLabel(productId);
+      const title = active ? 'Odebrat produkt z oblíbených' : 'Uložit produkt do oblíbených';
       button.classList.toggle('is-favorite', active);
-      button.setAttribute('aria-pressed', String(active));
-      button.textContent = buttonLabel(productId);
-      button.title = active ? 'Odebrat produkt z oblíbených' : 'Uložit produkt do oblíbených';
+      if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+      if (button.textContent !== label) button.textContent = label;
+      if (button.title !== title) button.title = title;
     });
   }
 
@@ -130,16 +133,24 @@
     const currentId = detailProductId();
     if (currentId) {
       const hero = document.querySelector('.sfHeroMain');
-      if (hero && !hero.querySelector('.sfPersonalHeroActions')) {
-        const actions = document.createElement('div');
-        actions.className = 'sfPersonalHeroActions';
-        hero.appendChild(actions);
-        addFavoriteButton(actions, currentId, 'sfButton');
-        const searchLink = document.createElement('a');
-        searchLink.className = 'sfButton';
-        searchLink.href = `hledat.html?q=${encodeURIComponent(document.getElementById('productName')?.textContent || '')}`;
-        searchLink.textContent = 'Najít podobné';
-        actions.appendChild(searchLink);
+      if (hero) {
+        let actions = hero.querySelector('.sfPersonalHeroActions');
+        if (!actions) {
+          actions = document.createElement('div');
+          actions.className = 'sfPersonalHeroActions';
+          hero.appendChild(actions);
+          addFavoriteButton(actions, currentId, 'sfButton');
+          const searchLink = document.createElement('a');
+          searchLink.className = 'sfButton sfFindSimilarLink';
+          searchLink.textContent = 'Najít podobné';
+          actions.appendChild(searchLink);
+        }
+        const searchLink = actions.querySelector('.sfFindSimilarLink') || actions.querySelector('a.sfButton');
+        const productName = document.getElementById('productName')?.textContent?.trim() || '';
+        if (searchLink && productName && !/^Načítám/i.test(productName)) {
+          const href = `hledat.html?q=${encodeURIComponent(productName)}`;
+          if (searchLink.getAttribute('href') !== href) searchLink.setAttribute('href', href);
+        }
       }
     }
 
@@ -391,7 +402,13 @@
     initializeSession().catch(() => {});
   });
 
-  const observer = new MutationObserver(queueEnhance);
+  const observer = new MutationObserver((mutations) => {
+    const relevant = mutations.some((mutation) => {
+      const target = mutation.target?.nodeType === 1 ? mutation.target : mutation.target?.parentElement;
+      return !target?.closest?.('[data-favorite-product]');
+    });
+    if (relevant) queueEnhance();
+  });
   observer.observe(document.documentElement, { childList:true, subtree:true });
   enhanceCards();
 
