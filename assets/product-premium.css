@@ -1,0 +1,127 @@
+/* Slevao.cz – prémiový detail produktu podle schváleného vizuálu. */
+
+:root{
+  --sf-premium-brand:#089b8e;
+  --sf-premium-accent:#13b6a6;
+  --sf-premium-ink:#0f211f;
+  --sf-premium-muted:#667774;
+  --sf-premium-line:#dbe9e6;
+  --sf-premium-soft:#effaf8;
+  --sf-premium-shadow:0 18px 55px rgba(15,45,40,.08);
+}
+
+.sfPage{background:linear-gradient(180deg,#f8fbfa 0,#f2f7f6 38%,#f5f9f8 100%)}
+.sfTop{background:rgba(255,255,255,.97);box-shadow:0 8px 28px rgba(20,55,50,.055)}
+.sfTopInner{max-width:1440px;padding:16px 22px;gap:24px}
+.sfTop .sfLogo{width:270px!important;height:58px!important;min-width:270px!important}
+
+.sfPremiumSearch{flex:1 1 520px;max-width:650px;min-width:260px;position:relative;display:flex;align-items:center}
+.sfPremiumSearch input{width:100%;height:50px;padding:0 52px 0 18px;border:1px solid var(--sf-premium-line);border-radius:14px;background:#fff;color:var(--sf-premium-ink);outline:0;font:500 15px/1 system-ui,sans-serif;box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.sfPremiumSearch input:focus{border-color:#7eddd4;box-shadow:0 0 0 4px rgba(19,182,166,.10)}
+.sfPremiumSearch button{position:absolute;right:6px;width:38px;height:38px;display:grid;place-items:center;border:0;border-radius:10px;background:transparent;color:#15302d;font-size:20px;cursor:pointer}
+.sfTopLinks{margin-left:auto;gap:6px;align-items:center}
+.sfTopLinks a,.sfTopLinks button{min-height:44px;padding:0 14px;border-color:transparent;background:transparent;font-size:15px;font-weight:900}
+.sfTopLinks a:hover{background:#f0f8f7;border-color:#dce9e6}
+
+.sfShell{max-width:1440px;padding:20px 22px 110px}
+.sfPremiumBreadcrumbs{display:flex;align-items:center;gap:10px;min-height:34px;margin:2px 0 12px;color:#768682;font-size:12px;white-space:nowrap;overflow:hidden}
+.sfPremiumBreadcrumbs a{color:#61736f;text-decoration:none}
+.sfPremiumBreadcrumbs a:hover{color:var(--sf-premium-brand)}
+.sfPremiumBreadcrumbs .sep{color:#a7b4b1}
+.sfPremiumBreadcrumbs .current{min-width:0;overflow:hidden;text-overflow:ellipsis;color:#334844;font-weight:800}
+
+.sfHero{position:relative;display:grid;grid-template-columns:minmax(0,1.26fr) minmax(360px,.74fr);gap:28px;align-items:stretch;margin-bottom:20px;padding:28px 30px;border:1px solid var(--sf-premium-line);border-radius:24px;background:#fff;box-shadow:var(--sf-premium-shadow)}
+.sfHero .sfCard{border:0;box-shadow:none}
+.sfHeroMain{padding:8px 8px 6px}
+.sfHero .sfEyebrow{padding:8px 14px;border:1px solid #d9efeb;border-radius:10px;background:#f0faf8;color:#0a857b;font-size:11px;letter-spacing:.12em}
+.sfHero h1{max-width:760px;margin:18px 0 20px;font-size:clamp(38px,4.3vw,60px);line-height:1.04;letter-spacing:-.035em;color:#102220}
+.sfHero #productMeta{margin:-8px 0 14px;font-size:13px}
+.sfHeroMain>div[style]{margin-top:0!important}
+.sfHero #currentPrice{display:inline-block;color:var(--sf-premium-brand);font-size:42px;letter-spacing:-.03em}
+.sfCurrentPriceRow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sfCurrentBestBadge{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 13px;border:1px solid #bfe8e2;border-radius:12px;background:#f0fbf9;color:#087c72;font-size:12px;font-weight:900}
+.sfCurrentBestBadge:before{content:"♢";font-size:18px}
+.sfHero #currentStore{margin:18px 0 0!important;color:#667774;font-size:16px}
+.sfCurrentStore{gap:12px!important}
+.sfCurrentStoreLogo{width:48px!important;height:44px!important;border-radius:12px!important;box-shadow:0 5px 15px rgba(20,55,50,.06)!important}
+
+.sfPersonalHeroActions{display:flex!important;align-items:center;gap:10px!important;flex-wrap:wrap;margin-top:22px!important}
+.sfPersonalHeroActions .sfButton{min-height:50px;padding:0 18px;border-radius:13px;font-size:13px;font-weight:900;text-decoration:none}
+.sfPersonalHeroActions .sfPremiumBestOffer{min-width:260px;border:0!important;background:linear-gradient(135deg,#087f75,#0db4a3)!important;color:#fff!important;box-shadow:0 12px 28px rgba(8,155,142,.18)}
+.sfPersonalHeroActions .sfPremiumBestOffer:before{content:"◇";margin-right:9px;font-size:18px}
+.sfPersonalHeroActions .sfPremiumBestOffer:after{content:"→";margin-left:16px;font-size:20px}
+.sfPersonalHeroActions .sfFavoriteButton{width:50px;min-width:50px;padding:0!important;font-size:0!important}
+.sfPersonalHeroActions .sfFavoriteButton:after{content:"♡";font-size:24px}
+.sfPersonalHeroActions .sfFavoriteButton.is-favorite:after{content:"♥"}
+
+.sfHeroTrustChips{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}
+.sfHeroTrustChip{display:inline-flex;align-items:center;gap:7px;min-height:38px;padding:0 12px;border:1px solid #e0ecea;border-radius:11px;background:#fff;color:#64736f;font-size:11px;font-weight:800}
+.sfHeroTrustChip:before{width:21px;height:21px;display:grid;place-items:center;border-radius:50%;background:#e8f8f4;color:#0a998d;font-size:12px;font-weight:950}
+.sfHeroTrustChip:nth-child(1):before{content:"✓"}.sfHeroTrustChip:nth-child(2):before{content:"↻"}.sfHeroTrustChip:nth-child(3):before{content:"%"}
+
+.sfProductImage{position:relative;min-height:430px;border:1px solid #cbe9e5!important;border-radius:20px!important;background:radial-gradient(circle at 50% 45%,#fff 0,#fff 52%,#f7fcfb 100%)!important;overflow:hidden}
+.sfProductImage img{max-height:420px;padding:26px 24px 42px;object-fit:contain}
+.sfProductImage:after{content:"●  ●  ●  ●  ●";position:absolute;left:50%;bottom:17px;transform:translateX(-50%);color:#d7e0de;font-size:11px;letter-spacing:5px;white-space:nowrap}
+.sfProductImage:before{content:"●";position:absolute;z-index:2;left:calc(50% - 42px);bottom:17px;color:#0a9d91;font-size:11px}
+
+.sfStats{gap:16px;margin:20px 0 34px}
+.sfStat{position:relative;min-height:94px;padding:20px 20px 18px 84px;border-radius:18px;box-shadow:0 10px 30px rgba(18,50,45,.055)}
+.sfStat:before{position:absolute;left:20px;top:50%;width:46px;height:46px;transform:translateY(-50%);display:grid;place-items:center;border-radius:50%;background:#e6f8f4;color:#0a9b8f;font-size:22px;font-weight:900}
+.sfStat:nth-child(1):before{content:"↗"}.sfStat:nth-child(2):before{content:"▣"}.sfStat:nth-child(3):before{content:"◇"}.sfStat:nth-child(4):before{content:"▤"}
+.sfStat small{font-size:13px;font-weight:750}.sfStat strong{margin-top:5px;font-size:26px;letter-spacing:-.02em}
+
+.sfSection{margin-top:28px}
+.sfSectionHead{align-items:center;margin-bottom:16px}
+.sfSectionHead h2{font-size:30px;letter-spacing:-.025em}
+.sfSectionHead .sfEyebrow{font-size:11px}
+.sfOffersTitleWrap{display:flex;align-items:center;gap:14px}
+.sfOffersTitleIcon{width:52px;height:52px;flex:0 0 auto;display:grid;place-items:center;border-radius:50%;background:#e5f8f4;color:#0a9b8f;font-size:27px}
+.sfSectionTools{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.sfSectionTools .sfButton{min-height:44px}
+
+.sfGrid{gap:16px}
+.sfOffer{padding:19px;border-radius:19px;box-shadow:0 10px 30px rgba(18,50,45,.055)}
+.sfOffer.best{outline:2px solid rgba(18,184,166,.32)}
+.sfOffer .sfPrice{font-size:30px;color:#10221f}
+.sfOfferActions .sfButton{min-height:42px;border-radius:11px}
+
+.sfPanel{border-radius:20px}
+
+@media(max-width:1050px){
+  .sfTopInner{gap:12px}.sfTop .sfLogo{width:220px!important;min-width:220px!important}.sfPremiumSearch{max-width:none}
+  .sfHero{grid-template-columns:minmax(0,1fr) minmax(320px,.72fr);padding:22px}.sfHero h1{font-size:clamp(34px,5vw,50px)}
+  .sfStats{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:900px){
+  .sfTop .sfLogo{width:60px!important;min-width:60px!important;height:52px!important;background-image:url('slevao-mark.svg?v=20260802-1')!important;background-position:center!important}
+  .sfPremiumSearch{display:none}
+  .sfHero{grid-template-columns:1fr;padding:16px;gap:12px}
+  .sfHeroMain{padding:8px}
+  .sfProductImage{min-height:340px}
+  .sfProductImage img{max-height:330px}
+  .sfHeroTrustChips{display:grid;grid-template-columns:repeat(3,1fr)}
+  .sfHeroTrustChip{justify-content:center;padding:0 8px;text-align:center}
+}
+
+@media(max-width:680px){
+  .sfShell{padding-left:12px;padding-right:12px}
+  .sfPremiumBreadcrumbs{display:none}
+  .sfHero{padding:12px;border-radius:20px}
+  .sfHero h1{font-size:34px;margin-top:14px}
+  .sfHero #currentPrice{font-size:36px}
+  .sfCurrentPriceRow{gap:8px}
+  .sfCurrentBestBadge{min-height:34px;font-size:11px}
+  .sfPersonalHeroActions{display:grid!important;grid-template-columns:1fr 1fr!important}
+  .sfPersonalHeroActions .sfPremiumBestOffer{grid-column:1/-1;min-width:0;width:100%}
+  .sfPersonalHeroActions .sfFavoriteButton{width:100%;min-width:0}
+  .sfHeroTrustChips{grid-template-columns:1fr}
+  .sfProductImage{min-height:300px}
+  .sfStats{grid-template-columns:1fr 1fr;gap:9px}
+  .sfStat{min-height:84px;padding:15px 10px 14px 58px}
+  .sfStat:before{left:10px;width:38px;height:38px;font-size:18px}
+  .sfStat small{font-size:11px}.sfStat strong{font-size:21px}
+  .sfSectionHead{align-items:flex-start}
+  .sfOffersTitleWrap{align-items:flex-start}.sfOffersTitleIcon{width:44px;height:44px;font-size:23px}
+  .sfSectionHead h2{font-size:26px}
+}
