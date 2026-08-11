@@ -4,11 +4,18 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = (v) => Number(v || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const date = (v) => v ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${String(v).slice(0,10)}T12:00:00`)) : '–';
+
+  if (!window.supabase?.createClient) {
+    const root = $('productContent');
+    if (root) root.innerHTML = '<div class="sfCard sfPanel"><h1>Produkt se nepodařilo načíst</h1><p class="sfMuted">Datové připojení se nenačetlo. Obnov stránku.</p><a class="sfButton primary" href="index.html">Zpět na nabídky</a></div>';
+    return;
+  }
+
+  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   function pragueDate(offsetDays = 0) {
     const target = new Date(Date.now() + offsetDays * 86400000);
@@ -122,46 +129,82 @@
     </article>`;
   }
 
-  function render() {
-    const visible = offers.slice().sort((a,b) => Number(isUpcoming(a)) - Number(isUpcoming(b)) || Number(a.price) - Number(b.price));
-    const cheapest = visible.slice().sort((a,b) => Number(a.price) - Number(b.price))[0];
-    const typical = typicalPrice();
+  function renderIdentity() {
+    if (!product) return;
     document.title = `${product.name} – ceny a historie | Slevao.cz`;
     document.querySelector('meta[name="description"]')?.setAttribute('content', `Porovnání aktuálních a nadcházejících cen produktu ${product.name}, historie cen a cenový hlídač.`);
     document.querySelector('link[rel="canonical"]')?.setAttribute('href', `https://slevao.cz/produkt.html?id=${encodeURIComponent(product.id)}`);
     $('productName').textContent = product.name;
     $('productMeta').textContent = [product.brand, product.quantity_text, product.ean ? `EAN ${product.ean}` : ''].filter(Boolean).join(' · ');
     $('productImage').innerHTML = product.image_url ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}">` : '<div class="sfEmpty">Fotografie zatím není ověřena.</div>';
+  }
+
+  function renderOffers() {
+    const visible = offers.slice().sort((a,b) => Number(isUpcoming(a)) - Number(isUpcoming(b)) || Number(a.price) - Number(b.price));
+    const cheapest = visible.slice().sort((a,b) => Number(a.price) - Number(b.price))[0];
     $('currentPrice').textContent = cheapest ? `${money(cheapest.price)} Kč` : 'Bez viditelné ceny';
     $('currentStore').innerHTML = cheapest
       ? `<span class="sfCurrentStore">${storeLogoHtml(cheapest.stores, 'sfCurrentStoreLogo')}<span>${esc(isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)} nejlevněji v ${offerStoreLabel(cheapest)}` : `Právě teď nejlevněji v ${offerStoreLabel(cheapest)}`)}</span></span>`
       : 'Aktuální ani nadcházející nabídka není dostupná';
+    $('statStores').textContent = String(new Set(visible.map(offerStoreKey)).size);
+    $('statTypical').textContent = typicalPrice() == null ? '–' : `${money(typicalPrice())} Kč`;
+    $('offers').innerHTML = visible.length ? visible.map(offerHtml).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
+  }
+
+  function renderHistory() {
     $('stat30').textContent = statWindow(30) == null ? '–' : `${money(statWindow(30))} Kč`;
     $('stat90').textContent = statWindow(90) == null ? '–' : `${money(statWindow(90))} Kč`;
-    $('statTypical').textContent = typical == null ? '–' : `${money(typical)} Kč`;
-    $('statStores').textContent = String(new Set(visible.map(offerStoreKey)).size);
-    $('offers').innerHTML = visible.length ? visible.map(offerHtml).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
+    $('statTypical').textContent = typicalPrice() == null ? '–' : `${money(typicalPrice())} Kč`;
     $('priceChart').innerHTML = chartSvg();
     $('historyInfo').textContent = history.length ? `${history.length} cenových záznamů · poslední kontrola ${date(history.at(-1)?.recorded_at)}` : 'Historie cen zatím není dostupná.';
   }
 
+  function withTimeout(request, label, ms = 8000) {
+    let timer;
+    const timeout = new Promise((_, reject) => {
+      timer = window.setTimeout(() => reject(new Error(`${label} se nepodařilo načíst včas.`)), ms);
+    });
+    return Promise.race([Promise.resolve(request), timeout]).finally(() => window.clearTimeout(timer));
+  }
+
   async function load() {
     if (!productId) throw new Error('V odkazu chybí identifikátor produktu.');
-    const [productResult, offersResult, historyResult, locationResult] = await Promise.all([
+
+    const productRequest = withTimeout(
       db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id').eq('id', productId).maybeSingle(),
+      'Produkt'
+    );
+    const offersRequest = withTimeout(
       db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,stores(id,name,slug,logo_url)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
-      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug,logo_url)').eq('product_id', productId).order('recorded_at').limit(1000),
-      db.from('public_product_leaflet_locations').select('*').eq('product_id', productId).order('valid_to', { ascending:false }).limit(30)
-    ]);
+      'Aktuální nabídky'
+    );
+
+    const productResult = await productRequest;
     if (productResult.error) throw productResult.error;
     if (!productResult.data) throw new Error('Produkt nebyl nalezen.');
-    if (offersResult.error) throw offersResult.error;
-    if (historyResult.error) throw historyResult.error;
     product = productResult.data;
-    offers = offersResult.data || [];
-    history = historyResult.data || [];
-    leafletLocations = locationResult.error ? [] : (locationResult.data || []);
-    render();
+    renderIdentity();
+
+    const offersResult = await offersRequest.catch((error) => ({ data:[], error }));
+    offers = offersResult.error ? [] : (offersResult.data || []);
+    renderOffers();
+
+    const historyRequest = withTimeout(
+      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug,logo_url)').eq('product_id', productId).order('recorded_at').limit(1000),
+      'Historie cen',
+      10000
+    );
+    const locationRequest = withTimeout(
+      db.from('public_product_leaflet_locations').select('*').eq('product_id', productId).order('valid_to', { ascending:false }).limit(30),
+      'Umístění v letáku',
+      8000
+    );
+
+    const [historySettled, locationSettled] = await Promise.allSettled([historyRequest, locationRequest]);
+    if (historySettled.status === 'fulfilled' && !historySettled.value.error) history = historySettled.value.data || [];
+    if (locationSettled.status === 'fulfilled' && !locationSettled.value.error) leafletLocations = locationSettled.value.data || [];
+    renderHistory();
+    renderOffers();
   }
 
   async function createAlert(offer) {
@@ -218,6 +261,7 @@
   });
 
   load().catch((error) => {
-    $('productContent').innerHTML = `<div class="sfCard sfPanel"><h1>Produkt se nepodařilo načíst</h1><p class="sfMuted">${esc(error.message)}</p><a class="sfButton primary" href="index.html">Zpět na nabídky</a></div>`;
+    const root = $('productContent');
+    if (root) root.innerHTML = `<div class="sfCard sfPanel"><h1>Produkt se nepodařilo načíst</h1><p class="sfMuted">${esc(error.message)}</p><a class="sfButton primary" href="index.html">Zpět na nabídky</a></div>`;
   });
 })();
