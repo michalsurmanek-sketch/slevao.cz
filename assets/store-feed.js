@@ -185,17 +185,18 @@
   function leafletCard(leaflet) {
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
+    const safeRossmannEmbed = String(leaflet.embed_url || '').startsWith('https://publikace.rossmann.cz/') ? String(leaflet.embed_url) : '';
     const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
     const storeSlug = String(config.slug || '').toLowerCase();
-    const isExternalWebOffer = ['pepco', 'petcenter', 'planeo', 'rossmann'].includes(storeSlug);
-    const canPreview = !isExternalWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const isExternalWebOffer = ['pepco', 'petcenter', 'planeo'].includes(storeSlug);
+    const canPreview = Boolean(safeRossmannEmbed) || (!isExternalWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`));
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
       ? `${formatLong(leaflet.valid_from)} – ${formatLong(leaflet.valid_to)}`
       : 'Aktuální platnost ověříš po otevření';
     const open = canPreview
-      ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
+      ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(safeRossmannEmbed || previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
       : `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">`;
     const close = canPreview ? '</button>' : '</a>';
     const leafletType = /katalog/i.test(String(leaflet.title || '')) || leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták';
@@ -217,7 +218,8 @@
   async function openLeafletViewer(previewUrl, title, shouldScroll = true) {
     const viewer = $('leafletViewer');
     const frame = $('leafletFrame');
-    if (!viewer || !frame || !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`)) return;
+    const isRossmannEmbed = String(config.slug || '').toLowerCase() === 'rossmann' && previewUrl.startsWith('https://publikace.rossmann.cz/');
+    if (!viewer || !frame || (!isRossmannEmbed && !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`))) return;
     leafletLoadController?.abort();
     leafletLoadController = new AbortController();
     if (leafletObjectUrl) URL.revokeObjectURL(leafletObjectUrl);
@@ -235,6 +237,14 @@
       button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
     });
     if (shouldScroll && !mobileViewer) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isRossmannEmbed) {
+      frame.src = previewUrl;
+      frame.hidden = false;
+      requestAnimationFrame(fitLeafletViewer);
+      setTimeout(fitLeafletViewer, 450);
+      $('leafletViewerStatus').hidden = true;
+      return;
+    }
     try {
       const response = await fetch(previewUrl, {
         headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
@@ -292,7 +302,7 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v7`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v8`, {
         headers: { apikey: KEY },
         signal: controller.signal,
       });
