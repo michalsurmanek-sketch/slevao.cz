@@ -37,6 +37,7 @@
       body: 'Simulace bez kontroly polohy: 3 položky z tvého seznamu jsou dnes v akci. Můžeš ušetřit přibližně 86 Kč.',
       icon: '/favicon.svg',
       badge: '/favicon.svg',
+      image: '/assets/nearby-panel-uploaded-bg.svg?v=20260808-1',
       tag: `slevao-arrival-test-${Date.now()}`,
       renotify: false,
       data: { url: '/seznam.html?route=1', test: true },
@@ -63,13 +64,13 @@
     const button = document.getElementById(TEST_ID);
     if (!button) return;
     button.disabled = true;
-    button.textContent = 'Odesílám test bez polohy…';
-    setStatus('TEST: GPS se nekontroluje. Odesílám simulované upozornění.', 'checking');
+    button.textContent = 'Odesílám test s obrázkem…';
+    setStatus('TEST: GPS se nekontroluje. Odesílám upozornění s obrázkem.', 'checking');
 
     try {
       await sendNotification();
-      button.textContent = '✓ Test odeslán';
-      setStatus('Test odeslán bez kontroly polohy. Pro skutečné upozornění musíš být opravdu u pobočky.', 'ok');
+      button.textContent = '✓ Test s obrázkem odeslán';
+      setStatus('Test s obrázkem byl odeslán bez kontroly polohy. Zobrazení velkého obrázku závisí na systému/prohlížeči.', 'ok');
       window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3000);
     } catch (error) {
       button.textContent = TEST_LABEL;
@@ -90,7 +91,7 @@
     button.className = 'slArrivalTest';
     button.type = 'button';
     button.textContent = TEST_LABEL;
-    button.title = 'Simulace oznámení bez kontroly GPS – nemusíš být v obchodě';
+    button.title = 'Simulace oznámení s obrázkem bez kontroly GPS – nemusíš být v obchodě';
     button.addEventListener('click', testFromUser);
 
     const status = document.getElementById('slArrivalStatus');
