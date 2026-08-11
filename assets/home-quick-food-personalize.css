@@ -1,0 +1,64 @@
+/* Uživatelské přizpůsobení lišty Rychlý nákup. */
+.sqFoodCustomize,.sqFoodMobileCustomize,.sqFoodEditor button{-webkit-tap-highlight-color:transparent}
+.sqFoodCustomize{width:25px;height:25px;display:grid;place-items:center;padding:0;border:0;border-radius:9px;background:#f0f8f7;color:#0b776f;font-size:13px;line-height:1;cursor:pointer}
+.sqFoodCustomize:hover{background:#def5f1}
+.sqFoodMobileBar{display:none}
+
+.sqFoodEditor[hidden]{display:none!important}
+.sqFoodEditor{position:fixed;inset:0;z-index:10080;display:grid;place-items:center;padding:20px;opacity:0;transition:opacity .18s ease}
+.sqFoodEditor.is-open{opacity:1}
+.sqFoodEditorBackdrop{position:absolute;inset:0;background:rgba(6,25,22,.52);backdrop-filter:blur(7px)}
+.sqFoodEditorSheet{position:relative;z-index:1;width:min(620px,100%);max-height:min(86vh,820px);overflow:auto;padding:22px;border:1px solid rgba(213,232,229,.9);border-radius:26px;background:#fff;box-shadow:0 30px 100px rgba(3,32,28,.28);transform:translateY(10px) scale(.985);transition:transform .18s ease}
+.sqFoodEditor.is-open .sqFoodEditorSheet{transform:none}
+.sqFoodEditorHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.sqFoodEditorHead small{display:block;margin-bottom:4px;color:#159e94;font-size:11px;font-weight:950;letter-spacing:.08em;text-transform:uppercase}
+.sqFoodEditorHead h2{margin:0;font-size:28px;line-height:1.05;color:#172222}
+.sqFoodEditorClose{width:42px;height:42px;flex:0 0 auto;border:1px solid #dbe8e6;border-radius:14px;background:#fff;color:#3f5451;font-size:26px;cursor:pointer}
+.sqFoodEditorHint{margin:11px 0 18px;color:#667572;font-size:13px;line-height:1.45}
+.sqFoodEditorSection{margin-top:15px;padding:15px;border:1px solid #e0ecea;border-radius:20px;background:#f9fcfb}
+.sqFoodEditorSectionHead{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:11px;color:#243431}
+.sqFoodEditorSectionHead strong{font-size:14px}
+.sqFoodEditorSectionHead span{color:#71807e;font-size:11px;font-weight:800}
+.sqFoodEditorSelected{display:grid;gap:8px}
+.sqFoodEditorRow{display:grid;grid-template-columns:38px minmax(0,1fr) auto 38px;align-items:center;gap:9px;padding:8px 9px;border:1px solid #dce9e7;border-radius:15px;background:#fff}
+.sqFoodEditorRowIcon{width:36px;height:36px;display:grid;place-items:center;border-radius:50%;background:#f1faf8;border:1px solid #dcecea;font-size:19px}
+.sqFoodEditorRow strong{font-size:13px;color:#253432}
+.sqFoodEditorMove{display:flex;gap:5px}
+.sqFoodEditorMove button,.sqFoodEditorRemove{width:34px;height:34px;display:grid;place-items:center;padding:0;border:1px solid #d9e7e5;border-radius:11px;background:#fff;color:#0b776f;font-weight:950;cursor:pointer}
+.sqFoodEditorMove button:disabled,.sqFoodEditorRemove:disabled{opacity:.28;cursor:default}
+.sqFoodEditorRemove{color:#a53a42;font-size:19px}
+.sqFoodEditorCatalog{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.sqFoodEditorCatalog>button{min-height:48px;display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;padding:8px 10px;border:1px solid #dce8e6;border-radius:14px;background:#fff;color:#243431;text-align:left;cursor:pointer}
+.sqFoodEditorCatalog>button>span{font-size:20px}
+.sqFoodEditorCatalog>button>strong{font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sqFoodEditorCatalog>button>b{width:24px;height:24px;display:grid;place-items:center;border-radius:50%;background:#e3f8f4;color:#0b776f;font-size:16px}
+.sqFoodEditorAllAdded{grid-column:1/-1;padding:10px;color:#71807e;font-size:12px;text-align:center}
+.sqFoodEditorActions{display:flex;justify-content:space-between;gap:10px;margin-top:18px}
+.sqFoodEditorReset,.sqFoodEditorSave{min-height:46px;padding:0 16px;border-radius:14px;font-weight:900;cursor:pointer}
+.sqFoodEditorReset{border:1px solid #dbe7e5;background:#fff;color:#5d706d}
+.sqFoodEditorSave{min-width:130px;border:0;background:linear-gradient(135deg,#159e94,#0b877e);color:#fff;box-shadow:0 10px 24px rgba(21,158,148,.22)}
+.sqFoodCustomize:focus-visible,.sqFoodMobileCustomize:focus-visible,.sqFoodEditor button:focus-visible{outline:3px solid rgba(21,158,148,.24);outline-offset:2px}
+
+@media(max-width:900px){
+  .sqFoodMobileBar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px 4px}
+  .sqFoodMobileBar>strong{color:#0b776f;font-size:12px;font-weight:950;letter-spacing:.025em}
+  .sqFoodMobileCustomize{min-height:30px;padding:0 11px;border:1px solid #cfe8e4;border-radius:999px;background:rgba(255,255,255,.88);color:#0b776f;font-size:11px;font-weight:900;cursor:pointer;box-shadow:0 4px 12px rgba(20,80,73,.07)}
+  .sqFoodDock.collapsed .sqFoodMobileBar{display:flex}
+  .sqFoodEditor{align-items:end;padding:10px}
+  .sqFoodEditorSheet{width:100%;max-height:88vh;padding:18px 15px calc(18px + env(safe-area-inset-bottom));border-radius:24px 24px 14px 14px;transform:translateY(24px)}
+  .sqFoodEditorHead h2{font-size:25px}
+  .sqFoodEditorSection{padding:12px}
+  .sqFoodEditorCatalog{grid-template-columns:1fr 1fr}
+}
+
+@media(max-width:520px){
+  .sqFoodEditorRow{grid-template-columns:36px minmax(0,1fr) auto 34px;gap:7px;padding:7px}
+  .sqFoodEditorRowIcon{width:34px;height:34px;font-size:18px}
+  .sqFoodEditorMove button,.sqFoodEditorRemove{width:31px;height:31px;border-radius:10px}
+  .sqFoodEditorCatalog{gap:7px}
+  .sqFoodEditorCatalog>button{padding:8px;gap:6px}
+  .sqFoodEditorActions{display:grid;grid-template-columns:1fr 1fr}
+  .sqFoodEditorReset,.sqFoodEditorSave{width:100%;padding:0 10px;font-size:12px}
+}
+
+@media(prefers-reduced-motion:reduce){.sqFoodEditor,.sqFoodEditorSheet{transition:none!important}}
