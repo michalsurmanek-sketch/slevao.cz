@@ -27,7 +27,7 @@ assert.match(adminJs, /VISIBILITY_KEY = 'slevao-leaflet-visibility'/, 'Administr
 assert.match(adminJs, /FORCE_KEY = 'slevao-leaflet-force'/, 'Administrace nemá marker ručně přidané karty.');
 assert.match(adminJs, /Přidat další obchod/, 'Administrace nemá výběr dalšího obchodu.');
 assert.match(adminJs, /Přidat do sekce/, 'Administrace nemá tlačítko pro přidání obchodu.');
-assert.match(adminJs, /Odebrat ruční přidání/, 'Administrace neumí ruční kartu odebrat.');
+assert.match(adminJs, /Odebrat vlastní kartu/, 'Administrace neumí ruční kartu odebrat.');
 assert.match(adminJs, /MAX_AUTO_CARDS = 12/, 'Administrace nerespektuje maximální počet automatických karet.');
 assert.match(adminJs, /activeOfferStoreIds/, 'Administrace neomezuje automatické karty na obchody s platnými nabídkami.');
 assert.match(adminJs, /store-leaflet-feed/, 'Administrace neověřuje dostupný aktuální leták.');
@@ -49,7 +49,7 @@ for (const pattern of [
   /style\.setProperty\('display', 'none', 'important'\)/,
   /forcedCardMarkup/,
   /data-forced-leaflet-card/,
-  /Ručně přidaný/,
+  /Aktuální nabídky/,
   /legacyHidden/,
 ]) assert.match(control, pattern, `Řízení hlavní sekce postrádá ${pattern}.`);
 
