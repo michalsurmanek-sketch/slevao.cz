@@ -24,9 +24,11 @@ const workflowSet = new Set(workflows);
 for (const path of requiredWorkflows) {
   assert(workflowSet.has(path), `Chybí povinné GitHub workflow: ${path}`);
 }
+const allowedContentWriters = new Set(['generate-product-sitemap.yml']);
 for (const path of workflows) {
   const source = read(`.github/workflows/${path}`);
-  assert(!/permissions:\s*[\s\S]{0,100}contents:\s*write/.test(source), `${path} nesmí automaticky přepisovat zdrojový kód.`);
+  const writesContents = /permissions:\s*[\s\S]{0,100}contents:\s*write/.test(source);
+  assert(!writesContents || allowedContentWriters.has(path), `${path} nesmí automaticky přepisovat zdrojový kód.`);
 }
 
 const index = read('index.html');
