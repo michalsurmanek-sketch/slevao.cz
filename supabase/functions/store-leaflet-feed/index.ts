@@ -20,6 +20,7 @@ const DATART_LEAFLET_URL = 'https://www.datart.cz/letak';
 const DECATHLON_DEALS_URL = 'https://www.decathlon.cz/deals/doprodej';
 const SCONTO_LEAFLET_URL = 'https://www.sconto.cz/letak';
 const MOEBELIX_DEALS_URL = 'https://www.moebelix.cz/c/slevy';
+const XXXLUTZ_LEAFLETS_URL = 'https://www.xxxlutz.cz/c/letaky';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -559,6 +560,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: MOEBELIX_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'xxxlutz') {
+      const leaflet: Leaflet = {
+        key: 'xxxlutz-current',
+        title: 'Aktuální letáky',
+        subtitle: 'XXXLutz',
+        valid_from: null,
+        valid_to: null,
+        url: XXXLUTZ_LEAFLETS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: XXXLUTZ_LEAFLETS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
