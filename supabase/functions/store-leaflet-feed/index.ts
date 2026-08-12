@@ -10,6 +10,7 @@ const LIDL_LISTING_URL = 'https://www.lidl.cz/c/akcni-letak/s10008644';
 const LIDL_API_URL = 'https://endpoints.leaflets.schwarz/v4/overview?client_locale=lidl%2Fcs-CZ';
 const ROSSMANN_LISTING_URL = 'https://www.rossmann.cz/obsah/akce-a-letaky';
 const MAKRO_LISTING_URL = 'https://www.makro.cz/aktualni-nabidka';
+const ROHLIK_DEALS_URL = 'https://www.rohlik.cz/cenove-trhaky';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -429,6 +430,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: MAKRO_LISTING_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'rohlik') {
+      const leaflet: Leaflet = {
+        key: 'rohlik-current',
+        title: 'Cenové trháky',
+        subtitle: 'Rohlík.cz',
+        valid_from: null,
+        valid_to: null,
+        url: ROHLIK_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: ROHLIK_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
