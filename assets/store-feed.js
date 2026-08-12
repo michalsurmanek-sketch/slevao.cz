@@ -210,6 +210,10 @@
       smarty: 'Prohlédnout výprodej na Smarty.cz ↗',
       pilulka: 'Prohlédnout akce na Pilulka.cz ↗',
       'auto-kelly': 'Prohlédnout věrnostní slevy Auto Kelly ↗',
+      dek: 'Prohlédnout akční nabídku DEK ↗',
+      'pro-doma': 'Prohlédnout akce PRO-DOMA ↗',
+      stavmat: 'Prohlédnout akce STAVMAT ↗',
+      hm: 'Prohlédnout výprodej H&M ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
