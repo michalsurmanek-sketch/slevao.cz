@@ -3,25 +3,7 @@
 -- whose title and unit price are unambiguous, and attach the official leaflet
 -- viewer so every retained offer remains traceable to its source.
 
-with jip_store as (
-  select id from public.stores where slug = 'jip'
-), rejected as (
-  update public.offers
-  set status = 'rejected',
-      metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
-        'rejected_reason', 'ambiguous_spatial_ocr_price_block',
-        'rejected_at', now(),
-        'review_note', 'OCR block contained both 82 and 92,90; safe current price could not be determined.'
-      ),
-      updated_at = now()
-  where store_id = (select id from jip_store)
-    and status = 'published'
-    and valid_from <= current_date
-    and valid_to >= current_date
-    and lower(unaccent(title)) like 'strintyzky kureci parky%'
-    and coalesce(metadata->>'source_page', '6') = '6'
-  returning product_id
-), official_source as (
+with official_source as (
   select li.source_document_url
   from public.leaflet_imports li
   where li.store_id = (select id from jip_store)
@@ -39,7 +21,7 @@ set source_url = coalesce(source_url, (select source_document_url from official_
       'source_trace_kind', 'official_leaflet_viewer'
     ),
     updated_at = now()
-where store_id = (select id from jip_store)
+where store_id = (select id from public.stores where slug = 'jip')
   and status = 'published'
   and valid_from <= current_date
   and valid_to >= current_date;
