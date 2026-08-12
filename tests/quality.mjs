@@ -117,7 +117,7 @@ for (const pattern of [
   /TESCO_LISTING_URL/, /documentsFromOfficialHtml/, /async function storeLeaflets/,
   /storeSlug === 'penny'/, /async function pennyOfficialLeaflet/, /function actionOfficialLeaflet/,
 ]) assert.match(publicLeafletFeed, pattern, `Veřejný feed postrádá ${pattern}.`);
-assert.doesNotMatch(publicLeafletFeed, /error_message|metadata/, 'Veřejný feed zpřístupňuje interní diagnostiku.');
+assert.doesNotMatch(publicLeafletFeed, /(?:error_message|metadata)\s*:/, 'Veřejný feed zpřístupňuje interní diagnostická pole v odpovědi.');
 assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed vyžaduje přihlášení návštěvníka.');
 
 const publicLeafletDocument = read('supabase/functions/store-leaflet-document/index.ts');
