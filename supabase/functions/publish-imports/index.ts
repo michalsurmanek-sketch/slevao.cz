@@ -315,7 +315,29 @@ async function publishImport(job: any) {
     tescoStoreIds = cleanup.storeIds;
   }
 
-  const deduplicated = deduplicateItems(loadedItems);
+  const unsafeLowConfidence = loadedItems.filter((item: any) =>
+    Number(item.confidence || 0) < 0.9 && item.raw_data?.manual_verified !== true
+  );
+  if (unsafeLowConfidence.length) {
+    const unsafeIds = unsafeLowConfidence.map((item: any) => item.id).filter(Boolean);
+    if (unsafeIds.length) {
+      await db.from('leaflet_import_items').update({
+        status: 'rejected',
+        raw_data: {
+          rejected_reason: 'confidence_below_0_9_without_manual_verification',
+        },
+      }).in('id', unsafeIds);
+    }
+  }
+
+  const publishableItems = loadedItems.filter((item: any) =>
+    Number(item.confidence || 0) >= 0.9 || item.raw_data?.manual_verified === true
+  );
+  if (!publishableItems.length) {
+    throw new Error(`Import neobsahuje bezpečné položky: ${unsafeLowConfidence.length} nízko spolehlivých OCR řádků bylo odmítnuto.`);
+  }
+
+  const deduplicated = deduplicateItems(publishableItems);
   const items = deduplicated.unique;
   if (deduplicated.duplicateIds.length) {
     await db.from('leaflet_import_items').update({
