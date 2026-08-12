@@ -25,6 +25,10 @@ const SPORTISIMO_DEALS_URL = 'https://www.sportisimo.cz/vyprodej/';
 const SMARTY_DEALS_URL = 'https://www.smarty.cz/vyprodej-4c10260';
 const PILULKA_DEALS_URL = 'https://www.pilulka.cz/akce-a-slevy';
 const AUTO_KELLY_BENEFITS_URL = 'https://www.autokelly.cz/page/vernostni-program';
+const DEK_DEALS_URL = 'https://www.dek.cz/akce/nabidka/';
+const PRO_DOMA_DEALS_URL = 'https://www.pro-doma.cz/akce-a-slevy';
+const STAVMAT_DEALS_URL = 'https://www.stavmat.cz/akce/';
+const HM_SALE_URL = 'https://www2.hm.com/cs_cz/zeny/vyprodej/zobrazit-vse.html';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -592,6 +596,22 @@ Deno.serve(async (request) => {
     if (storeSlug === 'auto-kelly') {
       const leaflet: Leaflet = { key: 'auto-kelly-current', title: 'Věrnostní slevy až 20 %', subtitle: 'Auto Kelly', valid_from: null, valid_to: null, url: AUTO_KELLY_BENEFITS_URL, direct: false };
       return Response.json({ ok: true, store: storeSlug, source: AUTO_KELLY_BENEFITS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'dek') {
+      const leaflet: Leaflet = { key: 'dek-current', title: 'Akční nabídka', subtitle: 'Stavebniny DEK', valid_from: null, valid_to: null, url: DEK_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: DEK_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'pro-doma') {
+      const leaflet: Leaflet = { key: 'pro-doma-current', title: 'Akce a slevy', subtitle: 'PRO-DOMA', valid_from: null, valid_to: null, url: PRO_DOMA_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: PRO_DOMA_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'stavmat') {
+      const leaflet: Leaflet = { key: 'stavmat-current', title: 'Aktuální akční nabídka', subtitle: 'STAVMAT', valid_from: null, valid_to: null, url: STAVMAT_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: STAVMAT_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'hm') {
+      const leaflet: Leaflet = { key: 'hm-current', title: 'Aktuální výprodej', subtitle: 'H&M', valid_from: null, valid_to: null, url: HM_SALE_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: HM_SALE_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
