@@ -15,6 +15,7 @@ const KOSIK_DEALS_URL = 'https://www.kosik.cz/s1-akce';
 const SUPER_ZOO_DEALS_URL = 'https://www.superzoo.cz/akce/';
 const HORNBACH_CATALOGS_URL = 'https://www.hornbach.cz/aktuality/katalogy/';
 const MOUNTFIELD_DEALS_URL = 'https://www.mountfield.cz/akce';
+const ALZA_DEALS_URL = 'https://www.alza.cz/vyprodej-akce-sleva/e0.htm';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -494,6 +495,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: MOUNTFIELD_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'alza') {
+      const leaflet: Leaflet = {
+        key: 'alza-current',
+        title: 'Cenové bomby – akce a slevy',
+        subtitle: 'Alza.cz',
+        valid_from: null,
+        valid_to: null,
+        url: ALZA_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: ALZA_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
