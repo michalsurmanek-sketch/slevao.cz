@@ -598,6 +598,22 @@ Deno.serve(async (request) => {
     await authorize(request, db, serviceKey, cronSecret);
 
     const body = await request.json().catch(() => ({}));
+    if (body.force_provider_check !== true) {
+      const cooldownSince = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+      const recentBillingFailure = await db.from("product_image_generation_runs")
+        .select("finished_at")
+        .eq("status", "failed")
+        .ilike("message", "%OpenAI API nemá dostupný kredit%")
+        .gte("finished_at", cooldownSince)
+        .order("finished_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (recentBillingFailure.error) throw recentBillingFailure.error;
+      if (recentBillingFailure.data) {
+        const retryAt = new Date(new Date(recentBillingFailure.data.finished_at).getTime() + 24 * 60 * 60 * 1000).toISOString();
+        return json({ ok: true, checked: 0, created: 0, without_match: 0, visually_rejected: 0, validation_errors: 0, blocked_reason: "openai_billing_cooldown", retry_after: retryAt, message: "Vizuální ověření je po chybě kreditu v 24hodinové pauze. Ruční kontrolu lze vynutit parametrem force_provider_check." });
+      }
+    }
     const productId = typeof body.product_id === "string" ? body.product_id.trim() : "";
     const storeSlug = typeof body.store_slug === "string" ? normalize(body.store_slug).replace(/\s+/g, "-") : "";
     const requestedLimit = Number(body.limit || 15);
