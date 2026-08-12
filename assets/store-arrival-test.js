@@ -3,29 +3,17 @@
 
   const TEST_ID = 'slArrivalTest';
   const TEST_LABEL = '🔔 Poslat tuto ukázku';
-  const EXAMPLE_FACTS = 'Kuřecí maso 44,90 Kč (−50 %) · Mléko 19,90 Kč (−50 %) · Brambory 9,90 Kč (−60 %).';
-  const EXAMPLE_IMAGE = 'https://uhampjdqjxmbhaptgitn.supabase.co/storage/v1/object/public/product-images/manual/c5f264f1-9fbf-49b7-a606-fa744e6e0615/brambory-chatgpt-1b151632.webp';
+  const DEALS = [
+    '🥩 Kuřecí maso — 44,90 Kč  🔻50 %',
+    '🥛 Mléko 1 l — 19,90 Kč  🔻50 %',
+    '🥔 Brambory — 9,90 Kč/kg  🔻60 %',
+    '🥚 Vejce 10 ks — 39,90 Kč  🔻28 %',
+    '🧈 Máslo 250 g — 44,90 Kč  🔻31 %',
+  ];
   const EXAMPLES = [
-    {
-      title: '[TEST] Základní potraviny v akci · Kaufland 🛒',
-      body: `Dnešní základní nákup: ${EXAMPLE_FACTS}`,
-    },
-    {
-      title: '[TEST] Ceny, které dnes stojí za pozornost · Kaufland',
-      body: `Základní potraviny právě teď: ${EXAMPLE_FACTS}`,
-    },
-    {
-      title: '[TEST] Co se dnes vyplatí v Kauflandu 🛒',
-      body: `Slevao vybralo z aktuálních akcí: ${EXAMPLE_FACTS}`,
-    },
-    {
-      title: '[TEST] Rychlý tip před nákupem · Kaufland',
-      body: `Mrkni hlavně na tyto ceny: ${EXAMPLE_FACTS}`,
-    },
-    {
-      title: '[TEST] Dnešní základní nákup · Kaufland',
-      body: `Z nejdůležitějších potravin jsou právě v akci: ${EXAMPLE_FACTS}`,
-    },
+    { title: '🔥 Dnešní základní potraviny v akci', intro: '' },
+    { title: '🛒 Co se dnes vyplatí koupit', intro: '' },
+    { title: '💸 Dnešní nejlepší ceny základních potravin', intro: '' },
   ];
 
   let exampleIndex = 0;
@@ -63,14 +51,14 @@
     if (permission !== 'granted') throw new Error('Nejdřív povol oznámení pro Slevao.cz.');
 
     const example = currentExample();
+    const body = `${DEALS.join('\n')}\n\n→ Zobrazit všechny akce na SLEVAO`;
     const options = {
-      body: example.body,
+      body,
       icon: '/favicon.svg',
       badge: '/favicon.svg',
-      image: EXAMPLE_IMAGE,
       tag: `slevao-arrival-test-${Date.now()}`,
       renotify: false,
-      data: { url: '/index.html#dealsSection', test: true, scenario: 'no-list-staples', variant: exampleIndex },
+      data: { url: '/index.html#dealsSection', test: true, scenario: 'staples-list', variant: exampleIndex },
       vibrate: [90, 45, 90],
     };
 
@@ -95,13 +83,13 @@
     if (!button) return;
     button.disabled = true;
     button.textContent = 'Odesílám ukázku…';
-    setStatus(`TEST: odesílám variantu ${exampleIndex + 1} z ${EXAMPLES.length}. GPS ani nákupní seznam se nekontrolují.`, 'checking');
+    setStatus(`TEST: odesílám seznamovou variantu ${exampleIndex + 1} z ${EXAMPLES.length}. GPS ani nákupní seznam se nekontrolují.`, 'checking');
 
     try {
       await sendNotification();
       button.textContent = '✓ Ukázka odeslána';
       exampleIndex = (exampleIndex + 1) % EXAMPLES.length;
-      setStatus('Ukázka byla odeslána. Pro další odeslání je připravená nová textová varianta.', 'ok');
+      setStatus('Ukázka byla odeslána jako kompaktní seznam bez velkého produktového obrázku.', 'ok');
       window.setTimeout(() => { if (button.isConnected) button.textContent = TEST_LABEL; }, 3200);
     } catch (error) {
       button.textContent = TEST_LABEL;
@@ -122,15 +110,12 @@
     button.className = 'slArrivalTest';
     button.type = 'button';
     button.textContent = TEST_LABEL;
-    button.title = 'Pošle zobrazenou ukázku bez kontroly GPS a potom připraví další formulaci';
+    button.title = 'Pošle seznamovou ukázku bez kontroly GPS a potom připraví další formulaci';
     button.addEventListener('click', testFromUser);
 
     const status = document.getElementById('slArrivalStatus');
-    if (status) {
-      status.before(button);
-    } else {
-      control.append(button);
-    }
+    if (status) status.before(button);
+    else control.append(button);
     return true;
   }
 
