@@ -13,6 +13,7 @@ const MAKRO_LISTING_URL = 'https://www.makro.cz/aktualni-nabidka';
 const ROHLIK_DEALS_URL = 'https://www.rohlik.cz/cenove-trhaky';
 const KOSIK_DEALS_URL = 'https://www.kosik.cz/s1-akce';
 const SUPER_ZOO_DEALS_URL = 'https://www.superzoo.cz/akce/';
+const HORNBACH_CATALOGS_URL = 'https://www.hornbach.cz/aktuality/katalogy/';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -468,6 +469,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: SUPER_ZOO_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'hornbach') {
+      const leaflet: Leaflet = {
+        key: 'hornbach-current',
+        title: 'Aktuální letáky a katalogy',
+        subtitle: 'HORNBACH',
+        valid_from: null,
+        valid_to: null,
+        url: HORNBACH_CATALOGS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: HORNBACH_CATALOGS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
