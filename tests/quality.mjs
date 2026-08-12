@@ -76,7 +76,11 @@ for (const page of storePageFiles) {
   assert.match(source, /assets\/store-feed\.js\?v=[a-z0-9-]+/i, `${page} nepoužívá verzovaný společný feed.`);
   assert.match(source, /assets\/store-feed\.css\?v=[a-z0-9-]+/i, `${page} nepoužívá verzované společné styly feedu.`);
   assert.match(source, /id="leafletGrid"/, `${page} nemá přehled letáků.`);
-  assert.match(source, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
+  if (['pepco','petcenter','planeo','sinsay','takko'].includes(slug)) {
+    assert.doesNotMatch(source, /id="leafletFrame"/, `${page} nesmí nabízet nefunkční vložený prohlížeč.`);
+  } else {
+    assert.match(source, /id="leafletFrame"/, `${page} nemá vložený prohlížeč letáku.`);
+  }
   assert.match(source, /rel="canonical"/, `${page} nemá canonical URL.`);
 }
 
