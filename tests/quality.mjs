@@ -173,7 +173,7 @@ for (const pattern of [/app_metadata\?\.role/,/function detectedType/,/product_i
   assert.match(manualUpload, pattern, `Ruční nahrávání fotografií postrádá ${pattern}.`);
 }
 
-assert.match(read('admin-automatizace.html'), /!x\.is_active\?'pozastaveno':x\.last_error\?'problém':'ověřeno'/, 'Pozastavené zdroje se počítají jako poruchy.');
+assert.match(read('admin-automatizace.html'), /const state=!x\.is_active\?'paused':/, 'Pozastavené zdroje se počítají jako poruchy.');
 assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\)/, 'Stav zdroje nezohledňuje poslední import.');
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /SPECIALIZED_SOURCE_SLUGS\.has/, 'Generický průzkum nepřeskakuje specializované zdroje.');
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:penny-flippingbook/, 'PENNY nepoužívá adaptér pro celý leták.');
