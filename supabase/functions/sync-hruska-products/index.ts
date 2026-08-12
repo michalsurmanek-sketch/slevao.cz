@@ -234,7 +234,9 @@ async function latestHruskaExtraction(importId?:string) {
 
 async function writeCandidates(importId:string, candidates:Candidate[], validity:{from:string|null;to:string|null}) {
   if (!validity.from || !validity.to) throw new Error('Nepodařilo se ověřit platnost Hruška letáku.');
-  const del = await db.from('leaflet_import_items').delete().eq('import_id',importId).neq('status','published');
+  // The generic PDF processor may publish raw OCR rows before this verified parser runs.
+  // Replace the complete import atomically at the logical level so only coordinate-verified rows survive.
+  const del = await db.from('leaflet_import_items').delete().eq('import_id',importId);
   if (del.error) throw del.error;
   if (candidates.length) {
     const { error } = await db.from('leaflet_import_items').insert(candidates.map(c=>({
