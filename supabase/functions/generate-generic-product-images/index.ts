@@ -176,8 +176,24 @@ async function selectEligibleProducts(limit:number){
   return candidates.sort((a:any,b:any)=>genericPriority(b)-genericPriority(a)||Number(b.active_offer_count||0)-Number(a.active_offer_count||0)||String(a.id).localeCompare(String(b.id))).slice(0,limit);
 }
 
-async function seedRun(requestedBy:string|null,requestedLimit:unknown){
+async function seedRun(requestedBy:string|null,requestedLimit:unknown,forceProviderCheck=false){
   if(!OPENAI_API_KEY) throw new Error('V Supabase chybí OPENAI_API_KEY.');
+  if(!forceProviderCheck){
+    const cooldownSince=new Date(Date.now()-24*60*60*1000).toISOString();
+    const recentBillingFailure=await db.from('product_image_generation_runs')
+      .select('finished_at')
+      .eq('status','failed')
+      .ilike('message','%OpenAI API nemá dostupný kredit%')
+      .gte('finished_at',cooldownSince)
+      .order('finished_at',{ascending:false})
+      .limit(1)
+      .maybeSingle();
+    if(recentBillingFailure.error) throw recentBillingFailure.error;
+    if(recentBillingFailure.data){
+      const retryAt=new Date(new Date(recentBillingFailure.data.finished_at).getTime()+24*60*60*1000).toISOString();
+      return {accepted:false,blocked_reason:'openai_billing_cooldown',retry_after:retryAt,message:'OpenAI API je po chybě kreditu v 24hodinové pauze. Ruční kontrolu lze vynutit parametrem force_provider_check.'};
+    }
+  }
   const limit=Math.max(1,Math.min(Number(requestedLimit)||20,50));
   const since=new Date(Date.now()-2*60*60*1000).toISOString();
   const active=await db.from('product_image_generation_runs').select('id',{count:'exact',head:true}).in('status',['queued','processing']).gte('created_at',since);
@@ -270,5 +286,5 @@ async function processWorker(runId:string){
 Deno.serve(async(request)=>{
   if(request.method==='OPTIONS') return new Response('ok',{headers:CORS});
   if(request.method!=='POST') return json({ok:false,error:'Method not allowed'},405);
-  try{const requestedBy=await authorize(request);const body=await request.json().catch(()=>({}));if(body.mode==='worker'){if(!body.run_id) return json({ok:false,error:'Chybí run_id.'},400);runInBackground(processWorker(String(body.run_id)));return json({ok:true,accepted:true,worker:true},202)}const result=await seedRun(requestedBy,body.limit);return json({ok:true,...result},result.accepted?202:200)}catch(error){const message=errorMessage(error);console.error('generic product image request failed',message);return json({ok:false,error:message},message==='Unauthorized'?401:500)}
+  try{const requestedBy=await authorize(request);const body=await request.json().catch(()=>({}));if(body.mode==='worker'){if(!body.run_id) return json({ok:false,error:'Chybí run_id.'},400);runInBackground(processWorker(String(body.run_id)));return json({ok:true,accepted:true,worker:true},202)}const result=await seedRun(requestedBy,body.limit,body.force_provider_check===true);return json({ok:true,...result},result.accepted?202:200)}catch(error){const message=errorMessage(error);console.error('generic product image request failed',message);return json({ok:false,error:message},message==='Unauthorized'?401:500)}
 });
