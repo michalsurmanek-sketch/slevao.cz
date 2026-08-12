@@ -22,7 +22,10 @@ assert.doesNotMatch(
   'Ověřený Hruška parser znovu ponechává nebezpečné řádky základního OCR.',
 );
 assert.match(source, /unit_price_match/, 'Hruška parser neověřuje shodu jednotkové ceny.');
-assert.match(source, /\\\\bnase cena\\\\b[^\n]*norm\\(title\\)/, 'Hruška parser nezamítá název, který zasáhl do sousedního cenového sloupce.');
+assert.ok(
+  source.includes("if (/\\\\bnase cena\\\\b/.test(norm(title))) return null;"),
+  'Hruška parser nezamítá název, který zasáhl do sousedního cenového sloupce.',
+);
 assert.match(source, /confidence:\s*0\.99/, 'Ověřené Hruška položky nemají vysokou deterministickou důvěru.');
 
 console.log('Hruska verified replacement OK');
