@@ -1,99 +1,10 @@
 /* Slevao.cz – rychlý filtr základních potravin. Izolovaná vrstva nad stávajícím filtrováním. */
 .sqFoodDock{position:fixed;z-index:58;right:14px;top:96px;width:88px;padding:8px 7px 8px;border:1px solid rgba(21,158,148,.18);border-radius:22px;background:rgba(255,255,255,.94);box-shadow:0 18px 48px rgba(23,34,34,.12);backdrop-filter:blur(18px);transition:width .2s ease,transform .2s ease,opacity .2s ease}
-.sqFoodDockHead{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:6px;padding:0 1px}
-.sqFoodDockTitle{font-size:9px;line-height:1.08;font-weight:950;letter-spacing:.05em;text-transform:uppercase;color:#0c786f;text-align:center;flex:1}
-.sqFoodDockToggle{width:25px;height:25px;display:grid;place-items:center;border:0;border-radius:9px;background:#e7faf7;color:#087e75;font-weight:950;padding:0}
-.sqFoodDockItems{display:grid;gap:5px}
-.sqFoodQuick{width:100%;min-height:56px;border:1px solid #e0ecea;border-radius:16px;background:#fff;color:#172222;padding:4px 3px 5px;display:grid;justify-items:center;align-content:center;gap:2px;font-size:9px;font-weight:900;line-height:1.02;box-shadow:0 5px 14px rgba(23,34,34,.045);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
-.sqFoodQuick:hover{transform:translateY(-2px);border-color:#8fe3da;box-shadow:0 10px 24px rgba(21,158,148,.12)}
-.sqFoodQuick:focus-visible,.sqFoodDockToggle:focus-visible,.sqFoodClear:focus-visible,.sqFoodScrollArrow:focus-visible{outline:3px solid rgba(21,158,148,.23);outline-offset:2px}
-.sqFoodQuick.active{border-color:#159e94;background:linear-gradient(180deg,#effcf9,#ddf8f4);color:#0b7169;box-shadow:0 8px 22px rgba(21,158,148,.13)}
-.sqFoodIcon{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f2fbf9,#fff);border:1px solid #dcecea;font-size:17px;box-shadow:inset 0 1px 0 #fff}
-.sqFoodQuick.active .sqFoodIcon{background:#fff;border-color:#9fe5de}
-.sqFoodClear{width:100%;height:30px;margin-top:6px;border:1px solid transparent;border-radius:11px;background:#f3f7f6;color:#58706d;font-size:9px;font-weight:900;transition:background .16s ease,color .16s ease,border-color .16s ease,box-shadow .16s ease,transform .16s ease}
-.sqFoodClear.active{background:linear-gradient(180deg,#18b7ab,#0f968c);color:#fff;border-color:#0f8f86;box-shadow:0 8px 18px rgba(21,158,148,.26)}
-.sqFoodClear.active:hover{transform:translateY(-1px);background:linear-gradient(180deg,#16aa9f,#0b887f);box-shadow:0 10px 22px rgba(21,158,148,.32)}
-.sqFoodScrollArrow,.sqFoodSwipeCue{display:none}
-.sqFoodDock.collapsed{width:46px;padding:7px 5px}
-.sqFoodDock.collapsed .sqFoodDockTitle,.sqFoodDock.collapsed .sqFoodDockItems,.sqFoodDock.collapsed .sqFoodClear{display:none}
-.sqFoodDock.collapsed .sqFoodDockHead{margin:0;padding:0;justify-content:center}
-.sqFoodDock.collapsed .sqFoodDockToggle{width:32px;height:32px;border-radius:12px}
-
-/* Desktop: vyhrazený pravý pruh pro Rychlý nákup. Levé okraje zůstávají na původní ose. */
-@media(min-width:901px){
-  :root{--sqFoodDockSafeSpace:116px}
-  body .container{
-    --sqFoodContentLeft:max(16px,calc((100vw - 1240px)/2));
-    width:min(1240px,calc(100vw - var(--sqFoodContentLeft) - var(--sqFoodDockSafeSpace)));
-    margin-left:var(--sqFoodContentLeft);
-    margin-right:0;
-  }
-  body .topbar .container,
-  body .hero>.container,
-  body #categoriesSection>.container,
-  body .sqAutopilotSection>.container{
-    --sqFoodContentLeft:max(24px,calc((100vw - 1450px)/2));
-    width:min(1450px,calc(100vw - var(--sqFoodContentLeft) - var(--sqFoodDockSafeSpace)));
-    margin-left:var(--sqFoodContentLeft);
-    margin-right:0;
-  }
-  body .footerShell{
-    --sqFoodFooterLeft:max(16px,calc((100vw - 1540px)/2));
-    width:min(1540px,calc(100vw - var(--sqFoodFooterLeft) - var(--sqFoodDockSafeSpace)));
-    margin-left:var(--sqFoodFooterLeft);
-    margin-right:0;
-  }
-}
-
-@media(max-width:1460px) and (min-width:901px){
-  :root{--sqFoodDockSafeSpace:98px}
-  .sqFoodDock{right:8px;top:94px;width:76px;padding:7px 6px}
-  .sqFoodDockHead{margin-bottom:5px}
-  .sqFoodDockItems{gap:4px}
-  .sqFoodQuick{min-height:52px;border-radius:15px;padding:3px 2px 4px;font-size:8.5px}
-  .sqFoodIcon{width:29px;height:29px;font-size:16px}
-}
-
-@media(max-width:900px){
-  .sqFoodDock{position:relative;z-index:4;right:auto;top:auto;width:auto;margin:0 auto 16px;padding:0 0 4px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;transition:none}
-  .sqFoodDockHead{display:none}
-  .sqFoodDockItems{position:relative;z-index:1;display:flex;gap:9px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none;padding:3px 16px 8px;scroll-padding-inline:16px;-webkit-overflow-scrolling:touch}
-  .sqFoodDockItems::-webkit-scrollbar{display:none}
-  .sqFoodQuick{flex:0 0 72px;width:72px;min-height:68px;scroll-snap-align:start;border-radius:18px;padding:6px 4px;font-size:10px}
-  .sqFoodIcon{width:36px;height:36px;font-size:19px}
-  .sqFoodClear{display:none}
-  .sqFoodDock.collapsed{width:auto;padding:0 0 4px}
-  .sqFoodDock.collapsed .sqFoodDockItems{display:flex}
-
-  .sqFoodDock::before,.sqFoodDock::after{content:"";position:absolute;z-index:2;top:0;width:42px;height:78px;pointer-events:none;opacity:0;transition:opacity .16s ease}
-  .sqFoodDock::before{left:0;background:linear-gradient(90deg,rgba(247,251,250,.98),rgba(247,251,250,0))}
-  .sqFoodDock::after{right:0;background:linear-gradient(270deg,rgba(247,251,250,.98),rgba(247,251,250,0))}
-  .sqFoodDock.can-scroll-left::before,.sqFoodDock.can-scroll-right::after{opacity:1}
-
-  .sqFoodScrollArrow{position:absolute;z-index:5;top:19px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.62);border-radius:50%;background:linear-gradient(145deg,#2bc9bd,#159e94);color:#fff;box-shadow:0 8px 20px rgba(10,117,108,.24);font-size:27px;line-height:1;font-weight:700;-webkit-tap-highlight-color:transparent;transition:opacity .16s ease,transform .16s ease,box-shadow .16s ease}
-  .sqFoodScrollArrowPrev{left:4px}
-  .sqFoodScrollArrowNext{right:4px}
-  .sqFoodScrollArrow:active{transform:scale(.92)}
-  .sqFoodScrollArrow:disabled{opacity:0;pointer-events:none;transform:scale(.86)}
-  .sqFoodDock.can-scroll-right .sqFoodScrollArrowNext{animation:sqFoodArrowNudge 1.25s ease-in-out 2}
-  .sqFoodDock.sqFoodInteracted .sqFoodScrollArrowNext{animation:none}
-
-  .sqFoodSwipeCue{display:flex;align-items:center;justify-content:center;gap:9px;min-height:26px;margin:1px 16px 0;color:#637370;font-size:11px;line-height:1.1;text-align:center;white-space:nowrap}
-  .sqFoodSwipeCue[hidden]{display:none!important}
-  .sqFoodSwipeCue strong{font-size:11px;font-weight:850;color:#667572}
-  .sqFoodSwipeCue>span{color:#18aaa0;font-size:17px;font-weight:900;line-height:1}
-  .sqFoodDock.sqFoodInteracted .sqFoodSwipeCue{opacity:.72}
-}
-
-@keyframes sqFoodArrowNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
-
-@media(max-width:560px){
-  .sqFoodDock{margin-top:-5px;margin-bottom:11px}
-  .sqFoodDockItems{padding-left:16px;padding-right:16px}
-  .sqFoodQuick{flex-basis:69px;width:69px;min-height:65px}
-  .sqFoodScrollArrow{top:17px;width:36px;height:36px;font-size:25px}
-  .sqFoodSwipeCue{margin-top:0;font-size:10.5px;gap:7px}
-  .sqFoodSwipeCue strong{font-size:10.5px}
-}
-
-@media(prefers-reduced-motion:reduce){.sqFoodDock,.sqFoodQuick,.sqFoodClear,.sqFoodScrollArrow,.sqFoodDock::before,.sqFoodDock::after{transition:none!important}.sqFoodScrollArrow{animation:none!important}}
+.sqFoodDockHead{display:flex;align-items:center;justify-content:space-between;gap:3px;margin-bottom:6px;padding:0 1px}.sqFoodDockTitle{font-size:9px;line-height:1.08;font-weight:950;letter-spacing:.05em;text-transform:uppercase;color:#0c786f;text-align:center;flex:1}.sqFoodDockToggle{width:25px;height:25px;display:grid;place-items:center;border:0;border-radius:9px;background:#e7faf7;color:#087e75;font-weight:950;padding:0}.sqFoodDockItems{display:grid;gap:5px}.sqFoodQuick{width:100%;min-height:56px;border:1px solid #e0ecea;border-radius:16px;background:#fff;color:#172222;padding:4px 3px 5px;display:grid;justify-items:center;align-content:center;gap:2px;font-size:9px;font-weight:900;line-height:1.02;box-shadow:0 5px 14px rgba(23,34,34,.045);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}.sqFoodQuick:hover{transform:translateY(-2px);border-color:#8fe3da;box-shadow:0 10px 24px rgba(21,158,148,.12)}.sqFoodQuick:focus-visible,.sqFoodDockToggle:focus-visible,.sqFoodClear:focus-visible,.sqFoodScrollArrow:focus-visible{outline:3px solid rgba(21,158,148,.23);outline-offset:2px}.sqFoodQuick.active{border-color:#159e94;background:linear-gradient(180deg,#effcf9,#ddf8f4);color:#0b7169;box-shadow:0 8px 22px rgba(21,158,148,.13)}.sqFoodIcon{width:31px;height:31px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(145deg,#f2fbf9,#fff);border:1px solid #dcecea;font-size:17px;box-shadow:inset 0 1px 0 #fff}.sqFoodQuick.active .sqFoodIcon{background:#fff;border-color:#9fe5de}.sqFoodClear{width:100%;height:30px;margin-top:6px;border:1px solid transparent;border-radius:11px;background:#f3f7f6;color:#58706d;font-size:9px;font-weight:900}.sqFoodScrollArrow,.sqFoodSwipeCue{display:none}.sqFoodDock.collapsed{width:46px;padding:7px 5px}.sqFoodDock.collapsed .sqFoodDockTitle,.sqFoodDock.collapsed .sqFoodDockItems,.sqFoodDock.collapsed .sqFoodClear{display:none}.sqFoodDock.collapsed .sqFoodDockHead{margin:0;padding:0;justify-content:center}.sqFoodDock.collapsed .sqFoodDockToggle{width:32px;height:32px;border-radius:12px}
+@media(min-width:901px){:root{--sqFoodDockSafeSpace:116px}body .container{--sqFoodContentLeft:max(16px,calc((100vw - 1240px)/2));width:min(1240px,calc(100vw - var(--sqFoodContentLeft) - var(--sqFoodDockSafeSpace)));margin-left:var(--sqFoodContentLeft);margin-right:0}body .topbar .container,body .hero>.container,body #categoriesSection>.container,body .sqAutopilotSection>.container{--sqFoodContentLeft:max(24px,calc((100vw - 1450px)/2));width:min(1450px,calc(100vw - var(--sqFoodContentLeft) - var(--sqFoodDockSafeSpace)));margin-left:var(--sqFoodContentLeft);margin-right:0}body .footerShell{--sqFoodFooterLeft:max(16px,calc((100vw - 1540px)/2));width:min(1540px,calc(100vw - var(--sqFoodFooterLeft) - var(--sqFoodDockSafeSpace)));margin-left:var(--sqFoodFooterLeft);margin-right:0}}
+@media(max-width:1460px) and (min-width:901px){:root{--sqFoodDockSafeSpace:98px}.sqFoodDock{right:8px;top:94px;width:76px;padding:7px 6px}.sqFoodDockHead{margin-bottom:5px}.sqFoodDockItems{gap:4px}.sqFoodQuick{min-height:52px;border-radius:15px;padding:3px 2px 4px;font-size:8.5px}.sqFoodIcon{width:29px;height:29px;font-size:16px}}
+@media(max-width:900px){.sqFoodDock{position:relative;z-index:4;right:auto;top:auto;width:auto;margin:0 auto 16px;padding:0 0 4px;border:0;border-radius:0;background:transparent;box-shadow:none;backdrop-filter:none;transition:none}.sqFoodDockHead{display:none}.sqFoodDockItems{position:relative;z-index:1;display:flex;gap:9px;overflow-x:auto;overscroll-behavior-inline:contain;scroll-snap-type:x proximity;scrollbar-width:none;padding:3px 16px 8px;scroll-padding-inline:16px;-webkit-overflow-scrolling:touch}.sqFoodDockItems::-webkit-scrollbar{display:none}.sqFoodQuick{flex:0 0 72px;width:72px;min-height:68px;scroll-snap-align:start;border-radius:18px;padding:6px 4px;font-size:10px}.sqFoodIcon{width:36px;height:36px;font-size:19px}.sqFoodClear{display:none}.sqFoodDock.collapsed{width:auto;padding:0 0 4px}.sqFoodDock.collapsed .sqFoodDockItems{display:flex}.sqFoodScrollArrow{position:absolute;z-index:5;top:19px;width:38px;height:38px;display:grid;place-items:center;padding:0;border:1px solid rgba(255,255,255,.62);border-radius:50%;background:linear-gradient(145deg,#2bc9bd,#159e94);color:#fff;box-shadow:0 8px 20px rgba(10,117,108,.24);font-size:27px;line-height:1;font-weight:700}.sqFoodScrollArrowPrev{left:4px}.sqFoodScrollArrowNext{right:4px}.sqFoodSwipeCue{display:flex;align-items:center;justify-content:center;gap:9px;min-height:26px;margin:1px 16px 0;color:#637370;font-size:11px}.sqFoodSwipeCue[hidden]{display:none!important}
+#categoriesSection .container{position:relative}#categoriesSection .categoryChips{padding-right:50px!important}#categoriesSection .container::after{content:'›';position:absolute;z-index:8;right:10px;bottom:9px;width:36px;height:36px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.62);border-radius:50%;background:linear-gradient(145deg,#2bc9bd,#159e94);color:#fff;box-shadow:0 8px 20px rgba(10,117,108,.24);font-size:25px;line-height:1;font-weight:700;pointer-events:none;animation:slCategoryArrowNudge 1.25s ease-in-out 2}}
+@keyframes slCategoryArrowNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
+@media(max-width:560px){.sqFoodDock{margin-top:-5px;margin-bottom:11px}.sqFoodDockItems{padding-left:16px;padding-right:16px}.sqFoodQuick{flex-basis:69px;width:69px;min-height:65px}.sqFoodScrollArrow{top:17px;width:36px;height:36px;font-size:25px}.sqFoodSwipeCue{margin-top:0;font-size:10.5px;gap:7px}}
+@media(prefers-reduced-motion:reduce){.sqFoodDock,.sqFoodQuick,.sqFoodClear,.sqFoodScrollArrow{transition:none!important}.sqFoodScrollArrow,#categoriesSection .container::after{animation:none!important}}
