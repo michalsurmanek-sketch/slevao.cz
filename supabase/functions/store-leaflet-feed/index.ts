@@ -11,6 +11,7 @@ const LIDL_API_URL = 'https://endpoints.leaflets.schwarz/v4/overview?client_loca
 const ROSSMANN_LISTING_URL = 'https://www.rossmann.cz/obsah/akce-a-letaky';
 const MAKRO_LISTING_URL = 'https://www.makro.cz/aktualni-nabidka';
 const ROHLIK_DEALS_URL = 'https://www.rohlik.cz/cenove-trhaky';
+const KOSIK_DEALS_URL = 'https://www.kosik.cz/s1-akce';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -442,6 +443,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: ROHLIK_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'kosik') {
+      const leaflet: Leaflet = {
+        key: 'kosik-current',
+        title: 'Akční nabídka',
+        subtitle: 'Košík.cz',
+        valid_from: null,
+        valid_to: null,
+        url: KOSIK_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: KOSIK_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
