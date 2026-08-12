@@ -206,6 +206,10 @@
       sconto: 'Prohlédnout aktuální leták na Sconto.cz ↗',
       moebelix: 'Prohlédnout slevy na Moebelix.cz ↗',
       xxxlutz: 'Prohlédnout aktuální letáky na XXXLutz.cz ↗',
+      sportisimo: 'Prohlédnout výprodej na Sportisimo.cz ↗',
+      smarty: 'Prohlédnout výprodej na Smarty.cz ↗',
+      pilulka: 'Prohlédnout akce na Pilulka.cz ↗',
+      'auto-kelly': 'Prohlédnout věrnostní slevy Auto Kelly ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
