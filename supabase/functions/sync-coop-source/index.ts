@@ -39,21 +39,38 @@ function parseCzechDate(value: string): string | null {
   return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
 }
 
+function dateRange(value: string): { from: string; to: string } | null {
+  const full = [...value.matchAll(/\d{1,2}\.\d{1,2}\.\d{4}/g)]
+    .map((match) => parseCzechDate(match[0])).filter(Boolean) as string[];
+  if (full.length >= 2) return { from: full[0], to: full[1] };
+
+  const short = value.match(/(?:od\s*)?(\d{1,2})\.(\d{1,2})\.(?:\s*(\d{4}))?\s*(?:do|[-–])\s*(\d{1,2})\.(\d{1,2})\.(?:\s*(\d{4}))?/i);
+  if (!short) return null;
+  const currentYear = new Date().getUTCFullYear();
+  const fromYear = Number(short[3] || currentYear);
+  const toYear = Number(short[6] || (Number(short[5]) < Number(short[2]) ? fromYear + 1 : fromYear));
+  const from = parseCzechDate(`${short[1]}.${short[2]}.${fromYear}`);
+  const to = parseCzechDate(`${short[4]}.${short[5]}.${toYear}`);
+  return from && to ? { from, to } : null;
+}
+
 function activeDetailPages(html: string, baseUrl: string): Array<{ url: string; from: string; to: string; score: number }> {
   const today = todayIso();
   const out: Array<{ url: string; from: string; to: string; score: number }> = [];
   const linkRe = /<a\b[^>]*href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   let m: RegExpExecArray | null;
   while ((m = linkRe.exec(html))) {
-    const text = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
-    const dates = [...text.matchAll(/\d{1,2}\.\d{1,2}\.\d{4}/g)].map(x => parseCzechDate(x[0])).filter(Boolean) as string[];
-    if (dates.length < 2) continue;
-    const from = dates[0];
-    const to = dates[1];
-    if (!(from <= today && to >= today)) continue;
+    const anchorText = m[2].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    // COOP currently prints the year in sibling markup, while the anchor itself
+    // contains only “od 12.8. do 25.8.”. Prefer the anchor range and then inspect
+    // a small surrounding card fragment for the full dates.
+    const context = html.slice(Math.max(0, m.index - 250), Math.min(html.length, linkRe.lastIndex + 650))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const range = dateRange(anchorText) || dateRange(context);
+    if (!range || !(range.from <= today && range.to >= today)) continue;
     const url = abs(baseUrl, m[1]);
     if (!url || !/\/letaky\//i.test(url)) continue;
-    const lower = text.toLocaleLowerCase('cs');
+    const lower = anchorText.toLocaleLowerCase('cs');
     let score = 0;
     if (/csc\s*\d+/.test(lower)) score += 50;
     if (/sč\s*\d+|sc\s*\d+/.test(lower)) score += 40;
@@ -61,7 +78,7 @@ function activeDetailPages(html: string, baseUrl: string): Array<{ url: string; 
     if (/jč\s*\d+|jc\s*\d+/.test(lower)) score += 25;
     if (/zč\s*\d+|zc\s*\d+/.test(lower)) score += 20;
     if (/delikates|seznam prodejen|hity|rádce|casopis|časopis/.test(lower)) score -= 80;
-    out.push({ url, from, to, score });
+    out.push({ url, from: range.from, to: range.to, score });
   }
   return out.sort((a, b) => b.score - a.score || b.from.localeCompare(a.from));
 }
