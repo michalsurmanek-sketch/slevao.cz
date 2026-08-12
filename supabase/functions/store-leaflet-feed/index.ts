@@ -29,6 +29,9 @@ const DEK_DEALS_URL = 'https://www.dek.cz/akce/nabidka/';
 const PRO_DOMA_DEALS_URL = 'https://www.pro-doma.cz/akce-a-slevy';
 const STAVMAT_DEALS_URL = 'https://www.stavmat.cz/akce/';
 const HM_SALE_URL = 'https://www2.hm.com/cs_cz/zeny/vyprodej/zobrazit-vse.html';
+const HRUSKA_LEAFLET_URL = 'https://mojehruska.cz/';
+const TEDI_OFFERS_URL = 'https://www.tedi.com/cz/';
+const NEW_YORKER_COLLECTION_URL = 'https://www.newyorker.de/cz/';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -612,6 +615,18 @@ Deno.serve(async (request) => {
     if (storeSlug === 'hm') {
       const leaflet: Leaflet = { key: 'hm-current', title: 'Aktuální výprodej', subtitle: 'H&M', valid_from: null, valid_to: null, url: HM_SALE_URL, direct: false };
       return Response.json({ ok: true, store: storeSlug, source: HM_SALE_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'hruska') {
+      const leaflet: Leaflet = { key: 'hruska-current', title: 'Aktuální týdenní leták', subtitle: 'Hruška', valid_from: null, valid_to: null, url: HRUSKA_LEAFLET_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: HRUSKA_LEAFLET_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'tedi') {
+      const leaflet: Leaflet = { key: 'tedi-current', title: 'Horké novinky a aktuální nabídky', subtitle: 'TEDi', valid_from: null, valid_to: null, url: TEDI_OFFERS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: TEDI_OFFERS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'new-yorker') {
+      const leaflet: Leaflet = { key: 'new-yorker-current', title: 'Aktuální módní kolekce', subtitle: 'NEW YORKER', valid_from: null, valid_to: null, url: NEW_YORKER_COLLECTION_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: NEW_YORKER_COLLECTION_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
