@@ -435,23 +435,37 @@ async function discoverSource(source: any) {
     if (storeSlug === 'lidl') {
       const overview = await response.json();
       const today = new Date().toISOString().slice(0, 10);
+      const lidlHorizon = new Date();
+      lidlHorizon.setUTCDate(lidlHorizon.getUTCDate() + 4);
+      const horizon = lidlHorizon.toISOString().slice(0, 10);
       const flyers = (overview.categories || []).flatMap((category: any) =>
         (category.subcategories || []).flatMap((subcategory: any) =>
           String(subcategory.name || '').toLocaleLowerCase('cs').includes('akční letáky')
             ? (subcategory.flyers || [])
             : []
         )
-      ).filter((flyer: any) =>
-        flyer.isActive !== false
-        && typeof flyer.pdfUrl === 'string'
-        && flyer.pdfUrl.startsWith('https://')
-        && String(flyer.offerStartDate || flyer.startDate || '') <= today
-        && String(flyer.offerEndDate || flyer.endDate || '') >= today
-      ).sort((a: any, b: any) =>
-        String(b.offerStartDate || b.startDate || '').localeCompare(String(a.offerStartDate || a.startDate || ''))
-      );
-      if (!flyers.length) throw new Error('Oficiální Lidl API nevrátilo právě platný akční leták.');
-      documents = [normalizedUrl(flyers[0].pdfUrl)];
+      ).filter((flyer: any) => {
+        const validFrom = String(flyer.offerStartDate || flyer.startDate || '').slice(0, 10);
+        const validTo = String(flyer.offerEndDate || flyer.endDate || '').slice(0, 10);
+        return flyer.isActive !== false
+          && typeof flyer.pdfUrl === 'string'
+          && flyer.pdfUrl.startsWith('https://')
+          && /\/Akcni-letak-OD-/i.test(new URL(flyer.pdfUrl).pathname)
+          && /^\d{4}-\d{2}-\d{2}$/.test(validFrom)
+          && /^\d{4}-\d{2}-\d{2}$/.test(validTo)
+          && validTo >= today
+          && validFrom <= horizon;
+      }).sort((a: any, b: any) => {
+        const aFrom = String(a.offerStartDate || a.startDate || '').slice(0, 10);
+        const bFrom = String(b.offerStartDate || b.startDate || '').slice(0, 10);
+        const aCurrent = aFrom <= today ? 0 : 1;
+        const bCurrent = bFrom <= today ? 0 : 1;
+        return aCurrent - bCurrent || aFrom.localeCompare(bFrom);
+      });
+      if (!flyers.length) throw new Error('Oficiální Lidl API nevrátilo aktuální ani nejbližší navazující akční leták.');
+      // Keep the current main leaflet visible and pre-process the nearest future
+      // leaflet so its verified offers can switch over without an overnight gap.
+      documents = [...new Set(flyers.map((flyer: any) => normalizedUrl(flyer.pdfUrl)))].slice(0, 2);
       adapter = 'store:lidl-api';
     } else if (source.source_type === 'pdf' || contentType.includes('application/pdf') || /\.pdf(?:\?|$)/i.test(response.url)) {
       documents = [normalizedUrl(response.url)];
