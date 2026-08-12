@@ -230,6 +230,15 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
+          set -euo pipefail
+          large_function="supabase/functions/process-leaflet-basic"
+          backup_dir="${RUNNER_TEMP}/supabase-large-functions"
+          mkdir -p "$backup_dir"
+          mv "$large_function" "$backup_dir/"
+          restore_large_function() {
+            mv "$backup_dir/process-leaflet-basic" "supabase/functions/"
+          }
+          trap restore_large_function EXIT
           supabase functions deploy \
             --project-ref uhampjdqjxmbhaptgitn
 
