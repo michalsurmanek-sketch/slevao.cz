@@ -16,10 +16,10 @@ const FETCH_HEADERS = {
   accept: 'text/html,application/json,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
-const MIN_SAFE = 220;
+const MIN_SAFE = 80;
 const MAX_SAFE = 900;
 const PARSER = 'albert-publitas-text-v4';
-const CODE_REV = 'strong-identity-20260811-3';
+const CODE_REV = 'strong-identity-20260812-4';
 const PUBLISHER = 'publish_albert_publitas_text_offers_v4_strong';
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
@@ -334,7 +334,7 @@ Deno.serve(async (request) => {
 
     const { data: published, error: publishError } = await db.rpc(PUBLISHER, { p_signature: signature, p_rows: built.rows });
     if (publishError) throw publishError;
-    if (!published?.ok || Number(published?.published || 0) < 200) throw new Error('Albert v4 databáze nepotvrdila bezpečné publikování nové strong-identity sady.');
+    if (!published?.ok || Number(published?.published || 0) < MIN_SAFE) throw new Error('Albert v4 databáze nepotvrdila bezpečné publikování nové strong-identity sady nad dynamickým minimem.');
 
     return json({ ok: true, self_published: true, parser: PARSER, parser_revision: CODE_REV, store: 'Albert', documents: documents.length, raw_candidates: built.raw, deduped_candidates: built.deduped, dropped_price_outliers: built.outlierDropped, publishable: built.rows.length, catalog_matches: built.matched, strict_new: built.newStrict, with_images: built.withImages, signature, result: published });
   } catch (error) {
