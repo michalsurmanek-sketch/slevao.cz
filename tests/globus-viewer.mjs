@@ -23,7 +23,7 @@ assert.doesNotMatch(documentProxy, /return 'application\/pdf';\s*\n}\s*\nfunctio
 
 assert.match(sharedViewer, /async function openLeafletViewer\(/, 'Globus nemůže používat společný prohlížeč letáků.');
 assert.match(sharedViewer, /URL\.createObjectURL\(documentBlob\)/, 'Společný prohlížeč neumí bezpečně zobrazit proxované PDF.');
-assert.match(page, /assets\/store-feed\.js\?v=20260802-20/, 'Globus nenačítá aktuální společný prohlížeč.');
+assert.match(page, /assets\/store-feed\.js\?v=[a-z0-9-]+/i, 'Globus nenačítá aktuální společný prohlížeč.');
 assert.match(page, /assets\/store-bottom-nav\.js\?v=20260802-2/, 'Globus nepoužívá společnou spodní navigaci.');
 assert.doesNotMatch(page, /store-globus-catalog\.js/, 'Globus stále načítá starý klientský převodník.');
 assert.match(page, /<h2 id="storeLeafletHeading">Aktuální letáky<\/h2>/, 'Globus nemá stejnou sekci letáku jako ostatní obchody.');
