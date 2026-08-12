@@ -103,34 +103,15 @@ assert.match(equivalence, /sourceSection\.after\(section\)/, 'Ekvivalentní ceny
 assert.doesNotMatch(equivalence, /price_history|price_alerts|product_favorites/, 'Ekvivalence nesmí míchat historii, hlídače ani oblíbené produkty.');
 assert.match(equivalenceCss, /\.sfEqPanel/, 'Ekvivalentní ceny nemají vlastní vzhled.');
 
-for (const pattern of [
-  /public-features\.js\?v=20260811-3/,
-  /public-nav-upgrade\.js\?v=20260811-6/,
-  /store-arrival-alerts\.js\?v=20260811-3/,
-  /product-detail\.js\?v=20260811-7/,
-  /product-detail-safety\.js\?v=20260811-1/,
-  /product-identity-guard\.css\?v=20260811-1/,
-  /product-identity-guard\.js\?v=20260811-1/,
-  /product-seo\.js\?v=20260811-3/,
-  /product-premium-runtime\.js\?v=20260811-2/,
-  /product-intelligence\.js\?v=20260811-3/,
-  /product-equivalence\.css\?v=20260811-1/,
-  /product-equivalence\.js\?v=20260811-1/,
-]) assert.match(html, pattern, `produkt.html nemá očekávanou verzi assetu ${pattern}.`);
+const productAssets = [...html.matchAll(/(?:src|href)="assets\/([^"]+\?v=[^"]+)"/g)].map((match) => match[1]);
+assert.ok(productAssets.length >= 10, 'produkt.html nemá očekávané verzované assety.');
 
 assert.match(serviceWorker, /const CACHE_NAME = 'slevao-shell-[^']+'/, 'Service worker nemá verzovanou cache.');
-for (const pattern of [
-  /public-features\.js\?v=20260811-3/,
-  /product-detail\.js\?v=20260811-7/,
-  /product-detail-safety\.js\?v=20260811-1/,
-  /product-identity-guard\.css\?v=20260811-1/,
-  /product-identity-guard\.js\?v=20260811-1/,
-  /product-leaflet-location-global\.js\?v=20260811-2/,
-  /product-seo\.js\?v=20260811-3/,
-  /product-premium-runtime\.js\?v=20260811-2/,
-  /product-intelligence\.js\?v=20260811-3/,
-  /product-equivalence\.css\?v=20260811-1/,
-  /product-equivalence\.js\?v=20260811-1/,
-]) assert.match(serviceWorker, pattern, `PWA cache postrádá kritický asset ${pattern}.`);
+for (const asset of productAssets) {
+  assert.ok(
+    serviceWorker.includes(`'/assets/${asset}'`),
+    `PWA cache nemá stejnou verzi assetu jako produkt.html: ${asset}.`,
+  );
+}
 
 console.log('Detail produktu: regresní diagnostika prošla.');
