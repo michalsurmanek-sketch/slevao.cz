@@ -160,7 +160,13 @@ for (const path of ['supabase/functions/discover-leaflets/index.ts','supabase/fu
 }
 
 const imageDiscovery = read('supabase/functions/discover-product-images/index.ts');
-assert.match(imageDiscovery, /if \(!isService && !isCron && !isStaff\)/, 'Vyhledávání fotografií neověřuje oprávnění.');
+for (const pattern of [
+  /await authorize\(request, db, serviceKey, cronSecret\)/,
+  /if \(token === serviceKey\) return/,
+  /x-cron-secret/,
+  /app_metadata\?\.role/,
+  /\["admin", "editor"\]\.includes\(role\)/,
+]) assert.match(imageDiscovery, pattern, `Vyhledávání fotografií postrádá autorizační kontrolu ${pattern}.`);
 assert.match(imageDiscovery, /product_image_candidates/, 'Vyhledávání fotografií nepoužívá schvalovací frontu.');
 const manualUpload = read('supabase/functions/upload-product-image/index.ts');
 for (const pattern of [/app_metadata\?\.role/,/function detectedType/,/product_image_candidates/,/source_type: "manual"/]) {
