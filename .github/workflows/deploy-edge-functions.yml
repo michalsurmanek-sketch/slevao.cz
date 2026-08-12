@@ -241,6 +241,14 @@ jobs:
           trap restore_large_function EXIT
           supabase functions deploy \
             --project-ref uhampjdqjxmbhaptgitn
+          # These scheduled functions authenticate their internal orchestrator
+          # with x-cron-secret. Keep the platform JWT gateway disabled or the
+          # cron request is rejected before application authentication runs.
+          for function_name in sync-coop-source sync-jip-source sync-jysk-source; do
+            supabase functions deploy "$function_name" \
+              --project-ref uhampjdqjxmbhaptgitn \
+              --no-verify-jwt
+          done
 
       - name: Ověřit klíčové automatizační funkce
         shell: bash
