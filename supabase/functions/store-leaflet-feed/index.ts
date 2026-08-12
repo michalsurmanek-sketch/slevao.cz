@@ -17,6 +17,7 @@ const HORNBACH_CATALOGS_URL = 'https://www.hornbach.cz/aktuality/katalogy/';
 const MOUNTFIELD_DEALS_URL = 'https://www.mountfield.cz/akce';
 const ALZA_DEALS_URL = 'https://www.alza.cz/vyprodej-akce-sleva/e0.htm';
 const DATART_LEAFLET_URL = 'https://www.datart.cz/letak';
+const DECATHLON_DEALS_URL = 'https://www.decathlon.cz/deals/doprodej';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -520,6 +521,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: DATART_LEAFLET_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'decathlon') {
+      const leaflet: Leaflet = {
+        key: 'decathlon-current',
+        title: 'Doprodej a speciální nabídky',
+        subtitle: 'Decathlon',
+        valid_from: null,
+        valid_to: null,
+        url: DECATHLON_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: DECATHLON_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
