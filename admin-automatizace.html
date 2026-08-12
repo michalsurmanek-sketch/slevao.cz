@@ -56,7 +56,25 @@ $('loginBtn').onclick=login;$('password').onkeydown=e=>{if(e.key==='Enter')login
 $('refresh').onclick=async()=>{clearMsg('runMsg');clearMsg('bulkMsg');await loadAll()};
 $('archiveToggle').onclick=()=>{const body=$('archiveBody');const open=body.classList.toggle('hidden')===false;$('archiveToggle').setAttribute('aria-expanded',String(open));$('archiveToggle').textContent=open?'Skrýt archiv':'Zobrazit archiv'};
 async function loadAll(){await Promise.all([loadSources(),loadImports(),loadStats()])}
-async function loadSources(){const{data,error}=await db.from('leaflet_sources').select('id,name,source_url,is_active,auto_publish,last_checked_at,last_success_at,last_error,last_strategy_used,stores(name,slug)').order('created_at',{ascending:false});if(error){$('sources').innerHTML='<div class="error">'+esc(error.message)+'</div>';return}$('sources').innerHTML=(data||[]).map(x=>'<article class="source"><div class="sourceTop"><div><span class="pill '+(!x.is_active?'warn':x.last_error?'bad':'ok')+'">'+(!x.is_active?'pozastaveno':x.last_error?'problém':'ověřeno')+'</span><h3>'+esc(x.name)+'</h3><div class="meta">'+esc(x.stores?.name||'')+' · poslední úspěch '+fmt(x.last_success_at)+' · '+esc(x.last_strategy_used||'bez strategie')+'</div><a class="url" href="'+esc(x.source_url)+'" target="_blank" rel="noopener">'+esc(x.source_url)+'</a>'+(x.last_error?'<div class="error">'+esc(x.last_error)+'</div>':'')+'</div><div class="actions"><button data-retry="'+x.id+'" data-slug="'+esc(x.stores?.slug||'')+'">Zkontrolovat</button><button data-toggle="'+x.id+'" data-active="'+(!x.is_active)+'">'+(x.is_active?'Pozastavit':'Zapnout')+'</button></div></div></article>').join('')||'<div class="empty">Žádné zdroje.</div>';document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>retrySource(b.dataset.retry,b.dataset.slug,b));document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleSource(b.dataset.toggle,b.dataset.active==='true'))}
+async function loadSources(){
+  const [sourcesResult,importsResult]=await Promise.all([
+    db.from('leaflet_sources').select('id,name,source_url,is_active,auto_publish,last_checked_at,last_success_at,last_error,last_strategy_used,stores(name,slug)').order('created_at',{ascending:false}),
+    db.from('leaflet_imports').select('source_id,status,error_message,created_at').order('created_at',{ascending:false}).limit(1000)
+  ]);
+  if(sourcesResult.error){$('sources').innerHTML='<div class="error">'+esc(sourcesResult.error.message)+'</div>';return}
+  const latestImportBySource=new Map();
+  for(const item of importsResult.data||[])if(item.source_id&&!latestImportBySource.has(item.source_id))latestImportBySource.set(item.source_id,item);
+  $('sources').innerHTML=(sourcesResult.data||[]).map(x=>{
+    const latest=latestImportBySource.get(x.id);
+    const importFailed=['failed','rejected'].includes(latest?.status);
+    const state=!x.is_active?'paused':(importFailed||x.last_error)?'bad':'ok';
+    const label=state==='paused'?'pozastaveno':state==='bad'?'problém':'ověřeno';
+    const detail=latest?.error_message||x.last_error||'';
+    return '<article class="source"><div class="sourceTop"><div><span class="pill '+(state==='bad'?'bad':state==='ok'?'ok':'warn')+'">'+label+'</span><h3>'+esc(x.name)+'</h3><div class="meta">'+esc(x.stores?.name||'')+' · poslední úspěch '+fmt(x.last_success_at)+' · '+esc(x.last_strategy_used||'bez strategie')+'</div><a class="url" href="'+esc(x.source_url)+'" target="_blank" rel="noopener">'+esc(x.source_url)+'</a>'+(detail?'<div class="error">'+esc(detail)+'</div>':'')+'</div><div class="actions"><button data-retry="'+x.id+'" data-slug="'+esc(x.stores?.slug||'')+'">Zkontrolovat</button><button data-toggle="'+x.id+'" data-active="'+(!x.is_active)+'">'+(x.is_active?'Pozastavit':'Zapnout')+'</button></div></div></article>';
+  }).join('')||'<div class="empty">Žádné zdroje.</div>';
+  document.querySelectorAll('[data-retry]').forEach(b=>b.onclick=()=>retrySource(b.dataset.retry,b.dataset.slug,b));
+  document.querySelectorAll('[data-toggle]').forEach(b=>b.onclick=()=>toggleSource(b.dataset.toggle,b.dataset.active==='true'));
+}
 async function invokePipeline(body={}){const{data,error}=await db.functions.invoke('run-leaflet-pipeline-v2',{body});if(error)throw new Error(error.message||'Edge Function se nepodařilo spustit.');if(data?.error||data?.ok===false)throw new Error(data?.error||'Kontrola neprošla ověřením výsledku.');return data||{}}
 async function retrySource(id,slug,button){clearMsg('runMsg');button.disabled=true;try{const{error:u}=await db.from('leaflet_sources').update({last_checked_at:null,last_error:null,is_active:true}).eq('id',id);if(u)throw u;const result=await invokePipeline({store_slug:slug||''});const verified=Number(result.results?.[0]?.current_imports||0);msg('runMsg','Kontrola zdroje proběhla. Ověřeno aktuálních importů: '+verified+'.')}catch(e){msg('runMsg',e.message||'Kontrola selhala.','err')}finally{button.disabled=false;await loadAll()}}
 async function toggleSource(id,active){clearMsg('runMsg');const{error}=await db.from('leaflet_sources').update({is_active:active}).eq('id',id);if(error)msg('runMsg',error.message,'err');else await loadAll()}
