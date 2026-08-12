@@ -203,6 +203,7 @@
       alza: 'Prohlédnout Cenové bomby na Alza.cz ↗',
       datart: 'Prohlédnout aktuální leták na Datart.cz ↗',
       decathlon: 'Prohlédnout doprodej na Decathlon.cz ↗',
+      sconto: 'Prohlédnout aktuální leták na Sconto.cz ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
