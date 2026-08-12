@@ -213,7 +213,7 @@
     async function fetchAllOffers() {
       const result = [];
       for (let from = 0; ; from += 1000) {
-        const { data, error } = await db.from('offers').select('id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,status,published_at,stores(name,slug,is_active),products(name,image_url)').order('published_at', { ascending:false, nullsFirst:false }).range(from, from + 999);
+        const { data, error } = await db.from('offers').select('id,product_id,store_id,external_id,title,price,old_price,image_url,valid_from,valid_to,status,published_at,coverage_scope,region_code,city_name,store_location_name,stores(name,slug,is_active),products(name,image_url)').order('published_at', { ascending:false, nullsFirst:false }).range(from, from + 999);
         if (error) throw error;
         result.push(...(data || []));
         if (!data || data.length < 1000) break;
