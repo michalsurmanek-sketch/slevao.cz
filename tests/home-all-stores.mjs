@@ -7,8 +7,10 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const allStores = read('assets/home-all-stores.js');
 const homepage = read('index.html');
+const homepageRuntime = read('assets/home-v2.js');
 
 new Script(allStores, { filename: 'assets/home-all-stores.js' });
+new Script(homepageRuntime, { filename: 'assets/home-v2.js' });
 
 assert.match(homepage, /<script src="assets\/home-all-stores\.js\?v=[a-z0-9-]+" defer><\/script>/i, 'Homepage přímo nenačítá aktuální seznam obchodů.');
 assert.match(allStores, /is_active:\s*'eq\.true'/, 'Veřejný seznam nenačítá aktivní obchody.');
@@ -21,5 +23,9 @@ assert.match(allStores, /storeSelect/, 'Nové obchody se nepřidávají do filtr
 assert.match(allStores, /class="storePageLink"[^\n]*encodeURIComponent\(store\.slug\)[^\n]*\.html/, 'Nově přidaná karta obchodu nemá odkaz na vlastní stránku.');
 assert.doesNotMatch(allStores, /order:\s*'name\.asc'/, 'Homepage nesmí znovu řadit obchody čistě podle abecedy.');
 assert.doesNotMatch(allStores, /activeSlugs|activeIds|offers[^\n]*filter/, 'Veřejný seznam znovu filtruje obchody podle existence nabídek.');
+assert.match(homepageRuntime, /function scrollToDealsAfterStoreLayout\(\)/, 'Výběr obchodu nemá vlastní dorovnání scrollu po změně výšky seznamu.');
+assert.match(homepageRuntime, /new ResizeObserver\(correctPosition\)/, 'Scroll po výběru obchodu nereaguje na rozbalení nebo překreslení seznamu.');
+assert.match(homepageRuntime, /setTimeout\(correctPosition,\s*180\)/, 'Scroll po výběru obchodu nemá závěrečné dorovnání po změně rozložení.');
+assert.match(homepageRuntime, /renderDeals\(\);\s*scrollToDealsAfterStoreLayout\(\)/, 'Kliknutí na obchod nepoužívá stabilizovaný scroll.');
 
 console.log('Homepage priority stores OK');
