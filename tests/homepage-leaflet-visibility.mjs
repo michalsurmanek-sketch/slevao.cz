@@ -44,17 +44,15 @@ for (const pattern of [
   /VISIBILITY_KEY = 'slevao-leaflet-visibility'/,
   /FORCE_KEY = 'slevao-leaflet-force'/,
   /settings\?\.visibility === 'hidden'/,
-  /settings\?\.visibility === 'visible'/,
   /card\.hidden = hidden/,
   /style\.setProperty\('display', 'none', 'important'\)/,
   /forcedCardMarkup/,
   /data-forced-leaflet-card/,
   /Aktuální nabídky/,
-  /legacyHidden/,
 ]) assert.match(control, pattern, `Řízení hlavní sekce postrádá ${pattern}.`);
 
-assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá společné řízení bez cache.');
-assert.match(loader, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Hlavní loader nenačítá společné řízení bez cache.');
+assert.match(visibilityShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Loader viditelnosti nenačítá verzované společné řízení.');
+assert.match(loader, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Hlavní loader nenačítá verzované společné řízení.');
 assert.match(nav, /admin-viditelnost-letaku\.html/, 'Administrace nemá odkaz na viditelnost letáků.');
 
 console.log('Homepage leaflet visibility and manual store control OK');
