@@ -200,6 +200,7 @@
       'super-zoo': 'Prohlédnout akce na Super zoo ↗',
       hornbach: 'Prohlédnout letáky a katalogy na Hornbach.cz ↗',
       mountfield: 'Prohlédnout probíhající akce na Mountfield.cz ↗',
+      alza: 'Prohlédnout Cenové bomby na Alza.cz ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
