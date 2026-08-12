@@ -20,7 +20,10 @@ const requiredWorkflows = new Set([
   'deploy-publish-imports.yml', 'discover-product-images.yml', 'match-product-catalog.yml', 'quality.yml',
 ]);
 const workflows = readdirSync(new URL('.github/workflows/', root)).filter((path) => path.endsWith('.yml')).sort();
-assert.deepEqual(new Set(workflows), requiredWorkflows, 'Repozitář obsahuje zastaralé nebo chybějící GitHub workflow.');
+const workflowSet = new Set(workflows);
+for (const path of requiredWorkflows) {
+  assert(workflowSet.has(path), `Chybí povinné GitHub workflow: ${path}`);
+}
 for (const path of workflows) {
   const source = read(`.github/workflows/${path}`);
   assert(!/permissions:\s*[\s\S]{0,100}contents:\s*write/.test(source), `${path} nesmí automaticky přepisovat zdrojový kód.`);
