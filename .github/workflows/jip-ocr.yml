@@ -1,14 +1,9 @@
 name: JIP OCR
 
+# Legacy emergency fallback only. The production JIP pipeline runs in
+# Supabase; starting this expensive OCR job requires an explicit operator action.
 on:
-  schedule:
-    - cron: '17,47 * * * *'
   workflow_dispatch:
-  push:
-    branches: [main]
-    paths:
-      - '.github/workflows/jip-ocr.yml'
-      - '.github/scripts/jip_ocr_sync.py'
 
 permissions:
   contents: read
