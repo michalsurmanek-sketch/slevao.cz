@@ -21,6 +21,10 @@ const DECATHLON_DEALS_URL = 'https://www.decathlon.cz/deals/doprodej';
 const SCONTO_LEAFLET_URL = 'https://www.sconto.cz/letak';
 const MOEBELIX_DEALS_URL = 'https://www.moebelix.cz/c/slevy';
 const XXXLUTZ_LEAFLETS_URL = 'https://www.xxxlutz.cz/c/letaky';
+const SPORTISIMO_DEALS_URL = 'https://www.sportisimo.cz/vyprodej/';
+const SMARTY_DEALS_URL = 'https://www.smarty.cz/vyprodej-4c10260';
+const PILULKA_DEALS_URL = 'https://www.pilulka.cz/akce-a-slevy';
+const AUTO_KELLY_BENEFITS_URL = 'https://www.autokelly.cz/page/vernostni-program';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -572,6 +576,22 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: XXXLUTZ_LEAFLETS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'sportisimo') {
+      const leaflet: Leaflet = { key: 'sportisimo-current', title: 'Výprodej značkové módy a obuvi', subtitle: 'SPORTISIMO', valid_from: null, valid_to: null, url: SPORTISIMO_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: SPORTISIMO_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'smarty') {
+      const leaflet: Leaflet = { key: 'smarty-current', title: 'Výprodej elektroniky a gamingu', subtitle: 'Smarty.cz', valid_from: null, valid_to: null, url: SMARTY_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: SMARTY_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'pilulka') {
+      const leaflet: Leaflet = { key: 'pilulka-current', title: 'Akce a slevy', subtitle: 'Pilulka.cz', valid_from: null, valid_to: null, url: PILULKA_DEALS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: PILULKA_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'auto-kelly') {
+      const leaflet: Leaflet = { key: 'auto-kelly-current', title: 'Věrnostní slevy až 20 %', subtitle: 'Auto Kelly', valid_from: null, valid_to: null, url: AUTO_KELLY_BENEFITS_URL, direct: false };
+      return Response.json({ ok: true, store: storeSlug, source: AUTO_KELLY_BENEFITS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
