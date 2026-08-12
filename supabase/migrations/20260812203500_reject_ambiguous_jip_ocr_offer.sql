@@ -1,12 +1,24 @@
--- Remove one ambiguous JIP OCR offer whose nearby price block contains both
--- a current integer price and an old decimal price. Keep only the two rows
--- whose title and unit price are unambiguous, and attach the official leaflet
--- viewer so every retained offer remains traceable to its source.
+-- Reject one ambiguous JIP OCR offer whose price block contains both a
+-- current integer price and an old decimal price. Retain only traceable rows.
+
+update public.offers
+set status = 'rejected',
+    metadata = coalesce(metadata, '{}'::jsonb) || jsonb_build_object(
+      'rejected_reason', 'ambiguous_spatial_ocr_price_block',
+      'rejected_at', now(),
+      'review_note', 'OCR block contained both 82 and 92,90; safe current price could not be determined.'
+    ),
+    updated_at = now()
+where store_id = (select id from public.stores where slug = 'jip')
+  and status = 'published'
+  and valid_from <= current_date
+  and valid_to >= current_date
+  and lower(unaccent(title)) like 'strintyzky kureci parky%';
 
 with official_source as (
   select li.source_document_url
   from public.leaflet_imports li
-  where li.store_id = (select id from jip_store)
+  where li.store_id = (select id from public.stores where slug = 'jip')
     and li.metadata->>'adapter' = 'jip-flip-pdf-v1'
     and li.detected_valid_from <= current_date
     and li.detected_valid_to >= current_date
@@ -34,8 +46,7 @@ set status = 'ignored',
     )
 where lower(unaccent(lii.title)) like 'strintyzky kureci parky%'
   and exists (
-    select 1
-    from public.leaflet_imports li
+    select 1 from public.leaflet_imports li
     join public.stores s on s.id = li.store_id
     where li.id = lii.import_id and s.slug = 'jip'
   );
