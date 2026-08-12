@@ -188,7 +188,7 @@
     const safeRossmannEmbed = String(leaflet.embed_url || '').startsWith('https://publikace.rossmann.cz/') ? String(leaflet.embed_url) : '';
     const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
     const storeSlug = String(config.slug || '').toLowerCase();
-    const isExternalWebOffer = ['pepco', 'petcenter', 'planeo', 'sinsay', 'takko', 'makro', 'rohlik', 'kosik'].includes(storeSlug);
+    const isExternalWebOffer = ['pepco', 'petcenter', 'planeo', 'sinsay', 'takko', 'makro', 'rohlik', 'kosik', 'super-zoo'].includes(storeSlug);
     const canPreview = Boolean(safeRossmannEmbed) || (!isExternalWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`));
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
@@ -210,7 +210,7 @@
         <h3>${esc(leaflet.subtitle || leaflet.title || `${config.name || 'Obchod'} leták`)}</h3>
         <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
         <div class="leafletValidity">Platí ${esc(validity)}</div>
-        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : (storeSlug === 'pepco' ? 'Prohlédnout nabídku na Pepco.cz ↗' : (storeSlug === 'petcenter' ? 'Prohlédnout výprodej na PetCenter.cz ↗' : (storeSlug === 'planeo' ? 'Prohlédnout akce na Planeo.cz ↗' : (storeSlug === 'sinsay' ? 'Prohlédnout nabídky na Sinsay.com ↗' : (storeSlug === 'takko' ? 'Prohlédnout nabídky na Takko.com ↗' : (storeSlug === 'makro' ? 'Prohlédnout aktuální nabídky na Makro.cz ↗' : (storeSlug === 'rohlik' ? 'Prohlédnout Cenové trháky na Rohlík.cz ↗' : (storeSlug === 'kosik' ? 'Prohlédnout akce na Košík.cz ↗' : (storeSlug === 'rossmann' ? 'Prohlédnout akce na Rossmann.cz ↗' : 'Otevřít oficiální leták')))))))))}</span>
+        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : (storeSlug === 'pepco' ? 'Prohlédnout nabídku na Pepco.cz ↗' : (storeSlug === 'petcenter' ? 'Prohlédnout výprodej na PetCenter.cz ↗' : (storeSlug === 'planeo' ? 'Prohlédnout akce na Planeo.cz ↗' : (storeSlug === 'sinsay' ? 'Prohlédnout nabídky na Sinsay.com ↗' : (storeSlug === 'takko' ? 'Prohlédnout nabídky na Takko.com ↗' : (storeSlug === 'makro' ? 'Prohlédnout aktuální nabídky na Makro.cz ↗' : (storeSlug === 'rohlik' ? 'Prohlédnout Cenové trháky na Rohlík.cz ↗' : (storeSlug === 'kosik' ? 'Prohlédnout akce na Košík.cz ↗' : (storeSlug === 'super-zoo' ? 'Prohlédnout akce na Super zoo ↗' : (storeSlug === 'rossmann' ? 'Prohlédnout akce na Rossmann.cz ↗' : 'Otevřít oficiální leták'))))))))))}</span>
       </div>
     ${close}`;
   }
