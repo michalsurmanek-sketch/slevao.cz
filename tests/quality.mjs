@@ -183,8 +183,11 @@ assert.match(processLeaflet, /const archiveLimitBytes = 4 \* 1024 \* 1024/, 'Pro
 assert.match(processLeaflet, /canArchiveInStorage = bytes\.length <= archiveLimitBytes/, 'Velké letáky nemají náhradní cestu zpracování.');
 assert.match(processLeaflet, /Archivace byla přeskočena; leták se zpracovává přímo/, 'Přímé zpracování velkých letáků není evidováno.');
 
-assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a 73 obchodů.');
+const sitemap = read('sitemap.xml');
+assert((sitemap.match(/<url>/g) || []).length >= 74, 'Sitemap musí obsahovat nejméně homepage a 73 obchodů.');
+for (const page of storePageFiles) assert(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje ${page}.`);
+for (const page of ['hledat.html','kontakt.html','ochrana-soukromi.html','podminky.html']) assert(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje veřejnou stránku ${page}.`);
 assert.match(read('robots.txt'), /Sitemap: https:\/\/slevao\.cz\/sitemap\.xml/, 'robots.txt neodkazuje na sitemapu.');
-assert.match(read('sitemap.xml'), /<loc>https:\/\/slevao\.cz\/<\/loc>/, 'Sitemap neobsahuje homepage.');
+assert.match(sitemap, /<loc>https:\/\/slevao\.cz\/<\/loc>/, 'Sitemap neobsahuje homepage.');
 
 console.log('Slevao.cz quality checks: OK');
