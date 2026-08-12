@@ -178,7 +178,10 @@ assert.match(read('admin-automatizace.html'), /latestImportBySource\.get\(x\.id\
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /SPECIALIZED_SOURCE_SLUGS\.has/, 'Generický průzkum nepřeskakuje specializované zdroje.');
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:penny-flippingbook/, 'PENNY nepoužívá adaptér pro celý leták.');
 assert.match(read('supabase/functions/discover-leaflets/index.ts'), /store:action-web/, 'Action hledá neexistující PDF místo webového katalogu.');
-assert.match(read('supabase/functions/process-leaflet/index.ts'), /canArchiveInStorage = bytes\.length <= 45/, 'Velké letáky nemají náhradní cestu zpracování.');
+const processLeaflet = read('supabase/functions/process-leaflet/index.ts');
+assert.match(processLeaflet, /const archiveLimitBytes = 4 \* 1024 \* 1024/, 'Procesor nemá bezpečný limit archivu.');
+assert.match(processLeaflet, /canArchiveInStorage = bytes\.length <= archiveLimitBytes/, 'Velké letáky nemají náhradní cestu zpracování.');
+assert.match(processLeaflet, /Archivace byla přeskočena; leták se zpracovává přímo/, 'Přímé zpracování velkých letáků není evidováno.');
 
 assert.equal((read('sitemap.xml').match(/<url>/g) || []).length, 74, 'Sitemap musí obsahovat homepage a 73 obchodů.');
 assert.match(read('robots.txt'), /Sitemap: https:\/\/slevao\.cz\/sitemap\.xml/, 'robots.txt neodkazuje na sitemapu.');
