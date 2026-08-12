@@ -204,6 +204,7 @@
       datart: 'Prohlédnout aktuální leták na Datart.cz ↗',
       decathlon: 'Prohlédnout doprodej na Decathlon.cz ↗',
       sconto: 'Prohlédnout aktuální leták na Sconto.cz ↗',
+      moebelix: 'Prohlédnout slevy na Moebelix.cz ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
