@@ -14,6 +14,7 @@ const ROHLIK_DEALS_URL = 'https://www.rohlik.cz/cenove-trhaky';
 const KOSIK_DEALS_URL = 'https://www.kosik.cz/s1-akce';
 const SUPER_ZOO_DEALS_URL = 'https://www.superzoo.cz/akce/';
 const HORNBACH_CATALOGS_URL = 'https://www.hornbach.cz/aktuality/katalogy/';
+const MOUNTFIELD_DEALS_URL = 'https://www.mountfield.cz/akce';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -481,6 +482,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: HORNBACH_CATALOGS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'mountfield') {
+      const leaflet: Leaflet = {
+        key: 'mountfield-current',
+        title: 'Právě probíhající akce',
+        subtitle: 'Mountfield',
+        valid_from: null,
+        valid_to: null,
+        url: MOUNTFIELD_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: MOUNTFIELD_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
