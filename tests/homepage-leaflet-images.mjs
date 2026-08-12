@@ -38,9 +38,9 @@ for (const pattern of [
 ]) assert.match(control, pattern, `Společné řízení karet postrádá ${pattern}.`);
 assert.doesNotMatch(control, /function legacyImageUrl|storage\/v1\/object\/public\/homepage-leaflet-images/, 'Společné řízení nesmí obnovit staré plošné dotazy do bucketu.');
 
-assert.match(manualShim, /home-leaflet-control\\.js\\?v=[a-z0-9-]+/i, 'Obrázkový loader nenačítá aktuální společné řízení.');
-assert.match(visibilityShim, /home-leaflet-control\\.js\\?v=[a-z0-9-]+/i, 'Loader viditelnosti nenačítá aktuální společné řízení.');
-assert.match(allStores, /home-leaflet-control\\.js\\?v=[a-z0-9-]+/i, 'Hlavní loader nenačítá verzované společné řízení.');
+assert.match(manualShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Obrázkový loader nenačítá aktuální společné řízení.');
+assert.match(visibilityShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Loader viditelnosti nenačítá aktuální společné řízení.');
+assert.match(allStores, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Hlavní loader nenačítá verzované společné řízení.');
 assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat vlastní obrázek.');
 
 console.log('Homepage leaflet image control OK');
