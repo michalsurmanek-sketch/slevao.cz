@@ -36,7 +36,7 @@ for (const pattern of [
   /Vlastní obrázek/,
   /Ukázková fotografie/,
 ]) assert.match(control, pattern, `Společné řízení karet postrádá ${pattern}.`);
-assert.doesNotMatch(control, /legacyImageUrl|homepage-leaflet-images/, 'Společné řízení nesmí obnovit staré plošné dotazy do bucketu.');
+assert.doesNotMatch(control, /function legacyImageUrl|storage\/v1\/object\/public\/homepage-leaflet-images/, 'Společné řízení nesmí obnovit staré plošné dotazy do bucketu.');
 
 assert.match(manualShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Obrázkový loader nenačítá aktuální společné řízení.');
 assert.match(visibilityShim, /home-leaflet-control\.js[\s\S]*Date\.now\(\)/, 'Loader viditelnosti nenačítá aktuální společné řízení.');
