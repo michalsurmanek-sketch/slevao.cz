@@ -185,27 +185,32 @@
   function leafletCard(leaflet) {
     const url = /^https:\/\//.test(String(leaflet.url || '')) ? leaflet.url : OFFICIAL_TESCO_LEAFLETS;
     const previewUrl = String(leaflet.preview_url || '');
-    const canPreview = previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`);
+    const safeRossmannEmbed = String(leaflet.embed_url || '').startsWith('https://publikace.rossmann.cz/') ? String(leaflet.embed_url) : '';
+    const externalViewer = /^https:\/\/www\.jip-potraviny\.cz\/wp-content\/uploads\/file\//i.test(url);
+    const storeSlug = String(config.slug || '').toLowerCase();
+    const isExternalWebOffer = ['pepco', 'petcenter', 'planeo', 'sinsay', 'takko', 'makro', 'rohlik', 'kosik', 'super-zoo'].includes(storeSlug);
+    const canPreview = Boolean(safeRossmannEmbed) || (!isExternalWebOffer && !externalViewer && previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`));
     const rawLogo = String(leaflet.logo_url || config.logo || store?.logo_url || '');
     const logo = /^(?:https:\/\/|assets\/)/.test(rawLogo) ? rawLogo : '';
     const validity = leaflet.valid_from && leaflet.valid_to
       ? `${formatLong(leaflet.valid_from)} – ${formatLong(leaflet.valid_to)}`
       : 'Aktuální platnost ověříš po otevření';
     const open = canPreview
-      ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
+      ? `<button class="leafletCard" type="button" data-leaflet-preview="${esc(safeRossmannEmbed || previewUrl)}" data-leaflet-title="${esc(leaflet.subtitle || leaflet.title || 'Tesco leták')}">`
       : `<a class="leafletCard" href="${esc(url)}" target="_blank" rel="noopener noreferrer">`;
     const close = canPreview ? '</button>' : '</a>';
+    const leafletType = /katalog/i.test(String(leaflet.title || '')) || leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták';
     return `${open}
       <div class="leafletCover">
         ${logo ? `<img src="${esc(logo)}" alt="" aria-hidden="true">` : `<strong class="leafletBrand">${esc((config.name || leaflet.subtitle || 'S').slice(0, 3).toUpperCase())}</strong>`}
         <span>${esc(leaflet.subtitle || config.name || 'Obchod')}</span>
       </div>
       <div class="leafletBody">
-        <span class="leafletType">${leaflet.key === 'catalog' ? 'Katalog' : 'Akční leták'}</span>
+        <span class="leafletType">${leafletType}</span>
         <h3>${esc(leaflet.subtitle || leaflet.title || `${config.name || 'Obchod'} leták`)}</h3>
         <p>${esc(leaflet.title || 'Aktuální nabídka')}</p>
         <div class="leafletValidity">Platí ${esc(validity)}</div>
-        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : 'Otevřít oficiální leták'}</span>
+        <span class="leafletAction">${canPreview ? 'Prolistovat přímo zde' : (storeSlug === 'pepco' ? 'Prohlédnout nabídku na Pepco.cz ↗' : (storeSlug === 'petcenter' ? 'Prohlédnout výprodej na PetCenter.cz ↗' : (storeSlug === 'planeo' ? 'Prohlédnout akce na Planeo.cz ↗' : (storeSlug === 'sinsay' ? 'Prohlédnout nabídky na Sinsay.com ↗' : (storeSlug === 'takko' ? 'Prohlédnout nabídky na Takko.com ↗' : (storeSlug === 'makro' ? 'Prohlédnout aktuální nabídky na Makro.cz ↗' : (storeSlug === 'rohlik' ? 'Prohlédnout Cenové trháky na Rohlík.cz ↗' : (storeSlug === 'kosik' ? 'Prohlédnout akce na Košík.cz ↗' : (storeSlug === 'super-zoo' ? 'Prohlédnout akce na Super zoo ↗' : (storeSlug === 'rossmann' ? 'Prohlédnout akce na Rossmann.cz ↗' : 'Otevřít oficiální leták'))))))))))}</span>
       </div>
     ${close}`;
   }
@@ -213,7 +218,8 @@
   async function openLeafletViewer(previewUrl, title, shouldScroll = true) {
     const viewer = $('leafletViewer');
     const frame = $('leafletFrame');
-    if (!viewer || !frame || !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`)) return;
+    const isRossmannEmbed = String(config.slug || '').toLowerCase() === 'rossmann' && previewUrl.startsWith('https://publikace.rossmann.cz/');
+    if (!viewer || !frame || (!isRossmannEmbed && !previewUrl.startsWith(`${SUPABASE_URL}/functions/v1/store-leaflet-document?`))) return;
     leafletLoadController?.abort();
     leafletLoadController = new AbortController();
     if (leafletObjectUrl) URL.revokeObjectURL(leafletObjectUrl);
@@ -231,6 +237,14 @@
       button.classList.toggle('active', button.dataset.leafletPreview === previewUrl);
     });
     if (shouldScroll && !mobileViewer) viewer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (isRossmannEmbed) {
+      frame.src = previewUrl;
+      frame.hidden = false;
+      requestAnimationFrame(fitLeafletViewer);
+      setTimeout(fitLeafletViewer, 450);
+      $('leafletViewerStatus').hidden = true;
+      return;
+    }
     try {
       const response = await fetch(previewUrl, {
         headers: { apikey: KEY, authorization: `Bearer ${KEY}` },
@@ -240,9 +254,6 @@
         const detail = await response.text();
         throw new Error(`HTTP ${response.status}${detail ? `: ${detail.slice(0, 180)}` : ''}`);
       }
-      // Některé prohlížeče nebo mezilehlé cache nezpřístupní Content-Type,
-      // i když Edge Function vrátí JSON se signed URL. Zkusíme proto JSON
-      // rozpoznat podle skutečného těla odpovědi, ne podle hlavičky.
       let payload = null;
       try {
         payload = await response.clone().json();
@@ -261,6 +272,16 @@
       }
       const documentBlob = await response.blob();
       if (!documentBlob.size) throw new Error('Stažený leták je prázdný.');
+      const contentType = String(response.headers.get('content-type') || documentBlob.type || '').toLowerCase();
+      const signature = new Uint8Array(await documentBlob.slice(0, 12).arrayBuffer());
+      const isPdf = signature[0] === 0x25 && signature[1] === 0x50 && signature[2] === 0x44 && signature[3] === 0x46;
+      const isPng = signature[0] === 0x89 && signature[1] === 0x50 && signature[2] === 0x4e && signature[3] === 0x47;
+      const isJpeg = signature[0] === 0xff && signature[1] === 0xd8 && signature[2] === 0xff;
+      const isWebp = signature[0] === 0x52 && signature[1] === 0x49 && signature[2] === 0x46 && signature[3] === 0x46
+        && signature[8] === 0x57 && signature[9] === 0x45 && signature[10] === 0x42 && signature[11] === 0x50;
+      if (/text\/html|application\/xhtml\+xml|text\/plain/.test(contentType) || (!isPdf && !isPng && !isJpeg && !isWebp)) {
+        throw new Error('Zdroj nevrátil skutečný PDF nebo obrázkový leták.');
+      }
       leafletObjectUrl = URL.createObjectURL(documentBlob);
       frame.src = `${leafletObjectUrl}#page=1&zoom=page-fit`;
       frame.hidden = false;
@@ -281,14 +302,14 @@
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 9000);
     try {
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v6`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(config.slug || '')}&source=official-v8`, {
         headers: { apikey: KEY },
         signal: controller.signal,
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const result = await response.json();
       if (!Array.isArray(result.leaflets) || !result.leaflets.length) throw new Error('Bez aktuálních letáků');
-      const currentLeaflets = result.leaflets.slice(0, 3);
+      const currentLeaflets = result.leaflets.slice(0, 20);
       target.dataset.count = String(currentLeaflets.length);
       target.innerHTML = currentLeaflets.map(leafletCard).join('');
       target.querySelectorAll('[data-leaflet-preview]').forEach((button) => button.addEventListener('click', () => {
