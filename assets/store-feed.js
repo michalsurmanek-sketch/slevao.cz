@@ -214,6 +214,9 @@
       'pro-doma': 'Prohlédnout akce PRO-DOMA ↗',
       stavmat: 'Prohlédnout akce STAVMAT ↗',
       hm: 'Prohlédnout výprodej H&M ↗',
+      hruska: 'Prohlédnout aktuální leták Hruška ↗',
+      tedi: 'Prohlédnout novinky TEDi ↗',
+      'new-yorker': 'Prohlédnout kolekci NEW YORKER ↗',
       rossmann: 'Prohlédnout akce na Rossmann.cz ↗',
     };
     const isExternalWebOffer = Object.hasOwn(externalOfferLabels, storeSlug) && storeSlug !== 'rossmann';
