@@ -303,6 +303,9 @@ Deno.serve(async (request) => {
 
     const expired: string[] = [];
     for (const oldImport of oldImports || []) {
+      // Only the source viewer imports belong to this cleanup. Derived OCR
+      // imports deliberately share source_id and must retain their own validity.
+      if (oldImport.metadata?.adapter !== 'jip-flip-pdf-v1') continue;
       if (activeHashes.has(String(oldImport.source_hash || ''))) continue;
       const { error } = await db.from('leaflet_imports').update({
         detected_valid_to: yesterday,
