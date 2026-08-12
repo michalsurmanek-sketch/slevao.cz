@@ -41,6 +41,6 @@ assert.doesNotMatch(control, /function legacyImageUrl|storage\/v1\/object\/publi
 assert.match(manualShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Obrázkový loader nenačítá aktuální společné řízení.');
 assert.match(visibilityShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Loader viditelnosti nenačítá aktuální společné řízení.');
 assert.match(allStores, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Hlavní loader nenačítá verzované společné řízení.');
-assert.match(kaufland, /manualLeafletCover === '1'/, 'Kaufland může přepsat vlastní obrázek.');
+assert.doesNotMatch(kaufland, /querySelector|\.src\s*=|manualLeafletCover/, 'Starý Kaufland doplněk nesmí přepisovat obrázek společného rendereru.');
 
 console.log('Homepage leaflet image control OK');
