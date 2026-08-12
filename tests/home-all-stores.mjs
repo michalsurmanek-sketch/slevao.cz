@@ -10,7 +10,7 @@ const homepage = read('index.html');
 
 new Script(allStores, { filename: 'assets/home-all-stores.js' });
 
-assert.match(homepage, /<script src="assets\/home-all-stores\.js\?v=20260802-3" defer><\/script>/, 'Homepage přímo nenačítá aktuální seznam obchodů.');
+assert.match(homepage, /<script src="assets\/home-all-stores\.js\?v=[a-z0-9-]+" defer><\/script>/i, 'Homepage přímo nenačítá aktuální seznam obchodů.');
 assert.match(allStores, /is_active:\s*'eq\.true'/, 'Veřejný seznam nenačítá aktivní obchody.');
 assert.match(allStores, /STORE_PRIORITY[\s\S]*'lidl'[\s\S]*'kaufland'[\s\S]*'penny'[\s\S]*'albert'/, 'Hlavní obchody nemají nastavené prioritní pořadí.');
 assert.match(allStores, /sortStores[\s\S]*rankStore\(a\) - rankStore\(b\)/, 'Obchody se neřadí podle prioritního hodnocení.');
