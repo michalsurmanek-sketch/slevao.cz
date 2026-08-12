@@ -211,6 +211,9 @@ Deno.serve(async (request) => {
 
     const expired: string[] = [];
     for (const oldImport of oldImports || []) {
+      // Product-feed imports share this source but are not iPaper documents.
+      // Their validity is managed by the product synchronizer.
+      if (oldImport.metadata?.adapter !== 'jysk-ipaper-v1') continue;
       if (activeUrls.has(String(oldImport.source_document_url || ''))) continue;
       const { error } = await db.from('leaflet_imports').update({
         detected_valid_to: yesterday,
