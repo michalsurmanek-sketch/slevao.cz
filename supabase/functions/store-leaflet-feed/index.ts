@@ -12,6 +12,7 @@ const ROSSMANN_LISTING_URL = 'https://www.rossmann.cz/obsah/akce-a-letaky';
 const MAKRO_LISTING_URL = 'https://www.makro.cz/aktualni-nabidka';
 const ROHLIK_DEALS_URL = 'https://www.rohlik.cz/cenove-trhaky';
 const KOSIK_DEALS_URL = 'https://www.kosik.cz/s1-akce';
+const SUPER_ZOO_DEALS_URL = 'https://www.superzoo.cz/akce/';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -455,6 +456,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: KOSIK_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'super-zoo') {
+      const leaflet: Leaflet = {
+        key: 'super-zoo-current',
+        title: 'Akce a novinky',
+        subtitle: 'Super zoo',
+        valid_from: null,
+        valid_to: null,
+        url: SUPER_ZOO_DEALS_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: SUPER_ZOO_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
