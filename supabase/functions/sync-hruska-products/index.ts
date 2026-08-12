@@ -151,6 +151,8 @@ function buildTitle(lines:{y:number;text:string}[]) {
   const second = usable[1]?.text || '';
   const secondGood = second && !/\b\d+(?:[,.]\d+)?\s*(g|kg|ml|l|ks)\b/i.test(second) && norm(second) !== 'vybrane druhy';
   const title = clean(secondGood ? `${first} ${second}` : first).replace(/\s*\|\s*$/,'');
+  // A second price anchor inside the title means the horizontal band crossed into a neighbouring product.
+  if (/\bnase cena\b/.test(norm(title))) return null;
   return title.length >= 3 && title.length <= 100 ? title : null;
 }
 
