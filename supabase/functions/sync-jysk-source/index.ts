@@ -32,6 +32,17 @@ function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
 }
 
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    const parts = [value.message, value.details, value.hint, value.code].filter(Boolean).map(String);
+    if (parts.length) return parts.join(' | ');
+    try { return JSON.stringify(error); } catch { /* fall through */ }
+  }
+  return String(error);
+}
+
 async function allowed(request: Request) {
   const authorization = request.headers.get('authorization') || '';
   const token = authorization.replace(/^Bearer\s+/i, '').trim();
@@ -231,7 +242,7 @@ Deno.serve(async (request) => {
       expired,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     const { data: store } = await db.from('stores').select('id').eq('slug', 'jysk').maybeSingle();
     if (store?.id) {
       await db.from('leaflet_sources').update({
