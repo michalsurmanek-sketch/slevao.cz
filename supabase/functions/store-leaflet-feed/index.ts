@@ -18,6 +18,7 @@ const MOUNTFIELD_DEALS_URL = 'https://www.mountfield.cz/akce';
 const ALZA_DEALS_URL = 'https://www.alza.cz/vyprodej-akce-sleva/e0.htm';
 const DATART_LEAFLET_URL = 'https://www.datart.cz/letak';
 const DECATHLON_DEALS_URL = 'https://www.decathlon.cz/deals/doprodej';
+const SCONTO_LEAFLET_URL = 'https://www.sconto.cz/letak';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -533,6 +534,18 @@ Deno.serve(async (request) => {
         direct: false,
       };
       return Response.json({ ok: true, store: storeSlug, source: DECATHLON_DEALS_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'sconto') {
+      const leaflet: Leaflet = {
+        key: 'sconto-current',
+        title: 'Nábytek a doplňky z letáku',
+        subtitle: 'SCONTO',
+        valid_from: null,
+        valid_to: null,
+        url: SCONTO_LEAFLET_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: SCONTO_LEAFLET_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
