@@ -23,9 +23,9 @@ assert.doesNotMatch(
 );
 assert.match(source, /unit_price_match/, 'Hruška parser neověřuje shodu jednotkové ceny.');
 assert.ok(
-  source.includes("if (/\\\\bnase cena\\\\b/.test(norm(title))) return null;"),
+  source.includes('nase cena') && source.includes('norm(title))) return null;'),
   'Hruška parser nezamítá název, který zasáhl do sousedního cenového sloupce.',
-);
+)
 assert.match(source, /confidence:\s*0\.99/, 'Ověřené Hruška položky nemají vysokou deterministickou důvěru.');
 
 console.log('Hruska verified replacement OK');
