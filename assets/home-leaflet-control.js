@@ -101,7 +101,7 @@
       const timer = window.setTimeout(() => resolve(''), 7000);
       image.onload = () => { window.clearTimeout(timer); resolve(url); };
       image.onerror = () => { window.clearTimeout(timer); resolve(''); };
-      image.src = `${url}${url.includes('?') ? '&' : '?'}slevao_card=${generation}-${Date.now()}`;
+      image.src = url;
     });
     imageChecks.set(key, promise);
     return promise;
@@ -167,7 +167,7 @@
         image.dataset.automaticLeafletSrc = current;
       }
       image.dataset.manualLeafletUrl = url;
-      image.src = `${url}${url.includes('?') ? '&' : '?'}v=${generation}`;
+      image.src = url;
     }
     card.dataset.manualLeafletCover = '1';
     image.style.setProperty('object-fit', 'cover');
@@ -273,7 +273,7 @@
       childList: true, subtree: true, attributes: true, attributeFilter: ['src'],
     });
     refresh(true);
-    window.setInterval(() => refresh(true), 15000);
+    window.setInterval(() => refresh(true), 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) refresh(true);
     });
