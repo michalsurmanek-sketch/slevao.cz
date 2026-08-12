@@ -83,7 +83,21 @@
     function removeTrashItem(id) { const trash = trashStore(); delete trash[id]; writeJson(TRASH_KEY, trash); }
 
     function duplicateKey(row) {
-      return [row.store_id || '', fold(row.title), Number(row.price || 0).toFixed(2), row.valid_from || '', row.valid_to || ''].join('|');
+      const storeId = row.store_id || '';
+      const externalId = String(row.external_id || '').trim();
+      if (externalId) return [storeId, 'external', externalId].join('|');
+      return [
+        storeId,
+        'fallback',
+        fold(row.title),
+        Number(row.price || 0).toFixed(2),
+        row.valid_from || '',
+        row.valid_to || '',
+        row.coverage_scope || '',
+        row.region_code || '',
+        row.city_name || '',
+        row.store_location_name || '',
+      ].join('|');
     }
     function rebuildDuplicates() {
       duplicateCounts = new Map(); duplicateGroups = new Map();
