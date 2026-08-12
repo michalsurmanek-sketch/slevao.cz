@@ -9,6 +9,7 @@ const TETA_LISTING_URL = 'https://www.tetadrogerie.cz/akce/letak';
 const LIDL_LISTING_URL = 'https://www.lidl.cz/c/akcni-letak/s10008644';
 const LIDL_API_URL = 'https://endpoints.leaflets.schwarz/v4/overview?client_locale=lidl%2Fcs-CZ';
 const ROSSMANN_LISTING_URL = 'https://www.rossmann.cz/obsah/akce-a-letaky';
+const MAKRO_LISTING_URL = 'https://www.makro.cz/aktualni-nabidka';
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
   'access-control-allow-headers': 'authorization, x-client-info, apikey, content-type',
@@ -416,6 +417,18 @@ Deno.serve(async (request) => {
     if (storeSlug === 'rossmann') {
       const leaflet = await rossmannOfficialLeaflet();
       return Response.json({ ok: true, store: storeSlug, source: ROSSMANN_LISTING_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
+    }
+    if (storeSlug === 'makro') {
+      const leaflet: Leaflet = {
+        key: 'makro-current',
+        title: 'Aktuální nabídka',
+        subtitle: 'Makro',
+        valid_from: null,
+        valid_to: null,
+        url: MAKRO_LISTING_URL,
+        direct: false,
+      };
+      return Response.json({ ok: true, store: storeSlug, source: MAKRO_LISTING_URL, leaflets: [leaflet] }, { headers: CORS_HEADERS });
     }
     if (storeSlug === 'penny') {
       try {
