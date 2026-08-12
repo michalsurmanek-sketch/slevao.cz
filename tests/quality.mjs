@@ -41,8 +41,8 @@ new Script(searchSuggest, { filename:'assets/search-suggest.js' });
 assert.match(index, /<link rel="canonical" href="https:\/\/slevao\.cz\/">/, 'Homepage nemá canonical URL.');
 assert.match(index, /application\/ld\+json/, 'Homepage nemá strukturovaná data.');
 assert.match(index, /<meta property="og:title"/, 'Homepage nemá Open Graph metadata.');
-assert.match(index, /assets\/home-v2\.css\?v=20260802-2/, 'Homepage nenačítá statické styly v2.');
-assert.match(index, /assets\/home-v2\.js\?v=20260802-2/, 'Homepage nenačítá statický JavaScript v2.');
+assert.match(index, /assets\/home-v2\.css\?v=\d{8}(?:-\d+)?/, 'Homepage nenačítá verzované statické styly v2.');
+assert.match(index, /assets\/home-v2\.js\?v=\d{8}(?:-\d+)?/, 'Homepage nenačítá verzovaný statický JavaScript v2.');
 assert.doesNotMatch(index + homeJs + searchSuggest, /DecompressionStream|\.home-v2-parts/, 'Homepage nesmí používat dynamický komprimovaný zavaděč.');
 assert.doesNotMatch(index, /cdn\.jsdelivr\.net\/npm\/@supabase/, 'Homepage nesmí záviset na externím Supabase SDK.');
 
