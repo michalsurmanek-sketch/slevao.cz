@@ -23,10 +23,10 @@ function decodeHtml(value: string) {
   const named: Record<string, string> = {
     amp: '&', quot: '"', apos: "'", lt: '<', gt: '>', nbsp: ' ',
     aacute: 'á', Aacute: 'Á', ccaron: 'č', Ccaron: 'Č', dcaron: 'ď', Dcaron: 'Ď',
-    eacute: 'é', Eacute: 'É', ecaron: 'ě', Ecaron: 'Ě', iacute: 'í', Iacute: 'Í',
-    ncaron: 'ň', Ncaron: 'Ň', oacute: 'ó', Oacute: 'Ó', rcaron: 'ř', Rcaron: 'Ř',
-    scaron: 'š', Scaron: 'Š', tcaron: 'ť', Tcaron: 'Ť', uacute: 'ú', Uacute: 'Ú',
-    uring: 'ů', Uring: 'Ů', yacute: 'ý', Yacute: 'Ý', zcaron: 'ž', Zcaron: 'Ž',
+    eacute: 'é', Eacute: 'É', ecaron: 'ě', Ecaron: 'Ě', ecirc: 'ê', Ecirc: 'Ê',
+    iacute: 'í', Iacute: 'Í', ncaron: 'ň', Ncaron: 'Ň', oacute: 'ó', Oacute: 'Ó',
+    rcaron: 'ř', Rcaron: 'Ř', scaron: 'š', Scaron: 'Š', tcaron: 'ť', Tcaron: 'Ť',
+    uacute: 'ú', Uacute: 'Ú', uring: 'ů', Uring: 'Ů', yacute: 'ý', Yacute: 'Ý', zcaron: 'ž', Zcaron: 'Ž',
   };
   return value.replace(/&#(x[0-9a-f]+|\d+);/gi, (_, code) => String.fromCodePoint(code[0].toLowerCase() === 'x' ? parseInt(code.slice(1), 16) : parseInt(code, 10)))
     .replace(/&([a-z]+);/gi, (entity, name) => named[name] ?? entity);
@@ -47,8 +47,8 @@ function parseProducts(html: string, today: string) {
     let info: any;
     try { info = JSON.parse(decodeHtml(rawInfo)); } catch { continue; }
     const id = String(info.dimension8 || '');
-    const title = String(info.name || '').replace(/\s+/g, ' ').trim();
-    const image = String(info.dimension47 || '');
+    const title = decodeHtml(String(info.name || '')).replace(/\s+/g, ' ').trim();
+    const image = decodeHtml(String(info.dimension47 || ''));
     const price = Number(saleText);
     const oldPrice = Number(oldText);
     const trackedPrice = Number(info.price);
@@ -76,7 +76,7 @@ Deno.serve(async (request) => {
     const response = await fetch(GRID_SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!response.ok) throw new Error(`Takko HTTP ${response.status}`);
     const html = await response.text();
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const rows = parseProducts(html, today);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price}|${row.valid_to}`).join('\n'));
     const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'takko').single();
@@ -88,7 +88,7 @@ Deno.serve(async (request) => {
       const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'Takko Výprodej', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_html' });
       if (error) throw error;
     }
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, html_entity_titles: rows.filter((row) => /&(?:#?[a-z0-9]+);/i.test(row.title)).length, signature, candidates: rows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'takko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 500, p_max_products: 1000, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
