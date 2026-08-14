@@ -31,7 +31,7 @@ function quantityKey(value: string | null | undefined) { return String(value || 
 function officialPageImage(pdfUrl: string | null | undefined, page: number) {
   const pdf = String(pdfUrl || '').trim();
   if (!/^https:\/\/view\.publitas\.com\/.+\.pdf(?:\?|$)/iu.test(pdf) || !Number.isInteger(page) || page < 1) return null;
-  const url = new URL('https://wsrv.nl/');
+  const url = new globalThis.URL('https://wsrv.nl/');
   url.searchParams.set('url', pdf);
   url.searchParams.set('page', String(page - 1));
   url.searchParams.set('w', '1600');
