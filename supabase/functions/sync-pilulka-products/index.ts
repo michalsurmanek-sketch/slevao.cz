@@ -4,7 +4,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const SOURCE = 'https://www.pilulka.cz/kratka-expirace/nejlepsi';
-const ADAPTER = 'pilulka-official-short-expiry-html-v1';
+const ADAPTER = 'pilulka-official-short-expiry-html-v2';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
 
@@ -29,6 +29,18 @@ function money(value: string) {
 function addDays(iso: string, days: number) { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + days); return d.toISOString().slice(0, 10); }
 async function sha256(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
 function quantity(title: string) { return title.match(/\b\d+(?:[,.]\d+)?\s*(?:g|kg|ml|l|ks|tobolek|tablet|sáčků)\b/iu)?.[0]?.replace(/\s+/g, ' ') || null; }
+function identityTitle(cardTitle: string, href: string) {
+  const title = clean(cardTitle);
+  if (!/^\d/u.test(title)) return title;
+  const slug = decodeURIComponent(href.split(/[?#]/, 1)[0].split('/').filter(Boolean).at(-1) || '');
+  const parts = slug.split('-').filter(Boolean);
+  const firstNumeric = parts.findIndex((part) => /\d/.test(part));
+  if (firstNumeric < 1) return title;
+  const prefixParts = parts.slice(0, firstNumeric).filter((part) => /^[a-z]{2,15}$/i.test(part));
+  if (prefixParts.length !== firstNumeric || prefixParts.join('').length < 3) return title;
+  const prefix = prefixParts.map((part) => part.length <= 3 ? part.toLocaleUpperCase('cs') : part).join(' ');
+  return `${prefix} ${title}`;
+}
 
 function parsePage(html: string, today: string, page: number) {
   const blocks = html.split(/<div class="product-card__container" data-product-id="/).slice(1);
@@ -42,7 +54,8 @@ function parsePage(html: string, today: string, page: number) {
     const currentText = block.match(/data-cy="current-price"[^>]*>([^<]+)<\/b>/)?.[1] || '';
     const oldText = block.match(/product-card-price__old[^>]*>([^<]+)<\/s>/)?.[1] || '';
     const discountText = block.match(/product-card-price__discount"[^>]*>\s*(-\d{1,2})\s*%/)?.[1] || '';
-    const title = clean(block.match(/product-card__title__name"[^>]*>([^<]+)<\/span>/)?.[1] || '');
+    const cardTitle = block.match(/product-card__title__name"[^>]*>([^<]+)<\/span>/)?.[1] || '';
+    const title = identityTitle(cardTitle, href);
     const price = money(currentText);
     const oldPrice = money(oldText);
     const discount = Math.abs(Number(discountText));
@@ -55,7 +68,7 @@ function parsePage(html: string, today: string, page: number) {
       external_id: `pilulka:short-expiry:${id}`, title, normalized_title: normalize(title), price, old_price: oldPrice,
       quantity_text: quantity(title), valid_from: today, valid_to: addDays(today, 1),
       source_url: `https://www.pilulka.cz${href}`, source_page: page, product_id: null, image_url: image, confidence: 0.99,
-      metadata: { adapter: ADAPTER, parser_version: ADAPTER, pilulka_product_id: id, evidence: { official_short_expiry_tag: true, displayed_price: price, displayed_old_price: oldPrice, displayed_discount_percent: discount, calculated_discount_percent: calculated, conditional_promotions_rejected: true } },
+      metadata: { adapter: ADAPTER, parser_version: ADAPTER, pilulka_product_id: id, evidence: { official_short_expiry_tag: true, displayed_price: price, displayed_old_price: oldPrice, displayed_discount_percent: discount, calculated_discount_percent: calculated, conditional_promotions_rejected: true, title_completed_from_official_url: clean(cardTitle) !== title } },
     });
   }
   return rows;
@@ -67,7 +80,7 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   try {
     const body = await request.json().catch(() => ({}));
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const pages: any[][] = [];
     for (let page = 1; page <= 5; page++) {
       const response = await fetch(`${SOURCE}?page=${page}`, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
