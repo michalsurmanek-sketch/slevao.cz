@@ -155,19 +155,27 @@ function cropUrl(pageUrl: string, box: ReturnType<typeof normalizedBox>): string
   return `https://wsrv.nl/?${params.toString()}`;
 }
 
-async function loadPage(job: any): Promise<{ bytes: Uint8Array; mime: string; extension: string }> {
+function pageSource(job: any, pageNumber: number): string {
+  const pages = Array.isArray(job.metadata?.page_image_urls) ? job.metadata.page_image_urls : [];
+  const indexed = String(pages[pageNumber - 1] || '').trim();
+  return indexed || String(job.source_document_url || '');
+}
+
+async function loadPage(job: any, pageNumber: number): Promise<{ bytes: Uint8Array; mime: string; extension: string }> {
   const bucket = String(job.metadata?.storage_bucket || '');
   const path = String(job.metadata?.storage_path || '');
   let bytes: Uint8Array;
   let mime = String(job.metadata?.content_type || '');
 
-  if (bucket && path) {
+  if (bucket && path && !Array.isArray(job.metadata?.page_image_urls)) {
     const downloaded = await db.storage.from(bucket).download(path);
     if (downloaded.error || !downloaded.data) throw downloaded.error || new Error('Uloženou stránku letáku nelze stáhnout.');
     bytes = new Uint8Array(await downloaded.data.arrayBuffer());
     mime = downloaded.data.type || mime;
   } else {
-    const response = await fetch(String(job.source_document_url || ''), { redirect: 'follow' });
+    const source = pageSource(job, pageNumber);
+    if (!/^https:\/\//i.test(source)) throw new Error(`Stránka ${pageNumber} nemá bezpečnou HTTPS adresu obrázku.`);
+    const response = await fetch(source, { redirect: 'follow' });
     if (!response.ok) throw new Error(`Stažení stránky letáku selhalo: HTTP ${response.status}`);
     bytes = new Uint8Array(await response.arrayBuffer());
     mime = response.headers.get('content-type') || mime;
@@ -179,10 +187,9 @@ async function loadPage(job: any): Promise<{ bytes: Uint8Array; mime: string; ex
   return { bytes, ...detected };
 }
 
-async function ensurePublicPage(job: any, page: { bytes: Uint8Array; mime: string; extension: string }): Promise<string> {
+async function ensurePublicPage(job: any, page: { bytes: Uint8Array; mime: string; extension: string }, pageNumber: number): Promise<string> {
   const store = safeSegment(job.stores?.slug || job.store_id, 'store');
   const batch = safeSegment(job.metadata?.page_batch_id || job.id, job.id);
-  const pageNumber = Math.max(1, Number(job.metadata?.page_number || job.page_count || 1));
   const hash = safeSegment(String(job.metadata?.sha256 || job.source_hash || job.id).slice(0, 20), 'page');
   const path = `leaflet-pages/${store}/${batch}/page-${String(pageNumber).padStart(3, '0')}-${hash}.${page.extension}`;
   const upload = await db.storage.from(PAGE_BUCKET).upload(path, page.bytes, {
@@ -283,13 +290,13 @@ async function productVerificationMap(items: ImportItem[]): Promise<Map<string, 
   ]));
 }
 
-async function attachPublishedCrop(job: any, item: ImportItem, imageUrl: string, pageUrl: string, box: any): Promise<void> {
+async function attachPublishedCrop(job: any, item: ImportItem, imageUrl: string, pageUrl: string, box: any, pageNumber: number): Promise<void> {
   if (!item.product_id) return;
   const metadata = {
     provider: 'leaflet_ai_crop',
     import_id: job.id,
     import_item_id: item.id,
-    page_number: Number(job.metadata?.page_number || item.source_page || 1),
+    page_number: pageNumber,
     page_batch_id: job.metadata?.page_batch_id || null,
     public_page_url: pageUrl,
     crop_box_percent: box,
@@ -339,71 +346,71 @@ async function processImport(importId: string): Promise<void> {
   const items = (loadedItems || []) as ImportItem[];
   if (!items.length) return;
 
-  const page = await loadPage(job);
-  const pageUrl = await ensurePublicPage(job, page);
-  const existingBoxes = new Map<string, CropBox>();
-  for (const item of items) {
-    const saved = (item.raw_data as any)?.leaflet_crop?.box;
-    if (saved && item.image_url) {
-      existingBoxes.set(item.id, {
-        item_id: item.id,
-        has_product_image: true,
-        x_pct: saved.x,
-        y_pct: saved.y,
-        width_pct: saved.width,
-        height_pct: saved.height,
-        confidence: Number((item.raw_data as any)?.leaflet_crop?.confidence || 0.8),
-      });
-    }
-  }
-
-  const missing = items.filter((item) => !existingBoxes.has(item.id));
-  const located = missing.length ? await locateBoxes(page, missing, String(job.stores?.name || '')) : [];
-  const allBoxes = new Map<string, CropBox>(existingBoxes);
-  for (const box of located) allBoxes.set(String(box.item_id), box);
-
   const verifiedProducts = await productVerificationMap(items);
   let created = 0;
   let skipped = 0;
   let attached = 0;
-
+  const publicPageUrls: Record<string, string> = {};
+  const itemsByPage = new Map<number, ImportItem[]>();
   for (const item of items) {
-    const rawBox = allBoxes.get(item.id);
-    const box = rawBox ? normalizedBox(rawBox) : null;
-    const imageUrl = cropUrl(pageUrl, box);
-    if (!box || !imageUrl) {
-      skipped++;
-      continue;
+    const pageNumber = Math.max(1, Number(item.source_page || job.metadata?.page_number || 1));
+    const group = itemsByPage.get(pageNumber) || [];
+    group.push(item);
+    itemsByPage.set(pageNumber, group);
+  }
+
+  for (const [pageNumber, pageItems] of [...itemsByPage.entries()].sort((a, b) => a[0] - b[0])) {
+    const page = await loadPage(job, pageNumber);
+    const pageUrl = await ensurePublicPage(job, page, pageNumber);
+    publicPageUrls[String(pageNumber)] = pageUrl;
+    const existingBoxes = new Map<string, CropBox>();
+    for (const item of pageItems) {
+      const saved = (item.raw_data as any)?.leaflet_crop?.box;
+      if (saved && item.image_url) {
+        existingBoxes.set(item.id, {
+          item_id: item.id,
+          has_product_image: true,
+          x_pct: saved.x,
+          y_pct: saved.y,
+          width_pct: saved.width,
+          height_pct: saved.height,
+          confidence: Number((item.raw_data as any)?.leaflet_crop?.confidence || 0.8),
+        });
+      }
     }
+    const missing = pageItems.filter((item) => !existingBoxes.has(item.id));
+    const located = missing.length ? await locateBoxes(page, missing, String(job.stores?.name || '')) : [];
+    const allBoxes = new Map<string, CropBox>(existingBoxes);
+    for (const box of located) allBoxes.set(String(box.item_id), box);
 
-    const rawData = {
-      ...(item.raw_data || {}),
-      image_url: imageUrl,
-      leaflet_crop: {
-        provider: 'leaflet_ai_crop',
-        page_url: pageUrl,
-        page_number: Number(job.metadata?.page_number || item.source_page || 1),
-        box,
-        confidence: box.confidence,
-        generated_at: new Date().toISOString(),
-      },
-    };
-    const updatedItem = await db.from('leaflet_import_items').update({ image_url: imageUrl, raw_data: rawData }).eq('id', item.id);
-    if (updatedItem.error) throw updatedItem.error;
-    created++;
-
-    if (job.status === 'published' && item.product_id && !verifiedProducts.get(item.product_id)) {
-      await attachPublishedCrop(job, item, imageUrl, pageUrl, box);
-      attached++;
+    for (const item of pageItems) {
+      const rawBox = allBoxes.get(item.id);
+      const box = rawBox ? normalizedBox(rawBox) : null;
+      const imageUrl = cropUrl(pageUrl, box);
+      if (!box || !imageUrl) {
+        skipped++;
+        continue;
+      }
+      const rawData = {
+        ...(item.raw_data || {}), image_url: imageUrl,
+        leaflet_crop: { provider: 'leaflet_ai_crop', page_url: pageUrl, page_number: pageNumber, box, confidence: box.confidence, generated_at: new Date().toISOString() },
+      };
+      const updatedItem = await db.from('leaflet_import_items').update({ image_url: imageUrl, raw_data: rawData }).eq('id', item.id);
+      if (updatedItem.error) throw updatedItem.error;
+      created++;
+      if (job.status === 'published' && item.product_id && !verifiedProducts.get(item.product_id)) {
+        await attachPublishedCrop(job, item, imageUrl, pageUrl, box, pageNumber);
+        attached++;
+      }
     }
   }
 
   await db.from('leaflet_imports').update({
     metadata: {
       ...(job.metadata || {}),
-      crop_processor: 'generate-leaflet-product-crops-v1',
+      crop_processor: 'generate-leaflet-product-crops-v2',
       crop_status: 'completed',
-      public_page_url: pageUrl,
+      public_page_urls: publicPageUrls,
       crop_created_count: created,
       crop_attached_count: attached,
       crop_skipped_count: skipped,
@@ -431,7 +438,7 @@ Deno.serve(async (request) => {
     await db.from('leaflet_imports').update({
       metadata: {
         ...(job?.metadata || {}),
-        crop_processor: 'generate-leaflet-product-crops-v1',
+        crop_processor: 'generate-leaflet-product-crops-v2',
         crop_status: 'failed',
         crop_error: errorMessage(error).slice(0, 1000),
         crop_finished_at: new Date().toISOString(),
