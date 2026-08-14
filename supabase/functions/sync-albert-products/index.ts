@@ -19,7 +19,7 @@ const FETCH_HEADERS = {
 const MIN_SAFE = 80;
 const MAX_SAFE = 900;
 const PARSER = 'albert-publitas-text-v4';
-const CODE_REV = 'strong-identity-page-images-20260814-5';
+const CODE_REV = 'strong-identity-20260812-4';
 const PUBLISHER = 'publish_albert_publitas_text_offers_v4_strong';
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
