@@ -19,6 +19,7 @@ function allowed(req:Request){
 }
 function clean(v:unknown){return String(v??'').replace(/\s+/g,' ').trim();}
 function norm(v:unknown){return clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLocaleLowerCase('cs');}
+function isNase(v:unknown){const s=norm(v);return s==='nase'||s==='naae';}
 function n(v:string){const x=Number(v.replace(/\s/g,'').replace(',','.'));return Number.isFinite(x)?x:null;}
 function round2(v:number){return Math.round(v*100)/100;}
 function cx(t:Token){return t.x+Math.max(0,t.width)/2;}
@@ -33,7 +34,7 @@ function groupLines(tokens:Token[]){
   return groups.sort((a,b)=>b.y-a.y).map(g=>({y:g.y,text:clean(g.tokens.sort((a,b)=>a.x-b.x).map(t=>t.text).join(' '))}));
 }
 function anchors(tokens:Token[]):Anchor[]{
-  const nase=tokens.filter(t=>norm(t.text)==='nase');
+  const nase=tokens.filter(t=>isNase(t.text));
   const cena=tokens.filter(t=>norm(t.text)==='cena');
   const out:Anchor[]=[];
   for(const a of nase){
@@ -99,7 +100,7 @@ function expectedFromUnit(q:{value:number;unit:string;base:number},u:{basis:stri
 function isNoise(line:string){
   const s=norm(line);
   return !/[a-zá-ž]/i.test(line)
-    || /^(nase|cena|nase cena|bezna cena|vice druhu|vybrane druhy|2 druhy|3 druhy|100% ceske maso)$/i.test(s)
+    || /^(nase|naae|cena|nase cena|naae cena|bezna cena|vice druhu|vybrane druhy|2 druhy|3 druhy|100% ceske maso)$/i.test(s)
     || /^\d+(?:[,.]\d+)?\s*(kg|g|l|ml|ks)\b/i.test(s)
     || /^(1\s*(kg|l|ks)|100\s*(g|ml))\s*=/i.test(s)
     || /^cena\s+za\s+/i.test(s)
@@ -147,7 +148,7 @@ function parsePage(page:Page):Candidate[]{
     const title=buildTitle(lines,qLine?.y??null); if(!title)continue;
     out.push({
       title,price:round2(p.price),quantity_text:q?.text||saleUnit||'',source_page:page.page,confidence:0.99,
-      raw_data:{parser:'billa-coordinate-v1',price_anchor:'NAŠE CENA',verification:verifiedBy,printed_unit_price:matchedUnit,expected_price:expected==null?null:round2(expected),main_price_token:p.t.text}
+      raw_data:{parser:'billa-coordinate-v2',price_anchor:'NAŠE CENA',verification:verifiedBy,printed_unit_price:matchedUnit,expected_price:expected==null?null:round2(expected),main_price_token:p.t.text}
     });
   }
   return out;
@@ -171,7 +172,7 @@ async function write(importId:string,candidates:Candidate[],validity:{from:strin
   const del=await db.from('leaflet_import_items').delete().eq('import_id',importId).neq('status','published');if(del.error)throw del.error;
   if(candidates.length){const ins=await db.from('leaflet_import_items').insert(candidates.map(c=>({import_id:importId,title:c.title,price:c.price,quantity_text:c.quantity_text||null,source_page:c.source_page,confidence:c.confidence,status:'approved',raw_data:c.raw_data})));if(ins.error)throw ins.error;}
   const{data:job}=await db.from('leaflet_imports').select('metadata').eq('id',importId).single();
-  const upd=await db.from('leaflet_imports').update({status:'review',product_count:candidates.length,confidence:candidates.length?0.99:null,detected_valid_from:validity.from,detected_valid_to:validity.to,error_message:candidates.length?null:'BILLA coordinate parser nenašel bezpečné položky.',finished_at:new Date().toISOString(),metadata:{...(job?.metadata||{}),parser:'billa-coordinate-v1',verified_coordinate_items:candidates.length,deterministic:true}}).eq('id',importId);if(upd.error)throw upd.error;
+  const upd=await db.from('leaflet_imports').update({status:'review',product_count:candidates.length,confidence:candidates.length?0.99:null,detected_valid_from:validity.from,detected_valid_to:validity.to,error_message:candidates.length?null:'BILLA coordinate parser nenašel bezpečné položky.',finished_at:new Date().toISOString(),metadata:{...(job?.metadata||{}),parser:'billa-coordinate-v2',verified_coordinate_items:candidates.length,deterministic:true}}).eq('id',importId);if(upd.error)throw upd.error;
 }
 
 Deno.serve(async req=>{
@@ -186,6 +187,6 @@ Deno.serve(async req=>{
     const unique=raw.filter(c=>{const key=`${norm(c.title)}|${c.price.toFixed(2)}|${c.quantity_text}`;if(seen.has(key))return false;seen.add(key);return true;});
     const validity=parseValidity(clean(ex.text_content));
     if(body.dry_run===false)await write(ex.import_id,unique,validity);
-    return json({ok:true,dry_run:body.dry_run!==false,import_id:ex.import_id,parser:'billa-coordinate-v1',validity,candidate_count:unique.length,candidates:unique.slice(0,160)});
+    return json({ok:true,dry_run:body.dry_run!==false,import_id:ex.import_id,parser:'billa-coordinate-v2',validity,candidate_count:unique.length,candidates:unique.slice(0,160)});
   }catch(e){return json({error:e instanceof Error?e.message:String(e)},500);}
 });
