@@ -19,7 +19,7 @@ const FETCH_HEADERS = {
 const MIN_SAFE = 80;
 const MAX_SAFE = 900;
 const PARSER = 'albert-publitas-text-v4';
-const CODE_REV = 'strong-identity-20260812-4';
+const CODE_REV = 'strong-identity-page-images-20260814-5';
 const PUBLISHER = 'publish_albert_publitas_text_offers_v4_strong';
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
@@ -28,6 +28,17 @@ async function authorized(request: Request) { const raw = request.headers.get('a
 async function hash(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join(''); }
 function norm(value: string) { return String(value || '').toLocaleLowerCase('cs').replace(/[^a-z0-9áčďéěíňóřšťúůýž]+/giu, ' ').trim().replace(/\s+/g, ' '); }
 function quantityKey(value: string | null | undefined) { return String(value || '').toLocaleLowerCase('cs').replace(/,/g, '.').replace(/[^0-9a-z.]+/g, ''); }
+function officialPageImage(pdfUrl: string | null | undefined, page: number) {
+  const pdf = String(pdfUrl || '').trim();
+  if (!/^https:\/\/view\.publitas\.com\/.+\.pdf(?:\?|$)/iu.test(pdf) || !Number.isInteger(page) || page < 1) return null;
+  const url = new URL('https://wsrv.nl/');
+  url.searchParams.set('url', pdf);
+  url.searchParams.set('page', String(page - 1));
+  url.searchParams.set('w', '1600');
+  url.searchParams.set('output', 'jpg');
+  url.searchParams.set('q', '90');
+  return url.toString();
+}
 function median(values: number[]) { const sorted = values.filter(Number.isFinite).sort((a, b) => a - b); if (!sorted.length) return null; const mid = Math.floor(sorted.length / 2); return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2; }
 
 const PRICE = /^[•▼]\s*(\d{1,4}(?:[,.]\d{1,2})?|\d{1,4},-)\s*Kč(?:\s|$)/iu;
@@ -174,6 +185,8 @@ function parsePage(text: string, page: number, document: any) {
         document_type: document.metadata?.document_type || null,
         publication_id: document.metadata?.publication_id || null,
         source_document_id: document.id,
+        page_image_url: officialPageImage(document.source_document_url, page),
+        pdf_render_page: Math.max(0, page - 1),
         parsed_brand: brand,
         parsed_quantity: quantity,
         identity_strength: strength,
@@ -314,7 +327,7 @@ Deno.serve(async (request) => {
     if (sourceError || !source) throw sourceError || new Error('Aktivní zdroj Albert nebyl nalezen.');
     sourceId = source.id;
     const today = new Date().toISOString().slice(0, 10);
-    const { data: documents, error: documentsError } = await db.from('leaflet_imports').select('id,source_hash,detected_valid_from,detected_valid_to,metadata').eq('store_id', store.id).eq('status', 'published').contains('metadata', { adapter: 'albert-publitas-v1' }).gte('detected_valid_to', today).order('detected_valid_to');
+    const { data: documents, error: documentsError } = await db.from('leaflet_imports').select('id,source_hash,source_document_url,detected_valid_from,detected_valid_to,metadata').eq('store_id', store.id).eq('status', 'published').contains('metadata', { adapter: 'albert-publitas-v1' }).gte('detected_valid_to', today).order('detected_valid_to');
     if (documentsError) throw documentsError;
     if (!documents || documents.length < 2) throw new Error(`Albert má jen ${documents?.length || 0} aktuálních oficiálních publikací.`);
 
