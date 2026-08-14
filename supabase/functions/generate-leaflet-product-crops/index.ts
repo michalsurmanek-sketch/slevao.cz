@@ -6,6 +6,7 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY') || '';
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-5-mini';
 const PAGE_BUCKET = 'product-images';
+const MAX_PAGE_GROUPS_PER_RUN = 3;
 
 const CORS_HEADERS = {
   'access-control-allow-origin': '*',
@@ -40,6 +41,16 @@ type CropBox = {
   height_pct: number | null;
   confidence: number;
 };
+
+class DependencyBlockedError extends Error {
+  retryAfterHours: number;
+
+  constructor(message: string, retryAfterHours = 6) {
+    super(message);
+    this.name = 'DependencyBlockedError';
+    this.retryAfterHours = retryAfterHours;
+  }
+}
 
 function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: CORS_HEADERS });
@@ -94,6 +105,15 @@ function safeSegment(value: unknown, fallback: string): string {
     .replace(/^-+|-+$/g, '')
     .slice(0, 80);
   return clean || fallback;
+}
+
+function stableHash(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
 function detectImage(bytes: Uint8Array, suggestedMime: unknown) {
@@ -155,13 +175,18 @@ function cropUrl(pageUrl: string, box: ReturnType<typeof normalizedBox>): string
   return `https://wsrv.nl/?${params.toString()}`;
 }
 
-function pageSource(job: any, pageNumber: number): string {
+function itemPageSource(item: ImportItem): string {
+  return String((item.raw_data as any)?.page_image_url || '').trim();
+}
+
+function pageSource(job: any, pageNumber: number, sourceOverride = ''): string {
+  if (sourceOverride) return sourceOverride;
   const pages = Array.isArray(job.metadata?.page_image_urls) ? job.metadata.page_image_urls : [];
   const indexed = String(pages[pageNumber - 1] || '').trim();
   return indexed || String(job.source_document_url || '');
 }
 
-async function loadPage(job: any, pageNumber: number): Promise<{ bytes: Uint8Array; mime: string; extension: string }> {
+async function loadPage(job: any, pageNumber: number, sourceOverride = ''): Promise<{ bytes: Uint8Array; mime: string; extension: string }> {
   const bucket = String(job.metadata?.storage_bucket || '');
   const path = String(job.metadata?.storage_path || '');
   let bytes: Uint8Array;
@@ -173,7 +198,7 @@ async function loadPage(job: any, pageNumber: number): Promise<{ bytes: Uint8Arr
     bytes = new Uint8Array(await downloaded.data.arrayBuffer());
     mime = downloaded.data.type || mime;
   } else {
-    const source = pageSource(job, pageNumber);
+    const source = pageSource(job, pageNumber, sourceOverride);
     if (!/^https:\/\//i.test(source)) throw new Error(`Stránka ${pageNumber} nemá bezpečnou HTTPS adresu obrázku.`);
     const response = await fetch(source, { redirect: 'follow' });
     if (!response.ok) throw new Error(`Stažení stránky letáku selhalo: HTTP ${response.status}`);
@@ -187,11 +212,12 @@ async function loadPage(job: any, pageNumber: number): Promise<{ bytes: Uint8Arr
   return { bytes, ...detected };
 }
 
-async function ensurePublicPage(job: any, page: { bytes: Uint8Array; mime: string; extension: string }, pageNumber: number): Promise<string> {
+async function ensurePublicPage(job: any, page: { bytes: Uint8Array; mime: string; extension: string }, pageNumber: number, sourceUrl: string): Promise<string> {
   const store = safeSegment(job.stores?.slug || job.store_id, 'store');
   const batch = safeSegment(job.metadata?.page_batch_id || job.id, job.id);
   const hash = safeSegment(String(job.metadata?.sha256 || job.source_hash || job.id).slice(0, 20), 'page');
-  const path = `leaflet-pages/${store}/${batch}/page-${String(pageNumber).padStart(3, '0')}-${hash}.${page.extension}`;
+  const sourceHash = stableHash(sourceUrl || String(job.source_document_url || ''));
+  const path = `leaflet-pages/${store}/${batch}/page-${String(pageNumber).padStart(3, '0')}-${sourceHash}-${hash}.${page.extension}`;
   const upload = await db.storage.from(PAGE_BUCKET).upload(path, page.bytes, {
     contentType: page.mime,
     cacheControl: '31536000',
@@ -205,7 +231,7 @@ async function ensurePublicPage(job: any, page: { bytes: Uint8Array; mime: strin
 }
 
 async function locateBoxes(page: { bytes: Uint8Array; mime: string }, items: ImportItem[], storeName: string): Promise<CropBox[]> {
-  if (!OPENAI_API_KEY) throw new Error('V Supabase chybí OPENAI_API_KEY.');
+  if (!OPENAI_API_KEY) throw new DependencyBlockedError('V Supabase chybí OPENAI_API_KEY.', 24);
   const schema = {
     type: 'object',
     additionalProperties: false,
@@ -272,7 +298,16 @@ async function locateBoxes(page: { bytes: Uint8Array; mime: string }, items: Imp
   });
 
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`AI určení výřezů selhalo: ${payload?.error?.message || `HTTP ${response.status}`}`);
+  if (!response.ok) {
+    const code = String(payload?.error?.code || '').toLowerCase();
+    const type = String(payload?.error?.type || '').toLowerCase();
+    const message = String(payload?.error?.message || `HTTP ${response.status}`);
+    if (response.status === 429 || code === 'insufficient_quota' || type.includes('quota') || /quota|billing|credit/i.test(message)) {
+      throw new DependencyBlockedError(`OpenAI není dočasně dostupné: ${message}`, 6);
+    }
+    if (response.status >= 500) throw new DependencyBlockedError(`OpenAI je dočasně nedostupné: ${message}`, 1);
+    throw new Error(`AI určení výřezů selhalo: ${message}`);
+  }
   const text = responseText(payload);
   if (!text) throw new Error('AI nevrátila souřadnice výřezů.');
   const parsed = JSON.parse(text);
@@ -337,32 +372,62 @@ async function processImport(importId: string): Promise<void> {
   if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
   if (!['review', 'published'].includes(String(job.status || ''))) return;
 
+  await db.from('leaflet_imports').update({
+    metadata: {
+      ...(job.metadata || {}),
+      crop_processor: 'generate-leaflet-product-crops-v3',
+      crop_status: 'running',
+      crop_started_at: new Date().toISOString(),
+      crop_attempt_count: Number(job.metadata?.crop_attempt_count || 0) + 1,
+    },
+  }).eq('id', importId);
+
   const { data: loadedItems, error: itemsError } = await db.from('leaflet_import_items')
     .select('id,import_id,product_id,title,brand,quantity_text,price,image_url,source_page,status,raw_data')
     .eq('import_id', importId)
     .not('status', 'in', '(ignored,rejected)')
     .order('created_at');
   if (itemsError) throw itemsError;
-  const items = (loadedItems || []) as ImportItem[];
-  if (!items.length) return;
+  const items = ((loadedItems || []) as ImportItem[]).filter((item) =>
+    !String(item.image_url || '').trim() && (item.raw_data as any)?.leaflet_crop?.status !== 'no_safe_product_image'
+  );
+  if (!items.length) {
+    await db.from('leaflet_imports').update({ metadata: {
+      ...(job.metadata || {}),
+      crop_processor: 'generate-leaflet-product-crops-v3',
+      crop_status: 'completed',
+      crop_error: null,
+      crop_blocked_reason: null,
+      crop_next_retry_at: null,
+      crop_remaining_page_groups: 0,
+      crop_finished_at: new Date().toISOString(),
+    } }).eq('id', importId);
+    return;
+  }
 
   const verifiedProducts = await productVerificationMap(items);
   let created = 0;
   let skipped = 0;
   let attached = 0;
   const publicPageUrls: Record<string, string> = {};
-  const itemsByPage = new Map<number, ImportItem[]>();
+  const itemsByPage = new Map<string, { pageNumber: number; sourceUrl: string; items: ImportItem[] }>();
   for (const item of items) {
     const pageNumber = Math.max(1, Number(item.source_page || job.metadata?.page_number || 1));
-    const group = itemsByPage.get(pageNumber) || [];
-    group.push(item);
-    itemsByPage.set(pageNumber, group);
+    const sourceUrl = itemPageSource(item);
+    const key = `${sourceUrl || 'job'}#${pageNumber}`;
+    const group = itemsByPage.get(key) || { pageNumber, sourceUrl, items: [] };
+    group.items.push(item);
+    itemsByPage.set(key, group);
   }
 
-  for (const [pageNumber, pageItems] of [...itemsByPage.entries()].sort((a, b) => a[0] - b[0])) {
-    const page = await loadPage(job, pageNumber);
-    const pageUrl = await ensurePublicPage(job, page, pageNumber);
-    publicPageUrls[String(pageNumber)] = pageUrl;
+  const orderedGroups = [...itemsByPage.values()].sort((a, b) => a.pageNumber - b.pageNumber || a.sourceUrl.localeCompare(b.sourceUrl));
+  const selectedGroups = orderedGroups.slice(0, MAX_PAGE_GROUPS_PER_RUN);
+  const remainingGroups = Math.max(0, orderedGroups.length - selectedGroups.length);
+  for (const group of selectedGroups) {
+    const { pageNumber, sourceUrl, items: pageItems } = group;
+    const page = await loadPage(job, pageNumber, sourceUrl);
+    const pageUrl = await ensurePublicPage(job, page, pageNumber, sourceUrl);
+    publicPageUrls[`${pageNumber}:${safeSegment(sourceUrl, 'job-source').slice(-32)}`] = pageUrl;
     const existingBoxes = new Map<string, CropBox>();
     for (const item of pageItems) {
       const saved = (item.raw_data as any)?.leaflet_crop?.box;
@@ -388,12 +453,23 @@ async function processImport(importId: string): Promise<void> {
       const box = rawBox ? normalizedBox(rawBox) : null;
       const imageUrl = cropUrl(pageUrl, box);
       if (!box || !imageUrl) {
+        await db.from('leaflet_import_items').update({ raw_data: {
+          ...(item.raw_data || {}),
+          leaflet_crop: {
+            provider: 'leaflet_ai_crop',
+            status: 'no_safe_product_image',
+            page_url: pageUrl,
+            page_number: pageNumber,
+            confidence: Number(rawBox?.confidence || 0),
+            generated_at: new Date().toISOString(),
+          },
+        } }).eq('id', item.id);
         skipped++;
         continue;
       }
       const rawData = {
         ...(item.raw_data || {}), image_url: imageUrl,
-        leaflet_crop: { provider: 'leaflet_ai_crop', page_url: pageUrl, page_number: pageNumber, box, confidence: box.confidence, generated_at: new Date().toISOString() },
+        leaflet_crop: { provider: 'leaflet_ai_crop', status: 'completed', page_url: pageUrl, page_number: pageNumber, box, confidence: box.confidence, generated_at: new Date().toISOString() },
       };
       const updatedItem = await db.from('leaflet_import_items').update({ image_url: imageUrl, raw_data: rawData }).eq('id', item.id);
       if (updatedItem.error) throw updatedItem.error;
@@ -408,15 +484,28 @@ async function processImport(importId: string): Promise<void> {
   await db.from('leaflet_imports').update({
     metadata: {
       ...(job.metadata || {}),
-      crop_processor: 'generate-leaflet-product-crops-v2',
-      crop_status: 'completed',
+      crop_processor: 'generate-leaflet-product-crops-v3',
+      crop_status: remainingGroups > 0 ? 'queued' : 'completed',
+      crop_error: null,
+      crop_blocked_reason: null,
+      crop_next_retry_at: null,
       public_page_urls: publicPageUrls,
       crop_created_count: created,
       crop_attached_count: attached,
       crop_skipped_count: skipped,
+      crop_remaining_page_groups: remainingGroups,
       crop_finished_at: new Date().toISOString(),
     },
   }).eq('id', importId);
+
+  if (remainingGroups > 0) {
+    const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-leaflet-product-crops`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${SERVICE_ROLE_KEY}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ import_id: importId }),
+    });
+    if (!response.ok) throw new Error(`Navazující dávku výřezů nelze zařadit: HTTP ${response.status}`);
+  }
 }
 
 Deno.serve(async (request) => {
@@ -435,12 +524,18 @@ Deno.serve(async (request) => {
   runInBackground(processImport(importId).catch(async (error) => {
     console.error('Leaflet crop processing failed:', importId, errorMessage(error));
     const { data: job } = await db.from('leaflet_imports').select('metadata').eq('id', importId).maybeSingle();
+    const blocked = error instanceof DependencyBlockedError;
+    const retryAt = blocked
+      ? new Date(Date.now() + error.retryAfterHours * 60 * 60 * 1000).toISOString()
+      : null;
     await db.from('leaflet_imports').update({
       metadata: {
         ...(job?.metadata || {}),
-        crop_processor: 'generate-leaflet-product-crops-v2',
-        crop_status: 'failed',
+        crop_processor: 'generate-leaflet-product-crops-v3',
+        crop_status: blocked ? 'blocked_dependency' : 'failed',
         crop_error: errorMessage(error).slice(0, 1000),
+        crop_blocked_reason: blocked ? 'image_localization_provider_unavailable' : null,
+        crop_next_retry_at: retryAt,
         crop_finished_at: new Date().toISOString(),
       },
     }).eq('id', importId);
