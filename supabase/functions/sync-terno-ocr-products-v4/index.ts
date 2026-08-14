@@ -58,6 +58,7 @@ async function updateHealth(storeId:string, candidateCount:number|null, importId
   const validFrom = (validity || []).map((x:any)=>x.valid_from).filter(Boolean).sort()[0] || null;
   const validTo = (validity || []).map((x:any)=>x.valid_to).filter(Boolean).sort().at(-1) || null;
   const expected = candidateCount && candidateCount > 0 ? candidateCount : Math.max(1,published);
+  const complete = published > 0 && published >= expected;
   const now = new Date().toISOString();
 
   const { error } = await db.from('store_product_sync_state').upsert({
@@ -78,13 +79,15 @@ async function updateHealth(storeId:string, candidateCount:number|null, importId
     last_error:null,
     last_parser_error:null,
     last_product_candidates:expected,
-    health_status:'degraded',
-    health_reason:`Terno: bezpečně publikováno ${published}/${expected} matematicky ověřených OCR nabídek; širší výtěžnost blokuje nejednoznačná segmentace produktových karet.`,
+    health_status:complete ? 'ok' : 'degraded',
+    health_reason:complete
+      ? `Terno: bezpečně publikováno všech ${published}/${expected} matematicky ověřených OCR nabídek.`
+      : `Terno: bezpečně publikováno ${published}/${expected} matematicky ověřených OCR nabídek; část bezpečných kandidátů se nepodařilo zveřejnit.`,
     is_running:false,
     run_started_at:null,
     updated_at:now,
     last_import_id:importId,
-    metadata:{ conservative_parser:true, card_segmentation_required:true, wrapper_version:'v4' },
+    metadata:{ conservative_parser:true, candidate_publication_complete:complete, wrapper_version:'v4.1' },
   }, { onConflict:'store_id' });
   if (error) throw error;
   return { published, expected, valid_from:validFrom, valid_to:validTo };
