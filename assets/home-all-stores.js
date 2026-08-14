@@ -30,6 +30,7 @@
   let selectedStore = 'all';
   let scheduled = 0;
   let syncing = false;
+  let scrollSequence = 0;
 
   function rankStore(store) {
     return STORE_RANK.has(store.slug) ? STORE_RANK.get(store.slug) : STORE_PRIORITY.length + 100;
@@ -126,16 +127,46 @@
     scheduled = window.setTimeout(syncGrid, 40);
   }
 
+  function stickyOffset() {
+    const candidates = [
+      document.querySelector('.siteHeader'),
+      document.querySelector('.mainHeader'),
+      document.querySelector('header'),
+    ].filter(Boolean);
+    const stickyHeight = candidates.reduce((height, element) => {
+      const style = window.getComputedStyle(element);
+      if (!['sticky', 'fixed'].includes(style.position)) return height;
+      return Math.max(height, element.getBoundingClientRect().height || 0);
+    }, 0);
+    return Math.round(stickyHeight + 12);
+  }
+
+  function stabilizeDealsScroll() {
+    const target = $('dealsSection');
+    if (!target) return;
+    const sequence = ++scrollSequence;
+    const place = (behavior = 'auto') => {
+      if (sequence !== scrollSequence) return;
+      const y = Math.max(0, window.scrollY + target.getBoundingClientRect().top - stickyOffset());
+      window.scrollTo({ top: y, behavior });
+    };
+
+    window.requestAnimationFrame(() => window.requestAnimationFrame(() => place('smooth')));
+    [90, 180, 320, 520].forEach((delay) => window.setTimeout(() => place('auto'), delay));
+  }
+
   function bindSelection() {
     document.addEventListener('click', (event) => {
       const button = event.target.closest?.('#storeGrid [data-store]');
       if (!button) return;
       selectedStore = button.dataset.store || 'all';
       scheduleSync();
+      stabilizeDealsScroll();
     }, true);
     $('storeSelect')?.addEventListener('change', (event) => {
       selectedStore = event.target.value || 'all';
       scheduleSync();
+      stabilizeDealsScroll();
     }, true);
   }
 
