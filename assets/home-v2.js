@@ -32,7 +32,7 @@
   ];
   const MAIN_GROCERY_STORES = new Set(['albert','billa','coop','globus','kaufland','lidl','penny','tesco']);
   const SEARCH_EXPANSIONS = {
-    maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','plece','pleci','kotlet','panenk','svickov','pecen','rosten','steak','zebr','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick','sunka','slanina','salam','klobas','parek','uzen'],
+    maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','plece','pleci','kotlet','panenk','svickov','pecen','rosten','steak','zebra','zebro','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick','sunka','slanina','salam','klobas','parek','uzen'],
     mleko: ['mleko','mlecny napoj','plnotuc','polotuc','odtuc','bezlaktoz','kondenzovan'],
     pecivo: ['peciv','chleb','rohlik','housk','baget','vek','dalam','kaiser','toast','koblih','croissant'],
     vejce: ['vejce','vajec'],
@@ -49,8 +49,9 @@
     mrazene: ['mrazen','zmrzlin','nanuk','sorbet'],
     drogerie: ['droger','sampon','mydlo','sprchov','deodor','zubni','pasta','kartacek','praci','avivaz','cistic','toaletni','plenk','kosmetik']
   };
-  const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci']) };
+  const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci','zebra','zebro']) };
   const SEARCH_EXCLUSIONS = {
+    maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni'],
     ovoce: ['dzus','nektar','napoj','stava','limon','sirup','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj'],
     zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj']
   };
