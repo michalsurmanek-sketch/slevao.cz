@@ -1,0 +1,346 @@
+:root{
+  --list-brand:#13aaa0;
+  --list-brand-dark:#087b75;
+  --list-ink:#10201e;
+  --list-muted:#627471;
+  --list-line:#d8e7e4;
+  --list-soft:#edf9f7;
+  --list-bg:#f5faf9;
+  --list-shadow:0 20px 55px rgba(20,63,58,.10);
+}
+html{scroll-behavior:smooth}
+body.sfPage{
+  margin:0;
+  background:
+    radial-gradient(circle at 88% 8%,rgba(80,216,203,.13),transparent 25rem),
+    linear-gradient(180deg,#f7fbfa 0,#f1f8f6 100%);
+  color:var(--list-ink);
+}
+.listTopbar{
+  position:sticky;
+  top:0;
+  z-index:100;
+  border-bottom:0;
+  background:rgba(246,250,249,.92);
+  padding:18px 30px 10px;
+}
+.listTopInner{
+  width:100%;
+  max-width:none;
+  min-height:102px;
+  padding:14px 30px;
+  border:1px solid var(--list-line);
+  border-radius:30px;
+  background:rgba(255,255,255,.97);
+  box-shadow:0 14px 38px rgba(19,60,56,.09);
+  display:grid;
+  grid-template-columns:310px minmax(320px,1fr) auto;
+  gap:28px;
+}
+.listBrand{
+  gap:12px;
+  color:#073e42;
+  font-size:36px;
+  letter-spacing:-1.5px;
+}
+.listBrand img{
+  width:58px;
+  height:58px;
+  display:block;
+  object-fit:contain;
+  filter:drop-shadow(0 8px 9px rgba(11,138,128,.2));
+}
+.listBrand b{color:#3bcfc3;font-size:.72em}
+.listSearch{
+  position:relative;
+  width:100%;
+  display:flex;
+  align-items:center;
+}
+.listSearch>span{
+  position:absolute;
+  left:21px;
+  z-index:1;
+  color:#506663;
+  font-size:27px;
+  line-height:1;
+}
+.listSearch input{
+  width:100%;
+  height:64px;
+  padding:0 145px 0 65px;
+  border:1px solid #d7e6e3;
+  border-radius:21px;
+  background:#fff;
+  color:var(--list-ink);
+  outline:0;
+  font:500 18px/1 system-ui,sans-serif;
+  transition:.18s ease;
+}
+.listSearch input:focus{
+  border-color:var(--list-brand);
+  box-shadow:0 0 0 5px rgba(19,170,160,.13);
+}
+.listSearch button{
+  position:absolute;
+  right:7px;
+  height:50px;
+  min-width:122px;
+  border:0;
+  border-radius:16px;
+  color:#fff;
+  background:linear-gradient(135deg,var(--list-brand),#0f9d95);
+  font:900 16px/1 system-ui,sans-serif;
+  cursor:pointer;
+  box-shadow:0 8px 20px rgba(19,170,160,.22);
+}
+.listTopLinks{flex-wrap:nowrap;gap:10px}
+.listTopLinks a{
+  min-height:52px;
+  border:0;
+  border-radius:16px;
+  padding:0 17px;
+  background:transparent;
+  font-size:16px;
+}
+.listTopLinks a:hover,.listTopLinks a.active{
+  color:var(--list-brand-dark);
+  background:var(--list-soft);
+}
+.sfShell{
+  max-width:1500px;
+  padding:36px 34px 120px;
+}
+.sfHero{
+  grid-template-columns:minmax(0,1.55fr) minmax(310px,.45fr);
+  gap:22px;
+  margin-bottom:24px;
+}
+.sfCard{
+  border:1px solid var(--list-line);
+  border-radius:28px;
+  box-shadow:var(--list-shadow);
+}
+.listHeroMain{
+  position:relative;
+  overflow:hidden;
+  min-height:285px;
+  padding:42px 46px;
+  background:
+    radial-gradient(circle at 88% 22%,rgba(67,210,196,.22),transparent 14rem),
+    linear-gradient(135deg,#fff 0,#f6fffd 100%);
+}
+.listHeroMain::after{
+  content:"";
+  position:absolute;
+  right:-45px;
+  bottom:-95px;
+  width:300px;
+  height:300px;
+  border:42px solid rgba(20,174,162,.06);
+  border-radius:50%;
+  pointer-events:none;
+}
+.sfEyebrow{
+  color:#058e85;
+  font-size:13px;
+  letter-spacing:.11em;
+}
+.sfHero h1{
+  max-width:760px;
+  margin:14px 0 13px;
+  color:#10211f;
+  font-size:clamp(42px,5vw,70px);
+  letter-spacing:-.045em;
+}
+.listHeroMain>.sfMuted{
+  max-width:760px;
+  margin:0;
+  font-size:18px;
+  line-height:1.6;
+}
+.listBenefits{
+  position:relative;
+  z-index:1;
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin-top:24px;
+}
+.listBenefits span{
+  display:inline-flex;
+  min-height:38px;
+  align-items:center;
+  padding:0 14px;
+  border:1px solid #ccece7;
+  border-radius:999px;
+  color:#176f69;
+  background:rgba(255,255,255,.85);
+  font-size:13px;
+  font-weight:850;
+}
+.listHeroSide{
+  padding:30px;
+  text-align:center;
+  justify-items:center;
+  background:linear-gradient(145deg,#0f8f87,#15b6aa);
+  color:#fff;
+}
+.listSummaryIcon{
+  width:68px;
+  height:68px;
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(255,255,255,.5);
+  border-radius:22px;
+  background:rgba(255,255,255,.15);
+  font-size:34px;
+  font-weight:950;
+}
+.listSummaryLabel{
+  margin-bottom:-7px;
+  color:rgba(255,255,255,.8);
+  font-size:12px;
+  font-weight:900;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+}
+.listHeroSide>strong{
+  font-size:31px;
+  letter-spacing:-.03em;
+}
+.listHeroSide .sfButton{
+  width:100%;
+  min-height:50px;
+  border-color:rgba(255,255,255,.5);
+  color:#fff;
+  background:rgba(255,255,255,.12);
+}
+.listHeroSide .sfButton.primary{
+  color:#08756e;
+  background:#fff;
+}
+.listHeroSide .sfMuted{color:rgba(255,255,255,.78)}
+.sfListLayout{
+  grid-template-columns:minmax(0,1.35fr) minmax(340px,.65fr);
+  gap:22px;
+}
+.sfPanel{
+  padding:28px;
+  background:rgba(255,255,255,.94);
+}
+.sfSectionHead{
+  align-items:center;
+  margin-bottom:20px;
+}
+.sfSectionHead h2{
+  margin-top:6px;
+  font-size:clamp(25px,3vw,34px);
+  letter-spacing:-.03em;
+}
+.sfButton{
+  min-height:46px;
+  border-color:#d4e4e1;
+  border-radius:14px;
+  transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease;
+}
+.sfButton:hover{
+  border-color:#9fd9d2;
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(19,99,91,.09);
+}
+.sfButton.primary{
+  background:linear-gradient(135deg,var(--list-brand-dark),var(--list-brand));
+  box-shadow:0 9px 22px rgba(13,143,134,.2);
+}
+.sfAddRow{
+  grid-template-columns:minmax(0,1fr) 110px 125px;
+  gap:10px;
+  padding:12px;
+  border:1px solid #dbe9e7;
+  border-radius:20px;
+  background:#f4faf9;
+}
+.sfInput{
+  min-height:52px;
+  border-color:#d3e4e1;
+  border-radius:14px;
+  background:#fff;
+  font-size:16px;
+}
+.sfInput:focus{
+  outline:0;
+  border-color:var(--list-brand);
+  box-shadow:0 0 0 4px rgba(19,170,160,.12);
+}
+.sfListItems{gap:11px;margin-top:18px}
+.sfListItem{
+  min-height:72px;
+  padding:14px 16px;
+  border-color:#dce9e7;
+  border-radius:18px;
+  background:#fff;
+  transition:.16s ease;
+}
+.sfListItem:hover{
+  border-color:#b9ddd8;
+  box-shadow:0 10px 24px rgba(17,80,73,.07);
+  transform:translateY(-1px);
+}
+.sfCheck{accent-color:var(--list-brand)}
+.sfIconButton{border-radius:12px}
+.sfResultBox{
+  padding:18px;
+  border-color:#dce9e7;
+  border-radius:18px;
+  background:#fbfdfd;
+}
+.sfResultBox.best{
+  border-color:#9eddd5;
+  background:linear-gradient(135deg,#e9faf6,#f8fffd);
+}
+.sfStoreTag{background:#e7f7f3;color:#11736c}
+.sfLoading{
+  border:1px dashed #cfe3df;
+  border-radius:18px;
+  background:#f7fbfa;
+}
+@media(max-width:1120px){
+  .listTopInner{grid-template-columns:245px minmax(260px,1fr) auto;gap:15px}
+  .listBrand{font-size:29px}
+  .listBrand img{width:50px;height:50px}
+  .listTopLinks a{padding:0 11px}
+}
+@media(max-width:900px){
+  .listTopbar{padding:10px}
+  .listTopInner{min-height:auto;padding:12px 14px;border-radius:23px;grid-template-columns:auto 1fr}
+  .listSearch{grid-column:1/-1;grid-row:2}
+  .listTopLinks{margin-left:auto}
+  .sfHero,.sfListLayout{grid-template-columns:1fr}
+  .listHeroSide{grid-template-columns:auto 1fr;justify-items:stretch;text-align:left}
+  .listSummaryIcon{grid-row:1/3}
+}
+@media(max-width:720px){
+  .listTopbar{position:relative;padding:7px}
+  .listTopInner{gap:10px;border-radius:20px}
+  .listBrand{font-size:25px}
+  .listBrand img{width:44px;height:44px}
+  .listTopLinks a:not(.active){display:none!important}
+  .listTopLinks a.active{min-height:44px;padding:0 12px}
+  .listSearch input{height:54px;padding:0 105px 0 48px;font-size:15px}
+  .listSearch>span{left:16px;font-size:22px}
+  .listSearch button{right:5px;height:44px;min-width:92px;border-radius:13px;font-size:14px}
+  .sfShell{padding:18px 12px 100px}
+  .listHeroMain{min-height:0;padding:26px 21px}
+  .sfHero h1{font-size:40px}
+  .listHeroMain>.sfMuted{font-size:15px;line-height:1.5}
+  .listBenefits{gap:7px;margin-top:18px}
+  .listBenefits span{min-height:34px;padding:0 11px;font-size:11px}
+  .listHeroSide{padding:20px}
+  .listSummaryIcon{width:56px;height:56px;border-radius:18px}
+  .sfPanel{padding:18px}
+  .sfSectionHead{align-items:flex-start}
+  .sfSectionHead .sfButton{min-height:40px;padding:0 11px;font-size:12px}
+  .sfAddRow{grid-template-columns:1fr 78px;padding:9px}
+  .sfAddRow button{grid-column:1/-1}
+}
