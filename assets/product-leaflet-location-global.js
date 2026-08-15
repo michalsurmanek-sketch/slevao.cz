@@ -72,7 +72,7 @@
     const actions = card.querySelector('.sfOfferActions');
     if (!actions) return null;
     const anchors = [...actions.querySelectorAll('a.sfButton')];
-    let destination = anchors.find((anchor) => /^(Leták|Stránka obchodu|Ověřuji leták)/i.test(anchor.textContent.trim()));
+    let destination = anchors.find((anchor) => /^(Leták|Zobrazit nabídku|Stránka obchodu|Ověřuji leták)/i.test(anchor.textContent.trim()));
     if (!destination) {
       destination = document.createElement('a');
       destination.className = 'sfButton';
@@ -113,18 +113,27 @@
       return;
     }
 
-    destination.href = storePageUrl(offer);
-    destination.removeAttribute('target');
-    destination.removeAttribute('rel');
-    if (destination.textContent !== 'Stránka obchodu') destination.textContent = 'Stránka obchodu';
-    destination.setAttribute('aria-label', 'Otevřít stránku obchodu');
+    const sourceUrl = String(offer.source_url || '').trim();
+    if (/^https:\/\//i.test(sourceUrl)) {
+      destination.href = sourceUrl;
+      destination.target = '_blank';
+      destination.rel = 'noopener noreferrer';
+      if (destination.textContent !== 'Zobrazit nabídku') destination.textContent = 'Zobrazit nabídku';
+      destination.setAttribute('aria-label', 'Otevřít původní nabídku obchodu');
+    } else {
+      destination.href = storePageUrl(offer);
+      destination.removeAttribute('target');
+      destination.removeAttribute('rel');
+      if (destination.textContent !== 'Stránka obchodu') destination.textContent = 'Stránka obchodu';
+      destination.setAttribute('aria-label', 'Otevřít stránku obchodu');
+    }
     delete destination.dataset.exactLeafletLocation;
   }
 
   async function loadData() {
     const [offersResult, locationsResult] = await Promise.all([
       db.from('offers')
-        .select('id,store_id,valid_from,valid_to,metadata,stores(slug)')
+        .select('id,store_id,valid_from,valid_to,source_url,metadata,stores(slug)')
         .eq('product_id', productId)
         .eq('status', 'published')
         .limit(100),
