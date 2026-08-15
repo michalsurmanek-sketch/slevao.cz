@@ -1,10 +1,9 @@
-const CACHE_NAME = 'slevao-shell-20260815-16';
+const CACHE_NAME = 'slevao-shell-20260815-17';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
   '/index.html',
   '/letaky.html',
-  '/hledat.html',
   '/seznam.html',
   '/ucet.html',
   '/produkt.html',
@@ -13,12 +12,12 @@ const SHELL = [
   '/favicon.svg',
   '/assets/public-features.css?v=20260804-2',
   '/assets/public-features.js?v=20260811-3',
-  '/assets/public-nav-upgrade.js?v=20260811-6',
+  '/assets/public-nav-upgrade.js?v=20260815-7',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260810-1',
   '/assets/product-personalization.css?v=20260804-2',
-  '/assets/product-personalization.js?v=20260811-1',
+  '/assets/product-personalization.js?v=20260815-2',
   '/assets/product-intelligence.css?v=20260810-2',
   '/assets/product-premium.css?v=20260811-2',
   '/assets/product-equivalence.css?v=20260811-1',
@@ -28,7 +27,7 @@ const SHELL = [
   '/assets/product-identity-guard.js?v=20260811-2',
   '/assets/product-leaflet-location-global.js?v=20260811-3',
   '/assets/product-seo.js?v=20260811-3',
-  '/assets/product-premium-runtime.js?v=20260811-3',
+  '/assets/product-premium-runtime.js?v=20260815-4',
   '/assets/product-intelligence.js?v=20260811-3',
   '/assets/product-equivalence.js?v=20260811-1',
   '/assets/home-personal-deals.css?v=20260804-1',
@@ -44,7 +43,7 @@ const SHELL = [
   '/assets/shopping-list.js?v=20260804-3',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights.js?v=20260804-2',
-  '/assets/account.js?v=20260804-3'
+  '/assets/account.js?v=20260815-4'
 ];
 
 self.addEventListener('install', (event) => {

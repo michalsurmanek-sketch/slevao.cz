@@ -186,7 +186,7 @@ assert.match(processLeaflet, /Archivace byla přeskočena; leták se zpracováv�
 const sitemap = read('sitemap.xml');
 assert((sitemap.match(/<url>/g) || []).length >= 74, 'Sitemap musí obsahovat nejméně homepage a 73 obchodů.');
 for (const page of storePageFiles) assert(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje ${page}.`);
-for (const page of ['hledat.html','kontakt.html','ochrana-soukromi.html','podminky.html']) assert(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje veřejnou stránku ${page}.`);
+for (const page of ['kontakt.html','ochrana-soukromi.html','podminky.html']) assert(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje veřejnou stránku ${page}.`);
 assert.match(read('robots.txt'), /Sitemap: https:\/\/slevao\.cz\/sitemap\.xml/, 'robots.txt neodkazuje na sitemapu.');
 assert.match(sitemap, /<loc>https:\/\/slevao\.cz\/<\/loc>/, 'Sitemap neobsahuje homepage.');
 

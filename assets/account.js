@@ -63,7 +63,7 @@
     $('alerts').innerHTML = data?.length ? data.map((row) => {
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
       const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
-      const productLink = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : 'hledat.html';
+      const productLink = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : 'index.html#dealsSection';
       return `<article class="sfAlertRow" data-id="${esc(row.id)}">
         <div><strong><a href="${productLink}" style="color:inherit">${esc(product?.name || row.search_term || 'Produkt')}</a></strong><div class="sfMuted">Do ${money(row.target_price)} Kč${store?.name ? ` · pouze ${esc(store.name)}` : ' · všechny obchody'}${row.last_triggered_at ? ` · naposledy splněno ${new Date(row.last_triggered_at).toLocaleDateString('cs-CZ')}` : ''}</div></div>
         <button class="sfButton" type="button" data-toggle="${row.is_active}">${row.is_active ? 'Pozastavit' : 'Zapnout'}</button>
@@ -78,7 +78,7 @@
     const store = Array.isArray(offer?.stores) ? offer.stores[0] : offer?.stores;
     const created = new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }).format(new Date(row.created_at));
     const productName = product?.name || 'Sledovaný produkt';
-    const target = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : (store?.slug ? `${encodeURIComponent(store.slug)}.html` : 'hledat.html');
+    const target = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : (store?.slug ? `${encodeURIComponent(store.slug)}.html` : 'index.html#dealsSection');
     const icon = row.type === 'favorite_offer' ? '♥' : '↓';
     const kind = row.type === 'favorite_offer' ? 'Oblíbený produkt' : 'Cenový hlídač';
     return `<article class="sfNotification ${row.is_read ? '' : 'unread'}" data-notification-id="${esc(row.id)}" data-target="${esc(target)}">
@@ -216,7 +216,7 @@
     try {
       const { error } = await db.from('notifications').update({ is_read: true }).eq('id', row.dataset.notificationId);
       if (error) throw error;
-      location.href = row.dataset.target || 'hledat.html';
+      location.href = row.dataset.target || 'index.html#dealsSection';
     } catch (error) {
       button.disabled = false;
       message(error.message || 'Upozornění se nepodařilo otevřít.', true);

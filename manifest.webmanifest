@@ -24,7 +24,7 @@
     {
       "name": "Hledat produkt",
       "short_name": "Hledat",
-      "url": "/hledat.html?source=shortcut",
+      "url": "/index.html?source=shortcut#dealsSection",
       "icons": [{ "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" }]
     },
     {

@@ -30,7 +30,7 @@
     if (!header || header.querySelector('.sfPremiumSearch')) return;
     const form = document.createElement('form');
     form.className = 'sfPremiumSearch';
-    form.action = 'hledat.html';
+    form.action = 'index.html#dealsSection';
     form.method = 'get';
     form.setAttribute('role', 'search');
     form.innerHTML = '<input name="q" type="search" autocomplete="off" aria-label="Hledat produkt" placeholder="Hledej produkt, značku nebo obchod…"><button type="submit" aria-label="Hledat">⌕</button>';
@@ -47,7 +47,7 @@
       breadcrumbs = document.createElement('nav');
       breadcrumbs.className = 'sfPremiumBreadcrumbs';
       breadcrumbs.setAttribute('aria-label', 'Drobečková navigace');
-      breadcrumbs.innerHTML = '<a href="index.html">Domů</a><span class="sep">›</span><a href="hledat.html">Produkty</a><span class="sep">›</span><span class="current">Produkt</span>';
+      breadcrumbs.innerHTML = '<a href="index.html">Domů</a><span class="sep">›</span><a href="index.html#dealsSection">Produkty</a><span class="sep">›</span><span class="current">Produkt</span>';
       shell.insertBefore(breadcrumbs, hero);
     }
     const name = document.getElementById('productName')?.textContent?.trim();

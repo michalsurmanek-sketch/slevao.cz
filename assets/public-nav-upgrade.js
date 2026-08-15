@@ -128,19 +128,15 @@
         search.classList.remove('active');
         search.removeAttribute('aria-current');
       } else {
-        search.href = 'hledat.html';
+        search.href = 'index.html#dealsSection';
         search.removeAttribute('data-home-search-scroll');
-        search.classList.toggle('active', location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html');
+        search.classList.remove('active');
       }
     }
 
     if (leaflets) {
       leaflets.href = LEAFLETS_URL;
       leaflets.removeAttribute('aria-current');
-    }
-
-    if (location.pathname.endsWith('/hledat.html') || location.pathname === '/hledat.html') {
-      links.forEach((link) => { if (link !== search) link.classList.remove('active'); });
     }
 
     return true;

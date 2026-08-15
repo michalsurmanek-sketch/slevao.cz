@@ -19,6 +19,14 @@
   </main>
   <script>
     (() => {
+      if (/^\/hledat\.html$/i.test(location.pathname)) {
+        const query = new URLSearchParams(location.search).get('q');
+        const target = new URL('/index.html', location.origin);
+        if (query) target.searchParams.set('q', query);
+        target.hash = 'dealsSection';
+        location.replace(target.href);
+        return;
+      }
       const match = decodeURIComponent(location.pathname).match(/^\/([^/]+)\.html$/i);
       if (!match) return;
       const slug = String(match[1] || '').toLowerCase().replace(/[^a-z0-9-]/g, '');

@@ -148,7 +148,7 @@
         const searchLink = actions.querySelector('.sfFindSimilarLink') || actions.querySelector('a.sfButton');
         const productName = document.getElementById('productName')?.textContent?.trim() || '';
         if (searchLink && productName && !/^Načítám/i.test(productName)) {
-          const href = `hledat.html?q=${encodeURIComponent(productName)}`;
+          const href = `index.html?q=${encodeURIComponent(productName)}#dealsSection`;
           if (searchLink.getAttribute('href') !== href) searchLink.setAttribute('href', href);
         }
       }
@@ -310,7 +310,7 @@
     if (!profile || document.getElementById('favoriteProducts')) return;
     const favoriteSection = document.createElement('section');
     favoriteSection.className = 'sfSection sfCard sfPanel';
-    favoriteSection.innerHTML = `<div class="sfSectionHead"><div><span class="sfEyebrow">Stálé produkty</span><h2>Moje oblíbené produkty</h2><p class="sfMuted">Oblíbený produkt zůstává uložený i po skončení konkrétní nabídky.</p></div><a class="sfButton primary" href="hledat.html">Přidat produkt</a></div><div id="favoriteProducts" class="sfPersonalGrid"><div class="sfLoading">Načítám oblíbené…</div></div>`;
+    favoriteSection.innerHTML = `<div class="sfSectionHead"><div><span class="sfEyebrow">Stálé produkty</span><h2>Moje oblíbené produkty</h2><p class="sfMuted">Oblíbený produkt zůstává uložený i po skončení konkrétní nabídky.</p></div><a class="sfButton primary" href="index.html#dealsSection">Přidat produkt</a></div><div id="favoriteProducts" class="sfPersonalGrid"><div class="sfLoading">Načítám oblíbené…</div></div>`;
     profile.appendChild(favoriteSection);
 
     const recentSection = document.createElement('section');

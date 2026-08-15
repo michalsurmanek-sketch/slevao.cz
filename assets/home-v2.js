@@ -144,9 +144,10 @@
   const readJSON = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch { return fallback; } };
   const writeJSON = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
 
+  const initialQuery = new URLSearchParams(location.search).get('q')?.trim() || '';
   const state = {
-    stores: [], offers: [], query:'', store:'all', category:'all', region:'all', city:'all',
-    minPrice:null, maxPrice:null, onlyImages:false, mode:'recommended', sort:'recommended',
+    stores: [], offers: [], query:initialQuery, store:'all', category:'all', region:'all', city:'all',
+    minPrice:null, maxPrice:null, onlyImages:false, mode:initialQuery ? 'all' : 'recommended', sort:'recommended',
     savedOnly:false, saved:new Set(readJSON(SAVED_KEY, []).map(String)), visible:PAGE_SIZE, storesExpanded:false,
     reportOffer:null, compareGroups:new Map()
   };
