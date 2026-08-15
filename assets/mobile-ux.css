@@ -238,3 +238,28 @@ body{overflow-x:hidden}
     min-width:116px!important;
   }
 }
+
+
+/* Hero artwork: larger mobile basket with fully feathered edges. */
+@media(max-width:800px){
+  .heroCopy::after{
+    width:calc(100% + 30px)!important;
+    height:178px!important;
+    margin-left:-15px!important;
+    background-position:center!important;
+    background-size:auto 286px!important;
+    transform:scale(1.18)!important;
+    transform-origin:center!important;
+    -webkit-mask-image:radial-gradient(ellipse 82% 78% at 50% 50%,#000 48%,rgba(0,0,0,.96) 62%,rgba(0,0,0,.62) 76%,rgba(0,0,0,.22) 87%,transparent 100%)!important;
+    mask-image:radial-gradient(ellipse 82% 78% at 50% 50%,#000 48%,rgba(0,0,0,.96) 62%,rgba(0,0,0,.62) 76%,rgba(0,0,0,.22) 87%,transparent 100%)!important;
+  }
+}
+@media(max-width:480px){
+  .heroCopy::after{
+    width:calc(100% + 26px)!important;
+    height:164px!important;
+    margin-left:-13px!important;
+    background-size:auto 268px!important;
+    transform:scale(1.18)!important;
+  }
+}
