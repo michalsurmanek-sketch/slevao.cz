@@ -58,7 +58,7 @@
   if (!document.querySelector('link[href*="home-save-today.css"]')) {
     const saveTodayStyle = document.createElement('link');
     saveTodayStyle.rel = 'stylesheet';
-    saveTodayStyle.href = 'assets/home-save-today.css?v=20260807-4';
+    saveTodayStyle.href = 'assets/home-save-today.css?v=20260815-5';
     document.head.appendChild(saveTodayStyle);
   }
   if (!document.querySelector('script[src*="home-save-today.js"]')) {
