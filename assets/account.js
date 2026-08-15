@@ -101,7 +101,7 @@
   async function loadAlerts() {
     if (!session) return;
     const { data, error } = await db.from('price_alerts')
-      .select('id,product_id,search_term,target_price,store_id,is_active,last_triggered_at,created_at,products(name,brand,quantity_text),stores(name,slug)')
+      .select('id,product_id,search_term,target_price,store_id,is_active,last_triggered_at,created_at,products(name,brand,quantity_text,image_url),stores(name,slug)')
       .eq('user_id', session.user.id)
       .order('created_at', { ascending:false });
     if (error) throw error;
@@ -110,8 +110,12 @@
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
       const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
       const productLink = row.product_id ? `produkt.html?id=${encodeURIComponent(row.product_id)}` : 'index.html#dealsSection';
-      return `<article class="sfAlertRow" data-id="${esc(row.id)}">
-        <div><strong><a href="${productLink}" style="color:inherit">${esc(product?.name || row.search_term || 'Produkt')}</a></strong><div class="sfMuted">Do ${money(row.target_price)} Kč${store?.name ? ` · pouze ${esc(store.name)}` : ' · všechny obchody'}${row.last_triggered_at ? ` · naposledy splněno ${new Date(row.last_triggered_at).toLocaleDateString('cs-CZ')}` : ''}</div></div>
+      const media = product?.image_url
+        ? `<img src="${esc(product.image_url)}" alt="" loading="lazy">`
+        : '<span aria-hidden="true">%</span>';
+      return `<article class="sfAlertRow ${row.is_active ? '' : 'is-paused'}" data-id="${esc(row.id)}">
+        <a class="sfAlertMedia" href="${productLink}" aria-label="Detail produktu ${esc(product?.name || row.search_term || 'Produkt')}">${media}</a>
+        <div class="sfAlertCopy"><strong><a href="${productLink}">${esc(product?.name || row.search_term || 'Produkt')}</a></strong><div class="sfMuted">Do ${money(row.target_price)} Kč${store?.name ? ` · pouze ${esc(store.name)}` : ' · všechny obchody'}${row.last_triggered_at ? ` · naposledy splněno ${new Date(row.last_triggered_at).toLocaleDateString('cs-CZ')}` : ''}</div><span class="sfAlertState">${row.is_active ? 'Aktivně hlídáme' : 'Hlídač je pozastavený'}</span></div>
         <button class="sfButton" type="button" data-toggle="${row.is_active}">${row.is_active ? 'Pozastavit' : 'Zapnout'}</button>
         <button class="sfButton bad" type="button" data-delete>Odstranit</button>
       </article>`;
