@@ -33,7 +33,7 @@
 .slLiveHeroResult .slLiveMetric small{font-size:8px}
 .slLiveHeroResult .slLiveMetric strong{font-size:24px}
 .slLiveHeroResult .slLiveContext{margin:0;padding:10px 12px;border-radius:13px;font-size:10.5px;line-height:1.4;max-height:none;overflow:visible}
-.slLiveHeroResult .slLiveStores{display:flex;flex-wrap:nowrap;gap:5px;margin:0;max-height:none;overflow-x:auto;overflow-y:hidden;scrollbar-width:thin;padding-bottom:2px}
+.slLiveHeroResult .slLiveStores{display:flex;flex-wrap:wrap;gap:5px;margin:0;max-height:none;overflow:visible;padding-bottom:0}
 .slLiveHeroResult .slLiveStoreTag{flex:0 0 auto;padding:5px 7px;font-size:9px}
 
 /* Výsledky poboček jdou vedle sebe, ne pod sebe. */
