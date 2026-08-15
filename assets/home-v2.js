@@ -251,10 +251,12 @@
     if (allowedCategories && !allowedCategories.has(offer._category)) return false;
     const canonicalTags = Array.isArray(offer.products?.filter_tags) ? offer.products.filter_tags.map(fold) : [];
     if (canonicalTags.includes(query)) return true;
+    const semanticFilter = Boolean(SEARCH_EXPANSIONS[query]);
     const terms = SEARCH_EXPANSIONS[query] || [query];
     const exactTerms = SEARCH_EXACT_TERMS[query];
     const exclusions = SEARCH_EXCLUSIONS[query] || [];
-    const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.stores?.name, offer.categories?.name].join(' '));
+    const productFields = [offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.categories?.name];
+    const haystack = fold((semanticFilter ? productFields : [...productFields, offer.stores?.name]).join(' '));
     const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
     const words = normalized ? normalized.split(/\s+/) : [];
     if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
