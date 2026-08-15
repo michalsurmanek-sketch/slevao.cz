@@ -724,7 +724,7 @@
     const label = isRefreshing ? 'Obnovuji' : isCached ? 'Poslední data' : 'Aktualizováno';
     pill.dataset.richStatus = 'true';
     pill.setAttribute('aria-label', `${label}, ${statusDate(updatedAt)}`);
-    pill.innerHTML = `<span class="statusPillIcon" aria-hidden="true">✓</span><span class="statusPillCopy"><span class="statusPillLabel">${label}</span><strong class="statusPillDate">${statusDate(updatedAt)}</strong></span>`;
+    pill.innerHTML = `<span class="statusPillCopy"><span class="statusPillLabel">${label}</span><strong class="statusPillDate">${statusDate(updatedAt)}</strong></span>`;
   }
 
   function applyData(stores, offers, status, updatedAt = Date.now()) {
