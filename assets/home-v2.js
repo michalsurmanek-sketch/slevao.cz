@@ -31,6 +31,10 @@
     ['other','Ostatní','🏷️',[]]
   ];
   const MAIN_GROCERY_STORES = new Set(['albert','billa','coop','globus','kaufland','lidl','penny','tesco']);
+  const GROCERY_RETAILERS = new Set([
+    'albert','billa','coop','globus','hruska','jip','kaufland','kosik','lidl','makro',
+    'norma','penny','rohlik','tesco','terno','flop','eso-market'
+  ]);
   const SEARCH_EXPANSIONS = {
     maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','plece','pleci','kotlet','panenk','svickov','pecen','rosten','steak','zebra','zebro','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick','sunka','slanina','salam','klobas','parek','uzen'],
     mleko: ['mleko','mlecny napoj','plnotuc','polotuc','odtuc','bezlaktoz','kondenzovan'],
@@ -70,7 +74,7 @@
   const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci','zebra','zebro']) };
   const SEARCH_EXCLUSIONS = {
     maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni'],
-    ovoce: ['dzus','nektar','napoj','stava','limon','sirup','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj'],
+    ovoce: ['dzus','nektar','napoj','stava','limon','sirup','syrob','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj','susene','suseny','susena','lyofiliz','mrazem','kandovan','ovocny','ovocna','prichut'],
     zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj','salam','klobas','parek','sunka','slanina','uzen','maso','masem','masov','pastik','tlacenk','burg','rizk','karbanat','spaget','testovin','konzerv','instant','steril','naklad','protlak','pyre','rizoto','gulas','leco','hotdog','sendvic','toust']
   };
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
@@ -243,6 +247,7 @@
     const query = fold(rawQuery).trim();
     if (!query) return true;
     const allowedCategories = GROCERY_QUERY_CATEGORIES[query];
+    if (allowedCategories && !GROCERY_RETAILERS.has(String(offer.stores?.slug || ''))) return false;
     if (allowedCategories && !allowedCategories.has(offer._category)) return false;
     const canonicalTags = Array.isArray(offer.products?.filter_tags) ? offer.products.filter_tags.map(fold) : [];
     if (canonicalTags.includes(query)) return true;
