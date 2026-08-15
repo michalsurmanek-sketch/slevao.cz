@@ -306,6 +306,17 @@
     }).join('')}</div>`;
   }
 
+  function scrollPlannerToResults(modal) {
+    const box = modal.querySelector('.sqSaveBox');
+    const actions = modal.querySelector('.sqSaveActions');
+    if (!box || !actions) return;
+    const top = Math.max(0, actions.offsetTop - box.offsetTop - 12);
+    requestAnimationFrame(() => box.scrollTo({
+      top,
+      behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
+    }));
+  }
+
   async function runTemplate(modal, brief) {
     const result = modal.querySelector('#sqSaveResult');
     const action = modal.querySelector('#sqSaveAction');
@@ -313,6 +324,7 @@
     action.textContent = brief.location_mode === 'gps' ? 'Hledám obchody kolem vás…' : 'Hledám dnešní akce…';
     result.className = 'sqSaveResult';
     result.innerHTML = '<strong>Sestavuji lokální nákup</strong>Načítám jen skutečné pobočky a právě platné ceny.';
+    scrollPlannerToResults(modal);
     try {
       const api = await getApi();
       const context = await loadPlanningContext(modal, brief);
@@ -364,6 +376,7 @@
       result.className = 'sqSaveResult bad';
       result.innerHTML = `<strong>Košík se nepodařilo sestavit</strong>${esc(error?.message || 'Zkus to znovu.')}`;
     } finally {
+      scrollPlannerToResults(modal);
       action.disabled = false;
       action.textContent = 'Najít nejlevnější lokální nákup';
     }
