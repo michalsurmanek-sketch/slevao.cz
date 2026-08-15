@@ -23,13 +23,14 @@
     return true;
   }
 
-  function scrollToDealsTabs() {
-    const quickTabs = document.getElementById('quickTabs');
-    if (!quickTabs) return;
+  function scrollToQuickPurchaseResults() {
+    const target = document.querySelector('#dealsSection .dealsHeading')
+      || document.getElementById('dealsSection');
+    if (!target) return;
 
     const topbar = document.querySelector('.topbar');
     const headerHeight = topbar ? topbar.getBoundingClientRect().height : 0;
-    const targetTop = window.scrollY + quickTabs.getBoundingClientRect().top - headerHeight - 14;
+    const targetTop = window.scrollY + target.getBoundingClientRect().top - headerHeight - 10;
 
     window.scrollTo({
       top: Math.max(0, targetTop),
@@ -157,7 +158,11 @@
       const current = fold(document.getElementById('sideSearch')?.value || '');
       setExistingSearch(current === fold(term) ? '' : term);
       syncActive(dock);
-      window.requestAnimationFrame(scrollToDealsTabs);
+      // Počkáme na překreslení nadpisu a sémantických filtrů. Cíl je vždy
+      // začátek výsledků pod pevnou horní lištou, i když jsou quickTabs skryté.
+      window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+        window.setTimeout(scrollToQuickPurchaseResults, 20);
+      }));
     });
 
     dock.querySelector('.sqFoodClear').addEventListener('click', () => {
