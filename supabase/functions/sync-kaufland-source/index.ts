@@ -74,6 +74,21 @@ function mergeProductParts(left: string, right: string) {
   if (nb.includes(na)) return b;
   return `${a} ${b}`.replace(/\s+/g, ' ').trim();
 }
+function normalizedOfferPricing(description: string, rawPrice: number, rawOldPrice: number | null) {
+  const match = description.match(/při\s+koupi\s+(\d+)\s+kus(?:ů|u)?[\s\S]*?za\s+1\s+kus\s+(\d+(?:[.,]\d+)?)\s*kč/i);
+  if (!match) return { price: rawPrice, oldPrice: rawOldPrice, multibuyCount: null };
+  const count = Number(match[1]);
+  const itemPrice = Number(match[2].replace(',', '.'));
+  if (!(count > 1) || !(itemPrice > 0) || Math.abs(rawPrice - itemPrice * count) > 1) {
+    return { price: rawPrice, oldPrice: rawOldPrice, multibuyCount: null };
+  }
+  return {
+    price: itemPrice,
+    oldPrice: rawOldPrice && rawOldPrice > itemPrice ? Number((rawOldPrice / count).toFixed(2)) : rawOldPrice,
+    multibuyCount: count
+  };
+}
+
 function productTitle(description: string, detailTitle: string, title: string, subtitle: string, unit: string) {
   const main = meaningful(title) ? cleanProductPart(title) : '';
   const sub = meaningful(subtitle) ? cleanProductPart(subtitle) : '';
@@ -130,7 +145,8 @@ function parseProducts(html: string) {
         const detailTitle = decodeHtml(String(item?.detailTitle || '').replace(/\\n/g, ' ')); const detailDescription = decodeHtml(String(item?.detailDescription || '').replace(/\\n/g, ' ')); const unit = decodeHtml(String(item?.unit || '').trim());
         const identityTitle = productTitle(detailDescription, detailTitle, title, subtitle, unit); const klNr = String(item?.klNr || '').trim() || null; if (!identityTitle) continue;
         if (klNr) { const previous = klIdentities.get(klNr); if (previous && !sameIdentity(previous, identityTitle)) throw new Error(`Kaufland klNr ${klNr} má dvě rozdílné identity: "${previous}" a "${identityTitle}".`); klIdentities.set(klNr, identityTitle); }
-        result.push({ offerId, dateFrom, dateTo, title, subtitle, detailTitle, productTitle: identityTitle, detailDescription, price: Number(price), oldPrice: parseMoney(item?.formattedOldPrice), discount: Number.isFinite(Number(item?.discount)) ? Number(item.discount) : null, unit, basePrice: decodeHtml(String(item?.formattedBasePrice || item?.basePrice || '').trim()), imageUrl: safeImage(item?.detailImages?.[0] || item?.listImage), klNr, label: String(item?.label || '').trim() || null, categoryName: String(category?.name || '').trim(), categoryDisplayName: decodeHtml(String(category?.displayName || '').trim()) }); seen.add(offerId);
+        const pricing = normalizedOfferPricing(detailDescription, Number(price), parseMoney(item?.formattedOldPrice));
+        result.push({ offerId, dateFrom, dateTo, title, subtitle, detailTitle, productTitle: identityTitle, detailDescription, price: pricing.price, oldPrice: pricing.oldPrice, multibuyCount: pricing.multibuyCount, discount: Number.isFinite(Number(item?.discount)) ? Number(item.discount) : null, unit, basePrice: decodeHtml(String(item?.formattedBasePrice || item?.basePrice || '').trim()), imageUrl: safeImage(item?.detailImages?.[0] || item?.listImage), klNr, label: String(item?.label || '').trim() || null, categoryName: String(category?.name || '').trim(), categoryDisplayName: decodeHtml(String(category?.displayName || '').trim()) }); seen.add(offerId);
       }
     }
   }
