@@ -194,6 +194,7 @@
     if (state.maxPrice !== null) rows = rows.filter((offer) => priceOf(offer) <= state.maxPrice);
     if (state.onlyImages) rows = rows.filter((offer) => Boolean(offer.image_url));
     if (state.savedOnly) rows = rows.filter((offer) => state.saved.has(String(offer.id)));
+    if (state.mode === 'food') rows = rows.filter((offer) => offer._category === 'food');
     if (state.mode === 'ending') rows = rows.filter((offer) => offer.valid_to === TODAY);
     if (state.mode === 'under50') rows = rows.filter((offer) => priceOf(offer) <= 50);
     if (state.mode === 'under100') rows = rows.filter((offer) => priceOf(offer) <= 100);
@@ -304,7 +305,7 @@
     const store = state.stores.find((item) => item.slug === state.store);
     const upcomingOnly = rows.length > 0 && rows.every(isUpcoming);
     const nextStart = upcomingOnly ? [...new Set(rows.map((offer) => offer.valid_from).filter(Boolean))].sort()[0] : '';
-    const modeTitles = { recommended: upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };
+    const modeTitles = { recommended: upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', food:'Potraviny v akci', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };
     $('dealsTitle').textContent = state.savedOnly ? 'Uložené nabídky' : store ? `Akční nabídky – ${store.name}` : modeTitles[state.mode];
     $('dealsSubtitle').textContent = state.savedOnly ? 'Produkty, které sis uložil v tomto prohlížeči.' : upcomingOnly ? `Tyto nabídky začínají platit ${date(nextStart)}.` : state.mode === 'ending' ? 'Tyto ceny platí naposledy dnes.' : 'Porovnej cenu, úsporu a dobu platnosti.';
     $('resultText').textContent = rows.length ? `Zobrazeno ${Math.min(visible.length, rows.length)} z ${rows.length} nabídek` : 'Žádná odpovídající nabídka';
