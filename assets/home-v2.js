@@ -22,7 +22,7 @@
     ['food','Potraviny','🥫',['potrav','maso','masov','vepr','hovez','kurec','krkovic','kyta','kotlet','svickov','stehno','prsa','sunka','uzen','salám','klobas','parek','ryba','losos','tresk','peciv','chleb','rohlik','mleko','syr','jogurt','maslo','vejce','ovoce','zelenina','brambor','cibul','rajcat','paprik','cokol','cukr','mouka','ryze','testovin']],
     ['drinks','Nápoje','🥤',['napoj','voda','cola','limon','dzus','juice','pivo','vino','kava','caj','sirup','energy']],
     ['drugstore','Drogerie','🧴',['droger','sampon','mydlo','praci','avivaz','zubni','plenk','toaletni papir','cistic','kosmetik','deodor']],
-    ['home','Domácnost','🏠',['domac','kuchyn','nadob','uklid','dekor','svick','rucnik','povlec','nabytek','skrin','postel','stul','zidle','sedack','drez','dlazb','naradi','mlynek','svitidlo','zarovk']],
+    ['home','Domácnost','🏠',['domac','kuchyn','nadob','doza','cukrenk','chlebnik','obedár','termos','hrnek','talir','pribor','panev','hrnec','pekac','zapekac','miska','podnos','konvice','uklid','dekor','svick','rucnik','povlec','nabytek','skrin','postel','stul','zidle','sedack','drez','dlazb','naradi','mlynek','svitidlo','zarovk']],
     ['electronics','Elektronika','🔌',['elektr','telefon','mobil','notebook','televiz','sluchat','pocitac','tablet','monitor','kabel']],
     ['garden','Zahrada','🌿',['zahrad','sekac','substrat','kvetin','gril','cerpadlo','hadice','komposter']],
     ['fashion','Oblečení','👕',['oblec','tricko','kalhot','bunda','boty','ponoz','mikina','saty','sukne','kosile']],
