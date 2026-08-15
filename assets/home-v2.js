@@ -39,7 +39,14 @@
     syr: ['syr','eidam','gouda','emental','hermelin','niva','mozzarell','cheddar','parenic','korbac','balkansky','cottage'],
     ovoce: ['ovoce','jablk','hrusk','banan','pomeranc','mandarink','citron','limet','grep','hrozn','jahod','malin','boruv','ostruzin','rybiz','tresn','visn','merunk','broskv','nektar','svestk','mango','ananas','avokad','kiwi','meloun'],
     zelenina: ['zelenin','brambor','cibul','cesnek','rajcat','paprik','okurk','mrkev','petrzel','celer','kedlub','kvetak','brokolic','cuketa','lilek','redkv','repa','kapust','zeli','salat','spenat','hras','kukuric','fazol'],
-    pivo: ['pivo','pivn','lezak','radler','pils','porter','stout']
+    pivo: ['pivo','pivn','lezak','radler','pils','porter','stout'],
+    uzeniny: ['uzenin','sunka','slanina','salam','klobas','parek','uzen','tlacenk','pastik'],
+    ryby: ['ryba','rybi','losos','tresk','tunak','kapr','pstruh','makrel','sardink','sleď','file'],
+    kava: ['kava','espresso','cappuccino','latte','arabica','robusta','zrnkova','mleta kava','instantni kava'],
+    napoje: ['napoj','voda','mineral','limon','cola','dzus','nektar','stava','sirup','energy','tonic'],
+    sladkosti: ['sladkost','cokolad','bonbon','susenk','oplat','tycink','pralink','lentilk','karamel','zvykack'],
+    mrazene: ['mrazen','zmrzlin','nanuk','sorbet'],
+    drogerie: ['droger','sampon','mydlo','sprchov','deodor','zubni','pasta','kartacek','praci','avivaz','cistic','toaletni','plenk','kosmetik']
   };
   const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci']) };
   const SEARCH_EXCLUSIONS = {
@@ -209,7 +216,7 @@
       const exactTerms = SEARCH_EXACT_TERMS[query];
       const exclusions = SEARCH_EXCLUSIONS[query] || [];
       rows = rows.filter((offer) => {
-        const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.categories?.name].join(' '));
+        const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.stores?.name, offer.categories?.name].join(' '));
         const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
         const words = normalized.split(/\s+/);
         if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
@@ -336,7 +343,7 @@
     const store = state.stores.find((item) => item.slug === state.store);
     const upcomingOnly = rows.length > 0 && rows.every(isUpcoming);
     const nextStart = upcomingOnly ? [...new Set(rows.map((offer) => offer.valid_from).filter(Boolean))].sort()[0] : '';
-    const modeTitles = { recommended: upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', food:'Potraviny v akci', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };
+    const modeTitles = { all: state.query ? `Výsledky pro „${state.query}“` : 'Všechny aktuální nabídky', recommended: upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', food:'Potraviny v akci', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };
     $('dealsTitle').textContent = state.savedOnly ? 'Uložené nabídky' : store ? `Akční nabídky – ${store.name}` : modeTitles[state.mode];
     $('dealsSubtitle').textContent = state.savedOnly ? 'Produkty, které sis uložil v tomto prohlížeči.' : upcomingOnly ? `Tyto nabídky začínají platit ${date(nextStart)}.` : state.mode === 'ending' ? 'Tyto ceny platí naposledy dnes.' : 'Porovnej cenu, úsporu a dobu platnosti.';
     $('resultText').textContent = rows.length ? `Zobrazeno ${Math.min(visible.length, rows.length)} z ${rows.length} nabídek` : 'Žádná odpovídající nabídka';
@@ -364,24 +371,24 @@
   }
 
   function applySearch(value) {
-    state.query = String(value || '').trim(); state.visible = PAGE_SIZE;
+    state.query = String(value || '').trim(); state.mode = state.query ? 'all' : 'recommended'; state.visible = PAGE_SIZE;
     $('q').value = state.query; $('sideSearch').value = state.query;
     saveRecent(state.query); $('searchSuggestions').hidden = true;
     renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth', block:'start' });
   }
 
   function resetFilters() {
-    Object.assign(state, { query:'', store:'all', category:'all', region:'all', city:'all', minPrice:null, maxPrice:null, onlyImages:false, savedOnly:false, visible:PAGE_SIZE });
+    Object.assign(state, { query:'', store:'all', category:'all', region:'all', city:'all', minPrice:null, maxPrice:null, onlyImages:false, mode:'recommended', sort:'recommended', savedOnly:false, visible:PAGE_SIZE });
     $('q').value = ''; $('sideSearch').value = ''; $('storeSelect').value = 'all'; $('categorySelect').value = 'all'; $('regionSelect').value = 'all';
-    $('minPrice').value = ''; $('maxPrice').value = ''; $('onlyImages').checked = false;
+    $('minPrice').value = ''; $('maxPrice').value = ''; $('onlyImages').checked = false; $('sortSelect').value = 'recommended';
     renderAll();
   }
 
   function clearFilter(key) {
     if (key === 'all') return resetFilters();
-    if (key === 'query') { state.query = ''; $('q').value = ''; $('sideSearch').value = ''; }
+    if (key === 'query') { state.query = ''; if (state.mode === 'all') state.mode = 'recommended'; $('q').value = ''; $('sideSearch').value = ''; }
     if (key === 'store') state.store = 'all';
-    if (key === 'category') state.category = 'all';
+    if (key === 'category') { state.category = 'all'; if (state.mode === 'food') state.mode = 'all'; }
     if (key === 'region') { state.region = 'all'; state.city = 'all'; }
     if (key === 'city') state.city = 'all';
     if (key === 'minPrice') { state.minPrice = null; $('minPrice').value = ''; }
@@ -481,7 +488,7 @@
     $('q').addEventListener('focus', renderSuggestions); $('q').addEventListener('input', renderSuggestions);
     $('searchSuggestions').addEventListener('click', (event) => { const button = event.target.closest('[data-suggest-title]'); if (button) applySearch(button.dataset.suggestTitle); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.mainSearch')) $('searchSuggestions').hidden = true; });
-    $('sideSearch').addEventListener('input', (event) => { state.query = event.target.value.trim(); $('q').value = state.query; state.visible = PAGE_SIZE; renderDeals(); });
+    $('sideSearch').addEventListener('input', (event) => { state.query = event.target.value.trim(); state.mode = state.query ? 'all' : 'recommended'; state.category = 'all'; $('q').value = state.query; state.visible = PAGE_SIZE; renderCategories(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.remove('active')); renderDeals(); });
     $('savedButton').addEventListener('click', () => { state.savedOnly = !state.savedOnly; state.visible = PAGE_SIZE; renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); });
     $('mobileSaved').addEventListener('click', () => $('savedButton').click());
     $('categoryChips').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; state.category = button.dataset.category; state.visible = PAGE_SIZE; renderCategories(); renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); });
