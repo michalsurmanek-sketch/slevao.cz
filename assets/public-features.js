@@ -48,6 +48,75 @@
     toastTimer = setTimeout(() => box.classList.remove('show'), 3000);
   }
 
+  function animateListAddition(button, offer) {
+    const desktopTarget = document.querySelector('.shoppingListShortcut');
+    const mobileTarget = document.querySelector('.slevaoBottomNav a[href*="seznam"]');
+    const target = desktopTarget && getComputedStyle(desktopTarget).display !== 'none' ? desktopTarget : mobileTarget;
+    const card = button.closest('.dealCard,.deal');
+    const sourceImage = card?.querySelector('.dealMedia img,.dealTop img,img');
+    const product = Array.isArray(offer?.products) ? offer.products[0] : offer?.products;
+    const imageUrl = sourceImage?.currentSrc || sourceImage?.src || offer?.image_url || product?.image_url || '';
+
+    button.classList.add('is-added');
+    const originalLabel = button.getAttribute('data-sf-original-label') || button.textContent.trim();
+    button.setAttribute('data-sf-original-label', originalLabel);
+    button.textContent = 'Přidáno ✓';
+
+    if (target) {
+      const label = target.querySelector('.shoppingListShortcutLabel');
+      const originalTargetLabel = label?.textContent || '';
+      target.classList.remove('is-receiving');
+      void target.offsetWidth;
+      target.classList.add('is-receiving');
+
+      let badge = target.querySelector('.shoppingListShortcutBadge');
+      if (!badge) {
+        badge = document.createElement('em');
+        badge.className = 'shoppingListShortcutBadge';
+        badge.setAttribute('aria-hidden', 'true');
+        target.appendChild(badge);
+      }
+      badge.textContent = '+1';
+      badge.classList.remove('show');
+      void badge.offsetWidth;
+      badge.classList.add('show');
+      if (label) label.textContent = 'Produkt přidán ✓';
+
+      if (!matchMedia('(prefers-reduced-motion: reduce)').matches && imageUrl) {
+        const start = (sourceImage || button).getBoundingClientRect();
+        const end = target.getBoundingClientRect();
+        const flyer = document.createElement('img');
+        flyer.className = 'shoppingListFly';
+        flyer.src = imageUrl;
+        flyer.alt = '';
+        flyer.style.left = `${start.left + start.width / 2 - 28}px`;
+        flyer.style.top = `${start.top + start.height / 2 - 28}px`;
+        document.body.appendChild(flyer);
+        const dx = end.left + end.width / 2 - (start.left + start.width / 2);
+        const dy = end.top + end.height / 2 - (start.top + start.height / 2);
+        flyer.animate([
+          { transform: 'translate(0,0) scale(1)', opacity: 1 },
+          { transform: `translate(${dx * .55}px,${dy * .25 - 38}px) scale(.78)`, opacity: 1, offset: .55 },
+          { transform: `translate(${dx}px,${dy}px) scale(.22)`, opacity: .18 }
+        ], { duration: 760, easing: 'cubic-bezier(.2,.8,.25,1)', fill: 'forwards' })
+          .finished.catch(() => {}).finally(() => flyer.remove());
+      }
+
+      clearTimeout(target._sfFeedbackTimer);
+      target._sfFeedbackTimer = setTimeout(() => {
+        target.classList.remove('is-receiving');
+        badge?.classList.remove('show');
+        if (label && originalTargetLabel) label.textContent = originalTargetLabel;
+      }, 1900);
+    }
+
+    clearTimeout(button._sfFeedbackTimer);
+    button._sfFeedbackTimer = setTimeout(() => {
+      button.classList.remove('is-added');
+      button.textContent = originalLabel;
+    }, 1700);
+  }
+
   function addItemFromOffer(offer) {
     if (!offer) return false;
     const rows = read();
@@ -238,6 +307,7 @@
       if (!offer) throw new Error('Nabídka už není dostupná.');
       if (add) {
         addItemFromOffer(offer);
+        animateListAddition(add, offer);
         toast('Produkt byl přidán do nákupního seznamu.');
       } else if (detail) {
         const detailProduct = Array.isArray(offer.products) ? offer.products[0] : offer.products;
