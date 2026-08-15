@@ -273,8 +273,8 @@
         <p>${esc([product.brand, product.quantity_text].filter(Boolean).join(' · ') || 'Sjednocený produkt')}</p>
         <strong>${price}</strong><small>${esc(store)}</small>
         <div class="sfPersonalProductActions">
-          <a class="sfButton primary" href="produkt.html?id=${encodeURIComponent(product.id)}">Detail</a>
-          ${offer ? `<button class="sfButton" type="button" data-personal-add="${esc(offer.id)}">Do seznamu</button>` : ''}
+          <a class="sfButton primary sfProductDetailButton" href="produkt.html?id=${encodeURIComponent(product.id)}"><span class="sfProductActionIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg></span><span>Detail produktu</span></a>
+          ${offer ? `<button class="sfButton sfProductListButton" type="button" data-personal-add="${esc(offer.id)}"><span class="sfProductActionIcon" aria-hidden="true">＋</span><span>Do seznamu</span></button>` : ''}
           ${mode === 'favorite' ? `<button class="sfButton sfFavoriteButton is-favorite" type="button" data-favorite-product="${esc(product.id)}">♥ Oblíbené</button>` : ''}
         </div>
       </div>
