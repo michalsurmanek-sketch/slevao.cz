@@ -43,10 +43,11 @@
 
   function syncActive(dock) {
     const current = fold(document.getElementById('sideSearch')?.value || document.getElementById('q')?.value || '');
+    const semanticBase = fold(document.getElementById('slSemanticPanel')?.dataset.semanticBase || '');
     let anyActive = false;
 
     dock.querySelectorAll('[data-sq-food]').forEach((button) => {
-      const active = current === fold(button.dataset.sqFood);
+      const active = current === fold(button.dataset.sqFood) || semanticBase === fold(button.dataset.sqFood);
       button.classList.toggle('active', active);
       button.setAttribute('aria-pressed', String(active));
       if (active) anyActive = true;
@@ -166,6 +167,7 @@
 
     document.getElementById('sideSearch')?.addEventListener('input', () => syncActive(dock));
     document.getElementById('q')?.addEventListener('change', () => syncActive(dock));
+    document.addEventListener('slevao:semantic-filter', () => syncActive(dock));
 
     deals.parentNode.insertBefore(dock, deals);
     syncActive(dock);

@@ -20,7 +20,7 @@
     },
     vejce: {
       label:'Vejce', title:'Vejce v akci', info:'Zobrazujeme jen vejce a vaječné produkty', icon:'🥚',
-      types:[['vejce','Vše'],['slepicí vejce','Slepičí'],['krepelci vejce','Křepelčí'],['vejce m','Velikost M'],['vejce l','Velikost L']],
+      types:[['vejce','Vše'],['slepici vejce','Slepičí'],['krepelci vejce','Křepelčí'],['vejce m','Velikost M'],['vejce l','Velikost L']],
       forms:[['vejce','Všechna','♧'],['vejce volny vybeh','Volný výběh','◒'],['vejce podestylka','Podestýlka','▱'],['bio vejce','Bio','◎']]
     },
     maslo: {
@@ -98,12 +98,15 @@
     if (!deals || !panel) return;
     if (!base) {
       deals.classList.remove('slSemanticActive');
+      panel.dataset.semanticBase = '';
       panel.hidden = true;
+      document.dispatchEvent(new CustomEvent('slevao:semantic-filter', { detail:{ base:'' } }));
       return;
     }
     const config = CONFIG[base];
     const count = countFromToolbar();
     deals.classList.add('slSemanticActive');
+    panel.dataset.semanticBase = base;
     panel.hidden = false;
     const title = document.getElementById('dealsTitle');
     const subtitle = document.getElementById('dealsSubtitle');
@@ -120,6 +123,7 @@
         </div>
         <div class="slSemanticInfo"><span aria-hidden="true">♧</span>${config.info}</div>
       </div>`;
+    document.dispatchEvent(new CustomEvent('slevao:semantic-filter', { detail:{ base } }));
   }
 
   function init() {
