@@ -143,7 +143,13 @@
   function deduplicate(rows) {
     const result = new Map();
     rows.forEach((row) => {
-      row.image_url = row.image_url || row.products?.image_url || null;
+      const sourceImage = row.image_url || row.products?.image_url || null;
+      const knownMisassignedBeerImage = String(sourceImage || '').includes('8594009923191_CZ_P')
+        && !normalizeName(row.products?.name || row.title).includes('krusovice');
+      const fallbackProductImage = row.products?.image_url;
+      row.image_url = knownMisassignedBeerImage
+        ? (fallbackProductImage && !String(fallbackProductImage).includes('8594009923191_CZ_P') ? fallbackProductImage : null)
+        : sourceImage;
       row._category = categoryOf(row);
       const key = [row.stores?.slug, normalizeName(row.title || row.products?.name), row.valid_from, row.valid_to].join('|');
       const current = result.get(key);
