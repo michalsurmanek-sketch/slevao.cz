@@ -63,7 +63,7 @@
   }
   if (!document.querySelector('script[src*="home-save-today.js"]')) {
     const saveTodayScript = document.createElement('script');
-    saveTodayScript.src = 'assets/home-save-today.js?v=20260815-6';
+    saveTodayScript.src = 'assets/home-save-today.js?v=20260815-7';
     saveTodayScript.defer = true;
     document.head.appendChild(saveTodayScript);
   }
