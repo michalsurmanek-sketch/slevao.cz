@@ -36,13 +36,23 @@
     'norma','penny','rohlik','tesco','terno','flop','eso-market'
   ]);
   const SEARCH_EXPANSIONS = {
-    maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','plece','pleci','kotlet','panenk','svickov','pecen','rosten','steak','zebra','zebro','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick','sunka','slanina','salam','klobas','parek','uzen'],
+    maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','plece','pleci','kotlet','panenk','svickov','pecen','rosten','steak','zebra','zebro','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick'],
+    veprove: ['vepr','krkovic','kyta','plec','plece','pleci','kotlet','panenk','bucek','koleno'],
+    kureci: ['kurec','kureci','kure','prsa','steh','kridl','palick'],
+    hovezi: ['hovez','svickov','rosten','steak','gulasov'],
+    kruti: ['kruti','kruta','kruty'],
+    mlete: ['mlete','mlety','sekan'],
     mleko: ['mleko','mlecny napoj','plnotuc','polotuc','odtuc','bezlaktoz','kondenzovan'],
     pecivo: ['peciv','chleb','rohlik','housk','baget','vek','dalam','kaiser','toast','koblih','croissant'],
     vejce: ['vejce','vajec'],
     maslo: ['maslo','maslicko'],
     syr: ['syr','eidam','gouda','emental','hermelin','niva','mozzarell','cheddar','parenic','korbac','balkansky','cottage'],
     ovoce: ['ovoce','jablk','hrusk','banan','pomeranc','mandarink','citron','limet','grep','hrozn','jahod','malin','boruv','ostruzin','rybiz','tresn','visn','merunk','broskv','nektar','svestk','mango','ananas','avokad','kiwi','meloun'],
+    jablka: ['jablk'],
+    banany: ['banan'],
+    citrusy: ['pomeranc','mandarink','citron','limet','grep'],
+    bobulove: ['jahod','malin','boruv','ostruzin','rybiz','hrozn'],
+    exoticke: ['mango','ananas','avokad','kiwi','maraku','papaja'],
     zelenina: ['zelenin','brambor','cibul','cesnek','rajcat','paprik','okurk','mrkev','petrzel','celer','kedlub','kvetak','brokolic','cuketa','lilek','redkv','repa','kapust','zeli','salat','spenat','hras','kukuric','fazol'],
     pivo: ['pivo','pivn','lezak','radler','pils','porter','stout'],
     uzeniny: ['uzenin','sunka','slanina','salam','klobas','parek','uzen','tlacenk','pastik'],
@@ -53,14 +63,34 @@
     mrazene: ['mrazen','zmrzlin','nanuk','sorbet'],
     drogerie: ['droger','sampon','mydlo','sprchov','deodor','zubni','pasta','kartacek','praci','avivaz','cistic','toaletni','plenk','kosmetik']
   };
+  const COMPOUND_SEARCHES = {
+    'mrazene maso': [SEARCH_EXPANSIONS.maso, ['mrazen']],
+    'marinovane maso': [SEARCH_EXPANSIONS.maso, ['marinad']],
+    'mrazene ovoce': [SEARCH_EXPANSIONS.ovoce, ['mrazen']],
+    'susene ovoce': [SEARCH_EXPANSIONS.ovoce, ['susen','lyofiliz']],
+    'ovocne napoje': [SEARCH_EXPANSIONS.ovoce, ['napoj','dzus','nektar','stava','smooth']],
+    'mrazena zelenina': [SEARCH_EXPANSIONS.zelenina, ['mrazen']],
+    'sterilovana zelenina': [SEARCH_EXPANSIONS.zelenina, ['steril','naklad','konzerv']],
+    'zeleninove vyrobky': [SEARCH_EXPANSIONS.zelenina, ['vyrob','pomazank','protlak','pyre','omack']]
+  };
   const GROCERY_QUERY_CATEGORIES = {
     maso: new Set(['food']),
+    veprove: new Set(['food']),
+    kureci: new Set(['food']),
+    hovezi: new Set(['food']),
+    kruti: new Set(['food']),
+    mlete: new Set(['food']),
     mleko: new Set(['food','drinks']),
     pecivo: new Set(['food']),
     vejce: new Set(['food']),
     maslo: new Set(['food']),
     syr: new Set(['food']),
     ovoce: new Set(['food']),
+    jablka: new Set(['food']),
+    banany: new Set(['food']),
+    citrusy: new Set(['food']),
+    bobulove: new Set(['food']),
+    exoticke: new Set(['food']),
     zelenina: new Set(['food']),
     pivo: new Set(['drinks','food']),
     uzeniny: new Set(['food']),
@@ -69,11 +99,28 @@
     napoje: new Set(['drinks']),
     sladkosti: new Set(['food']),
     mrazene: new Set(['food']),
+    'mrazene maso': new Set(['food']),
+    'marinovane maso': new Set(['food']),
+    'mrazene ovoce': new Set(['food']),
+    'susene ovoce': new Set(['food']),
+    'ovocne napoje': new Set(['food','drinks']),
+    'mrazena zelenina': new Set(['food']),
+    'sterilovana zelenina': new Set(['food']),
+    'zeleninove vyrobky': new Set(['food']),
     drogerie: new Set(['drugstore'])
   };
-  const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci','zebra','zebro']) };
+  const SEARCH_EXACT_TERMS = {
+    maso: new Set(['maso','plec','plece','pleci','zebra','zebro']),
+    veprove: new Set(['plec','plece','pleci']),
+    kureci: new Set(['kure'])
+  };
   const SEARCH_EXCLUSIONS = {
-    maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni'],
+    maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni','sunka','slanina','salam','klobas','parek','uzen','pastik','tlacenk'],
+    veprove: ['zebrovany','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni','sunka','slanina','salam','klobas','parek','uzen','pastik','tlacenk'],
+    kureci: ['sunka','salam','parek','uzen','pastik','hotov','instant'],
+    hovezi: ['sunka','salam','parek','uzen','pastik','hotov','instant'],
+    kruti: ['sunka','salam','parek','uzen','pastik','hotov','instant'],
+    mlete: ['kava','pepr','koreni','mouka','cukr'],
     ovoce: ['dzus','nektar','napoj','stava','limon','sirup','syrob','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj','susene','suseny','susena','lyofiliz','mrazem','kandovan','ovocny','ovocna','prichut'],
     zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj','salam','klobas','parek','sunka','slanina','uzen','maso','masem','masov','pastik','tlacenk','burg','rizk','karbanat','spaget','testovin','konzerv','instant','steril','naklad','protlak','pyre','rizoto','gulas','leco','hotdog','sendvic','toust']
   };
@@ -250,7 +297,6 @@
     if (allowedCategories && !GROCERY_RETAILERS.has(String(offer.stores?.slug || ''))) return false;
     if (allowedCategories && !allowedCategories.has(offer._category)) return false;
     const canonicalTags = Array.isArray(offer.products?.filter_tags) ? offer.products.filter_tags.map(fold) : [];
-    if (canonicalTags.includes(query)) return true;
     const semanticFilter = Boolean(SEARCH_EXPANSIONS[query]);
     const terms = SEARCH_EXPANSIONS[query] || [query];
     const exactTerms = SEARCH_EXACT_TERMS[query];
@@ -259,7 +305,10 @@
     const haystack = fold((semanticFilter ? productFields : [...productFields, offer.stores?.name]).join(' '));
     const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
     const words = normalized ? normalized.split(/\s+/) : [];
+    const compound = COMPOUND_SEARCHES[query];
+    if (compound) return compound.every((group) => group.some((term) => words.some((word) => word.startsWith(fold(term)))));
     if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
+    if (canonicalTags.includes(query)) return true;
     return terms.some((term) => {
       if (exactTerms?.has(term)) return words.includes(term);
       if (term.includes(' ')) return (` ${normalized} `).includes(` ${term} `);
