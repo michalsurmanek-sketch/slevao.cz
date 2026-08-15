@@ -7,9 +7,10 @@
   const SAVED_KEY = 'slevao-saved';
   const RECENT_KEY = 'slevao-recent-searches';
   const PAGE_SIZE = 24;
-  const TODAY = new Date().toISOString().slice(0, 10);
+  const pragueDateKey = (value = new Date()) => new Intl.DateTimeFormat('en-CA', { timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit' }).format(value);
+  const TODAY = pragueDateKey();
   const UPCOMING_DAYS = 7;
-  const UPCOMING_TO = new Date(Date.now() + UPCOMING_DAYS * 86400000).toISOString().slice(0, 10);
+  const UPCOMING_TO = pragueDateKey(new Date(Date.now() + UPCOMING_DAYS * 86400000));
   const isUpcoming = (offer) => String(offer?.valid_from || '') > TODAY;
   const REGIONS = [
     ['CZ010','Hlavní město Praha'],['CZ020','Středočeský kraj'],['CZ031','Jihočeský kraj'],['CZ032','Plzeňský kraj'],
@@ -77,7 +78,7 @@
     stores: [], offers: [], query:'', store:'all', category:'all', region:'all', city:'all',
     minPrice:null, maxPrice:null, onlyImages:false, mode:'recommended', sort:'recommended',
     savedOnly:false, saved:new Set(readJSON(SAVED_KEY, []).map(String)), visible:PAGE_SIZE, storesExpanded:false,
-    reportOffer:null
+    reportOffer:null, compareGroups:new Map()
   };
 
   function toast(message) {
@@ -206,31 +207,37 @@
     return true;
   }
 
-  function filteredOffers() {
+  function offerMatchesQuery(offer, rawQuery = state.query) {
+    const query = fold(rawQuery).trim();
+    if (!query) return true;
+    const terms = SEARCH_EXPANSIONS[query] || [query];
+    const exactTerms = SEARCH_EXACT_TERMS[query];
+    const exclusions = SEARCH_EXCLUSIONS[query] || [];
+    const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.stores?.name, offer.categories?.name].join(' '));
+    const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
+    const words = normalized ? normalized.split(/\s+/) : [];
+    if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
+    return terms.some((term) => {
+      if (exactTerms?.has(term)) return words.includes(term);
+      if (term.includes(' ')) return (` ${normalized} `).includes(` ${term} `);
+      return words.some((word) => word.startsWith(term));
+    });
+  }
+
+  function facetOffers(exclude = '') {
     let rows = state.offers.filter(geographyMatches);
-    if (state.store !== 'all') rows = rows.filter((offer) => offer.stores?.slug === state.store);
-    if (state.category !== 'all') rows = rows.filter((offer) => offer._category === state.category);
-    if (state.query) {
-      const query = fold(state.query);
-      const terms = SEARCH_EXPANSIONS[query] || [query];
-      const exactTerms = SEARCH_EXACT_TERMS[query];
-      const exclusions = SEARCH_EXCLUSIONS[query] || [];
-      rows = rows.filter((offer) => {
-        const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.stores?.name, offer.categories?.name].join(' '));
-        const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
-        const words = normalized.split(/\s+/);
-        if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
-        return terms.some((term) => {
-          if (exactTerms?.has(term)) return words.includes(term);
-          if (term.includes(' ')) return (` ${normalized} `).includes(` ${term} `);
-          return words.some((word) => word.startsWith(term));
-        });
-      });
-    }
+    if (exclude !== 'store' && state.store !== 'all') rows = rows.filter((offer) => offer.stores?.slug === state.store);
+    if (exclude !== 'category' && state.category !== 'all') rows = rows.filter((offer) => offer._category === state.category);
+    if (state.query) rows = rows.filter((offer) => offerMatchesQuery(offer));
     if (state.minPrice !== null) rows = rows.filter((offer) => priceOf(offer) >= state.minPrice);
     if (state.maxPrice !== null) rows = rows.filter((offer) => priceOf(offer) <= state.maxPrice);
     if (state.onlyImages) rows = rows.filter((offer) => Boolean(offer.image_url));
     if (state.savedOnly) rows = rows.filter((offer) => state.saved.has(String(offer.id)));
+    return rows;
+  }
+
+  function filteredOffers() {
+    let rows = facetOffers();
     if (state.mode === 'recommended') rows = rows.filter((offer) => MAIN_GROCERY_STORES.has(offer.stores?.slug));
     if (state.mode === 'food') rows = rows.filter((offer) => offer._category === 'food');
     if (state.mode === 'ending') rows = rows.filter((offer) => offer.valid_to === TODAY);
@@ -286,7 +293,7 @@
 
   function renderCategories() {
     const counts = new Map();
-    state.offers.forEach((offer) => counts.set(offer._category, (counts.get(offer._category) || 0) + 1));
+    facetOffers('category').forEach((offer) => counts.set(offer._category, (counts.get(offer._category) || 0) + 1));
     const available = CATEGORY_DEFS.filter(([key]) => counts.get(key));
     $('categoryChips').innerHTML = `<button class="categoryChip ${state.category === 'all' ? 'active' : ''}" data-category="all"><span>✨</span>Vše</button>` + available.map(([key,name,icon]) => `<button class="categoryChip ${state.category === key ? 'active' : ''}" data-category="${key}"><span>${icon}</span>${esc(name)} <small>${counts.get(key)}</small></button>`).join('');
     $('categorySelect').innerHTML = '<option value="all">Všechny kategorie</option>' + available.map(([key,name]) => `<option value="${key}">${esc(name)}</option>`).join('');
@@ -295,7 +302,9 @@
   }
 
   function renderStores() {
-    const activeSlugs = new Set(state.offers.map((offer) => offer.stores?.slug).filter(Boolean));
+    const storeCounts = new Map();
+    facetOffers('store').forEach((offer) => { const slug = offer.stores?.slug; if (slug) storeCounts.set(slug, (storeCounts.get(slug) || 0) + 1); });
+    const activeSlugs = new Set(storeCounts.keys());
     const visibleStores = state.stores.filter((store) => activeSlugs.has(store.slug));
     const shown = state.storesExpanded ? visibleStores : visibleStores.slice(0, 11);
     $('storeGrid').innerHTML = `<article class="storeCard ${state.store === 'all' ? 'active' : ''}"><button class="storeFilterButton" data-store="all"><div class="storeLogoBox"><span class="storeAllIcon">🏪</span></div>Všechny obchody</button></article>` + shown.map((store) => `<article class="storeCard ${state.store === store.slug ? 'active' : ''}"><a class="storePageLink" href="${encodeURIComponent(store.slug)}.html" title="Otevřít stránku ${esc(store.name)}">↗</a><button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHTML(store)}</div>${esc(store.name)}</button></article>`).join('');
@@ -353,8 +362,7 @@
       $('dealGrid').innerHTML = `<div class="emptyState"><strong>${state.savedOnly ? 'Zatím nemáš nic uložené' : 'Žádná nabídka neodpovídá filtrům'}</strong><span>${state.savedOnly ? 'Klikni na srdíčko u produktu a nabídka se uloží.' : 'Zkus změnit obchod, kategorii, lokalitu nebo cenové omezení.'}</span></div>`;
       return;
     }
-    const groups = new Map();
-    state.offers.forEach((offer) => { const key = compareKey(offer); if (!groups.has(key)) groups.set(key, []); groups.get(key).push(offer); });
+    const groups = state.compareGroups;
     $('dealGrid').innerHTML = visible.map((offer) => {
       const storeData = state.stores.find((item) => item.slug === offer.stores?.slug) || offer.stores || {};
       const discount = discountOf(offer), saving = savingOf(offer), saved = state.saved.has(String(offer.id));
@@ -527,6 +535,8 @@
     const activeStores = stores.filter((store) => store.is_active !== false);
     state.stores = activeStores.sort((a,b) => a.name.localeCompare(b.name,'cs'));
     state.offers = deduplicate(offers).filter((offer) => offer.is_verified === true && activeStores.some((store) => store.slug === offer.stores?.slug));
+    state.compareGroups = new Map();
+    state.offers.forEach((offer) => { const key = compareKey(offer); if (!state.compareGroups.has(key)) state.compareGroups.set(key, []); state.compareGroups.get(key).push(offer); });
     $('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');
     const currentCount = state.offers.filter((offer) => !isUpcoming(offer)).length;
     const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];
