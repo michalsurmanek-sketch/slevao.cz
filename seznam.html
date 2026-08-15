@@ -12,6 +12,7 @@
   <link rel="stylesheet" href="assets/shopping-insights.css?v=20260804-1">
   <link rel="stylesheet" href="assets/shopping-route.css?v=20260807-2">
   <link rel="stylesheet" href="assets/store-arrival-alerts.css?v=20260811-1">
+  <link rel="stylesheet" href="assets/shopping-list-redesign.css?v=20260815-1">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260804-2"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260811-6"></script>
@@ -24,14 +25,15 @@
   <script defer src="assets/shopping-route-autostart.js?v=20260807-1"></script>
 </head>
 <body class="sfPage">
-<header class="sfTop"><div class="sfTopInner">
-  <a class="sfLogo" href="index.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a>
-  <nav class="sfTopLinks" aria-label="Hlavní navigace"><a href="hledat.html">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a class="sfAlways" href="ucet.html">Účet</a></nav>
+<header class="sfTop listTopbar"><div class="sfTopInner listTopInner">
+  <a class="sfLogo listBrand" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
+  <form class="listSearch" action="hledat.html" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
+  <nav class="sfTopLinks listTopLinks" aria-label="Hlavní navigace"><a href="hledat.html">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a class="active sfAlways" href="seznam.html">Seznam</a></nav>
 </div></header>
 <main class="sfShell">
   <section class="sfHero">
-    <div class="sfCard sfHeroMain"><span class="sfEyebrow">Nejlevnější celý nákup</span><h1>Tvůj nákupní seznam</h1><p class="sfMuted">Přidej akční produkty nebo vlastní položky. Slevao porovná ceny, pohlídá rozpočet a dokončený nákup uloží pro snadné zopakování.</p><p id="accountStatus" class="sfMuted"></p></div>
-    <aside class="sfCard sfHeroSide"><strong id="listCount">0 položek</strong><button id="shareList" class="sfButton primary" type="button">Sdílet seznam</button><button id="clearCompleted" class="sfButton" type="button">Odstranit koupené</button><p id="listMessage" class="sfMuted" aria-live="polite"></p></aside>
+    <div class="sfCard sfHeroMain listHeroMain"><span class="sfEyebrow">Chytrý nákup se Slevao</span><h1>Tvůj nákupní seznam</h1><p class="sfMuted">Vše, co potřebuješ koupit, přehledně na jednom místě. Přidej akční produkty nebo vlastní položky a Slevao ti pomůže najít výhodnější nákup.</p><div class="listBenefits"><span>✓ Přehledné položky</span><span>✓ Porovnání obchodů</span><span>✓ Snadné sdílení</span></div><p id="accountStatus" class="sfMuted"></p></div>
+    <aside class="sfCard sfHeroSide listHeroSide"><div class="listSummaryIcon" aria-hidden="true">✓</div><span class="listSummaryLabel">Aktuálně v seznamu</span><strong id="listCount">0 položek</strong><button id="shareList" class="sfButton primary" type="button">Sdílet seznam</button><button id="clearCompleted" class="sfButton" type="button">Odstranit koupené</button><p id="listMessage" class="sfMuted" aria-live="polite"></p></aside>
   </section>
 
   <section class="sfListLayout">
