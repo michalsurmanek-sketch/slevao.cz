@@ -91,7 +91,7 @@
     destination.removeAttribute('rel');
     destination.setAttribute('aria-disabled', 'true');
     destination.setAttribute('aria-label', 'Ověřuji přesnou stranu produktu v letáku');
-    destination.textContent = 'Ověřuji leták…';
+    if (destination.textContent !== 'Ověřuji leták…') destination.textContent = 'Ověřuji leták…';
     destination.dataset.leafletVerifying = '1';
     delete destination.dataset.exactLeafletLocation;
   }
@@ -107,7 +107,7 @@
       destination.href = `${locationRow.document_url}#page=${page}&zoom=page-fit`;
       destination.target = '_blank';
       destination.rel = 'noopener noreferrer';
-      destination.textContent = `Leták · strana ${page}`;
+      if (destination.textContent !== `Leták · strana ${page}`) destination.textContent = `Leták · strana ${page}`;
       destination.setAttribute('aria-label', `Ukázat produkt v letáku na straně ${page}`);
       destination.dataset.exactLeafletLocation = '1';
       return;
@@ -116,7 +116,7 @@
     destination.href = storePageUrl(offer);
     destination.removeAttribute('target');
     destination.removeAttribute('rel');
-    destination.textContent = 'Stránka obchodu';
+    if (destination.textContent !== 'Stránka obchodu') destination.textContent = 'Stránka obchodu';
     destination.setAttribute('aria-label', 'Otevřít stránku obchodu');
     delete destination.dataset.exactLeafletLocation;
   }
