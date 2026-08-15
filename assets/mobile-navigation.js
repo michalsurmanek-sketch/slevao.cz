@@ -46,13 +46,20 @@
 
   const tipButton = document.getElementById('topbarTipButton');
   if (tipButton) {
-    tipButton.setAttribute('aria-label', 'Tip dne');
-    tipButton.title = 'Tip dne';
+    const isAccountButton = tipButton.classList.contains('accountButton')
+      || /(^|\/)ucet\.html(?:$|[?#])/.test(tipButton.getAttribute('href') || '');
 
-    tipButton.addEventListener('click', (event) => {
-      event.preventDefault();
-      scrollWithHeaderOffset(document.getElementById('quickTabs'));
-    });
+    if (isAccountButton) {
+      tipButton.setAttribute('aria-label', 'Můj účet');
+      tipButton.title = 'Můj účet';
+    } else {
+      tipButton.setAttribute('aria-label', 'Tip dne');
+      tipButton.title = 'Tip dne';
+      tipButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        scrollWithHeaderOffset(document.getElementById('quickTabs'));
+      });
+    }
   }
 
   const fold = (value) => String(value || '')
