@@ -705,28 +705,6 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.querySelectorAll('.modal:not([hidden])').forEach((modal) => closeModal(modal.id)); });
   }
 
-  function statusDate(value) {
-    const parsed = new Date(Number(value) || value || Date.now());
-    const dateKey = pragueDateKey(parsed);
-    const formatted = new Intl.DateTimeFormat('cs-CZ', {
-      timeZone:'Europe/Prague',
-      day:'numeric',
-      month:'numeric'
-    }).format(parsed);
-    return `${dateKey === TODAY ? 'dnes ' : ''}${formatted}`;
-  }
-
-  function renderUpdateStatus(status, updatedAt) {
-    const pill = $('statusPill');
-    const text = String(status || '');
-    const isRefreshing = /obnovuji|načítám/i.test(text);
-    const isCached = /poslední dostupná/i.test(text);
-    const label = isRefreshing ? 'Obnovuji' : isCached ? 'Poslední data' : 'Aktualizováno';
-    pill.dataset.richStatus = 'true';
-    pill.setAttribute('aria-label', `${label}, ${statusDate(updatedAt)}`);
-    pill.innerHTML = `<span class="statusPillCopy"><span class="statusPillLabel">${label}</span><strong class="statusPillDate">${statusDate(updatedAt)}</strong></span>`;
-  }
-
   function applyData(stores, offers, status) {
     const activeStores = stores.filter((store) => store.is_active !== false);
     state.stores = activeStores.sort((a,b) => a.name.localeCompare(b.name,'cs'));
