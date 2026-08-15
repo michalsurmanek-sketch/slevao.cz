@@ -83,5 +83,17 @@
 }
 
 @media(max-width:900px){
-  .topbarTipButton{display:none}
+  .topbarTipButton.accountButton{
+    width:44px;
+    min-width:44px;
+    height:44px;
+    flex:0 0 44px;
+    margin:0;
+    padding:0;
+    display:flex;
+    justify-content:center;
+    border-radius:13px;
+  }
+  .topbarTipButton.accountButton span{display:none}
+  .topbarTipButton.accountButton .accountButtonIcon{width:21px;height:21px}
 }
