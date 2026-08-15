@@ -6,7 +6,11 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OFFER_URL = 'https://prodejny.kaufland.cz/nabidka/prehled.html?kloffer-week=current';
 const SOURCE_URL = 'https://prodejny.kaufland.cz/letak.html';
 const ADAPTER = 'kaufland-products-v4-ssr';
-const PARSER_REV = 'kaufland-title-v6';
+const PARSER_REV = 'kaufland-title-v7';
+const IMAGE_OVERRIDES: Record<string, string> = {
+  // Kaufland currently maps this Zlatopramen 11 can offer to a Krušovice PET image.
+  '02312871': 'https://cdn.globusonline.cz/content/images/product/zlatopramen-11-pivo-lezak-svetly-plech-0-5-l_1250.jpg'
+};
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const CORS = {
@@ -146,7 +150,7 @@ function parseProducts(html: string) {
         const identityTitle = productTitle(detailDescription, detailTitle, title, subtitle, unit); const klNr = String(item?.klNr || '').trim() || null; if (!identityTitle) continue;
         if (klNr) { const previous = klIdentities.get(klNr); if (previous && !sameIdentity(previous, identityTitle)) throw new Error(`Kaufland klNr ${klNr} má dvě rozdílné identity: "${previous}" a "${identityTitle}".`); klIdentities.set(klNr, identityTitle); }
         const pricing = normalizedOfferPricing(detailDescription, Number(price), parseMoney(item?.formattedOldPrice));
-        result.push({ offerId, dateFrom, dateTo, title, subtitle, detailTitle, productTitle: identityTitle, detailDescription, price: pricing.price, oldPrice: pricing.oldPrice, multibuyCount: pricing.multibuyCount, discount: Number.isFinite(Number(item?.discount)) ? Number(item.discount) : null, unit, basePrice: decodeHtml(String(item?.formattedBasePrice || item?.basePrice || '').trim()), imageUrl: safeImage(item?.detailImages?.[0] || item?.listImage), klNr, label: String(item?.label || '').trim() || null, categoryName: String(category?.name || '').trim(), categoryDisplayName: decodeHtml(String(category?.displayName || '').trim()) }); seen.add(offerId);
+        result.push({ offerId, dateFrom, dateTo, title, subtitle, detailTitle, productTitle: identityTitle, detailDescription, price: pricing.price, oldPrice: pricing.oldPrice, multibuyCount: pricing.multibuyCount, discount: Number.isFinite(Number(item?.discount)) ? Number(item.discount) : null, unit, basePrice: decodeHtml(String(item?.formattedBasePrice || item?.basePrice || '').trim()), imageUrl: IMAGE_OVERRIDES[klNr || ''] || safeImage(item?.detailImages?.[0] || item?.listImage), klNr, label: String(item?.label || '').trim() || null, categoryName: String(category?.name || '').trim(), categoryDisplayName: decodeHtml(String(category?.displayName || '').trim()) }); seen.add(offerId);
       }
     }
   }
