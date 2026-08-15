@@ -6,7 +6,7 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OFFER_URL = 'https://prodejny.kaufland.cz/nabidka/prehled.html?kloffer-week=current';
 const SOURCE_URL = 'https://prodejny.kaufland.cz/letak.html';
 const ADAPTER = 'kaufland-products-v4-ssr';
-const PARSER_REV = 'kaufland-title-v7';
+const PARSER_REV = 'kaufland-title-v8';
 const IMAGE_OVERRIDES: Record<string, string> = {
   // Kaufland currently maps this Zlatopramen 11 can offer to a Krušovice PET image.
   '02312871': 'https://cdn.globusonline.cz/content/images/product/zlatopramen-11-pivo-lezak-svetly-plech-0-5-l_1250.jpg'
@@ -55,6 +55,8 @@ function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/
 const GENERIC_DETAIL = /^(?:různé druhy|mix druhů|více druhů|dle výběru|různé barvy|v různých barvách|různá provedení|i\.? jakost)$/i;
 function cleanProductPart(value: string) {
   return decodeHtml(value)
+    .replace(/^K-Mistři od fochu\s+/i, '')
+    .replace(/\s*,?\s*(?:pultový|samoobslužný)\s+prodej\s*$/i, '')
     .replace(/(?:^|[\s,;/|-]+)(?:různé druhy|mix druhů|více druhů|dle výběru|různé barvy|v různých barvách|různá provedení)(?=$|[\s,;/|-]+)/gi, ' ')
     .replace(/\s+/g, ' ')
     .replace(/^[,;/|\-–]+|[,;/|\-–]+$/g, '')
