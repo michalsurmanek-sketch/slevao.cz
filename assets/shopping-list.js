@@ -266,7 +266,7 @@
       return;
     }
     const { data, error } = await db.from('offers')
-      .select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
+      .select('id,product_id,store_id,title,price,old_price,image_url,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
       .in('product_id', productIds)
       .eq('status', 'published')
       .lte('valid_from', upcomingTo)
@@ -274,7 +274,10 @@
       .limit(5000);
     if (error) throw error;
     activeOffers = data || [];
-    renderResults();
+    rows.forEach((row) => {
+      if (!row.image_url) row.image_url = itemImage(row) || null;
+    });
+    render();
   }
 
   function cheapestFor(productId, allowedStores = null) {
@@ -355,6 +358,13 @@
       : '<div class="sfEmpty">Přidej akční produkty z domovské stránky nebo vlastní položky.</div>';
   }
 
+  function itemImage(row) {
+    if (row.image_url) return row.image_url;
+    const offer = activeOffers.find((item) => item.product_id === row.product_id && (item.image_url || item.products?.image_url));
+    const product = Array.isArray(offer?.products) ? offer.products[0] : offer?.products;
+    return offer?.image_url || product?.image_url || '';
+  }
+
   function render() {
     const active = rows.filter((row) => !row.completed);
     const readOnly = sharedMode && sharedPermission !== 'edit';
@@ -363,7 +373,8 @@
       ? rows.map((row) => `
         <article class="sfListItem ${row.completed ? 'done' : ''}" data-id="${esc(row.local_id)}">
           <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} ${readOnly ? 'disabled' : ''} aria-label="Označit jako koupené">
-          <div><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : 'Vlastní položka'))}</div></div>
+          <span class="sfItemThumb ${itemImage(row) ? 'has-image' : ''}" aria-hidden="true">${itemImage(row) ? `<img src="${esc(itemImage(row))}" alt="" loading="lazy">` : '<span>▤</span>'}</span>
+          <div class="sfItemCopy"><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : 'Vlastní položka'))}</div></div>
           <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity ${readOnly ? 'disabled' : ''} aria-label="Množství">
           <button class="sfIconButton" type="button" data-delete ${readOnly ? 'disabled' : ''} aria-label="Odstranit">×</button>
         </article>`).join('')
