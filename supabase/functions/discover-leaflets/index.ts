@@ -606,11 +606,17 @@ Deno.serve(async (request) => {
     return Response.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const body = await request.json().catch(() => ({}));
+  const requestedStore = String(body?.store_slug || '').trim().toLocaleLowerCase('cs');
+  const force = body?.force === true;
+
   const { data: sources, error } = await db.from('leaflet_sources').select('*,stores(slug)').eq('is_active', true).limit(100);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const dueSources = (sources || []).filter((source: any) =>
-    !SPECIALIZED_SOURCE_SLUGS.has(String(source.stores?.slug || '')) && isDue(source)
+    !SPECIALIZED_SOURCE_SLUGS.has(String(source.stores?.slug || ''))
+      && (!requestedStore || String(source.stores?.slug || '') === requestedStore)
+      && (force || isDue(source))
   );
   const results = [];
   for (const source of dueSources) results.push(await discoverSource(source));
