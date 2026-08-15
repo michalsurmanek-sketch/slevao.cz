@@ -298,7 +298,11 @@
   function basketRowsHtml(plan) {
     return `<div class="sqSaveBasket">${plan.selectedRows.map(({ label, offer }) => {
       const store = offer.stores?.name || 'Obchod';
-      return `<div class="sqSaveBasketRow"><span><small>${esc(label)}</small><b>${esc(offer.title || label)}</b></span><span><small>${esc(store)}</small><strong>${money(offer.price)} Kč</strong></span></div>`;
+      const image = offer.image_url || offer.products?.image_url || '';
+      const media = image
+        ? `<span class="sqSaveBasketMedia"><img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('is-empty');this.remove()"></span>`
+        : '<span class="sqSaveBasketMedia is-empty" aria-hidden="true">🏷️</span>';
+      return `<div class="sqSaveBasketRow">${media}<span class="sqSaveBasketProduct"><small>${esc(label)}</small><b>${esc(offer.title || label)}</b></span><span class="sqSaveBasketPrice"><small>${esc(store)}</small><strong>${money(offer.price)} Kč</strong></span></div>`;
     }).join('')}</div>`;
   }
 
