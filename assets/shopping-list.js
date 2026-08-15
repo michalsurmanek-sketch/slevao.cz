@@ -360,7 +360,10 @@
 
   function itemImage(row) {
     if (row.image_url) return row.image_url;
-    const offer = activeOffers.find((item) => item.product_id === row.product_id && (item.image_url || item.products?.image_url));
+    const offer = activeOffers.find((item) => {
+      const product = Array.isArray(item.products) ? item.products[0] : item.products;
+      return item.product_id === row.product_id && (item.image_url || product?.image_url);
+    });
     const product = Array.isArray(offer?.products) ? offer.products[0] : offer?.products;
     return offer?.image_url || product?.image_url || '';
   }
