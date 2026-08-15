@@ -467,7 +467,7 @@
       const modalClose = event.target.closest('[data-close-modal]'); if (modalClose) closeModal(modalClose.dataset.closeModal);
     });
     $('showAllStores').addEventListener('click', () => { state.storesExpanded = !state.storesExpanded; renderStores(); });
-    $('quickTabs').addEventListener('click', (event) => { const button = event.target.closest('[data-mode]'); if (!button) return; state.mode = button.dataset.mode; state.visible = PAGE_SIZE; document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item === button)); renderDeals(); });
+    $('quickTabs').addEventListener('click', (event) => { const button = event.target.closest('[data-mode]'); if (!button) return; state.mode = button.dataset.mode; if (state.mode === 'food') state.category = 'food'; else if (state.category === 'food') state.category = 'all'; state.visible = PAGE_SIZE; document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item === button)); renderCategories(); renderDeals(); });
     $('sortSelect').addEventListener('change', (event) => { state.sort = event.target.value; state.visible = PAGE_SIZE; renderDeals(); });
     $('storeSelect').addEventListener('change', (event) => { state.store = event.target.value; state.visible = PAGE_SIZE; renderStores(); renderDeals(); });
     $('categorySelect').addEventListener('change', (event) => { state.category = event.target.value; state.visible = PAGE_SIZE; renderCategories(); renderDeals(); });
