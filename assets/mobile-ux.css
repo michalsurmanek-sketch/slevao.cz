@@ -34,16 +34,8 @@ body{overflow-x:hidden}
     mask-size:100% 100%;
   }
   .mobileHideToday{display:none}
-  .heroStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:100%;gap:6px;flex-wrap:nowrap;margin-top:18px}
-  .heroStats>span{box-sizing:border-box;width:100%;justify-content:center;min-width:0;padding:8px 4px;font-size:10px;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:clip}
-  .heroStats>.statusPill{overflow:hidden;text-overflow:clip;line-height:1.05}
-  .statusPillIcon{display:inline-grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:#e7faf8;color:#139d94;font-size:17px;font-weight:900}
-  .statusPillCopy{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;white-space:nowrap}
-  .statusPillLabel{color:#647572;font-size:8px;font-weight:600;letter-spacing:-.02em}
-  .statusPillDate{color:#17262b;font-size:10.5px;font-weight:800}
-  .heroStatCopy{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.05;text-align:center;white-space:nowrap}
-  .heroStatLabel{color:#647572;font-size:8px;font-weight:600;letter-spacing:-.02em}
-  .heroStatValue{color:#17262b;font-size:10.5px;font-weight:800}
+  .heroStats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;flex-wrap:nowrap;margin-top:18px}
+  .heroStats>span{justify-content:center;min-width:0;padding:8px 5px;font-size:11px;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 
   .inlineHead{flex-wrap:wrap;align-items:flex-end}
   .inlineHead>div{min-width:0;flex:1 1 230px}
@@ -82,10 +74,8 @@ body{overflow-x:hidden}
 }
 
 @media(max-width:390px){
-  .heroStats{gap:3px}
-  .heroStats>span{padding-inline:2px;font-size:9px}
-  .statusPillLabel{font-size:7.5px}
-  .statusPillDate{font-size:10px}
+  .heroStats{gap:4px}
+  .heroStats>span{padding-inline:3px;font-size:10px}
   .dealGrid{grid-template-columns:1fr;gap:14px}
   .dealCard{min-height:0}
   .dealMedia{height:190px}
