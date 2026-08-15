@@ -365,22 +365,19 @@ async function attachPublishedCrop(job: any, item: ImportItem, imageUrl: string,
 }
 
 async function processImport(importId: string): Promise<void> {
-  const { data: job, error: jobError } = await db.from('leaflet_imports')
+  const { data: loadedJob, error: jobError } = await db.from('leaflet_imports')
     .select('*,stores(name,slug)')
     .eq('id', importId)
     .single();
-  if (jobError || !job) throw jobError || new Error('Import nebyl nalezen.');
+  if (jobError || !loadedJob) throw jobError || new Error('Import nebyl nalezen.');
+  const job = loadedJob as any;
   if (!['review', 'published'].includes(String(job.status || ''))) return;
 
-  await db.from('leaflet_imports').update({
-    metadata: {
-      ...(job.metadata || {}),
-      crop_processor: 'generate-leaflet-product-crops-v3',
-      crop_status: 'running',
-      crop_started_at: new Date().toISOString(),
-      crop_attempt_count: Number(job.metadata?.crop_attempt_count || 0) + 1,
-    },
-  }).eq('id', importId);
+  const runId = crypto.randomUUID();
+  const claim = await db.rpc('claim_leaflet_crop_import', { p_import_id: importId, p_run_id: runId });
+  if (claim.error) throw claim.error;
+  if (!claim.data) return;
+  job.metadata = claim.data;
 
   const { data: loadedItems, error: itemsError } = await db.from('leaflet_import_items')
     .select('id,import_id,product_id,title,brand,quantity_text,price,image_url,source_page,status,raw_data')
@@ -394,8 +391,9 @@ async function processImport(importId: string): Promise<void> {
   if (!items.length) {
     await db.from('leaflet_imports').update({ metadata: {
       ...(job.metadata || {}),
-      crop_processor: 'generate-leaflet-product-crops-v3',
+      crop_processor: 'generate-leaflet-product-crops-v4',
       crop_status: 'completed',
+      crop_run_id: null,
       crop_error: null,
       crop_blocked_reason: null,
       crop_next_retry_at: null,
@@ -484,15 +482,16 @@ async function processImport(importId: string): Promise<void> {
   await db.from('leaflet_imports').update({
     metadata: {
       ...(job.metadata || {}),
-      crop_processor: 'generate-leaflet-product-crops-v3',
+      crop_processor: 'generate-leaflet-product-crops-v4',
       crop_status: remainingGroups > 0 ? 'queued' : 'completed',
+      crop_run_id: null,
       crop_error: null,
       crop_blocked_reason: null,
       crop_next_retry_at: null,
-      public_page_urls: publicPageUrls,
-      crop_created_count: created,
-      crop_attached_count: attached,
-      crop_skipped_count: skipped,
+      public_page_urls: { ...(job.metadata?.public_page_urls || {}), ...publicPageUrls },
+      crop_created_count: Number(job.metadata?.crop_created_count || 0) + created,
+      crop_attached_count: Number(job.metadata?.crop_attached_count || 0) + attached,
+      crop_skipped_count: Number(job.metadata?.crop_skipped_count || 0) + skipped,
       crop_remaining_page_groups: remainingGroups,
       crop_finished_at: new Date().toISOString(),
     },
@@ -531,8 +530,9 @@ Deno.serve(async (request) => {
     await db.from('leaflet_imports').update({
       metadata: {
         ...(job?.metadata || {}),
-        crop_processor: 'generate-leaflet-product-crops-v3',
+        crop_processor: 'generate-leaflet-product-crops-v4',
         crop_status: blocked ? 'blocked_dependency' : 'failed',
+        crop_run_id: null,
         crop_error: errorMessage(error).slice(0, 1000),
         crop_blocked_reason: blocked ? 'image_localization_provider_unavailable' : null,
         crop_next_retry_at: retryAt,
