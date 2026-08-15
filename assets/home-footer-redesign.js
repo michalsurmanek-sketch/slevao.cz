@@ -58,12 +58,12 @@
   if (!document.querySelector('link[href*="home-save-today.css"]')) {
     const saveTodayStyle = document.createElement('link');
     saveTodayStyle.rel = 'stylesheet';
-    saveTodayStyle.href = 'assets/home-save-today.css?v=20260815-6';
+    saveTodayStyle.href = 'assets/home-save-today.css?v=20260815-7';
     document.head.appendChild(saveTodayStyle);
   }
   if (!document.querySelector('script[src*="home-save-today.js"]')) {
     const saveTodayScript = document.createElement('script');
-    saveTodayScript.src = 'assets/home-save-today.js?v=20260815-7';
+    saveTodayScript.src = 'assets/home-save-today.js?v=20260815-8';
     saveTodayScript.defer = true;
     document.head.appendChild(saveTodayScript);
   }
