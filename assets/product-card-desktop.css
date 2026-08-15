@@ -21,7 +21,7 @@
   .dealCard[data-mobile-product-card="1"] .dealChips svg{width:16px;height:16px;color:#087e75}
   .dealCard[data-mobile-product-card="1"] .dealChips b{font:inherit}
   .dealCard[data-mobile-product-card="1"] .priceRow{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:0}
-  .dealCard[data-mobile-product-card="1"] .price{font-size:38px;line-height:1;font-weight:950;letter-spacing:-1.2px;color:#121b20}
+  .dealCard[data-mobile-product-card="1"] .price{flex:0 0 100%;font-size:38px;line-height:1;font-weight:950;letter-spacing:-1.2px;color:#121b20}
   .dealCard[data-mobile-product-card="1"] .oldPrice{font-size:12px;order:3;width:100%;margin-top:-1px}
   .dealCard[data-mobile-product-card="1"] .dealPriceBadge{min-height:31px;padding:0 10px;border:1px solid #afe3de;border-radius:999px;background:#f5fbfa;color:#087e75;display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:900;white-space:nowrap}
   .dealCard[data-mobile-product-card="1"] .dealPriceBadge svg{width:15px;height:15px}
