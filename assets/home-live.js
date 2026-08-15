@@ -109,7 +109,11 @@
     const stores = api.uniqueStores(branches).slice(0, 5);
     node.innerHTML = stores.map((branch) => {
       const distance = hasDistances && Number.isFinite(Number(branch.distance_km)) ? ` · ${Number(branch.distance_km).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km` : '';
-      return `<span class="slLiveStoreTag">${esc(branch.stores?.name || branch.name || 'Obchod')}${esc(distance)}</span>`;
+      const slug = String(branch.stores?.slug || branch.store_slug || '').trim();
+      const label = `${esc(branch.stores?.name || branch.name || 'Obchod')}${esc(distance)}`;
+      return slug
+        ? `<a class="slLiveStoreTag" href="${encodeURIComponent(slug)}.html" aria-label="Otevřít obchod ${esc(branch.stores?.name || branch.name || 'Obchod')}">${label}</a>`
+        : `<span class="slLiveStoreTag">${label}</span>`;
     }).join('');
   }
 
@@ -169,11 +173,14 @@
         ? `${Number(branch.distance_km).toLocaleString('cs-CZ', { maximumFractionDigits: 1 })} km`
         : 'v zadané lokalitě';
       const address = [branch.street, branch.city].filter(Boolean).join(', ');
+      const slug = String(branch.stores?.slug || branch.store_slug || '').trim();
       const bestDeal = best ? `<span class="slLiveNearbyDeal">${esc(best.title || 'Akční nabídka')} · <b>${api.money(best.price)} Kč</b></span>` : '<span class="slLiveNearbyDeal muted">Aktuální nabídka není načtená.</span>';
-      return `<article class="slLiveNearbyRow">
+      const content = `
         <div class="slLiveNearbyMain"><span class="slLiveStoreDistance">${esc(distance)}</span><strong>${esc(storeName)}</strong><small>${esc(address || 'Evidovaná pobočka')}</small>${bestDeal}</div>
-        <span class="slLiveStoreCount">${offerCount(branch)} akcí</span>
-      </article>`;
+        <span class="slLiveStoreCount">${offerCount(branch)} akcí</span>`;
+      return slug
+        ? `<a class="slLiveNearbyRow" href="${encodeURIComponent(slug)}.html" aria-label="Otevřít nabídky obchodu ${esc(storeName)}">${content}</a>`
+        : `<article class="slLiveNearbyRow">${content}</article>`;
     }).join('');
   }
 

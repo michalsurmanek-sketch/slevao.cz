@@ -252,7 +252,7 @@
 (() => {
   'use strict';
 
-  const STORAGE_KEY = 'slevao-deal-card-view';
+  const STORAGE_KEY = 'slevao-deal-card-view-v2';
   const grid = document.getElementById('dealGrid');
   const toolbar = document.querySelector('.dealsContent .toolbar');
   if (!grid || !toolbar || toolbar.querySelector('.dealViewControl')) return;
@@ -271,7 +271,7 @@
       const value = localStorage.getItem(STORAGE_KEY);
       if (value === 'classic' || value === 'leaflet' || value === 'mini') return value;
     } catch {}
-    return 'leaflet';
+    return 'mini';
   };
 
   const control = document.createElement('div');
@@ -281,8 +281,8 @@
   control.innerHTML = `
     <span class="dealViewLabel">Zobrazení:</span>
     <span class="dealViewSwitch">
-      <button class="dealViewButton" type="button" data-card-view="classic" aria-pressed="false">${icon('classic')}<span>Klasické karty</span></button>
       <button class="dealViewButton" type="button" data-card-view="mini" aria-pressed="false">${icon('mini')}<span>Mini karty</span></button>
+      <button class="dealViewButton" type="button" data-card-view="classic" aria-pressed="false">${icon('classic')}<span>Klasické karty</span></button>
       <button class="dealViewButton" type="button" data-card-view="leaflet" aria-pressed="false">${icon('leaflet')}<span>Letákové karty</span></button>
     </span>
     <span class="dealViewHint">Přepněte velikost a styl produktových karet</span>
@@ -295,7 +295,7 @@
   const buttons = [...control.querySelectorAll('[data-card-view]')];
 
   const applyView = (view, persist = true) => {
-    const next = ['classic', 'mini', 'leaflet'].includes(view) ? view : 'classic';
+    const next = ['classic', 'mini', 'leaflet'].includes(view) ? view : 'mini';
     grid.dataset.cardView = next;
     buttons.forEach((button) => {
       const active = button.dataset.cardView === next;
