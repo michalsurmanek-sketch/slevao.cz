@@ -3,6 +3,36 @@
 
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const CONFIG = {
+    pivo: {
+      label:'Pivo', title:'Pivo v akci', info:'Zobrazujeme jen pivo a pivní nápoje', icon:'🍺',
+      types:[['pivo','Vše'],['lezak','Ležáky'],['vycepni pivo','Výčepní'],['nealkoholicke pivo','Nealkoholické'],['radler','Radlery']],
+      forms:[['pivo','Všechna','♧'],['pivo plech','Plechovky','▣'],['pivo lahev','Lahve','◒'],['multipack pivo','Multipacky','▱']]
+    },
+    mleko: {
+      label:'Mléko', title:'Mléko v akci', info:'Zobrazujeme jen mléko a mléčné nápoje', icon:'🥛',
+      types:[['mleko','Vše'],['plnotucne mleko','Plnotučné'],['polotucne mleko','Polotučné'],['bezlaktozove mleko','Bez laktózy'],['rostlinny napoj','Rostlinné']],
+      forms:[['mleko','Všechna','♧'],['cerstve mleko','Čerstvé','◒'],['trvanlive mleko','Trvanlivé','▱'],['kondenzovane mleko','Kondenzované','◉']]
+    },
+    pecivo: {
+      label:'Pečivo', title:'Pečivo v akci', info:'Zobrazujeme jen pečivo a pekařské výrobky', icon:'🥖',
+      types:[['pecivo','Vše'],['chleb','Chléb'],['rohliky','Rohlíky'],['housky','Housky'],['bagety','Bagety'],['sladke pecivo','Sladké']],
+      forms:[['pecivo','Všechno','♧'],['cerstve pecivo','Čerstvé','◒'],['balene pecivo','Balené','▱'],['bezlepkove pecivo','Bezlepkové','◎']]
+    },
+    vejce: {
+      label:'Vejce', title:'Vejce v akci', info:'Zobrazujeme jen vejce a vaječné produkty', icon:'🥚',
+      types:[['vejce','Vše'],['slepicí vejce','Slepičí'],['krepelci vejce','Křepelčí'],['vejce m','Velikost M'],['vejce l','Velikost L']],
+      forms:[['vejce','Všechna','♧'],['vejce volny vybeh','Volný výběh','◒'],['vejce podestylka','Podestýlka','▱'],['bio vejce','Bio','◎']]
+    },
+    maslo: {
+      label:'Máslo', title:'Máslo v akci', info:'Zobrazujeme jen máslo a máselné výrobky', icon:'🧈',
+      types:[['maslo','Vše'],['klasicke maslo','Klasické'],['prepustene maslo','Přepuštěné'],['solene maslo','Solené'],['ochucene maslo','Ochucené']],
+      forms:[['maslo','Všechna','♧'],['maslo kostka','Kostka','◒'],['maslo kelimek','Kelímek','▱']]
+    },
+    syr: {
+      label:'Sýr', title:'Sýry v akci', info:'Zobrazujeme jen sýry a sýrové výrobky', icon:'🧀',
+      types:[['syr','Vše'],['eidam','Eidam'],['gouda','Gouda'],['hermelin','Hermelín'],['mozzarella','Mozzarella'],['taveny syr','Tavené']],
+      forms:[['syr','Všechny','♧'],['tvrdy syr','Tvrdé','◒'],['mekky syr','Měkké','▱'],['platkovy syr','Plátkové','▤'],['strouhany syr','Strouhané','◎']]
+    },
     maso: {
       label:'Maso', title:'Čerstvé maso v akci', info:'Zobrazujeme jen skutečné čerstvé maso', icon:'🥩',
       types:[['maso','Vše'],['veprove','Vepřové'],['kureci','Kuřecí'],['hovezi','Hovězí'],['kruti','Krůtí'],['mlete','Mleté'],['ryby','Ryby']],
