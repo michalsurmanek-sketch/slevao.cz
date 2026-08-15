@@ -41,6 +41,9 @@ body{overflow-x:hidden}
   .statusPillCopy{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;white-space:nowrap}
   .statusPillLabel{color:#647572;font-size:8px;font-weight:600;letter-spacing:-.02em}
   .statusPillDate{color:#17262b;font-size:10.5px;font-weight:800}
+  .heroStatCopy{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.05;text-align:center;white-space:nowrap}
+  .heroStatLabel{color:#647572;font-size:8px;font-weight:600;letter-spacing:-.02em}
+  .heroStatValue{color:#17262b;font-size:10.5px;font-weight:800}
 
   .inlineHead{flex-wrap:wrap;align-items:flex-end}
   .inlineHead>div{min-width:0;flex:1 1 230px}
