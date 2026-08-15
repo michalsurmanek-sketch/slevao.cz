@@ -2,6 +2,31 @@
 .miniAdCard{display:none}
 
 @media(min-width:801px){
+  #dealGrid[data-card-view="classic"] .miniAdCard,
+  #dealGrid[data-card-view="leaflet"] .miniAdCard{
+    position:relative;isolation:isolate;grid-column:span 2;min-height:190px;padding:24px 28px;border:1px solid #79d8d0;border-radius:22px;
+    background:radial-gradient(circle at 82% 18%,rgba(255,255,255,.32),transparent 25%),linear-gradient(135deg,#087e75 0%,#159e94 58%,#24b9ad 100%);
+    color:#fff;box-shadow:0 14px 34px rgba(7,126,117,.17);overflow:hidden;display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"label label label" "mark content action";align-items:center;gap:14px 22px;
+  }
+  #dealGrid[data-card-view="classic"] .miniAdCard::after,
+  #dealGrid[data-card-view="leaflet"] .miniAdCard::after{
+    content:"";position:absolute;z-index:-1;right:-38px;bottom:-105px;width:270px;height:270px;border:38px solid rgba(255,255,255,.08);border-radius:50%;
+  }
+  #dealGrid[data-card-view="classic"] .miniAdLabel,
+  #dealGrid[data-card-view="leaflet"] .miniAdLabel{grid-area:label;width:max-content}
+  #dealGrid[data-card-view="classic"] .miniAdMark,
+  #dealGrid[data-card-view="leaflet"] .miniAdMark{grid-area:mark;width:72px;height:72px;border-radius:20px;font-size:38px}
+  #dealGrid[data-card-view="classic"] .miniAdContent,
+  #dealGrid[data-card-view="leaflet"] .miniAdContent{grid-area:content;max-width:560px}
+  #dealGrid[data-card-view="classic"] .miniAdContent strong,
+  #dealGrid[data-card-view="leaflet"] .miniAdContent strong{font-size:27px}
+  #dealGrid[data-card-view="classic"] .miniAdContent p,
+  #dealGrid[data-card-view="leaflet"] .miniAdContent p{font-size:13px}
+  #dealGrid[data-card-view="classic"] .miniAdAction,
+  #dealGrid[data-card-view="leaflet"] .miniAdAction{grid-area:action;min-width:210px;min-height:48px;padding:0 16px;font-size:12px}
+}
+
+@media(min-width:801px){
   #dealGrid[data-card-view="mini"]{
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
     gap:12px!important;
@@ -118,4 +143,11 @@
   .dealViewButton span{display:none}
   .dealViewButton{width:38px;padding:0}
   #dealGrid[data-card-view="mini"]{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+}
+
+@media(min-width:801px) and (max-width:980px){
+  #dealGrid[data-card-view="classic"] .miniAdCard,
+  #dealGrid[data-card-view="leaflet"] .miniAdCard{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"label label" "mark content" "action action";padding:20px;gap:12px 16px}
+  #dealGrid[data-card-view="classic"] .miniAdAction,
+  #dealGrid[data-card-view="leaflet"] .miniAdAction{min-width:0}
 }
