@@ -105,3 +105,41 @@ body.sfPage{
   #profileArea .sfStat{min-height:100px;padding:16px}
   #profileArea .sfPanel{padding:18px}
 }
+
+
+/* Produktové miniatury u cenových hlídačů */
+#alerts{display:grid;gap:10px}
+#alerts .sfAlertRow{
+  min-height:92px;
+  padding:11px 14px;
+  grid-template-columns:68px minmax(0,1fr) auto auto;
+  gap:13px;
+  border:1px solid var(--account-line);
+  border-radius:18px;
+  background:#fff;
+  transition:.16s ease;
+}
+#alerts .sfAlertRow:hover{border-color:#b8ddd8;box-shadow:0 10px 24px rgba(17,80,73,.07);transform:translateY(-1px)}
+.sfAlertMedia{
+  width:68px;height:68px;display:grid;place-items:center;overflow:hidden;
+  border:1px solid #dcebe8;border-radius:15px;background:linear-gradient(145deg,#f2fbf9,#fff);
+  color:var(--account-brand);font-size:28px;font-weight:950;text-decoration:none
+}
+.sfAlertMedia img{width:100%;height:100%;padding:5px;display:block;object-fit:contain;background:#fff}
+.sfAlertCopy{min-width:0}
+.sfAlertCopy>strong{display:block;margin-bottom:5px;font-size:17px;line-height:1.25}
+.sfAlertCopy>strong a{color:var(--account-ink);text-decoration:none}
+.sfAlertCopy>strong a:hover{color:var(--account-dark);text-decoration:underline}
+.sfAlertCopy .sfMuted{font-size:13px;line-height:1.45}
+.sfAlertState{display:inline-flex;margin-top:7px;padding:4px 8px;border-radius:999px;background:#e6f8f4;color:#087b75;font-size:10px;font-weight:900}
+.sfAlertRow.is-paused .sfAlertMedia{filter:grayscale(1);opacity:.6}
+.sfAlertRow.is-paused .sfAlertState{background:#f1f3f2;color:#6a7775}
+#alerts .sfAlertRow>.sfButton{min-height:44px;align-self:center}
+@media(max-width:720px){
+  #alerts .sfAlertRow{grid-template-columns:54px minmax(0,1fr) 1fr 1fr;gap:9px;padding:10px}
+  .sfAlertMedia{width:54px;height:54px;border-radius:12px}
+  .sfAlertCopy{grid-column:2/-1}
+  #alerts .sfAlertRow>.sfButton{width:100%;min-width:0;padding:0 8px}
+  #alerts .sfAlertRow>[data-toggle]{grid-column:1/3}
+  #alerts .sfAlertRow>[data-delete]{grid-column:3/5}
+}
