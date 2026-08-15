@@ -12,10 +12,56 @@
   const redirect = params.get('redirect') || 'ucet.html';
   let session = null;
   let notificationChannel = null;
+  let notificationPoll = 0;
+  const SEEN_NOTIFICATION_KEY = 'slevao-seen-live-notifications';
 
   function message(text, bad = false) {
     $('accountMessage').textContent = text;
     $('accountMessage').style.color = bad ? '#b32631' : '#0b7a58';
+  }
+
+  function seenNotificationIds() {
+    try {
+      const ids = JSON.parse(localStorage.getItem(SEEN_NOTIFICATION_KEY) || '[]');
+      return new Set(Array.isArray(ids) ? ids.slice(-100) : []);
+    } catch { return new Set(); }
+  }
+
+  function rememberNotification(id) {
+    if (!id) return;
+    const ids = [...seenNotificationIds(), id].slice(-100);
+    try { localStorage.setItem(SEEN_NOTIFICATION_KEY, JSON.stringify(ids)); } catch {}
+  }
+
+  function updateBrowserAlertButton() {
+    const button = $('enableBrowserAlerts');
+    if (!button) return;
+    if (!('Notification' in window)) {
+      button.hidden = true;
+      return;
+    }
+    button.hidden = false;
+    button.textContent = Notification.permission === 'granted' ? 'Oznámení zapnuta' : 'Zapnout oznámení';
+    button.disabled = Notification.permission === 'granted';
+  }
+
+  function deliverBrowserNotification(row) {
+    if (!row?.id || seenNotificationIds().has(row.id)) return;
+    rememberNotification(row.id);
+    if (!('Notification' in window) || Notification.permission !== 'granted') return;
+    const target = row.product_id
+      ? new URL(`produkt.html?id=${encodeURIComponent(row.product_id)}`, location.href).href
+      : new URL('ucet.html', location.href).href;
+    const notice = new Notification(row.title || 'Slevao.cz našlo požadovanou cenu', {
+      body: row.message || 'Sledovaný produkt právě splnil nastavený cenový limit.',
+      icon: new URL('favicon.svg', location.href).href,
+      tag: `slevao-${row.id}`
+    });
+    notice.onclick = () => {
+      window.focus();
+      location.href = target;
+      notice.close();
+    };
   }
 
   async function processPendingAlert() {
@@ -109,9 +155,24 @@
     if (!session || notificationChannel) return;
     notificationChannel = db.channel(`slevao-notifications-${session.user.id}`)
       .on('postgres_changes', {
-        event: '*', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}`
-      }, () => loadAccountData().catch(() => {}))
+        event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}`
+      }, ({ new: row }) => {
+        deliverBrowserNotification(row);
+        message(row.message || 'Sledovaný produkt právě splnil nastavenou cenu.');
+        loadAccountData().catch(() => {});
+      })
       .subscribe();
+    clearInterval(notificationPoll);
+    notificationPoll = window.setInterval(async () => {
+      const { data } = await db.from('notifications')
+        .select('id,title,message,product_id')
+        .eq('user_id', session.user.id)
+        .eq('is_read', false)
+        .order('created_at', { ascending:false })
+        .limit(5);
+      (data || []).reverse().forEach(deliverBrowserNotification);
+      await loadCounts();
+    }, 60000);
   }
 
   async function renderSession() {
@@ -125,6 +186,8 @@
         await db.removeChannel(notificationChannel);
         notificationChannel = null;
       }
+      clearInterval(notificationPoll);
+      notificationPoll = 0;
       return;
     }
 
@@ -235,9 +298,19 @@
     await Promise.all([loadCounts(), loadNotifications()]);
   });
 
+  $('enableBrowserAlerts')?.addEventListener('click', async () => {
+    if (!('Notification' in window)) return;
+    const permission = await Notification.requestPermission();
+    updateBrowserAlertButton();
+    message(permission === 'granted'
+      ? 'Oznámení jsou zapnutá. Když sledovaná cena klesne, Slevao tě upozorní.'
+      : 'Oznámení nebyla povolena. Upozornění zůstanou dostupná v účtu.', permission === 'denied');
+  });
+
   const remembered = params.get('email') || localStorage.getItem('slevao-account-email') || '';
   $('loginEmail').value = remembered;
   $('registerEmail').value = remembered;
+  updateBrowserAlertButton();
   db.auth.onAuthStateChange(() => setTimeout(renderSession, 0));
   renderSession();
 })();
