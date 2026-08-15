@@ -39,6 +39,78 @@
     custom: { title:'Vlastní zadání', icon:'✦', defaultRequest:'', items:[] }
   };
 
+
+  const CUSTOM_PRODUCTS = [
+    ['Mléko',['mleko']],['Vejce',['vejce']],['Máslo',['maslo']],['Sýr',['syr']],
+    ['Šunka',['sunka']],['Pečivo',['rohlik','chleb','baget','peciv']],['Kuřecí maso',['kureci','kure']],
+    ['Vepřové maso',['veprove','krkov']],['Klobása',['klobas']],['Brambory',['brambor']],
+    ['Rajčata',['rajcat']],['Paprika',['paprik']],['Banány',['banan']],['Jablka',['jablk']],
+    ['Ovoce',['ovoce','pomeranc','mandarink','hrozny']],['Voda',['voda']],
+    ['Nealko nápoje',['cola','limonad','dzus']],['Pivo',['pivo']],['Víno',['vino']],
+    ['Slané občerstvení',['chips','brambur','krupk']],['Sladkosti',['cokolad','bonbon','susenk']],
+    ['Dort nebo zákusek',['dort','zakusek']],['Káva',['kava']],['Čaj',['caj']]
+  ];
+
+  function scaled(people, serves = 4) {
+    return Math.max(1, Math.ceil(Number(people || 1) / serves));
+  }
+
+  function customTemplate(brief) {
+    const request = fold(brief.request);
+    const people = Math.max(1, Number(brief.people || 1));
+    const items = [];
+    const add = (label, terms, quantity = 1) => {
+      if (!items.some((item) => item[0] === label)) items.push([label, terms, Math.max(1, Number(quantity || 1))]);
+    };
+
+    if (/narozen|oslava|party|vecirek/.test(request)) {
+      add('Dort nebo zákusek',['dort','zakusek'],scaled(people,8));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,4));
+      add('Sladkosti',['cokolad','bonbon','susenk'],scaled(people,5));
+      add('Nealko nápoje',['cola','limonad','dzus'],scaled(people,3));
+      add('Voda',['voda'],scaled(people,3));
+      add('Pečivo',['baget','chleb','rohlik','peciv'],scaled(people,4));
+      add('Šunka',['sunka'],scaled(people,5));
+      add('Sýr',['syr'],scaled(people,5));
+      add('Ovoce',['ovoce','hrozny','mandarink','jablk'],scaled(people,4));
+    }
+    if (/snidan|brunch/.test(request)) {
+      add('Pečivo',['rohlik','chleb','baget','peciv'],scaled(people,3));
+      add('Vejce',['vejce'],scaled(people,4));
+      add('Máslo',['maslo'],scaled(people,6));
+      add('Sýr',['syr'],scaled(people,5));
+      add('Šunka',['sunka'],scaled(people,5));
+      add('Mléko',['mleko'],scaled(people,4));
+      add('Káva',['kava'],scaled(people,8));
+    }
+    if (/piknik|vylet/.test(request)) {
+      add('Pečivo',['baget','rohlik','chleb','peciv'],scaled(people,3));
+      add('Sýr',['syr'],scaled(people,4));
+      add('Šunka',['sunka'],scaled(people,4));
+      add('Ovoce',['ovoce','jablk','hrozny','banan'],scaled(people,3));
+      add('Voda',['voda'],scaled(people,2));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,5));
+    }
+    if (/gril|grilovan/.test(request)) {
+      TEMPLATES.grill.items.forEach(([label, terms]) => add(label, terms, scaled(people,4)));
+    }
+    if (/tyden|bezny nakup|zakladni nakup/.test(request)) {
+      TEMPLATES.weekly.items.forEach(([label, terms]) => add(label, terms, 1));
+    }
+
+    CUSTOM_PRODUCTS.forEach(([label, terms]) => {
+      if (terms.some((term) => request.includes(fold(term)))) add(label, terms, scaled(people,4));
+    });
+
+    if (!items.length) {
+      const stop = new Set(['pro','na','do','od','bez','a','nebo','chci','potrebuji','nakup','nakoupit','lidi','lidi','osob']);
+      const words = [...new Set(request.split(/[^a-z0-9]+/).filter((word) => word.length >= 3 && !stop.has(word)))].slice(0,10);
+      words.forEach((word) => add(word.charAt(0).toUpperCase() + word.slice(1), [word], 1));
+    }
+
+    return { title: brief.request || 'Vlastní zadání', icon:'✦', custom:true, items };
+  }
+
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
@@ -192,9 +264,10 @@
   }
 
   function matchingCandidates(template, offers) {
-    return template.items.map(([label, terms]) => ({
+    return template.items.map(([label, terms, quantity = 1]) => ({
       label,
       terms,
+      quantity,
       offers: offers.filter((offer) => {
         if (!offer.product_id || !Number.isFinite(Number(offer.price)) || Number(offer.price) <= 0) return false;
         const text = offerText(offer);
@@ -218,11 +291,11 @@
       const best = candidates[0];
       if (!best) { missing.push(item.label); continue; }
       usedProducts.add(String(best.product_id));
-      selectedRows.push({ label: item.label, offer: best });
+      selectedRows.push({ label: item.label, offer: best, quantity: item.quantity });
       const price = Number(best.price || 0);
       const oldPrice = Number(best.old_price || 0);
-      total += price;
-      reference += oldPrice > price ? oldPrice : price;
+      total += price * item.quantity;
+      reference += (oldPrice > price ? oldPrice : price) * item.quantity;
     }
 
     const usedStores = [...new Set(selectedRows.map((row) => String(row.offer.store_id)))];
@@ -296,13 +369,13 @@
   }
 
   function basketRowsHtml(plan) {
-    return `<div class="sqSaveBasket">${plan.selectedRows.map(({ label, offer }) => {
+    return `<div class="sqSaveBasket">${plan.selectedRows.map(({ label, offer, quantity = 1 }) => {
       const store = offer.stores?.name || 'Obchod';
       const image = offer.image_url || offer.products?.image_url || '';
       const media = image
         ? `<span class="sqSaveBasketMedia"><img src="${esc(image)}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="this.parentElement.classList.add('is-empty');this.remove()"></span>`
         : '<span class="sqSaveBasketMedia is-empty" aria-hidden="true">🏷️</span>';
-      return `<div class="sqSaveBasketRow">${media}<span class="sqSaveBasketProduct"><small>${esc(label)}</small><b>${esc(offer.title || label)}</b></span><span class="sqSaveBasketPrice"><small>${esc(store)}</small><strong>${money(offer.price)} Kč</strong></span></div>`;
+      return `<div class="sqSaveBasketRow">${media}<span class="sqSaveBasketProduct"><small>${quantity > 1 ? `${quantity}× · ` : ''}${esc(label)}</small><b>${esc(offer.title || label)}</b></span><span class="sqSaveBasketPrice"><small>${esc(store)}</small><strong>${money(offer.price)} Kč</strong></span></div>`;
     }).join('')}</div>`;
   }
 
@@ -328,7 +401,8 @@
     try {
       const api = await getApi();
       const context = await loadPlanningContext(modal, brief);
-      const template = TEMPLATES[selected];
+      const template = selected === 'custom' ? customTemplate(brief) : TEMPLATES[selected];
+      if (!template.items.length) throw new Error('Napište, co plánujete nebo jaké produkty potřebujete.');
       const plan = selectBestPlan(template, context.offers, context, brief.max_stores);
       if (!plan?.selectedRows?.length) throw new Error('Pro tuto šablonu dnes nebyly nalezeny propojené nabídky ve zvoleném rozsahu.');
 
@@ -343,6 +417,12 @@
           currentProducts.add(String(offer.product_id));
         }
       });
+      const updatedList = api.readList?.() || [];
+      plan.selectedRows.forEach(({ offer, quantity = 1 }) => {
+        const item = updatedList.find((row) => !row.completed && String(row.product_id) === String(offer.product_id));
+        if (item) item.quantity = Math.max(Number(item.quantity || 1), Number(quantity || 1));
+      });
+      api.writeList?.(updatedList);
 
       const budgetText = brief.budget
         ? (plan.total <= brief.budget
@@ -370,7 +450,7 @@
         Doložená úspora z původních cen: ${money(plan.savings)} Kč.${esc(budgetText)}${esc(routeText)}
         ${basketHtml}
         <b>Obchody:</b> ${esc(stores || 'podle nalezených nabídek')}. Přidáno ${added} nových položek${already ? `, ${already} už v seznamu` : ''}.${esc(missingText)}<br>
-        <small>${esc(modeText)} Jde o transparentní šablonu po 1 balení nalezeného produktu, ne AI odhad množství pro ${brief.people} osob. Množství uprav podle konkrétní gramáže.</small><br>
+        <small>${esc(modeText)} Množství je orientačně přepočítané pro ${brief.people} osob podle typu nákupu; před nákupem je můžeš upravit v seznamu.</small><br>
         ${routeLink}<a href="seznam.html?route=1">Otevřít seznam a dopočítat nejlevnější trasu →</a>`;
     } catch (error) {
       result.className = 'sqSaveResult bad';
@@ -388,7 +468,7 @@
     const template = TEMPLATES[key];
     const request = modal.querySelector('#sqSaveRequest');
     if (!request.value.trim() || Object.values(TEMPLATES).some((item) => item.defaultRequest === request.value.trim())) request.value = template.defaultRequest;
-    modal.querySelector('#sqSaveAction').textContent = key === 'custom' ? 'Uložit zadání' : 'Najít nejlevnější lokální nákup';
+    modal.querySelector('#sqSaveAction').textContent = 'Najít nejlevnější lokální nákup';
     modal.querySelector('#sqSaveResult').hidden = true;
   }
 
@@ -422,7 +502,7 @@
         <div class="sqSaveScenarios">
           <button class="sqSaveScenario active" type="button" data-sq-scenario="grill"><span>🔥</span>Grilování<small>Vybere dnešní akce pro základní grilovací košík.</small></button>
           <button class="sqSaveScenario" type="button" data-sq-scenario="weekly"><span>🛒</span>Týdenní základ<small>Najde běžné základní potraviny v dnešních akcích.</small></button>
-          <button class="sqSaveScenario" type="button" data-sq-scenario="custom"><span>✦</span>Vlastní zadání<small>Uloží zadání pro budoucí chytrý planner bez vymyšlené odpovědi.</small></button>
+          <button class="sqSaveScenario" type="button" data-sq-scenario="custom"><span>✦</span>Vlastní zadání<small>Sestaví nákup z dnešních akcí podle tvého popisu.</small></button>
         </div>
         <div class="sqSaveFields">
           <label class="sqSaveField full">Co plánuješ?<textarea id="sqSaveRequest" placeholder="Např. Grilování pro 6 lidí do 1200 Kč">${TEMPLATES.grill.defaultRequest}</textarea></label>
@@ -448,11 +528,6 @@
       const brief = saveBrief(modal);
       const result = modal.querySelector('#sqSaveResult');
       result.hidden = false;
-      if (selected === 'custom') {
-        result.className = 'sqSaveResult good';
-        result.innerHTML = '<strong>Zadání je uložené</strong>Vlastní požadavek zatím neposíláme do žádné falešné AI. Datová struktura včetně lokality, rozpočtu a max. počtu obchodů je připravená pro budoucí planner.<br><a href="seznam.html?route=1">Otevřít nákupní seznam →</a>';
-        return;
-      }
       await runTemplate(modal, brief);
     });
     toggleLocationFields(modal);
