@@ -71,7 +71,7 @@
   const SEARCH_EXCLUSIONS = {
     maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni'],
     ovoce: ['dzus','nektar','napoj','stava','limon','sirup','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj'],
-    zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj']
+    zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj','salam','klobas','parek','sunka','slanina','uzen','maso','masov','pastik','tlacenk','burg','rizk','karbanat']
   };
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
