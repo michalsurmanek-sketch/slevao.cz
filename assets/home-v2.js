@@ -705,7 +705,29 @@
     document.addEventListener('keydown', (event) => { if (event.key === 'Escape') document.querySelectorAll('.modal:not([hidden])').forEach((modal) => closeModal(modal.id)); });
   }
 
-  function applyData(stores, offers, status) {
+  function statusDate(value) {
+    const parsed = new Date(Number(value) || value || Date.now());
+    const dateKey = pragueDateKey(parsed);
+    const formatted = new Intl.DateTimeFormat('cs-CZ', {
+      timeZone:'Europe/Prague',
+      day:'numeric',
+      month:'numeric'
+    }).format(parsed);
+    return `${dateKey === TODAY ? 'dnes ' : ''}${formatted}`;
+  }
+
+  function renderUpdateStatus(status, updatedAt) {
+    const pill = $('statusPill');
+    const text = String(status || '');
+    const isRefreshing = /obnovuji|načítám/i.test(text);
+    const isCached = /poslední dostupná/i.test(text);
+    const label = isRefreshing ? 'Obnovuji' : isCached ? 'Poslední data' : 'Aktualizováno';
+    pill.dataset.richStatus = 'true';
+    pill.setAttribute('aria-label', `${label}, ${statusDate(updatedAt)}`);
+    pill.innerHTML = `<span class="statusPillCopy"><span class="statusPillLabel">${label}</span><strong class="statusPillDate">${statusDate(updatedAt)}</strong></span>`;
+  }
+
+  function applyData(stores, offers, status, updatedAt = Date.now()) {
     const activeStores = stores.filter((store) => store.is_active !== false);
     state.stores = activeStores.sort((a,b) => a.name.localeCompare(b.name,'cs'));
     state.offers = deduplicate(offers).filter((offer) => offer.is_verified === true && activeStores.some((store) => store.slug === offer.stores?.slug));
@@ -714,27 +736,28 @@
     $('offerCount').textContent = state.offers.length.toLocaleString('cs-CZ');
     const currentCount = state.offers.filter((offer) => !isUpcoming(offer)).length;
     const nextStart = [...new Set(state.offers.filter(isUpcoming).map((offer) => offer.valid_from).filter(Boolean))].sort()[0];
-    const mobileStatus = matchMedia('(max-width: 800px)').matches;
-    const visibleStatus = mobileStatus
-      ? (/obnovuji/i.test(String(status)) ? 'Obnovuji' : /načítám/i.test(String(status)) ? 'Aktualizováno' : String(status).replace(' dnes', ''))
-      : status;
-    $('statusPill').textContent = !currentCount && state.offers.length && nextStart ? `✓ Nabídky platí od ${date(nextStart)}` : visibleStatus;
+    if (!currentCount && state.offers.length && nextStart) {
+      $('statusPill').removeAttribute('data-rich-status');
+      $('statusPill').textContent = `✓ Nabídky platí od ${date(nextStart)}`;
+    } else {
+      renderUpdateStatus(status, updatedAt);
+    }
     renderAll();
   }
 
   async function load() {
     const cache = readJSON(CACHE_KEY, null);
-    if (cache && Date.now() - cache.savedAt < 6 * 60 * 60 * 1000) applyData(cache.stores || [], cache.offers || [], 'Obnovuji aktuální data…');
+    if (cache && Date.now() - cache.savedAt < 6 * 60 * 60 * 1000) applyData(cache.stores || [], cache.offers || [], 'Obnovuji aktuální data…', cache.savedAt);
     try {
       const [stores, offers] = await Promise.all([
         rest('stores', { select:'id,name,slug,logo_url,primary_color,is_active', is_active:'eq.true', order:'name.asc' }),
         fetchOffers()
       ]);
       writeJSON(CACHE_KEY, { savedAt:Date.now(), stores, offers });
-      applyData(stores, offers, '✓ Aktualizováno dnes');
+      applyData(stores, offers, '✓ Aktualizováno dnes', Date.now());
     } catch (error) {
       console.error(error);
-      if (cache) { applyData(cache.stores || [], cache.offers || [], 'Zobrazuji poslední dostupná data'); return; }
+      if (cache) { applyData(cache.stores || [], cache.offers || [], 'Zobrazuji poslední dostupná data', cache.savedAt); return; }
       $('statusPill').textContent = 'Nabídky se nepodařilo načíst';
       $('dealGrid').innerHTML = `<div class="errorState"><strong>Data se nepodařilo načíst</strong><span>${esc(error.message || 'Zkontroluj připojení a zkus to znovu.')}</span><button class="primaryButton" onclick="location.reload()">Načíst znovu</button></div>`;
     }
