@@ -41,7 +41,7 @@
     zelenina: ['zelenin','brambor','cibul','cesnek','rajcat','paprik','okurk','mrkev','petrzel','celer','kedlub','kvetak','brokolic','cuketa','lilek','redkv','repa','kapust','zeli','salat','spenat','hras','kukuric','fazol'],
     pivo: ['pivo','pivn','lezak','radler','pils','porter','stout']
   };
-  const SEARCH_EXACT_TERMS = { maso: new Set(['plec','plece','pleci']) };
+  const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci']) };
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
     albert:'albert.cz',billa:'billa.cz',coop:'coop.cz',globus:'globus.cz',hruska:'mojehruska.cz',kaufland:'kaufland.cz',lidl:'lidl.cz',makro:'makro.cz',penny:'penny.cz',tesco:'itesco.cz',
