@@ -93,7 +93,7 @@
   #dealGrid[data-card-view="leaflet"] .endingBadge{display:none!important}
   #dealGrid[data-card-view="leaflet"] .dealMenu{z-index:7;left:0!important;top:0!important;background:rgba(255,255,255,.9)!important;border:1px solid #e2e9e7!important}
   #dealGrid[data-card-view="leaflet"] .dealInfo{position:static!important;align-self:start!important;padding:2px 0 10px!important}
-  #dealGrid[data-card-view="leaflet"] .saveOffer{z-index:9;left:48px!important;right:auto!important;top:20px!important;width:38px!important;height:38px!important;border:1px solid #e2e9e7!important;border-radius:11px!important;background:rgba(255,255,255,.94)!important;font-size:24px!important}
+  #dealGrid[data-card-view="leaflet"] .saveOffer{z-index:9;left:70px!important;right:auto!important;top:20px!important;width:38px!important;height:38px!important;border:1px solid #e2e9e7!important;border-radius:11px!important;background:rgba(255,255,255,.94)!important;font-size:24px!important}
   #dealGrid[data-card-view="leaflet"] .storeLine{width:max-content;max-width:calc(100% - 10px);min-height:30px!important;margin:0 0 11px!important;padding:5px 10px!important;border-radius:9px;background:var(--deal-store-color,#087e75);color:#fff!important;box-shadow:0 4px 10px rgba(7,126,117,.15)}
   #dealGrid[data-card-view="leaflet"] .storeLine>span:not(.dealBrandName){color:#fff!important}
   #dealGrid[data-card-view="leaflet"] .dealBrandName{color:rgba(255,255,255,.80)!important}
