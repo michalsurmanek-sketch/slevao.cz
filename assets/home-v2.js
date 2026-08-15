@@ -205,8 +205,13 @@
       const exactTerms = SEARCH_EXACT_TERMS[query];
       rows = rows.filter((offer) => {
         const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.categories?.name].join(' '));
-        const words = haystack.replace(/[^a-z0-9]+/g, ' ').trim().split(/\s+/);
-        return terms.some((term) => exactTerms?.has(term) ? words.includes(term) : haystack.includes(term));
+        const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
+        const words = normalized.split(/\s+/);
+        return terms.some((term) => {
+          if (exactTerms?.has(term)) return words.includes(term);
+          if (term.includes(' ')) return (` ${normalized} `).includes(` ${term} `);
+          return words.some((word) => word.startsWith(term));
+        });
       });
     }
     if (state.minPrice !== null) rows = rows.filter((offer) => priceOf(offer) >= state.minPrice);
