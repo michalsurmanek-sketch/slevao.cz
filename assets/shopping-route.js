@@ -17,16 +17,23 @@
     section.className = 'srRoute';
     section.innerHTML = `
       <div class="srRouteHead">
-        <div><span class="srRouteBadge">GPS optimizer</span><h2>Nejlevnější trasa nákupu</h2><p>Nejde jen po nejlevnějších produktech. Započítá maximální počet obchodů, vzdálenost k reálným pobočkám a váhu každé další zastávky.</p></div>
+        <div class="srRouteTitle"><span class="srRouteBadge">GPS optimizer</span><h2>Nejvýhodnější nákup ve tvém okolí</h2><p>Porovná cenu celého košíku s cestou k reálným pobočkám a doporučí, zda se další zastávka opravdu vyplatí.</p></div>
+        <div class="srGpsTrust"><span>⌖</span><div><b>Poloha zůstává v prohlížeči</b><small>Použije se pouze pro tento výpočet</small></div></div>
       </div>
+      <div class="srRouteSteps" aria-label="Postup výpočtu"><span><b>1</b>Povolíš polohu</span><i>→</i><span><b>2</b>Porovnáme košík</span><i>→</i><span><b>3</b>Otevřeš navigaci</span></div>
+      <div class="srPresetBar"><strong>Jak chceš nakupovat?</strong><div class="srPresets">
+        <button type="button" class="srPreset" data-route-preset="quick">Co nejrychleji</button>
+        <button type="button" class="srPreset active" data-route-preset="balanced">Vyváženě</button>
+        <button type="button" class="srPreset" data-route-preset="saving">Největší úspora</button>
+      </div></div>
       <div class="srRouteControls">
-        <label>Max. obchodů<select id="srMaxStores"><option value="1">1 obchod</option><option value="2" selected>2 obchody</option><option value="3">3 obchody</option></select></label>
-        <label>Okruh<select id="srRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
-        <label>Váha cesty<input id="srKmCost" type="number" min="0" max="100" step="1" value="5"><span>Kč/km</span></label>
-        <label>Další zastávka<input id="srStopCost" type="number" min="0" max="500" step="5" value="30"><span>Kč</span></label>
-        <button id="srCalculate" class="srRouteButton" type="button">Spočítat trasu</button>
+        <label><span>Maximum obchodů<small>Kolik zastávek připouštíš</small></span><select id="srMaxStores"><option value="1">1 obchod</option><option value="2" selected>2 obchody</option><option value="3">3 obchody</option></select></label>
+        <label><span>Okruh hledání<small>Nejvzdálenější pobočka</small></span><select id="srRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
+        <label><span>Náklad cesty<small>Palivo a čas za kilometr</small></span><div class="srInputUnit"><input id="srKmCost" type="number" min="0" max="100" step="1" value="5"><b>Kč/km</b></div></label>
+        <label><span>Cena zastávky<small>Čas navíc za další obchod</small></span><div class="srInputUnit"><input id="srStopCost" type="number" min="0" max="500" step="5" value="30"><b>Kč</b></div></label>
+        <button id="srCalculate" class="srRouteButton" type="button"><span aria-hidden="true">⌖</span>Spočítat nejlepší trasu</button>
       </div>
-      <div id="srStatus" class="srRouteStatus">Výpočet se spustí až po kliknutí a vyžádá si polohu. Vzdálenost je konzervativní orientační výpočet vzdušnou čarou, ne navigační čas.</div>
+      <div id="srStatus" class="srRouteStatus"><span aria-hidden="true">i</span><p>Po kliknutí požádáme o polohu. První odhad používá GPS vzdálenost; skutečnou silniční trasu potom otevře Google Maps.</p></div>
       <div id="srResults"></div>`;
     layout.parentNode.insertBefore(section, layout);
     const button = document.getElementById('srCalculate');
@@ -35,6 +42,22 @@
       document.getElementById('srStatus').textContent = 'GPS trasa je zatím dostupná jen pro vlastní nákupní seznam. U sdíleného seznamu se záměrně nepoužívá localStorage, aby nevznikl výpočet z cizích nebo starých položek.';
     } else {
       button.addEventListener('click', calculate);
+      const presets = {
+        quick: { maxStores:'1', radius:'10', kmCost:'8', stopCost:'80' },
+        balanced: { maxStores:'2', radius:'15', kmCost:'5', stopCost:'30' },
+        saving: { maxStores:'3', radius:'25', kmCost:'3', stopCost:'10' },
+      };
+      section.querySelectorAll('[data-route-preset]').forEach((presetButton) => {
+        presetButton.addEventListener('click', () => {
+          const preset = presets[presetButton.dataset.routePreset];
+          if (!preset) return;
+          document.getElementById('srMaxStores').value = preset.maxStores;
+          document.getElementById('srRadius').value = preset.radius;
+          document.getElementById('srKmCost').value = preset.kmCost;
+          document.getElementById('srStopCost').value = preset.stopCost;
+          section.querySelectorAll('[data-route-preset]').forEach((item) => item.classList.toggle('active', item === presetButton));
+        });
+      });
     }
     return true;
   }
@@ -42,7 +65,7 @@
   function status(text, type = '') {
     const node = document.getElementById('srStatus');
     if (!node) return;
-    node.textContent = text;
+    node.innerHTML = `<span aria-hidden="true">${type === 'good' ? '✓' : type === 'bad' ? '!' : 'i'}</span><p>${esc(text)}</p>`;
     node.className = `srRouteStatus${type ? ` ${type}` : ''}`;
   }
 
@@ -154,8 +177,8 @@
     results.innerHTML = `
       <div class="srRouteResults">
         <article class="srRouteBest">
-          <h3>Doporučená kombinace</h3>
-          <div class="srRoutePrice">${a.money(best.basketTotal)} Kč</div>
+          <div class="srResultTop"><div><span class="srResultBadge">Doporučená varianta</span><h3>Nejvýhodnější plán nákupu</h3></div>${singleDiff != null && singleDiff > .01 ? `<div class="srSavingHero"><small>Ušetříš proti 1 obchodu</small><strong>${a.money(singleDiff)} Kč</strong></div>` : ''}</div>
+          <div class="srRoutePrice">${a.money(best.basketTotal)} Kč <small>za nákup</small></div>
           <div class="srRouteEffective">Cena samotného nákupu. Rozhodovací náklad po započtení cesty a zastávek: <strong>${a.money(best.effectiveCost)} Kč</strong>.</div>
           <div class="srRouteStops">${stops}</div>
           ${mapUrl ? `<a class="srRouteMapLink" href="${esc(mapUrl)}" target="_blank" rel="noopener">Otevřít skutečnou trasu v Google Maps →</a>` : ''}
