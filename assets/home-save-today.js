@@ -535,6 +535,7 @@
 
   function selectScenario(modal, key) {
     selected = key;
+    modal.classList.toggle('is-custom', key === 'custom');
     modal.querySelectorAll('[data-sq-scenario]').forEach((button) => button.classList.toggle('active', button.dataset.sqScenario === key));
     const template = TEMPLATES[key];
     const request = modal.querySelector('#sqSaveRequest');
