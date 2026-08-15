@@ -63,7 +63,7 @@
       if (!items.some((item) => item[0] === label)) items.push([label, terms, Math.max(1, Number(quantity || 1))]);
     };
 
-    if (/narozen|oslava|party|vecirek/.test(request)) {
+    if (/narozen|svatek|oslava|party|vecirek|navstev/.test(request)) {
       add('Dort nebo zákusek',['dort','zakusek'],scaled(people,8));
       add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,4));
       add('Sladkosti',['cokolad','bonbon','susenk'],scaled(people,5));
@@ -73,6 +73,77 @@
       add('Šunka',['sunka'],scaled(people,5));
       add('Sýr',['syr'],scaled(people,5));
       add('Ovoce',['ovoce','hrozny','mandarink','jablk'],scaled(people,4));
+    }
+    if (/svatba|svateb/.test(request)) {
+      add('Dort nebo zákusek',['dort','zakusek'],scaled(people,7));
+      add('Šumivé víno',['sekt','prosecco','sampanske'],scaled(people,6));
+      add('Víno',['vino'],scaled(people,4));
+      add('Pivo',['pivo'],scaled(people,3));
+      add('Nealko nápoje',['cola','limonad','dzus'],scaled(people,3));
+      add('Voda',['voda'],scaled(people,2));
+      add('Káva',['kava'],scaled(people,10));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,4));
+      add('Pečivo',['baget','chleb','rohlik','peciv'],scaled(people,4));
+      add('Šunka',['sunka'],scaled(people,5));
+      add('Sýr',['syr'],scaled(people,5));
+      add('Ovoce',['ovoce','hrozny','mandarink','jablk'],scaled(people,4));
+    }
+    if (/dovolen|cesta|cestovan/.test(request)) {
+      add('Voda',['voda'],scaled(people,2));
+      add('Nealko nápoje',['cola','limonad','dzus'],scaled(people,4));
+      add('Trvanlivé pečivo',['toast','tortill','chleb','baget','peciv'],scaled(people,3));
+      add('Trvanlivé občerstvení',['chips','brambur','krupk','susenk'],scaled(people,3));
+      add('Ovoce',['jablk','banan','mandarink','ovoce'],scaled(people,3));
+      add('Těstoviny',['testovin'],scaled(people,4));
+      add('Rýže',['ryze'],scaled(people,5));
+      add('Konzervy',['konzerv','tunak','pastika'],scaled(people,4));
+      add('Opalovací přípravek',['opalovac','spf'],scaled(people,5));
+      add('Hygiena',['sampon','sprchovy','zubni pasta'],scaled(people,4));
+    }
+    if (/chata|chalup|kemp|stanovan/.test(request)) {
+      TEMPLATES.grill.items.forEach(([label, terms]) => add(label, terms, scaled(people,4)));
+      add('Vejce',['vejce'],scaled(people,4));
+      add('Mléko',['mleko'],scaled(people,4));
+      add('Káva',['kava'],scaled(people,8));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,4));
+    }
+    if (/silvestr|novy rok/.test(request)) {
+      add('Šumivé víno',['sekt','prosecco','sampanske'],scaled(people,5));
+      add('Pivo',['pivo'],scaled(people,3));
+      add('Nealko nápoje',['cola','limonad','dzus'],scaled(people,3));
+      add('Voda',['voda'],scaled(people,3));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,3));
+      add('Sýr',['syr'],scaled(people,5));
+      add('Šunka',['sunka'],scaled(people,5));
+      add('Pečivo',['baget','chleb','rohlik','peciv'],scaled(people,4));
+    }
+    if (/vanoce|vanocn/.test(request)) {
+      add('Máslo',['maslo'],scaled(people,5));
+      add('Vejce',['vejce'],scaled(people,5));
+      add('Mouka',['mouka'],scaled(people,5));
+      add('Cukr',['cukr'],scaled(people,6));
+      add('Mléko',['mleko'],scaled(people,5));
+      add('Čokoláda',['cokolad'],scaled(people,5));
+      add('Ořechy',['orech'],scaled(people,5));
+      add('Nealko nápoje',['cola','limonad','dzus'],scaled(people,4));
+      add('Ovoce',['mandarink','pomeranc','jablk'],scaled(people,4));
+    }
+    if (/velikono/.test(request)) {
+      add('Vejce',['vejce'],scaled(people,3));
+      add('Máslo',['maslo'],scaled(people,6));
+      add('Mouka',['mouka'],scaled(people,6));
+      add('Cukr',['cukr'],scaled(people,7));
+      add('Mléko',['mleko'],scaled(people,5));
+      add('Šunka',['sunka'],scaled(people,4));
+      add('Pečivo',['mazanec','chleb','peciv'],scaled(people,5));
+    }
+    if (/detska oslava|pro deti/.test(request)) {
+      add('Dětské pití',['dzus','napoj','sirup'],scaled(people,3));
+      add('Voda',['voda'],scaled(people,3));
+      add('Sladkosti',['cokolad','bonbon','susenk'],scaled(people,4));
+      add('Slané občerstvení',['chips','brambur','krupk'],scaled(people,5));
+      add('Ovoce',['banan','mandarink','jablk','hrozny'],scaled(people,3));
+      add('Dort nebo zákusek',['dort','zakusek'],scaled(people,8));
     }
     if (/snidan|brunch/.test(request)) {
       add('Pečivo',['rohlik','chleb','baget','peciv'],scaled(people,3));
@@ -506,6 +577,7 @@
         </div>
         <div class="sqSaveFields">
           <label class="sqSaveField full">Co plánuješ?<textarea id="sqSaveRequest" placeholder="Např. Grilování pro 6 lidí do 1200 Kč">${TEMPLATES.grill.defaultRequest}</textarea></label>
+          <div class="sqSaveIdeas" aria-label="Rychlé příklady vlastního zadání"><span>Rychlá volba:</span><button type="button" data-sq-idea="Svátek">Svátek</button><button type="button" data-sq-idea="Svatba">Svatba</button><button type="button" data-sq-idea="Dovolená">Dovolená</button><button type="button" data-sq-idea="Dětská oslava">Dětská oslava</button><button type="button" data-sq-idea="Chata nebo kemp">Chata/kemp</button><button type="button" data-sq-idea="Silvestr">Silvestr</button><button type="button" data-sq-idea="Vánoce">Vánoce</button><button type="button" data-sq-idea="Návštěva">Návštěva</button></div>
           <label class="sqSaveField">Počet lidí<input id="sqSavePeople" type="number" min="1" max="30" value="4"></label>
           <label class="sqSaveField">Rozpočet v Kč<input id="sqSaveBudget" type="number" min="0" step="50" placeholder="Např. 1200"></label>
           <label class="sqSaveField">Lokalita<select id="sqSaveLocationMode"><option value="gps" selected>Moje poloha (GPS)</option><option value="manual">Město nebo PSČ</option><option value="all">Celá ČR</option></select></label>
@@ -519,6 +591,11 @@
     document.body.appendChild(modal);
 
     modal.querySelectorAll('[data-sq-scenario]').forEach((button) => button.addEventListener('click', () => selectScenario(modal, button.dataset.sqScenario)));
+    modal.querySelectorAll('[data-sq-idea]').forEach((button) => button.addEventListener('click', () => {
+      selectScenario(modal, 'custom');
+      modal.querySelector('#sqSaveRequest').value = button.dataset.sqIdea;
+      modal.querySelector('#sqSaveRequest').focus({ preventScroll: true });
+    }));
     modal.querySelector('#sqSaveLocationMode').addEventListener('change', () => toggleLocationFields(modal));
     modal.querySelector('.sqSaveClose').addEventListener('click', () => closeModal(modal));
     modal.querySelector('[data-sq-cancel]').addEventListener('click', () => closeModal(modal));
