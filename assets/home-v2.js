@@ -29,6 +29,7 @@
     ['pets','Zvířata','🐾',['krmivo','granule','stelivo','mazlic','pro psy','pro kocky','whiskas','pedigree','purina']],
     ['other','Ostatní','🏷️',[]]
   ];
+  const MAIN_GROCERY_STORES = new Set(['albert','billa','coop','globus','kaufland','lidl','penny','tesco']);
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
     albert:'albert.cz',billa:'billa.cz',coop:'coop.cz',globus:'globus.cz',hruska:'mojehruska.cz',kaufland:'kaufland.cz',lidl:'lidl.cz',makro:'makro.cz',penny:'penny.cz',tesco:'itesco.cz',
@@ -194,6 +195,7 @@
     if (state.maxPrice !== null) rows = rows.filter((offer) => priceOf(offer) <= state.maxPrice);
     if (state.onlyImages) rows = rows.filter((offer) => Boolean(offer.image_url));
     if (state.savedOnly) rows = rows.filter((offer) => state.saved.has(String(offer.id)));
+    if (state.mode === 'recommended') rows = rows.filter((offer) => MAIN_GROCERY_STORES.has(offer.stores?.slug));
     if (state.mode === 'food') rows = rows.filter((offer) => offer._category === 'food');
     if (state.mode === 'ending') rows = rows.filter((offer) => offer.valid_to === TODAY);
     if (state.mode === 'under50') rows = rows.filter((offer) => priceOf(offer) <= 50);
