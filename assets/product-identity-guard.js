@@ -9,7 +9,10 @@
     const ean = String(product?.ean || '').trim();
     const brand = String(product?.brand || '').trim();
     const quantity = String(product?.quantity_text || '').trim();
-    return Boolean(ean || (product?.is_verified === true && brand && quantity));
+    const verifiedCommodity = product?.is_verified === true
+      && product?.metadata?.identity_type === 'verified_commodity'
+      && quantity;
+    return Boolean(ean || (product?.is_verified === true && brand && quantity) || verifiedCommodity);
   }
 
   async function getDb(timeout = 5000) {
@@ -107,7 +110,7 @@
     try {
       const db = await getDb();
       const { data, error } = await db.from('products')
-        .select('id,brand,ean,quantity_text,is_verified')
+        .select('id,brand,ean,quantity_text,is_verified,metadata')
         .eq('id', productId)
         .maybeSingle();
       if (error) throw error;
