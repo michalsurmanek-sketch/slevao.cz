@@ -296,7 +296,7 @@
     facetOffers('category').forEach((offer) => counts.set(offer._category, (counts.get(offer._category) || 0) + 1));
     const available = CATEGORY_DEFS.filter(([key]) => counts.get(key));
     $('categoryChips').innerHTML = `<button class="categoryChip ${state.category === 'all' ? 'active' : ''}" data-category="all"><span>✨</span>Vše</button>` + available.map(([key,name,icon]) => `<button class="categoryChip ${state.category === key ? 'active' : ''}" data-category="${key}"><span>${icon}</span>${esc(name)} <small>${counts.get(key)}</small></button>`).join('');
-    $('categorySelect').innerHTML = '<option value="all">Všechny kategorie</option>' + available.map(([key,name]) => `<option value="${key}">${esc(name)}</option>`).join('');
+    $('categorySelect').innerHTML = '<option value="all">Všechny kategorie</option>' + available.map(([key,name]) => `<option value="${key}">${esc(name)} (${counts.get(key)})</option>`).join('');
     $('categorySelect').value = state.category;
     $('clearCategory').hidden = state.category === 'all';
   }
@@ -309,7 +309,7 @@
     const shown = state.storesExpanded ? visibleStores : visibleStores.slice(0, 11);
     $('storeGrid').innerHTML = `<article class="storeCard ${state.store === 'all' ? 'active' : ''}"><button class="storeFilterButton" data-store="all"><div class="storeLogoBox"><span class="storeAllIcon">🏪</span></div>Všechny obchody</button></article>` + shown.map((store) => `<article class="storeCard ${state.store === store.slug ? 'active' : ''}"><a class="storePageLink" href="${encodeURIComponent(store.slug)}.html" title="Otevřít stránku ${esc(store.name)}">↗</a><button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHTML(store)}</div>${esc(store.name)}</button></article>`).join('');
     $('showAllStores').textContent = state.storesExpanded ? 'Zobrazit méně' : `Zobrazit všechny (${visibleStores.length})`;
-    $('storeSelect').innerHTML = '<option value="all">Všechny obchody</option>' + visibleStores.map((store) => `<option value="${esc(store.slug)}">${esc(store.name)}</option>`).join('');
+    $('storeSelect').innerHTML = '<option value="all">Všechny obchody</option>' + visibleStores.map((store) => `<option value="${esc(store.slug)}">${esc(store.name)} (${storeCounts.get(store.slug) || 0})</option>`).join('');
     $('storeSelect').value = state.store;
     $('storeCount').textContent = visibleStores.length;
   }
@@ -380,7 +380,7 @@
 
   function applySearch(value) {
     state.query = String(value || '').trim(); state.mode = state.query ? 'all' : 'recommended'; state.category = 'all'; state.visible = PAGE_SIZE;
-    $('q').value = state.query; $('sideSearch').value = state.query; renderCategories(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item.dataset.mode === state.mode));
+    $('q').value = state.query; $('sideSearch').value = state.query; renderCategories(); renderStores(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item.dataset.mode === state.mode));
     saveRecent(state.query); $('searchSuggestions').hidden = true;
     renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth', block:'start' });
   }
@@ -496,11 +496,11 @@
     $('q').addEventListener('focus', renderSuggestions); $('q').addEventListener('input', renderSuggestions);
     $('searchSuggestions').addEventListener('click', (event) => { const button = event.target.closest('[data-suggest-title]'); if (button) applySearch(button.dataset.suggestTitle); });
     document.addEventListener('click', (event) => { if (!event.target.closest('.mainSearch')) $('searchSuggestions').hidden = true; });
-    $('sideSearch').addEventListener('input', (event) => { state.query = event.target.value.trim(); state.mode = state.query ? 'all' : 'recommended'; state.category = 'all'; $('q').value = state.query; state.visible = PAGE_SIZE; renderCategories(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.remove('active')); renderDeals(); });
+    $('sideSearch').addEventListener('input', (event) => { state.query = event.target.value.trim(); state.mode = state.query ? 'all' : 'recommended'; state.category = 'all'; $('q').value = state.query; state.visible = PAGE_SIZE; renderCategories(); renderStores(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.remove('active')); renderDeals(); });
     $('savedButton').addEventListener('click', () => { state.savedOnly = !state.savedOnly; state.visible = PAGE_SIZE; renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); });
     $('mobileSaved').addEventListener('click', () => $('savedButton').click());
-    $('categoryChips').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; state.category = button.dataset.category; state.visible = PAGE_SIZE; renderCategories(); renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); });
-    $('clearCategory').addEventListener('click', () => { state.category = 'all'; renderCategories(); renderDeals(); });
+    $('categoryChips').addEventListener('click', (event) => { const button = event.target.closest('[data-category]'); if (!button) return; state.category = button.dataset.category; state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth' }); });
+    $('clearCategory').addEventListener('click', () => { state.category = 'all'; if (state.mode === 'food') state.mode = 'all'; renderCategories(); renderStores(); renderDeals(); });
     document.addEventListener('click', (event) => {
       const storeButton = event.target.closest('[data-store]');
       if (storeButton) { state.store = storeButton.dataset.store; state.visible = PAGE_SIZE; renderStores(); renderDeals(); scrollToDealsAfterStoreLayout(); }
@@ -514,13 +514,13 @@
     $('quickTabs').addEventListener('click', (event) => { const button = event.target.closest('[data-mode]'); if (!button) return; state.mode = button.dataset.mode; if (state.mode === 'food') state.category = 'food'; else if (state.category === 'food') state.category = 'all'; state.visible = PAGE_SIZE; document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item === button)); renderCategories(); renderDeals(); });
     $('sortSelect').addEventListener('change', (event) => { state.sort = event.target.value; state.visible = PAGE_SIZE; renderDeals(); });
     $('storeSelect').addEventListener('change', (event) => { state.store = event.target.value; state.visible = PAGE_SIZE; renderStores(); renderDeals(); });
-    $('categorySelect').addEventListener('change', (event) => { state.category = event.target.value; state.visible = PAGE_SIZE; renderCategories(); renderDeals(); });
+    $('categorySelect').addEventListener('change', (event) => { state.category = event.target.value; if (state.category !== 'food' && state.mode === 'food') state.mode = 'all'; state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); });
     $('regionSelect').addEventListener('change', (event) => { state.region = event.target.value; state.city = 'all'; renderCities(); renderDeals(); });
     $('citySelect').addEventListener('change', (event) => { state.city = event.target.value; renderDeals(); });
-    $('minPrice').addEventListener('input', (event) => { state.minPrice = event.target.value === '' ? null : Number(event.target.value); state.visible = PAGE_SIZE; renderDeals(); });
-    $('maxPrice').addEventListener('input', (event) => { state.maxPrice = event.target.value === '' ? null : Number(event.target.value); state.visible = PAGE_SIZE; renderDeals(); });
-    document.querySelectorAll('[data-max-price]').forEach((button) => button.addEventListener('click', () => { state.maxPrice = Number(button.dataset.maxPrice); $('maxPrice').value = state.maxPrice; state.visible = PAGE_SIZE; renderDeals(); }));
-    $('onlyImages').addEventListener('change', (event) => { state.onlyImages = event.target.checked; state.visible = PAGE_SIZE; renderDeals(); });
+    $('minPrice').addEventListener('input', (event) => { state.minPrice = event.target.value === '' ? null : Math.max(0, Number(event.target.value)); state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); });
+    $('maxPrice').addEventListener('input', (event) => { state.maxPrice = event.target.value === '' ? null : Math.max(0, Number(event.target.value)); state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); });
+    document.querySelectorAll('[data-max-price]').forEach((button) => button.addEventListener('click', () => { state.maxPrice = Number(button.dataset.maxPrice); $('maxPrice').value = state.maxPrice; state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); }));
+    $('onlyImages').addEventListener('change', (event) => { state.onlyImages = event.target.checked; state.visible = PAGE_SIZE; renderCategories(); renderStores(); renderDeals(); });
     $('resetFilters').addEventListener('click', resetFilters);
     $('loadMore').addEventListener('click', () => { state.visible += PAGE_SIZE; renderDeals(); });
     $('filterToggle').addEventListener('click', () => $('filterPanel').classList.add('open'));
