@@ -49,6 +49,24 @@
     mrazene: ['mrazen','zmrzlin','nanuk','sorbet'],
     drogerie: ['droger','sampon','mydlo','sprchov','deodor','zubni','pasta','kartacek','praci','avivaz','cistic','toaletni','plenk','kosmetik']
   };
+  const GROCERY_QUERY_CATEGORIES = {
+    maso: new Set(['food']),
+    mleko: new Set(['food','drinks']),
+    pecivo: new Set(['food']),
+    vejce: new Set(['food']),
+    maslo: new Set(['food']),
+    syr: new Set(['food']),
+    ovoce: new Set(['food']),
+    zelenina: new Set(['food']),
+    pivo: new Set(['drinks','food']),
+    uzeniny: new Set(['food']),
+    ryby: new Set(['food']),
+    kava: new Set(['drinks','food']),
+    napoje: new Set(['drinks']),
+    sladkosti: new Set(['food']),
+    mrazene: new Set(['food']),
+    drogerie: new Set(['drugstore'])
+  };
   const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci','zebra','zebro']) };
   const SEARCH_EXCLUSIONS = {
     maso: ['zebrovany','zebrovana','zebrovane','top','svetr','tricko','saty','sukne','kalhoty','mikina','bunda','obleceni'],
@@ -224,6 +242,8 @@
   function offerMatchesQuery(offer, rawQuery = state.query) {
     const query = fold(rawQuery).trim();
     if (!query) return true;
+    const allowedCategories = GROCERY_QUERY_CATEGORIES[query];
+    if (allowedCategories && !allowedCategories.has(offer._category)) return false;
     const canonicalTags = Array.isArray(offer.products?.filter_tags) ? offer.products.filter_tags.map(fold) : [];
     if (canonicalTags.includes(query)) return true;
     const terms = SEARCH_EXPANSIONS[query] || [query];
