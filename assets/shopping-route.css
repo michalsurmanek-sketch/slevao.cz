@@ -1,10 +1,55 @@
-/* Slevao.cz – nejlevnější trasa nákupu nad skutečnými pobočkami. */
-.srRoute{margin:22px 0;padding:22px;border:1px solid #d9e8e5;border-radius:24px;background:linear-gradient(135deg,#effbf9,#fff 55%,#fff7f2);box-shadow:0 14px 38px rgba(23,34,34,.07)}
-.srRouteHead{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;flex-wrap:wrap}.srRouteHead h2{margin:4px 0 5px;font-size:30px;letter-spacing:-1px}.srRouteHead p{margin:0;max-width:720px;color:#667774;line-height:1.5}.srRouteBadge{display:inline-flex;padding:6px 10px;border-radius:999px;background:#e1f8f4;color:#0b776f;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.07em}
-.srRouteControls{display:grid;grid-template-columns:repeat(4,minmax(120px,1fr)) auto;gap:10px;align-items:end;margin-top:18px}.srRouteControls label{display:grid;gap:5px;font-size:11px;font-weight:850;color:#64736f}.srRouteControls select,.srRouteControls input{height:44px;border:1px solid #dbe8e6;border-radius:13px;background:#fff;padding:0 11px;font-size:16px;outline:none}.srRouteControls select:focus,.srRouteControls input:focus{border-color:#159e94;box-shadow:0 0 0 4px rgba(52,214,199,.14)}
-.srRouteButton{height:44px;border:0;border-radius:13px;padding:0 18px;background:#159e94;color:#fff;font-weight:950;white-space:nowrap;box-shadow:0 10px 22px rgba(21,158,148,.18)}.srRouteButton:disabled{opacity:.62;cursor:wait}.srRouteStatus{margin-top:12px;padding:10px 12px;border-radius:12px;background:#f3f7f6;color:#657572;font-size:12px;line-height:1.45}.srRouteStatus.good{background:#eaf8f2;color:#116c4c}.srRouteStatus.bad{background:#fff0f0;color:#a82c35}
-.srRouteResults{display:grid;grid-template-columns:1.2fr .8fr;gap:14px;margin-top:14px}.srRouteBest,.srRouteCompare{border:1px solid #dbe8e5;border-radius:19px;background:#fff;padding:17px}.srRouteBest{box-shadow:0 12px 28px rgba(21,158,148,.08)}.srRouteBest h3,.srRouteCompare h3{margin:0 0 8px;font-size:18px}.srRoutePrice{font-size:31px;font-weight:950;letter-spacing:-1px;color:#0b776f}.srRouteEffective{margin-top:2px;font-size:12px;color:#667774}
-.srRouteStops{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:13px 0}.srRouteStop{display:inline-grid;gap:1px;padding:7px 9px;border-radius:13px;background:#e9f9f6;color:#0c756d;font-size:11px}.srRouteStop b{font-weight:950}.srRouteStop small{font-size:9px;color:#617e79;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.srRouteArrow{color:#8ba09c;font-weight:950}.srRouteMapLink{display:inline-flex;align-items:center;justify-content:center;min-height:40px;padding:0 13px;border:1px solid #a8e3dd;border-radius:12px;background:#f0fbf9;color:#0b7169;text-decoration:none;font-size:11px;font-weight:950}.srRouteMapLink:hover{background:#e4f8f4}.srRouteFacts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}.srRouteFact{padding:10px;border-radius:13px;background:#f6f9f8}.srRouteFact small{display:block;color:#788784;font-size:10px;font-weight:850;text-transform:uppercase;letter-spacing:.04em}.srRouteFact strong{display:block;margin-top:3px;font-size:16px}.srRouteNote{margin:11px 0 0;color:#74827f;font-size:11px;line-height:1.45}
-.srRouteCompareRows{display:grid;gap:8px}.srRouteCompareRow{display:flex;justify-content:space-between;gap:12px;padding:9px 0;border-bottom:1px solid #edf2f1;font-size:12px}.srRouteCompareRow:last-child{border-bottom:0}.srRouteCompareRow strong{text-align:right}.srRouteButton:focus-visible,.srRouteMapLink:focus-visible{outline:3px solid rgba(21,158,148,.24);outline-offset:2px}
-@media(max-width:900px){.srRouteControls{grid-template-columns:repeat(2,minmax(0,1fr))}.srRouteButton{grid-column:1/-1}.srRouteResults{grid-template-columns:1fr}}
-@media(max-width:560px){.srRoute{padding:15px;border-radius:20px}.srRouteHead h2{font-size:26px}.srRouteControls{grid-template-columns:1fr}.srRouteButton{grid-column:auto}.srRouteFacts{grid-template-columns:1fr 1fr}.srRouteMapLink{width:100%}}
+.srRoute{
+  margin:24px 0;
+  padding:30px;
+  overflow:hidden;
+  border:1px solid #cfe4e0;
+  border-radius:30px;
+  background:
+    radial-gradient(circle at 92% 8%,rgba(255,190,146,.16),transparent 22rem),
+    radial-gradient(circle at 5% 0,rgba(54,211,196,.13),transparent 21rem),
+    #fff;
+  box-shadow:0 22px 60px rgba(17,67,61,.1);
+}
+.srRouteHead{display:flex;align-items:center;justify-content:space-between;gap:24px}
+.srRouteTitle{max-width:800px}
+.srRouteHead h2{margin:8px 0 8px;font-size:clamp(30px,4vw,46px);line-height:1.05;letter-spacing:-.045em}
+.srRouteHead p{margin:0;color:#5f7471;font-size:17px;line-height:1.55}
+.srRouteBadge,.srResultBadge{display:inline-flex;padding:7px 11px;border-radius:999px;background:#e1f8f4;color:#087a73;font-size:11px;font-weight:950;text-transform:uppercase;letter-spacing:.09em}
+.srGpsTrust{min-width:285px;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1px solid #cce7e3;border-radius:18px;background:rgba(240,251,249,.86)}
+.srGpsTrust>span{width:42px;height:42px;display:grid;place-items:center;border-radius:14px;background:#dff7f3;color:#098078;font-size:25px}
+.srGpsTrust div{display:grid;gap:3px}.srGpsTrust b{font-size:13px}.srGpsTrust small{color:#69807c;font-size:11px}
+.srRouteSteps{display:flex;align-items:center;justify-content:center;gap:16px;margin:24px 0;padding:14px 18px;border:1px solid #e0ecea;border-radius:18px;background:#f7fbfa}
+.srRouteSteps span{display:flex;align-items:center;gap:8px;color:#4c625f;font-size:13px;font-weight:850}
+.srRouteSteps span b{width:26px;height:26px;display:grid;place-items:center;border-radius:9px;background:#14a99f;color:#fff;font-size:12px}
+.srRouteSteps i{color:#9aadaa;font-style:normal}
+.srPresetBar{display:flex;align-items:center;justify-content:space-between;gap:18px;margin-bottom:17px}
+.srPresetBar>strong{font-size:15px}.srPresets{display:flex;gap:7px;flex-wrap:wrap}
+.srPreset{min-height:38px;padding:0 14px;border:1px solid #d5e5e2;border-radius:999px;background:#fff;color:#435956;font-weight:850;cursor:pointer}
+.srPreset:hover,.srPreset.active{border-color:#80d5cd;background:#e7f8f5;color:#08766f;box-shadow:0 6px 15px rgba(14,139,130,.1)}
+.srRouteControls{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr)) minmax(230px,auto);gap:12px;align-items:end;padding:18px;border:1px solid #dceae8;border-radius:22px;background:linear-gradient(135deg,#f5fbfa,#fbfdfd)}
+.srRouteControls label{display:grid;gap:8px;color:#233a37;font-size:12px;font-weight:900}
+.srRouteControls label>span{display:grid;gap:3px}.srRouteControls label small{color:#778986;font-size:10px;font-weight:650}
+.srRouteControls select,.srRouteControls input{width:100%;height:52px;border:1px solid #d4e4e1;border-radius:15px;background:#fff;padding:0 13px;color:#122724;font-size:16px;outline:0}
+.srRouteControls select:focus,.srRouteControls input:focus{border-color:#159e94;box-shadow:0 0 0 4px rgba(52,214,199,.14)}
+.srInputUnit{position:relative}.srInputUnit input{padding-right:66px}.srInputUnit b{position:absolute;right:13px;top:19px;color:#617572;font-size:11px}
+.srRouteButton{height:56px;display:inline-flex;align-items:center;justify-content:center;gap:9px;border:0;border-radius:17px;padding:0 20px;background:linear-gradient(135deg,#0b827a,#16afa5);color:#fff;font-size:15px;font-weight:950;white-space:nowrap;cursor:pointer;box-shadow:0 12px 25px rgba(21,158,148,.22)}
+.srRouteButton>span{font-size:21px}.srRouteButton:hover{transform:translateY(-1px);box-shadow:0 15px 30px rgba(21,158,148,.28)}.srRouteButton:disabled{opacity:.62;cursor:wait;transform:none}
+.srRouteStatus{margin-top:13px;display:flex;align-items:flex-start;gap:10px;padding:12px 14px;border-radius:15px;background:#f1f6f5;color:#60726f;font-size:12px;line-height:1.45}
+.srRouteStatus>span{width:23px;height:23px;flex:0 0 23px;display:grid;place-items:center;border-radius:8px;background:#dfeae8;color:#46615d;font-weight:950}.srRouteStatus p{margin:2px 0 0}
+.srRouteStatus.good{background:#e8f8f2;color:#116c4c}.srRouteStatus.good>span{background:#c9eedf;color:#08714f}
+.srRouteStatus.bad{background:#fff0f0;color:#a82c35}.srRouteStatus.bad>span{background:#ffd7da;color:#a82c35}
+.srRouteResults{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(300px,.75fr);gap:16px;margin-top:18px}
+.srRouteBest,.srRouteCompare{border:1px solid #d6e7e4;border-radius:23px;background:#fff;padding:22px}
+.srRouteBest{box-shadow:0 14px 34px rgba(21,158,148,.1);background:linear-gradient(145deg,#fff,#f8fffd)}
+.srResultTop{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}.srResultTop h3{margin:7px 0 0;font-size:23px;letter-spacing:-.025em}
+.srSavingHero{min-width:155px;padding:10px 12px;border-radius:15px;background:#e7f8ef;color:#087148;text-align:right}.srSavingHero small{display:block;font-size:9px;font-weight:850;text-transform:uppercase}.srSavingHero strong{display:block;margin-top:3px;font-size:22px}
+.srRouteCompare h3{margin:0 0 13px;font-size:20px}.srRoutePrice{margin-top:15px;font-size:38px;font-weight:950;letter-spacing:-1.5px;color:#087d75}.srRoutePrice small{font-size:13px;color:#6b7e7a;letter-spacing:0}
+.srRouteEffective{margin-top:3px;font-size:12px;color:#667774;line-height:1.5}
+.srRouteStops{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:17px 0}.srRouteStop{display:inline-grid;gap:2px;padding:9px 11px;border:1px solid #cce9e4;border-radius:14px;background:#eaf9f6;color:#0c756d;font-size:12px}.srRouteStop b{font-weight:950}.srRouteStop small{max-width:190px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#617e79;font-size:10px}.srRouteArrow{color:#7e9995;font-size:18px;font-weight:950}
+.srRouteMapLink{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 15px;border:1px solid #86d8d0;border-radius:14px;background:#effbf9;color:#08736c;text-decoration:none;font-size:12px;font-weight:950}.srRouteMapLink:hover{background:#def6f2}
+.srRouteFacts{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:15px}.srRouteFact{padding:11px;border-radius:14px;background:#f2f7f6}.srRouteFact small{display:block;color:#788784;font-size:9px;font-weight:850;text-transform:uppercase;letter-spacing:.04em}.srRouteFact strong{display:block;margin-top:4px;font-size:16px}.srRouteNote{margin:13px 0 0;color:#74827f;font-size:10px;line-height:1.45}
+.srRouteCompareRows{display:grid;gap:3px}.srRouteCompareRow{display:flex;justify-content:space-between;gap:12px;padding:12px 0;border-bottom:1px solid #edf2f1;font-size:12px}.srRouteCompareRow:last-child{border-bottom:0}.srRouteCompareRow strong{text-align:right}
+.srRouteButton:focus-visible,.srRouteMapLink:focus-visible,.srPreset:focus-visible{outline:3px solid rgba(21,158,148,.24);outline-offset:2px}
+@media(max-width:1200px){.srRouteControls{grid-template-columns:repeat(2,minmax(0,1fr))}.srRouteButton{grid-column:1/-1}.srRouteFacts{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:900px){.srRouteHead{align-items:flex-start}.srGpsTrust{min-width:0}.srRouteResults{grid-template-columns:1fr}}
+@media(max-width:700px){.srRoute{padding:18px;border-radius:23px}.srRouteHead{display:grid}.srRouteHead h2{font-size:31px}.srRouteHead p{font-size:14px}.srGpsTrust{width:100%}.srRouteSteps{justify-content:flex-start;overflow-x:auto;gap:8px}.srRouteSteps span{min-width:max-content}.srPresetBar{align-items:flex-start;flex-direction:column}.srRouteControls{grid-template-columns:1fr;padding:12px}.srRouteButton{grid-column:auto}.srResultTop{display:grid}.srSavingHero{text-align:left}.srRouteFacts{grid-template-columns:1fr 1fr}.srRouteMapLink{width:100%}}
