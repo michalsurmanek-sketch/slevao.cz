@@ -1,0 +1,107 @@
+:root{
+  --account-brand:#13aaa0;
+  --account-dark:#087b75;
+  --account-ink:#10201e;
+  --account-muted:#627471;
+  --account-line:#d8e7e4;
+  --account-soft:#edf9f7;
+  --account-shadow:0 20px 55px rgba(20,63,58,.10);
+}
+html{scroll-behavior:smooth}
+body.sfPage{
+  margin:0;
+  color:var(--account-ink);
+  background:
+    radial-gradient(circle at 88% 8%,rgba(80,216,203,.14),transparent 25rem),
+    linear-gradient(180deg,#f7fbfa 0,#f1f8f6 100%);
+}
+.accountTopbar{position:sticky;top:0;z-index:100;padding:18px 30px 10px;border:0;background:rgba(246,250,249,.92)}
+.accountTopInner{
+  width:100%;max-width:none;min-height:102px;margin:0;padding:14px 30px;
+  display:grid;grid-template-columns:310px minmax(320px,1fr) auto;align-items:center;gap:28px;
+  border:1px solid var(--account-line);border-radius:30px;background:rgba(255,255,255,.97);
+  box-shadow:0 14px 38px rgba(19,60,56,.09)
+}
+.accountBrand{gap:12px;color:#073e42;font-size:36px;letter-spacing:-1.5px}
+.accountBrand img{width:58px;height:58px;display:block;object-fit:contain;filter:drop-shadow(0 8px 9px rgba(11,138,128,.2))}
+.accountBrand b{color:#3bcfc3;font-size:.72em}
+.accountSearch{position:relative;width:100%;display:flex;align-items:center}
+.accountSearch>span{position:absolute;left:21px;z-index:1;color:#506663;font-size:27px;line-height:1}
+.accountSearch input{
+  width:100%;height:64px;padding:0 145px 0 65px;border:1px solid #d7e6e3;border-radius:21px;
+  background:#fff;color:var(--account-ink);outline:0;font:500 18px/1 system-ui,sans-serif;transition:.18s ease
+}
+.accountSearch input:focus{border-color:var(--account-brand);box-shadow:0 0 0 5px rgba(19,170,160,.13)}
+.accountSearch button{
+  position:absolute;right:7px;height:50px;min-width:122px;border:0;border-radius:16px;
+  color:#fff;background:linear-gradient(135deg,var(--account-brand),#0f9d95);
+  font:900 16px/1 system-ui,sans-serif;cursor:pointer;box-shadow:0 8px 20px rgba(19,170,160,.22)
+}
+.accountTopLinks{flex-wrap:nowrap;gap:8px}
+.accountTopLinks a{min-height:52px;padding:0 15px;border:0;border-radius:16px;background:transparent;font-size:15px}
+.accountTopLinks a:hover,.accountTopLinks a.active{color:var(--account-dark);background:var(--account-soft)}
+.accountShell{max-width:1500px;padding:36px 34px 120px}
+.accountHero{grid-template-columns:minmax(0,1.5fr) minmax(320px,.5fr);gap:22px;margin-bottom:24px}
+.accountHeroMain{
+  position:relative;overflow:hidden;min-height:280px;padding:42px 46px;
+  background:radial-gradient(circle at 88% 22%,rgba(67,210,196,.22),transparent 14rem),linear-gradient(135deg,#fff 0,#f6fffd 100%)
+}
+.accountHeroMain::after{content:"";position:absolute;right:-55px;bottom:-105px;width:310px;height:310px;border:44px solid rgba(20,174,162,.06);border-radius:50%;pointer-events:none}
+.accountHero .sfEyebrow{color:#058e85;font-size:13px;letter-spacing:.11em}
+.accountHero h1{max-width:760px;margin:14px 0 13px;color:#10211f;font-size:clamp(48px,6vw,76px);letter-spacing:-.05em}
+.accountHeroMain>.sfMuted{position:relative;z-index:1;max-width:800px;margin:0;font-size:18px;line-height:1.6}
+.accountHeroSide{
+  padding:31px;text-align:center;justify-items:center;
+  background:linear-gradient(145deg,#0f8f87,#15b6aa);color:#fff
+}
+.accountHeroIcon{width:72px;height:72px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.5);border-radius:23px;background:rgba(255,255,255,.15)}
+.accountHeroIcon svg{width:39px;height:39px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.accountHeroSide strong{font-size:27px;letter-spacing:-.03em}
+.accountHeroSide .sfMuted{color:rgba(255,255,255,.82);line-height:1.55}
+.accountAuth{gap:22px}
+.accountAuth .sfForm{padding:31px;border:1px solid var(--account-line);border-radius:26px;box-shadow:var(--account-shadow)}
+.accountAuth .sfForm h2{margin:7px 0 22px;font-size:31px;letter-spacing:-.035em}
+.accountAuth .sfForm label{gap:8px;margin:14px 0;color:#263936;font-size:13px}
+.accountAuth .sfForm input{min-height:54px;border-color:#d4e5e2;border-radius:15px;background:#fbfdfd;font-size:16px}
+.accountAuth .sfForm input:focus{outline:0;border-color:var(--account-brand);box-shadow:0 0 0 4px rgba(19,170,160,.12);background:#fff}
+.accountAuthActions{display:flex;gap:9px;flex-wrap:wrap;margin-top:20px}
+.accountAuthActions .sfButton{min-height:50px;margin:0!important;border-radius:15px}
+.sfButton{border-color:#d4e4e1;border-radius:14px;transition:transform .16s ease,box-shadow .16s ease,border-color .16s ease}
+.sfButton:hover{border-color:#9fd9d2;transform:translateY(-1px);box-shadow:0 8px 18px rgba(19,99,91,.09)}
+.sfButton.primary{background:linear-gradient(135deg,var(--account-dark),var(--account-brand));box-shadow:0 9px 22px rgba(13,143,134,.2)}
+#profileArea>.sfSectionHead{padding:22px 25px;border:1px solid var(--account-line);border-radius:22px;background:#fff;box-shadow:var(--account-shadow)}
+.sfAccountToolbar{display:flex;gap:8px;flex-wrap:wrap}
+#profileArea .sfStats{grid-template-columns:repeat(5,minmax(0,1fr));gap:13px}
+#profileArea .sfStat{min-height:118px;padding:20px;border-radius:20px;border-color:var(--account-line)}
+#profileArea .sfStat strong{color:var(--account-dark);font-size:34px}
+#profileArea .sfPanel{padding:27px;border-radius:25px;border-color:var(--account-line)}
+.sfNotificationList,.sfAlertRow{border-radius:16px}
+@media(max-width:1120px){
+  .accountTopInner{grid-template-columns:245px minmax(260px,1fr) auto;gap:15px}
+  .accountBrand{font-size:29px}.accountBrand img{width:50px;height:50px}
+  .accountTopLinks a{padding:0 10px}
+  #profileArea .sfStats{grid-template-columns:repeat(3,minmax(0,1fr))}
+}
+@media(max-width:900px){
+  .accountTopbar{padding:10px}.accountTopInner{min-height:auto;padding:12px 14px;border-radius:23px;grid-template-columns:auto 1fr}
+  .accountSearch{grid-column:1/-1;grid-row:2}.accountTopLinks{margin-left:auto}
+  .accountHero{grid-template-columns:1fr}.accountHeroSide{grid-template-columns:auto 1fr;justify-items:stretch;text-align:left}
+  .accountHeroIcon{grid-row:1/3}
+}
+@media(max-width:720px){
+  .accountTopbar{position:relative;padding:7px}.accountTopInner{gap:10px;border-radius:20px}
+  .accountBrand{font-size:25px}.accountBrand img{width:44px;height:44px}
+  .accountTopLinks a:not(.active){display:none!important}.accountTopLinks a.active{min-height:44px;padding:0 12px}
+  .accountSearch input{height:54px;padding:0 105px 0 48px;font-size:15px}.accountSearch>span{left:16px;font-size:22px}
+  .accountSearch button{right:5px;height:44px;min-width:92px;border-radius:13px;font-size:14px}
+  .accountShell{padding:18px 12px 100px}.accountHeroMain{min-height:0;padding:27px 22px}
+  .accountHero h1{font-size:45px}.accountHeroMain>.sfMuted{font-size:15px;line-height:1.5}
+  .accountHeroSide{padding:20px}.accountHeroIcon{width:56px;height:56px;border-radius:18px}
+  .accountHeroSide strong{font-size:22px}.accountAuth{grid-template-columns:1fr}
+  .accountAuth .sfForm{padding:22px}.accountAuth .sfForm h2{font-size:27px}
+  .accountAuthActions{display:grid;grid-template-columns:1fr}.accountAuthActions .sfButton{width:100%}
+  #profileArea>.sfSectionHead{align-items:flex-start;padding:18px}
+  #profileArea .sfStats{grid-template-columns:1fr 1fr}
+  #profileArea .sfStat{min-height:100px;padding:16px}
+  #profileArea .sfPanel{padding:18px}
+}
