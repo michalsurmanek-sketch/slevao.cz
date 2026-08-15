@@ -389,7 +389,7 @@
   function openModal(modal) {
     modal.hidden = false;
     document.body.style.overflow = 'hidden';
-    modal.querySelector('#sqSaveRequest').focus();
+    modal.querySelector('.sqSaveClose')?.focus({ preventScroll:true });
   }
 
   function createModal() {
