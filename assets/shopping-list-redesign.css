@@ -344,3 +344,38 @@ body.sfPage{
   .sfAddRow{grid-template-columns:1fr 78px;padding:9px}
   .sfAddRow button{grid-column:1/-1}
 }
+
+
+/* Miniatury produktů v nákupním seznamu */
+.sfListItem{
+  min-height:84px;
+  padding:10px 16px;
+  grid-template-columns:auto 64px minmax(0,1fr) 86px auto;
+}
+.sfItemThumb{
+  width:64px;
+  height:64px;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  border:1px solid #dcebe8;
+  border-radius:15px;
+  background:linear-gradient(145deg,#f2fbf9,#fff);
+  color:#159e94;
+  font-size:25px;
+}
+.sfItemThumb img{
+  width:100%;
+  height:100%;
+  padding:5px;
+  display:block;
+  object-fit:contain;
+  background:#fff;
+}
+.sfItemCopy{min-width:0}
+.sfListItem.done .sfItemThumb{filter:grayscale(1);opacity:.52}
+@media(max-width:720px){
+  .sfListItem{min-height:72px;padding:9px;grid-template-columns:auto 50px minmax(0,1fr) 60px auto;gap:8px}
+  .sfItemThumb{width:50px;height:50px;border-radius:12px}
+  .sfItemThumb img{padding:3px}
+}
