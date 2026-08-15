@@ -42,6 +42,10 @@
     pivo: ['pivo','pivn','lezak','radler','pils','porter','stout']
   };
   const SEARCH_EXACT_TERMS = { maso: new Set(['maso','plec','plece','pleci']) };
+  const SEARCH_EXCLUSIONS = {
+    ovoce: ['dzus','nektar','napoj','stava','limon','sirup','liker','rum','vodka','gin','vino','pivo','cider','smooth','jogurt','dezert','tycink','bonbon','cokolad','zmrzlin','dzem','marmelad','kompot','pyre','caj'],
+    zelenina: ['chips','snack','polev','omack','kecup','pizza','hotov','pomazank','dzus','napoj']
+  };
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
     albert:'albert.cz',billa:'billa.cz',coop:'coop.cz',globus:'globus.cz',hruska:'mojehruska.cz',kaufland:'kaufland.cz',lidl:'lidl.cz',makro:'makro.cz',penny:'penny.cz',tesco:'itesco.cz',
@@ -203,10 +207,12 @@
       const query = fold(state.query);
       const terms = SEARCH_EXPANSIONS[query] || [query];
       const exactTerms = SEARCH_EXACT_TERMS[query];
+      const exclusions = SEARCH_EXCLUSIONS[query] || [];
       rows = rows.filter((offer) => {
         const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.categories?.name].join(' '));
         const normalized = haystack.replace(/[^a-z0-9]+/g, ' ').trim();
         const words = normalized.split(/\s+/);
+        if (exclusions.some((term) => words.some((word) => word.startsWith(term)))) return false;
         return terms.some((term) => {
           if (exactTerms?.has(term)) return words.includes(term);
           if (term.includes(' ')) return (` ${normalized} `).includes(` ${term} `);
