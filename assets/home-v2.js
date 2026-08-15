@@ -30,6 +30,17 @@
     ['other','Ostatní','🏷️',[]]
   ];
   const MAIN_GROCERY_STORES = new Set(['albert','billa','coop','globus','kaufland','lidl','penny','tesco']);
+  const SEARCH_EXPANSIONS = {
+    maso: ['maso','masov','vepr','hovez','kurec','kruti','kachn','jehnec','kralik','krkovic','kyta','plec','kotlet','panenk','svickov','pecen','rosten','steak','zebr','bucek','koleno','mlete','gulasov','jatr','prsa','steh','kridl','palick','sunka','slanina','salam','klobas','parek','uzen'],
+    mleko: ['mleko','mlecny napoj','plnotuc','polotuc','odtuc','bezlaktoz','kondenzovan'],
+    pecivo: ['peciv','chleb','rohlik','housk','baget','vek','dalam','kaiser','toast','koblih','croissant'],
+    vejce: ['vejce','vajec'],
+    maslo: ['maslo','maslicko'],
+    syr: ['syr','eidam','gouda','emental','hermelin','niva','mozzarell','cheddar','parenic','korbac','balkansky','cottage'],
+    ovoce: ['ovoce','jablk','hrusk','banan','pomeranc','mandarink','citron','limet','grep','hrozn','jahod','malin','boruv','ostruzin','rybiz','tresn','visn','merunk','broskv','nektar','svestk','mango','ananas','avokad','kiwi','meloun'],
+    zelenina: ['zelenin','brambor','cibul','cesnek','rajcat','paprik','okurk','mrkev','petrzel','celer','kedlub','kvetak','brokolic','cuketa','lilek','redkv','repa','kapust','zeli','salat','spenat','hras','kukuric','fazol'],
+    pivo: ['pivo','pivn','lezak','radler','pils','porter','stout']
+  };
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
     albert:'albert.cz',billa:'billa.cz',coop:'coop.cz',globus:'globus.cz',hruska:'mojehruska.cz',kaufland:'kaufland.cz',lidl:'lidl.cz',makro:'makro.cz',penny:'penny.cz',tesco:'itesco.cz',
@@ -189,7 +200,11 @@
     if (state.category !== 'all') rows = rows.filter((offer) => offer._category === state.category);
     if (state.query) {
       const query = fold(state.query);
-      rows = rows.filter((offer) => fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.stores?.name, offer.categories?.name].join(' ')).includes(query));
+      const terms = SEARCH_EXPANSIONS[query] || [query];
+      rows = rows.filter((offer) => {
+        const haystack = fold([offer.title, offer.products?.name, offer.products?.brand, offer.products?.quantity_text, offer.categories?.name].join(' '));
+        return terms.some((term) => haystack.includes(term));
+      });
     }
     if (state.minPrice !== null) rows = rows.filter((offer) => priceOf(offer) >= state.minPrice);
     if (state.maxPrice !== null) rows = rows.filter((offer) => priceOf(offer) <= state.maxPrice);
