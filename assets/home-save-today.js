@@ -310,7 +310,7 @@
     const box = modal.querySelector('.sqSaveBox');
     const actions = modal.querySelector('.sqSaveActions');
     if (!box || !actions) return;
-    const top = Math.max(0, actions.offsetTop - box.offsetTop - 12);
+    const top = Math.max(0, box.scrollTop + actions.getBoundingClientRect().top - box.getBoundingClientRect().top - 12);
     requestAnimationFrame(() => box.scrollTo({
       top,
       behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth'
