@@ -41,7 +41,7 @@
     zelenina: ['zelenin','brambor','cibul','cesnek','rajcat','paprik','okurk','mrkev','petrzel','celer','kedlub','kvetak','brokolic','cuketa','lilek','redkv','repa','kapust','zeli','salat','spenat','hras','kukuric','fazol'],
     pivo: ['pivo','pivn','lezak','radler','pils','porter','stout'],
     uzeniny: ['uzenin','sunka','slanina','salam','klobas','parek','uzen','tlacenk','pastik'],
-    ryby: ['ryba','rybi','losos','tresk','tunak','kapr','pstruh','makrel','sardink','sleď','file'],
+    ryby: ['ryba','rybi','losos','tresk','tunak','kapr','pstruh','makrel','sardink','sled','file'],
     kava: ['kava','espresso','cappuccino','latte','arabica','robusta','zrnkova','mleta kava','instantni kava'],
     napoje: ['napoj','voda','mineral','limon','cola','dzus','nektar','stava','sirup','energy','tonic'],
     sladkosti: ['sladkost','cokolad','bonbon','susenk','oplat','tycink','pralink','lentilk','karamel','zvykack'],
@@ -371,8 +371,8 @@
   }
 
   function applySearch(value) {
-    state.query = String(value || '').trim(); state.mode = state.query ? 'all' : 'recommended'; state.visible = PAGE_SIZE;
-    $('q').value = state.query; $('sideSearch').value = state.query;
+    state.query = String(value || '').trim(); state.mode = state.query ? 'all' : 'recommended'; state.category = 'all'; state.visible = PAGE_SIZE;
+    $('q').value = state.query; $('sideSearch').value = state.query; renderCategories(); document.querySelectorAll('.quickTab').forEach((item) => item.classList.toggle('active', item.dataset.mode === state.mode));
     saveRecent(state.query); $('searchSuggestions').hidden = true;
     renderDeals(); $('dealsSection').scrollIntoView({ behavior:'smooth', block:'start' });
   }
