@@ -143,3 +143,25 @@ body.sfPage{
   #alerts .sfAlertRow>[data-toggle]{grid-column:1/3}
   #alerts .sfAlertRow>[data-delete]{grid-column:3/5}
 }
+
+
+/* Odkazové akce musí vypadat a fungovat jako skutečná tlačítka */
+.accountShell a.sfButton,
+.accountShell .sfSectionHead a.sfButton,
+.accountShell .sfAccountToolbar a.sfButton{
+  min-height:46px;
+  padding:0 16px;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  gap:7px;
+  line-height:1;
+  text-align:center;
+  text-decoration:none;
+  white-space:nowrap;
+}
+.accountShell a.sfButton:hover,
+.accountShell a.sfButton:focus-visible{text-decoration:none}
+@media(max-width:720px){
+  .accountShell .sfSectionHead>a.sfButton{width:100%;min-height:44px}
+}
