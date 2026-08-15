@@ -3,7 +3,7 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const CACHE_KEY = 'slevao-home-v2-data-verified-upcoming-v2';
+  const CACHE_KEY = 'slevao-home-v2-data-verified-upcoming-v3';
   const SAVED_KEY = 'slevao-saved';
   const RECENT_KEY = 'slevao-recent-searches';
   const PAGE_SIZE = 24;
@@ -125,8 +125,8 @@
   }
 
   async function fetchOffers() {
-    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url),categories(name,slug)';
-    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url)';
+    const richSelect = 'id,product_id,store_id,category_id,title,price,old_price,image_url,valid_from,valid_to,published_at,coverage_scope,region_code,city_name,store_location_name,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url,filter_group,filter_tags,content_form,classification_confidence),categories(name,slug)';
+    const simpleSelect = 'id,product_id,store_id,title,price,old_price,image_url,valid_from,valid_to,published_at,is_verified,metadata,stores(name,slug,logo_url,primary_color),products(name,brand,quantity_text,image_url,filter_group,filter_tags,content_form,classification_confidence)';
     const collect = async (select) => {
       const rows = [];
       for (let from = 0; ; from += 1000) {
@@ -152,6 +152,13 @@
   }
 
   function categoryOf(offer) {
+    const canonical = fold(offer.products?.filter_group || '');
+    if (canonical) {
+      const direct = CATEGORY_DEFS.find(([key,name]) => canonical === key || canonical === fold(name));
+      if (direct) return direct[0];
+      const aliases = { potraviny:'food', jidlo:'food', napoje:'drinks', drogerie:'drugstore', domacnost:'home', elektronika:'electronics', zahrada:'garden', obleceni:'fashion', lekarna:'pharmacy', zvirata:'pets' };
+      if (aliases[canonical]) return aliases[canonical];
+    }
     const explicit = offer.categories?.slug || offer.categories?.name;
     if (explicit) {
       const value = fold(explicit);
@@ -210,6 +217,8 @@
   function offerMatchesQuery(offer, rawQuery = state.query) {
     const query = fold(rawQuery).trim();
     if (!query) return true;
+    const canonicalTags = Array.isArray(offer.products?.filter_tags) ? offer.products.filter_tags.map(fold) : [];
+    if (canonicalTags.includes(query)) return true;
     const terms = SEARCH_EXPANSIONS[query] || [query];
     const exactTerms = SEARCH_EXACT_TERMS[query];
     const exclusions = SEARCH_EXCLUSIONS[query] || [];
