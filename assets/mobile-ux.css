@@ -240,15 +240,13 @@ body{overflow-x:hidden}
 }
 
 
-/* Seamless mobile hero artwork: remove the white source rectangle and keep the basket clear of the headline. */
+/* One-piece mobile hero background: pattern and basket are a single asset. */
 @media(max-width:800px){
-  .heroCopy::after{
-    background-position:calc(50% + 28px) center!important;
-    mix-blend-mode:multiply;
+  .heroCard{
+    background:#f5fbfa url('/assets/hero-mobile-combined.webp?v=20260815-1') center center/cover no-repeat!important;
   }
-}
-@media(max-width:390px){
   .heroCopy::after{
-    background-position:calc(50% + 22px) center!important;
+    display:none!important;
+    content:none!important;
   }
 }
