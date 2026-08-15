@@ -38,7 +38,7 @@ body{overflow-x:hidden}
   .heroStats>span{justify-content:center;min-width:0;padding:8px 5px;font-size:11px;gap:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .heroStats>.statusPill{overflow:visible;text-overflow:clip;line-height:1.05}
   .statusPillIcon{display:inline-grid;place-items:center;flex:0 0 26px;width:26px;height:26px;border-radius:50%;background:#e7faf8;color:#139d94;font-size:17px;font-weight:900}
-  .statusPillCopy{display:flex;min-width:0;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:nowrap}
+  .statusPillCopy{display:flex;min-width:0;flex-direction:column;align-items:center;justify-content:center;gap:2px;text-align:center;white-space:nowrap}
   .statusPillLabel{color:#647572;font-size:8.5px;font-weight:600;letter-spacing:-.01em}
   .statusPillDate{color:#17262b;font-size:11px;font-weight:800}
 
