@@ -104,7 +104,11 @@
 
     if (locationRow) {
       const page = Math.max(1, Number(locationRow.source_page || 1));
-      destination.href = `${locationRow.document_url}#page=${page}&zoom=page-fit`;
+      const importId = String(locationRow.import_id || '').trim();
+      const inlineDocument = /^[0-9a-f]{8}-[0-9a-f-]{27,}$/i.test(importId)
+        ? `${SUPABASE_URL}/functions/v1/store-leaflet-document?import_id=${encodeURIComponent(importId)}`
+        : String(locationRow.document_url || '').split('#')[0];
+      destination.href = `${inlineDocument}#page=${page}&zoom=page-fit`;
       destination.target = '_blank';
       destination.rel = 'noopener noreferrer';
       if (destination.textContent !== `Leták · strana ${page}`) destination.textContent = `Leták · strana ${page}`;
@@ -138,7 +142,7 @@
         .eq('status', 'published')
         .limit(100),
       db.from('public_product_leaflet_locations')
-        .select('store_id,source_page,document_url,valid_from,valid_to,updated_at')
+        .select('store_id,source_page,document_url,import_id,valid_from,valid_to,updated_at')
         .eq('product_id', productId)
         .order('updated_at', { ascending: false })
         .limit(100),
