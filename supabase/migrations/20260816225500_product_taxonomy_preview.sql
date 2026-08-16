@@ -28,9 +28,12 @@ begin
   v_is_drugstore := coalesce(v_stores && array['dm','rossmann','teta']::text[], false);
   if coalesce(v_stores && array['ca','cropp','house','reserved','takko']::text[], false) then
     return query select 'moda','fashion',array['moda']::text[],0.99::numeric,'store-segment-v2'; return;
-  elsif v_text ~ ' (sampon|mydlo|sprchovy|deodorant|zubni|kartacek|praci|avivaz|cistic|toaletni|plenky|kosmetika|ustni voda) '
-        and v_text !~ ' (stojanek na kartacek|sprchovy box|sprchova kabina|sprchove dvere|sprchova vanicka) ' then
-    return query select 'drogerie','drugstore',array['drogerie']::text[],0.98::numeric,'name-token-v3'; return;
+  elsif (
+          v_text ~ ' (sampon|mydlo|deodorant|zubni|kartacek|praci|avivaz|cistic|toaletni|plenky|kosmetika|ustni voda) '
+          or v_text ~ ' sprchovy (gel|krem|olej) '
+        )
+        and v_text !~ ' stojanek na kartacek ' then
+    return query select 'drogerie','drugstore',array['drogerie']::text[],0.98::numeric,'name-token-v4'; return;
   elsif not v_is_pharmacy and v_text ~ ' (telefon|smartphone|notebook|televize|sluchatka|pocitac|monitor|usb|hdmi) ' then
     return query select 'elektronika','electronics',array['elektronika']::text[],0.98::numeric,'name-token-v2'; return;
   elsif v_text ~ ' (pivo|lezak|radler|cola|limonada|limonady|mineralka|mineralni|dzus|juice|sirup|energy|tonic|kava|caj|vino|voda|napoj|napoje|kombucha) ' then
@@ -56,4 +59,4 @@ end;
 $$;
 revoke all on function public.preview_product_taxonomy(uuid) from public;
 grant execute on function public.preview_product_taxonomy(uuid) to anon, authenticated, service_role;
-comment on function public.preview_product_taxonomy(uuid) is 'Read-only taxonomy classifier preview v3 with retailer/context exclusions. Does not mutate products or offers; use for QA before backfill.';
+comment on function public.preview_product_taxonomy(uuid) is 'Read-only taxonomy classifier preview v4 with retailer/context exclusions. Does not mutate products or offers; use for QA before backfill.';
