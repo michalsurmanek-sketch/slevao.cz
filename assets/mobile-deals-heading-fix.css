@@ -1,0 +1,49 @@
+/* Dedicated mobile fix: keep the deals title and Filters button from overlapping. */
+@media (max-width: 800px) {
+  html body main#top section#dealsSection .container .sectionHead.dealsHeading {
+    position: relative !important;
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
+    column-gap: 12px !important;
+    row-gap: 0 !important;
+    align-items: start !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    padding-right: 0 !important;
+  }
+
+  html body main#top section#dealsSection .container .sectionHead.dealsHeading > div {
+    width: auto !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    padding-right: 0 !important;
+  }
+
+  html body main#top section#dealsSection #dealsTitle {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+  }
+
+  html body main#top section#dealsSection #filterToggle.filterToggle {
+    position: static !important;
+    inset: auto !important;
+    top: auto !important;
+    right: auto !important;
+    left: auto !important;
+    bottom: auto !important;
+    transform: none !important;
+    margin: 0 !important;
+    align-self: start !important;
+    justify-self: end !important;
+    z-index: auto !important;
+    flex: 0 0 auto !important;
+  }
+}
