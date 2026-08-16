@@ -7,9 +7,11 @@ assert.match(migration, /create or replace function public\.get_public_offer_met
 assert.match(migration, /security invoker/i, 'Metrics function must remain SECURITY INVOKER.');
 assert.match(migration, /o\.status\s*=\s*'published'/i, 'Only published offers belong to public metrics.');
 assert.match(migration, /o\.is_verified\s+is\s+true/i, 'Only verified offers belong to public metrics.');
-assert.match(migration, /o\.valid_to\s*>=\s*current_date/i, 'Expired offers must be excluded.');
-assert.match(migration, /o\.valid_from\s*<=\s*current_date\s*\+\s*7/i, 'Frontend window must remain seven days.');
-assert.match(migration, /distinct on\s*\(slug, normalized_title, valid_from, valid_to\)/i, 'Metrics must apply the same dedupe identity as homepage.');
+assert.match(migration, /timezone\('Europe\/Prague', now\(\)\)\)::date/i, 'Metrics must use Prague-local date boundaries.');
+assert.match(migration, /o\.valid_to\s*>=\s*\(timezone\('Europe\/Prague', now\(\)\)\)::date/i, 'Expired offers must be excluded.');
+assert.match(migration, /o\.valid_from\s*<=\s*\(timezone\('Europe\/Prague', now\(\)\)\)::date\s*\+\s*7/i, 'Frontend window must remain seven days.');
+assert.match(migration, /row_number\(\) over/i, 'Metrics must deduplicate eligible offers before counting displayable rows.');
+assert.match(migration, /partition by[\s\S]*s\.slug[\s\S]*o\.valid_from[\s\S]*o\.valid_to/i, 'Metrics dedupe identity must include store and validity window.');
 assert.match(migration, /current_displayable/i, 'Metrics must expose current displayable count.');
 assert.match(migration, /upcoming_displayable/i, 'Metrics must expose upcoming displayable count separately.');
 assert.match(migration, /grant execute on function public\.get_public_offer_metrics\(\) to anon, authenticated, service_role/i, 'Public read-only metrics must be executable by frontend roles.');
