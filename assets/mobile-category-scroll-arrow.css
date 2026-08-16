@@ -1,28 +1,57 @@
-/* Mobile: visual scroll cue for "Nakupuj podle kategorie", matching Rychly nakup. */
+/* Mobile: visual scroll cue for "Nakupuj podle kategorie". */
 @media(max-width:900px){
   #categoriesSection .container{position:relative}
-  #categoriesSection .categoryChips{padding-right:50px!important}
+  #categoriesSection .categoryChips{
+    padding-right:72px!important;
+    scroll-padding-right:72px;
+  }
+
+  /* Jemný přechod napovídá, že za pravým okrajem pokračují další kategorie. */
+  #categoriesSection .container::before{
+    content:'';
+    position:absolute;
+    z-index:7;
+    right:0;
+    bottom:24px;
+    width:76px;
+    height:68px;
+    pointer-events:none;
+    background:linear-gradient(90deg,rgba(246,252,251,0),rgba(246,252,251,.88) 46%,rgba(246,252,251,.98));
+    border-radius:0 18px 18px 0;
+  }
+
   #categoriesSection .container::after{
     content:'›';
     position:absolute;
     z-index:8;
-    right:10px;
-    bottom:34px;
-    width:36px;
-    height:36px;
+    right:8px;
+    bottom:48px;
+    width:48px;
+    height:48px;
     display:grid;
     place-items:center;
-    border:1px solid rgba(255,255,255,.62);
+    border:1px solid rgba(255,255,255,.72);
     border-radius:50%;
     background:linear-gradient(145deg,#2bc9bd,#159e94);
     color:#fff;
-    box-shadow:0 8px 20px rgba(10,117,108,.24);
-    font-size:25px;
+    box-shadow:0 9px 22px rgba(10,117,108,.27);
+    font-size:34px;
     line-height:1;
     font-weight:700;
     pointer-events:none;
     animation:slCategoryArrowNudge 1.25s ease-in-out 2;
   }
 }
+
+@media(max-width:430px){
+  #categoriesSection .container::after{
+    right:7px;
+    bottom:52px;
+    width:46px;
+    height:46px;
+    font-size:32px;
+  }
+}
+
 @keyframes slCategoryArrowNudge{0%,100%{transform:translateX(0)}50%{transform:translateX(4px)}}
 @media(prefers-reduced-motion:reduce){#categoriesSection .container::after{animation:none!important}}
