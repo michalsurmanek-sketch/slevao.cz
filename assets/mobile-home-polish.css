@@ -1,0 +1,73 @@
+/* Slevao.cz – mobile homepage polish, 16/08/2026 */
+@media(max-width:800px){
+  :root{--sl-teal:#0b978d;--sl-teal2:#12b4a7;--sl-ink:#132131;--sl-muted:#6a7777;--sl-line:rgba(11,151,141,.16)}
+  body{background:#f7faf9}
+  .topbar{background:rgba(255,255,255,.96);border-bottom:1px solid #e7efee;box-shadow:0 2px 10px rgba(20,60,60,.025)}
+  .topbarInner{min-height:72px!important;gap:9px!important;padding-top:7px;padding-bottom:7px}
+  .brandMark{width:44px!important;height:44px!important;border-radius:14px!important;box-shadow:0 5px 14px rgba(12,151,141,.12)}
+  .mainSearch{height:52px!important;border-radius:22px!important;background:#fff!important;border:1px solid #dce8e7!important;box-shadow:none!important}
+  .mainSearch input{height:52px!important;font-size:17px!important;font-weight:500;color:#273334;padding-left:45px!important}
+  .mainSearch input::placeholder{color:#737c7c;opacity:1}
+  .savedButton,.topbarTipButton.accountButton{width:52px!important;height:52px!important;min-width:52px!important;flex-basis:52px!important;border-radius:18px!important;border:1px solid #dde8e7!important;background:#fff!important;box-shadow:0 4px 14px rgba(20,60,60,.04)!important}
+  .savedButton b{width:20px!important;min-width:20px!important;height:20px!important;right:-1px!important;top:-6px!important;font-size:11px!important}
+  .topbarTipButton.accountButton .accountButtonIcon{width:24px!important;height:24px!important}
+
+  .hero{padding-top:14px!important}
+  .hero .container{padding-inline:12px!important}
+  .heroCard{border-radius:28px!important;padding:28px 22px 22px!important;border:1px solid rgba(11,151,141,.13)!important;background:linear-gradient(145deg,#f8fffe 0%,#f0fbf9 60%,#edf9f7 100%)!important;box-shadow:0 12px 34px rgba(20,60,60,.055)!important;overflow:hidden}
+  .heroCopy{row-gap:0!important}
+  .heroCopy>.eyebrow{font-size:9px!important;line-height:1!important;min-height:34px;padding:0 16px!important;border-radius:999px!important;display:inline-flex!important;align-items:center;justify-content:center;width:max-content;max-width:100%;letter-spacing:.11em!important;margin-bottom:22px!important;box-shadow:0 7px 18px rgba(11,151,141,.10)}
+  .heroCopy h1{font-size:clamp(37px,10.5vw,48px)!important;line-height:.98!important;letter-spacing:-1.9px!important;margin:0!important;color:var(--sl-ink)!important;font-weight:800!important}
+  .heroCopy h1 .brandBlue{color:#099f95!important}
+  .heroCopy>p{font-size:17px!important;line-height:1.38!important;color:#687575!important;margin:20px 0 0!important;max-width:94%}
+  .heroCopy::after{height:185px!important;background-size:auto 292px!important;transform:scale(1.08)!important;opacity:1!important}
+
+  .heroStats{margin-top:22px!important;gap:0!important;border:1px solid #e1eceb;border-radius:22px;background:rgba(255,255,255,.92);box-shadow:0 7px 22px rgba(23,34,34,.05);padding:8px 4px!important;overflow:hidden}
+  .heroStats>span{position:relative;border:0!important;border-radius:0!important;background:transparent!important;box-shadow:none!important;min-height:58px;padding:6px 7px!important;gap:7px!important}
+  .heroStats>span+span::before{content:"";position:absolute;left:0;top:11px;bottom:11px;width:1px;background:#dfe9e8}
+  .statusPillIcon{width:30px!important;height:30px!important;flex-basis:30px!important;font-size:18px!important}
+  .statusPillCopy,.heroStatCopy{align-items:flex-start!important;text-align:left!important;gap:1px!important}
+  .statusPillLabel,.heroStatLabel{font-size:9px!important;color:#73807f!important}
+  .statusPillDate,.heroStatValue{font-size:14px!important;line-height:1.05!important;color:#17262b!important;font-weight:900!important}
+
+  .heroBrowseButton,.saveTodayButton,.sqSaveOpen,.heroSaveButton{min-height:64px!important;border-radius:20px!important;background:linear-gradient(135deg,#087e75,#14b8aa)!important;box-shadow:0 10px 24px rgba(10,160,150,.17)!important;font-size:18px!important;font-weight:900!important;letter-spacing:-.25px!important;border:0!important}
+
+  .heroNearbyPanel.is-nearby-collapsed{min-height:102px!important;max-height:102px!important;padding:12px 14px!important;border-radius:24px!important;border:1px solid rgba(8,126,117,.18)!important;background:#fff!important;box-shadow:0 6px 20px rgba(20,60,60,.045)!important;margin-top:22px!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggle{height:76px!important;grid-template-columns:50px minmax(0,1fr) 48px!important;gap:12px!important;padding:0!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon{width:50px!important;height:50px!important;background:#effbf9!important;box-shadow:inset 0 0 0 1px rgba(8,126,117,.08)!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon svg{width:24px!important;height:24px!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy{gap:5px!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy strong{font-size:16px!important;letter-spacing:.01em!important;color:#0a8f85!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy small{font-size:13px!important;font-weight:550!important;color:#6a7777!important}
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron{width:48px!important;height:48px!important;border-radius:18px!important;box-shadow:0 6px 16px rgba(8,126,117,.08)!important}
+
+  .section{background:#f7faf9}
+  #categoriesSection,#storesSection,#leafletsSection,#dealsSection{scroll-margin-top:88px}
+  .section+.section{border-top:0}
+
+  .mobileNav{min-height:72px!important;padding:6px 8px max(6px,env(safe-area-inset-bottom))!important;background:rgba(255,255,255,.98)!important;border-top:1px solid #e4eceb!important;box-shadow:0 -8px 24px rgba(20,60,60,.05)!important}
+  .mobileNav a,.mobileNav button{min-height:58px!important;border-radius:15px!important;font-size:11px!important;font-weight:750!important;color:#657170!important}
+  .mobileNav a[aria-current="page"],.mobileNav button[aria-current="page"]{background:#edf9f7!important;color:#087e75!important}
+  .mobileNav svg{width:23px!important;height:23px!important}
+
+  /* Sjednocení povrchů pod hero */
+  .sectionHead h2{color:#17262b;letter-spacing:-.45px}
+  .sectionHead p{color:#6c7978}
+  .storeCard,.leafletCard,.dealCard,.shoppingListShortcut{border-color:#e2ebea!important;box-shadow:0 5px 18px rgba(20,60,60,.045)!important}
+}
+
+@media(max-width:430px){
+  .topbarInner{gap:7px!important}
+  .brandMark{width:42px!important;height:42px!important}
+  .mainSearch{height:50px!important}
+  .mainSearch input{height:50px!important;font-size:16px!important}
+  .savedButton,.topbarTipButton.accountButton{width:50px!important;height:50px!important;min-width:50px!important;flex-basis:50px!important}
+  .heroCard{padding:24px 18px 20px!important}
+  .heroCopy h1{font-size:clamp(35px,10.2vw,43px)!important}
+  .heroCopy>p{font-size:16px!important}
+  .heroCopy::after{height:165px!important;background-size:auto 265px!important}
+  .heroStats{margin-top:19px!important}
+  .heroStats>span{min-height:54px!important;padding-inline:5px!important}
+  .statusPillDate,.heroStatValue{font-size:13px!important}
+  .heroNearbyPanel.is-nearby-collapsed{min-height:96px!important;max-height:96px!important}
+}
