@@ -18,43 +18,58 @@ as $$
       o.valid_from,
       o.valid_to,
       s.slug,
-      trim(regexp_replace(
-        regexp_replace(
-          lower(public.unaccent(coalesce(nullif(o.title, ''), p.name, ''))),
-          '\m[0-9]+([.,][0-9]+)?[[:space:]]*(g|kg|ml|l|ks|bal|baleni)\M',
-          '',
-          'g'
-        ),
-        '[^a-z0-9]+',
-        ' ',
-        'g'
-      )) as normalized_title
+      row_number() over (
+        partition by
+          s.slug,
+          trim(regexp_replace(
+            regexp_replace(
+              lower(public.unaccent(coalesce(nullif(o.title, ''), p.name, ''))),
+              '\m[0-9]+([.,][0-9]+)?[[:space:]]*(g|kg|ml|l|ks|bal|baleni)\M',
+              '',
+              'gi'
+            ),
+            '[^a-z0-9]+',
+            ' ',
+            'g'
+          )),
+          o.valid_from,
+          o.valid_to
+        order by
+          (coalesce(o.image_url, p.image_url) is not null) desc,
+          o.published_at desc nulls last,
+          o.updated_at desc nulls last,
+          o.id
+      ) as dedupe_rank
     from public.offers o
     join public.stores s on s.id = o.store_id and s.is_active is true
     left join public.products p on p.id = o.product_id
     where o.status = 'published'
       and o.is_verified is true
-      and o.valid_to >= current_date
-      and o.valid_from <= current_date + 7
-  ),
-  dedup as (
-    select distinct on (slug, normalized_title, valid_from, valid_to)
-      id, valid_from, valid_to, slug, normalized_title
-    from eligible
-    order by slug, normalized_title, valid_from, valid_to, id
+      and o.valid_from <= (timezone('Europe/Prague', now()))::date + 7
+      and o.valid_to >= (timezone('Europe/Prague', now()))::date
   )
   select
-    count(*) filter (where d.valid_from <= current_date)::bigint as current_displayable,
-    count(*) filter (where d.valid_from > current_date)::bigint as upcoming_displayable,
-    count(*)::bigint as frontend_window_displayable,
-    (select count(*) from eligible e where e.valid_from <= current_date)::bigint as current_verified_raw,
-    (select count(*) from eligible e where e.valid_from > current_date)::bigint as upcoming_verified_raw,
-    (select count(*) from eligible)::bigint as frontend_window_raw
-  from dedup d;
+    count(*) filter (
+      where dedupe_rank = 1
+        and valid_from <= (timezone('Europe/Prague', now()))::date
+    )::bigint as current_displayable,
+    count(*) filter (
+      where dedupe_rank = 1
+        and valid_from > (timezone('Europe/Prague', now()))::date
+    )::bigint as upcoming_displayable,
+    count(*) filter (where dedupe_rank = 1)::bigint as frontend_window_displayable,
+    count(*) filter (
+      where valid_from <= (timezone('Europe/Prague', now()))::date
+    )::bigint as current_verified_raw,
+    count(*) filter (
+      where valid_from > (timezone('Europe/Prague', now()))::date
+    )::bigint as upcoming_verified_raw,
+    count(*)::bigint as frontend_window_raw
+  from eligible;
 $$;
 
 revoke all on function public.get_public_offer_metrics() from public;
 grant execute on function public.get_public_offer_metrics() to anon, authenticated, service_role;
 
 comment on function public.get_public_offer_metrics() is
-  'Authoritative public offer counts matching the homepage eligibility window and dedupe identity. current_displayable excludes upcoming offers.';
+  'Authoritative public offer counts matching homepage eligibility, Prague date boundaries and frontend dedupe identity.';
