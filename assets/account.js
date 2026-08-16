@@ -9,7 +9,24 @@
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const params = new URLSearchParams(location.search);
-  const redirect = params.get('redirect') || 'ucet.html';
+
+  function safeRedirectTarget(value) {
+    const fallback = 'ucet.html';
+    const raw = String(value || '').trim();
+    if (!raw) return fallback;
+    if (raw.startsWith('//')) return fallback;
+    try {
+      const target = new URL(raw, location.origin);
+      if (target.origin !== location.origin) return fallback;
+      const relative = `${target.pathname.replace(/^\//, '')}${target.search}${target.hash}`;
+      if (!relative || relative.startsWith('admin')) return fallback;
+      return relative;
+    } catch {
+      return fallback;
+    }
+  }
+
+  const redirect = safeRedirectTarget(params.get('redirect'));
   let session = null;
   let notificationChannel = null;
   let notificationPoll = 0;
