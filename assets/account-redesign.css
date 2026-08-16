@@ -251,5 +251,5 @@ body.sfPage{
 
 /* Přihlášený uživatel nikdy nevidí přihlašovací ani registrační formulář */
 #authArea[hidden],#profileArea[hidden]{display:none!important}
-body.accountSignedIn #authArea{display:none!important}
+body.accountSignedIn #authArea,body.accountRegistrationPending #authArea{display:none!important}
 body.accountSignedIn #profileArea{display:block}
