@@ -1,0 +1,115 @@
+/* Slevao.cz – robustní mobilní filtr bez zásahu do desktopu */
+@media(max-width:800px){
+  /* Levý desktopový sloupec nesmí na mobilu ovlivňovat tok stránky. */
+  .dealsLayout{display:block!important;min-width:0!important}
+  .filterColumn{
+    position:static!important;
+    display:block!important;
+    width:0!important;
+    height:0!important;
+    min-width:0!important;
+    min-height:0!important;
+    margin:0!important;
+    padding:0!important;
+    overflow:visible!important;
+  }
+  .filterColumn>.shoppingListShortcut{display:none!important}
+  .dealsContent{display:block!important;width:100%!important;min-width:0!important;margin:0!important}
+
+  /* Zatemnění stránky pouze v okamžiku, kdy je filtr skutečně otevřený. */
+  .filterColumn:has(#filterPanel.open)::before{
+    content:"";
+    position:fixed;
+    left:0;
+    right:0;
+    top:72px;
+    bottom:calc(72px + env(safe-area-inset-bottom));
+    z-index:1180;
+    background:rgba(12,30,29,.28);
+    backdrop-filter:blur(2px);
+    -webkit-backdrop-filter:blur(2px);
+    pointer-events:none;
+  }
+
+  /* Filtr je samostatný sheet mezi horní a spodní navigací. */
+  #filterPanel.filterPanel{
+    position:fixed!important;
+    left:12px!important;
+    right:12px!important;
+    top:calc(84px + env(safe-area-inset-top))!important;
+    bottom:calc(84px + env(safe-area-inset-bottom))!important;
+    width:auto!important;
+    height:auto!important;
+    min-height:0!important;
+    max-height:none!important;
+    margin:0!important;
+    padding:16px 16px 24px!important;
+    overflow-x:hidden!important;
+    overflow-y:auto!important;
+    overscroll-behavior:contain!important;
+    -webkit-overflow-scrolling:touch;
+    border:1px solid #dce8e7!important;
+    border-radius:24px!important;
+    background:#fff!important;
+    box-shadow:0 22px 60px rgba(10,35,33,.26)!important;
+    z-index:1200!important;
+    visibility:hidden!important;
+    opacity:0!important;
+    pointer-events:none!important;
+    transform:translateY(24px)!important;
+    transition:transform .2s ease,opacity .16s ease,visibility 0s linear .2s!important;
+  }
+  #filterPanel.filterPanel.open{
+    visibility:visible!important;
+    opacity:1!important;
+    pointer-events:auto!important;
+    transform:translateY(0)!important;
+    transition:transform .2s ease,opacity .16s ease!important;
+  }
+
+  /* Nadpis a zavření zůstávají vždy viditelné při scrollu formuláře. */
+  #filterPanel .filterPanelHead{
+    position:sticky!important;
+    top:-16px!important;
+    z-index:5!important;
+    min-height:58px!important;
+    margin:-16px -16px 4px!important;
+    padding:16px 16px 10px!important;
+    background:rgba(255,255,255,.98)!important;
+    border-bottom:1px solid rgba(220,232,231,.72)!important;
+    backdrop-filter:blur(10px);
+    -webkit-backdrop-filter:blur(10px);
+  }
+  #filterPanel .filterPanelHead button{
+    display:grid!important;
+    place-items:center!important;
+    width:42px!important;
+    height:42px!important;
+    flex:0 0 42px!important;
+    margin:-5px -5px -5px 8px!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:14px!important;
+    background:#f2f7f6!important;
+    color:#172222!important;
+    line-height:1!important;
+  }
+
+  /* Formulář nesmí být schovaný pod spodní navigací. */
+  #filterPanel .resetFilters{margin-bottom:6px!important}
+}
+
+@media(max-width:430px){
+  .filterColumn:has(#filterPanel.open)::before{top:70px}
+  #filterPanel.filterPanel{
+    left:10px!important;
+    right:10px!important;
+    top:calc(78px + env(safe-area-inset-top))!important;
+    bottom:calc(82px + env(safe-area-inset-bottom))!important;
+    border-radius:22px!important;
+  }
+}
+
+@media(prefers-reduced-motion:reduce){
+  #filterPanel.filterPanel{transition:none!important}
+}
