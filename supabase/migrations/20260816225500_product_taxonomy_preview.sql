@@ -26,7 +26,7 @@ begin
   if v_text is null then return; end if;
   v_is_pharmacy := coalesce(v_stores && array['benu','dr-max','pilulka']::text[], false);
   v_is_drugstore := coalesce(v_stores && array['dm','rossmann','teta']::text[], false);
-  if coalesce(v_stores && array['ca','cropp','house','reserved','sinsay','takko']::text[], false) then
+  if coalesce(v_stores && array['ca','cropp','house','reserved','takko']::text[], false) then
     return query select 'moda','fashion',array['moda']::text[],0.99::numeric,'store-segment-v2'; return;
   elsif v_text ~ ' (sampon|mydlo|sprchovy|deodorant|zubni|kartacek|praci|avivaz|cistic|toaletni|plenky|kosmetika|ustni voda) ' then
     return query select 'drogerie','drugstore',array['drogerie']::text[],0.98::numeric,'name-token-v2'; return;
