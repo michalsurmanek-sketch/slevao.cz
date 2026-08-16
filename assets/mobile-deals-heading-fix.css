@@ -1,3 +1,5 @@
+@import url('./mobile-category-scroll-arrow.css?v=20260816-2');
+
 /* Dedicated mobile fix: keep the deals title and Filters button from overlapping. */
 @media (max-width: 800px) {
   html body main#top section#dealsSection .container .sectionHead.dealsHeading {
