@@ -25,5 +25,5 @@
     <circle cx="144" cy="143" r="8" fill="#4bcfc5"/>
   </g>
   <text x="250" y="162" font-family="Arial Black, Arial, sans-serif" font-size="126" font-weight="900" letter-spacing="-7" fill="#063f48">SLEVAO</text>
-  <text x="797" y="162" font-family="Arial Black, Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="-4" fill="url(#cz)">.cz</text>
+  <text x="724" y="162" font-family="Arial Black, Arial, sans-serif" font-size="82" font-weight="900" letter-spacing="-4" fill="url(#cz)">.cz</text>
 </svg>
