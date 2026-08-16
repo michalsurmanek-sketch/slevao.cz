@@ -1,3 +1,5 @@
+@import url("mobile-home-polish.css?v=20260816-1");
+
 /* Slevao.cz – pravé tlačítko uvnitř rozšířené horní lišty */
 @media(min-width:901px){
   body .topbar .container{
