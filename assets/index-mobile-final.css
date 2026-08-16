@@ -365,3 +365,20 @@
     clip-path: inset(50%) !important;
   }
 }
+
+
+/* Mobile hero badge: 15% smaller and anchored to the left. */
+@media (max-width: 800px) {
+  .heroCopy > .eyebrow {
+    align-self: flex-start !important;
+    width: max-content !important;
+    max-width: 100% !important;
+    min-height: 29px !important;
+    height: 29px !important;
+    padding: 0 12px !important;
+    margin-left: 0 !important;
+    margin-right: auto !important;
+    font-size: 8px !important;
+    border-radius: 999px !important;
+  }
+}
