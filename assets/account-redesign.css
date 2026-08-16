@@ -253,3 +253,12 @@ body.sfPage{
 #authArea[hidden],#profileArea[hidden]{display:none!important}
 body.accountSignedIn #authArea,body.accountRegistrationPending #authArea{display:none!important}
 body.accountSignedIn #profileArea{display:block}
+
+
+/* Čisté klepnutí na účet bez modrého tap highlightu */
+.accountBrand,.accountTopLinks a,.slevaoBottomNav a{
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  user-select:none;
+}
+.accountTopLinks a:active,.slevaoBottomNav a:active{background:#e4f7f4;color:#087b75}
