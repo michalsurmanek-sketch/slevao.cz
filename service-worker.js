@@ -10,7 +10,7 @@ const SHELL = [
   '/offline.html',
   '/manifest.webmanifest',
   '/favicon.svg',
-  '/assets/public-features.css?v=20260804-2',
+  '/assets/public-features.css?v=20260816-5',
   '/assets/public-features.js?v=20260811-3',
   '/assets/public-nav-upgrade.js?v=20260815-7',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
