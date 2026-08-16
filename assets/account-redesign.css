@@ -238,12 +238,12 @@ body.sfPage{
 
 /* Více místa pro text mobilního vyhledávače */
 @media(max-width:720px){
-  .accountSearch input{padding-left:34px;padding-right:65px;font-size:13px;letter-spacing:-.015em}
+  .accountSearch input{padding-left:34px;padding-right:65px;font-size:14px;letter-spacing:-.02em}
   .accountSearch>span{left:11px;font-size:18px}
   .accountSearch button{right:4px;min-width:57px;padding:0 6px;font-size:10.5px}
 }
 @media(max-width:380px){
-  .accountSearch input{padding-left:32px;padding-right:60px;font-size:12px}
+  .accountSearch input{padding-left:32px;padding-right:60px;font-size:13px}
   .accountSearch>span{left:10px;font-size:17px}
   .accountSearch button{min-width:53px;padding:0 5px;font-size:9.5px}
 }
