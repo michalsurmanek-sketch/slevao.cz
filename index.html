@@ -40,6 +40,10 @@
   <link rel="stylesheet" href="assets/top-tip-button.css?v=20260816-5">
   <link rel="stylesheet" href="assets/index-mobile-final.css?v=20260816-7">
   <link rel="stylesheet" href="assets/mobile-deals-heading-fix.css?v=20260816-1">
+  <style>
+    @media(max-width:800px){#dealsTitle .dealsTitleRest{display:block!important}}
+    @media(min-width:801px){#dealsTitle .dealsTitleRest{display:inline!important}}
+  </style>
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
 </head>
 <body>
@@ -128,7 +132,7 @@
     <section id="dealsSection" class="section dealsSection">
       <div class="container">
         <div class="sectionHead dealsHeading">
-          <div><span class="eyebrow">Aktuální ceny</span><h2 id="dealsTitle">Nejvýhodnější právě teď</h2><p id="dealsSubtitle">Ověřené nabídky, které právě platí.</p></div>
+          <div><span class="eyebrow">Aktuální ceny</span><h2 id="dealsTitle">Nejvýhodnější <span class="dealsTitleRest">právě teď</span></h2><p id="dealsSubtitle">Ověřené nabídky, které právě platí.</p></div>
           <button id="filterToggle" class="filterToggle" type="button">Filtry <span id="activeFilterCount">0</span></button>
         </div>
 
