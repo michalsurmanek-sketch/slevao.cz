@@ -1,0 +1,341 @@
+/* Slevao.cz – final mobile layout guard for index.html
+   Loaded last so older mobile layers cannot reintroduce overlap. */
+
+@media (max-width: 800px) {
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: clip; }
+  body { padding-bottom: calc(76px + env(safe-area-inset-bottom)) !important; }
+  img, svg { max-width: 100%; }
+
+  .container,
+  main,
+  main > section,
+  .section > .container,
+  .dealsLayout,
+  .dealsContent { min-width: 0 !important; max-width: 100% !important; }
+
+  /* Header: one fixed row, no squeezing or overlap. */
+  .topbar { position: relative; z-index: 100; }
+  .topbarInner {
+    width: calc(100% - 20px) !important;
+    min-height: 66px !important;
+    height: 66px !important;
+    padding: 7px 0 !important;
+    gap: 7px !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+  }
+  .brand { flex: 0 0 44px !important; width: 44px !important; min-width: 44px !important; overflow: visible !important; }
+  .brandMark { flex: 0 0 44px !important; width: 44px !important; height: 44px !important; }
+  .brand > span:last-child { display: none !important; }
+  .mainSearch {
+    flex: 1 1 auto !important;
+    width: auto !important;
+    min-width: 0 !important;
+    height: 48px !important;
+    border-radius: 18px !important;
+  }
+  .mainSearch input {
+    width: 100% !important;
+    min-width: 0 !important;
+    height: 48px !important;
+    padding: 0 8px 0 40px !important;
+    font-size: 15px !important;
+    text-overflow: ellipsis;
+  }
+  .searchIcon { left: 14px !important; top: 50% !important; transform: translateY(-50%) !important; }
+  .savedButton,
+  .topbarTipButton.accountButton {
+    flex: 0 0 44px !important;
+    width: 44px !important;
+    min-width: 44px !important;
+    height: 44px !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border-radius: 14px !important;
+  }
+  .savedButton > span:first-child { font-size: 24px !important; }
+  .savedButton b { top: -5px !important; right: -3px !important; }
+  .searchSuggestions {
+    position: fixed !important;
+    top: 68px !important;
+    left: 10px !important;
+    right: 10px !important;
+    width: auto !important;
+    max-height: calc(100dvh - 154px) !important;
+    overflow-y: auto !important;
+    z-index: 1300 !important;
+  }
+
+  /* Hero: content determines height; every block stays inside the card. */
+  .hero { padding: 12px 0 0 !important; }
+  .hero .container { width: 100% !important; padding-inline: 10px !important; }
+  .heroCard {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    padding: 22px 18px 18px !important;
+    border-radius: 24px !important;
+    overflow: hidden !important;
+    background: #f5fbfa url('/assets/hero-mobile-combined.webp?v=20260815-1') center center / cover no-repeat !important;
+  }
+  .heroCopy { width: 100% !important; min-width: 0 !important; display: flex !important; flex-direction: column !important; }
+  .heroCopy > .eyebrow {
+    max-width: 100% !important;
+    min-height: 34px !important;
+    margin: 0 0 18px !important;
+    padding-inline: 14px !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .heroCopy h1 {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    font-size: clamp(34px, 10.3vw, 44px) !important;
+    line-height: 1 !important;
+    letter-spacing: -1.8px !important;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+  .heroCopy > p {
+    max-width: 100% !important;
+    margin: 18px 0 0 !important;
+    font-size: 15px !important;
+    line-height: 1.35 !important;
+  }
+  .heroArtwork,
+  .heroCopy::after { display: none !important; content: none !important; }
+
+  .heroStats {
+    width: 100% !important;
+    min-width: 0 !important;
+    margin: 18px 0 0 !important;
+    padding: 6px 3px !important;
+    display: grid !important;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    gap: 0 !important;
+    overflow: hidden !important;
+  }
+  .heroStats > span {
+    min-width: 0 !important;
+    min-height: 54px !important;
+    padding: 5px 4px !important;
+    gap: 5px !important;
+    justify-content: center !important;
+    overflow: hidden !important;
+  }
+  .statusPillIcon { flex: 0 0 26px !important; width: 26px !important; height: 26px !important; }
+  .statusPillCopy,
+  .heroStatCopy { min-width: 0 !important; }
+  .statusPillLabel,
+  .heroStatLabel { font-size: 8.5px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+  .statusPillDate,
+  .heroStatValue { font-size: 12.5px !important; white-space: nowrap; }
+
+  .heroBrowseButton,
+  .saveTodayButton,
+  .sqSaveOpen,
+  .heroSaveButton {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 58px !important;
+    margin-top: 16px !important;
+    padding-inline: 14px !important;
+    white-space: normal !important;
+    text-align: center;
+  }
+  .heroNearbyPanel,
+  .slLiveHeroResult { width: 100% !important; min-width: 0 !important; max-width: 100% !important; }
+  .heroNearbyPanel.is-nearby-collapsed {
+    min-height: 92px !important;
+    max-height: 92px !important;
+    margin-top: 18px !important;
+    padding: 10px 12px !important;
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggle {
+    width: 100% !important;
+    height: 70px !important;
+    min-width: 0 !important;
+    grid-template-columns: 44px minmax(0, 1fr) 42px !important;
+    gap: 9px !important;
+  }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon { width: 44px !important; height: 44px !important; }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron { width: 42px !important; height: 42px !important; }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy { min-width: 0 !important; overflow: hidden; }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy strong { font-size: 14px !important; }
+  .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryCopy small { font-size: 11.5px !important; max-width: 100%; }
+
+  /* Sections and horizontal rails stay inside the viewport. */
+  .section { width: 100% !important; padding: 24px 0 !important; overflow: clip; }
+  .section .container { width: calc(100% - 22px) !important; }
+  .sectionHead,
+  .inlineHead,
+  .dealsHeading { min-width: 0 !important; gap: 10px !important; align-items: flex-start !important; }
+  .sectionHead > div,
+  .inlineHead > div,
+  .dealsHeading > div { min-width: 0 !important; }
+  .sectionHead h2 { font-size: clamp(24px, 7vw, 30px) !important; line-height: 1.08 !important; overflow-wrap: anywhere; }
+  .sectionHead p { max-width: 100% !important; }
+  .sectionHead .textButton,
+  .filterToggle { flex: 0 0 auto !important; white-space: nowrap; }
+
+  #categoriesSection .categoryChips,
+  #storesSection .storeGrid,
+  #leafletsSection .leafletGrid,
+  .quickTabs {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    margin-inline: 0 !important;
+    padding-inline: 0 !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #categoriesSection .categoryChips::-webkit-scrollbar,
+  #storesSection .storeGrid::-webkit-scrollbar,
+  #leafletsSection .leafletGrid::-webkit-scrollbar,
+  .quickTabs::-webkit-scrollbar { display: none; }
+
+  #leafletsSection .leafletGrid { display: flex !important; gap: 10px !important; scroll-snap-type: x mandatory; }
+  #leafletsSection .leafletCard { flex: 0 0 min(82vw, 310px) !important; min-width: 0 !important; scroll-snap-align: start; }
+
+  /* Offers and toolbars never force page-wide horizontal scrolling. */
+  .toolbar { width: 100% !important; min-width: 0 !important; display: grid !important; grid-template-columns: 1fr !important; gap: 8px !important; }
+  .toolbar > * { width: 100% !important; min-width: 0 !important; }
+  .dealGrid { width: 100% !important; min-width: 0 !important; grid-template-columns: 1fr !important; gap: 14px !important; }
+  .dealCard,
+  .dealTop,
+  .dealBody,
+  .dealInfo,
+  .dealUtilityPanel { min-width: 0 !important; max-width: 100% !important; }
+  .dealCard { width: 100% !important; height: auto !important; overflow: hidden !important; }
+  .dealInfo h3,
+  .dealFactText,
+  .dealNotice > span:last-child { overflow-wrap: anywhere; }
+
+  /* Filter sheet stays between header and bottom nav. */
+  .filterColumn {
+    width: 0 !important;
+    height: 0 !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+  }
+  #filterPanel.filterPanel {
+    left: 10px !important;
+    right: 10px !important;
+    top: calc(76px + env(safe-area-inset-top)) !important;
+    bottom: calc(82px + env(safe-area-inset-bottom)) !important;
+    width: auto !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 14px 14px 22px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    border-radius: 22px !important;
+  }
+  #filterPanel .filterPanelHead {
+    top: -14px !important;
+    margin: -14px -14px 4px !important;
+    padding: 14px 14px 10px !important;
+  }
+  #filterPanel input,
+  #filterPanel select,
+  #filterPanel button { max-width: 100%; }
+
+  /* Fixed bottom navigation and overlays. */
+  .mobileNav {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    width: 100% !important;
+    min-height: 72px !important;
+    grid-template-columns: repeat(5, minmax(0, 1fr)) !important;
+    padding: 5px 3px max(6px, env(safe-area-inset-bottom)) !important;
+    overflow: hidden !important;
+    z-index: 1000 !important;
+  }
+  .mobileNav a,
+  .mobileNav button {
+    width: 100% !important;
+    min-width: 0 !important;
+    min-height: 58px !important;
+    padding: 3px 1px !important;
+    font-size: 10px !important;
+    line-height: 1.1 !important;
+    overflow: hidden;
+  }
+  .modal { padding: 10px 10px calc(82px + env(safe-area-inset-bottom)) !important; }
+  .modalBox {
+    width: 100% !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 96px - env(safe-area-inset-bottom)) !important;
+    padding: 16px !important;
+    border-radius: 20px !important;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+  }
+  .modalHead { min-width: 0; }
+  .modalHead > div { min-width: 0; }
+  .modalHead h2 { overflow-wrap: anywhere; }
+
+  .footer {
+    width: 100% !important;
+    margin-top: 24px !important;
+    padding-bottom: 18px !important;
+    overflow: hidden !important;
+  }
+  .footerShell,
+  .footerMain,
+  .footerBottomInner { min-width: 0 !important; max-width: 100% !important; }
+}
+
+@media (max-width: 390px) {
+  .topbarInner { width: calc(100% - 14px) !important; gap: 5px !important; }
+  .brand { flex-basis: 40px !important; width: 40px !important; min-width: 40px !important; }
+  .brandMark { flex-basis: 40px !important; width: 40px !important; height: 40px !important; }
+  .savedButton,
+  .topbarTipButton.accountButton { flex-basis: 41px !important; width: 41px !important; min-width: 41px !important; height: 41px !important; }
+  .mainSearch input { font-size: 14px !important; padding-left: 36px !important; }
+  .searchIcon { left: 12px !important; }
+  .heroCard { padding-inline: 15px !important; }
+  .heroCopy h1 { font-size: clamp(32px, 10.4vw, 39px) !important; }
+  .heroStats > span { gap: 3px !important; padding-inline: 2px !important; }
+  .statusPillIcon { display: none !important; }
+  .sectionHead h2 { font-size: 24px !important; }
+}
+
+@media (max-width: 340px) {
+  .brand { display: none !important; }
+  .topbarInner { gap: 4px !important; }
+  .savedButton,
+  .topbarTipButton.accountButton { flex-basis: 39px !important; width: 39px !important; min-width: 39px !important; height: 39px !important; }
+  .heroCopy h1 { font-size: 31px !important; letter-spacing: -1.4px !important; }
+  .heroStats { grid-template-columns: 1.15fr .9fr .9fr !important; }
+  .statusPillLabel,
+  .heroStatLabel { font-size: 8px !important; }
+  .statusPillDate,
+  .heroStatValue { font-size: 11.5px !important; }
+  .mobileNav a,
+  .mobileNav button { font-size: 9px !important; }
+}
+
+@media (orientation: landscape) and (max-height: 520px) and (max-width: 900px) {
+  #filterPanel.filterPanel { top: 8px !important; bottom: 8px !important; }
+  .modal { padding: 8px !important; }
+  .modalBox { max-height: calc(100dvh - 16px) !important; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .filterPanel,
+  .modalBox,
+  .shoppingListFly { transition: none !important; animation: none !important; }
+}
