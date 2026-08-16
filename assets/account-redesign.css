@@ -234,3 +234,16 @@ body.sfPage{
   #profileArea .sfStats{grid-template-columns:1fr 1fr}
   .accountHeroMain>.sfMuted{display:none}
 }
+
+
+/* Více místa pro text mobilního vyhledávače */
+@media(max-width:720px){
+  .accountSearch input{padding-left:35px;padding-right:72px;font-size:12px;letter-spacing:-.02em}
+  .accountSearch>span{left:11px;font-size:18px}
+  .accountSearch button{right:4px;min-width:64px;padding:0 8px;font-size:11px}
+}
+@media(max-width:380px){
+  .accountSearch input{padding-left:32px;padding-right:65px;font-size:11px}
+  .accountSearch>span{left:10px;font-size:17px}
+  .accountSearch button{min-width:58px;padding:0 6px;font-size:10px}
+}
