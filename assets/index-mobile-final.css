@@ -408,3 +408,29 @@
     text-align: center !important;
   }
 }
+
+
+/* True optical centering for offer/store stats on narrow screens. */
+@media (max-width: 800px) {
+  .heroStats > span:nth-child(2),
+  .heroStats > span:nth-child(3) {
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 3px !important;
+    text-align: center !important;
+  }
+  .heroStats > span:nth-child(2)::before,
+  .heroStats > span:nth-child(3)::before {
+    flex: 0 0 24px !important;
+    width: 24px !important;
+    height: 24px !important;
+    margin: 0 auto !important;
+  }
+  .heroStats > span:nth-child(2) .heroStatCopy,
+  .heroStats > span:nth-child(3) .heroStatCopy {
+    width: 100% !important;
+    align-items: center !important;
+    text-align: center !important;
+  }
+}
