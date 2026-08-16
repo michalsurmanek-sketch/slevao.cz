@@ -247,3 +247,9 @@ body.sfPage{
   .accountSearch>span{left:8px;font-size:21px}
   .accountSearch button{min-width:53px;padding:0 5px;font-size:9.5px}
 }
+
+
+/* Přihlášený uživatel nikdy nevidí přihlašovací ani registrační formulář */
+#authArea[hidden],#profileArea[hidden]{display:none!important}
+body.accountSignedIn #authArea{display:none!important}
+body.accountSignedIn #profileArea{display:block}
