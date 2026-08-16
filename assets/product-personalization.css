@@ -30,3 +30,12 @@
   .sfPersonalProductActions .sfButton{width:100%;min-width:0;padding:0 9px}
   .sfPersonalProductActions .sfFavoriteButton{grid-column:1/-1}
 }
+
+
+/* Menší popisek detailu pouze v historii prohlížení */
+#recentProducts .sfProductDetailButton{font-size:11px;letter-spacing:-.015em}
+@media(max-width:680px){
+  #recentProducts .sfProductDetailButton{font-size:10px;padding-left:7px;padding-right:7px;gap:5px}
+  #recentProducts .sfProductDetailButton .sfProductActionIcon,
+  #recentProducts .sfProductDetailButton .sfProductActionIcon svg{width:16px;height:16px;flex-basis:16px}
+}
