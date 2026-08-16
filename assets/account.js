@@ -183,7 +183,9 @@
     const { data: { session: current } } = await db.auth.getSession();
     session = current;
     const signedIn = Boolean(session);
-    $('authArea').hidden = signedIn;
+    if (signedIn) document.body.classList.remove('accountRegistrationPending');
+    const registrationPending = document.body.classList.contains('accountRegistrationPending');
+    $('authArea').hidden = signedIn || registrationPending;
     $('profileArea').hidden = !signedIn;
     document.body.classList.toggle('accountSignedIn', signedIn);
 
@@ -237,7 +239,9 @@
       message('Účet byl vytvořen a jsi přihlášený.');
       await renderSession();
     } else {
-      message('Účet byl vytvořen. Potvrď registraci v e-mailu.');
+      document.body.classList.add('accountRegistrationPending');
+      $('authArea').hidden = true;
+      message('Účet byl vytvořen. Potvrď registraci v e-mailu; potom se můžeš přihlásit.');
     }
   }
 
@@ -254,6 +258,7 @@
   $('googleLogin').addEventListener('click', googleLogin);
   $('logout').addEventListener('click', async () => {
     await db.auth.signOut();
+    document.body.classList.remove('accountRegistrationPending');
     session = null;
     message('Byl jsi odhlášen.');
     renderSession();
