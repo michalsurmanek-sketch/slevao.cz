@@ -368,10 +368,112 @@
     refresh();
   }
 
+  function installAutopilotListCount() {
+    if (!isHomePage() || !mobile.matches) return;
+
+    if (!document.getElementById('slevaoAutopilotCountStyle')) {
+      const style = document.createElement('style');
+      style.id = 'slevaoAutopilotCountStyle';
+      style.textContent = `
+        @media(max-width:800px){
+          .slevaoAutopilotHasCount{
+            grid-template-columns:44px minmax(0,1fr) auto 42px!important;
+            gap:9px!important;
+          }
+          .slevaoAutopilotCountPill{
+            min-width:0;
+            min-height:44px;
+            padding:0 14px;
+            display:inline-flex;
+            align-items:center;
+            justify-content:center;
+            gap:9px;
+            border:1px solid rgba(9,157,145,.22);
+            border-radius:999px;
+            background:linear-gradient(145deg,#f4fcfb,#edf9f7);
+            color:#079b90;
+            font-size:14px;
+            line-height:1;
+            font-weight:900;
+            white-space:nowrap;
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,.72);
+            cursor:pointer;
+            -webkit-tap-highlight-color:transparent;
+          }
+          .slevaoAutopilotCountPill svg{
+            width:22px;
+            height:22px;
+            flex:0 0 22px;
+            fill:none;
+            stroke:currentColor;
+            stroke-width:2;
+            stroke-linecap:round;
+            stroke-linejoin:round;
+          }
+          .slevaoAutopilotCountPill:active{transform:scale(.98)}
+        }
+        @media(max-width:390px){
+          .slevaoAutopilotHasCount{grid-template-columns:42px minmax(0,1fr) auto 38px!important;gap:7px!important}
+          .slevaoAutopilotCountPill{min-height:40px;padding:0 10px;font-size:12.5px;gap:7px}
+          .slevaoAutopilotCountPill svg{width:19px;height:19px;flex-basis:19px}
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    const readListCount = () => {
+      const direct = document.querySelector('[data-shopping-list-count],#shoppingListCount,#listCount,.shoppingListCount');
+      const directMatch = direct?.textContent?.match(/\d+/);
+      if (directMatch) return Number(directMatch[0]);
+
+      const navItems = [...document.querySelectorAll('.mobileNav a,.mobileNav button,.slevaoBottomNav a,.slevaoBottomNav button')];
+      const listItem = navItems.find((node) => fold(node.textContent).includes('seznam'));
+      const navMatch = listItem?.textContent?.match(/\d+/);
+      return navMatch ? Number(navMatch[0]) : 0;
+    };
+
+    const plural = (count) => count === 1 ? 'položka' : (count >= 2 && count <= 4 ? 'položky' : 'položek');
+    const candidates = [...document.querySelectorAll('button,a,[role="button"],article,section,div')]
+      .filter((node) => fold(node.textContent).includes('nakupni autopilot'))
+      .sort((a,b) => a.textContent.length - b.textContent.length);
+    const toggle = candidates.find((node) => node.querySelector?.('.nearbyMobileChevron,[class*="Chevron"],[class*="chevron"]')) || candidates[0];
+    if (!toggle) return;
+
+    let pill = toggle.querySelector(':scope > .slevaoAutopilotCountPill');
+    if (!pill) {
+      pill = document.createElement('span');
+      pill.className = 'slevaoAutopilotCountPill';
+      pill.setAttribute('role', 'link');
+      pill.setAttribute('tabindex', '0');
+      pill.setAttribute('aria-label', 'Otevřít nákupní seznam');
+      pill.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16l-1.5 12h-13z"/><path d="M8 7l1.5-3h5L16 7M8 11v4M12 11v4M16 11v4"/></svg><span></span>';
+      const chevron = toggle.querySelector(':scope > .nearbyMobileChevron,:scope > [class*="Chevron"],:scope > [class*="chevron"]');
+      if (chevron) toggle.insertBefore(pill, chevron);
+      else toggle.appendChild(pill);
+      toggle.classList.add('slevaoAutopilotHasCount');
+
+      const openList = (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.assign('/seznam.html');
+      };
+      pill.addEventListener('click', openList);
+      pill.addEventListener('keydown', (event) => {
+        if (event.key === 'Enter' || event.key === ' ') openList(event);
+      });
+    }
+
+    const count = readListCount();
+    const label = `${count} ${plural(count)}`;
+    const text = pill.querySelector('span');
+    if (text && text.textContent !== label) text.textContent = label;
+  }
+
   installNearbyAccordion();
   installVisualFix();
   patchNavigationLinks();
   installHomeScrollTop();
+  installAutopilotListCount();
 
   const observer = new MutationObserver((records) => {
     for (const record of records) {
@@ -381,6 +483,7 @@
         else patchNavigationLinks(node);
       }
     }
+    installAutopilotListCount();
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
