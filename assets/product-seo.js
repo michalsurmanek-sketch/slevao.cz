@@ -4,6 +4,24 @@
   const $ = (selector) => document.querySelector(selector);
   const money = (value) => Number(String(value || '').replace(/[^0-9,.-]/g, '').replace(',', '.'));
 
+  function canonicalProductUrl() {
+    const id = new URLSearchParams(location.search).get('id');
+    if (!id || !/^[0-9a-f-]{20,}$/i.test(id)) return new URL('produkt.html', location.origin).href;
+    const url = new URL('produkt.html', location.origin);
+    url.searchParams.set('id', id);
+    return url.href;
+  }
+
+  function setCanonical(url) {
+    let link = document.head.querySelector('link[rel="canonical"]');
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'canonical';
+      document.head.appendChild(link);
+    }
+    link.href = url;
+  }
+
   function ensureMeta(property, content) {
     if (!content) return;
     let meta = document.head.querySelector(`meta[property="${property}"]`);
@@ -15,6 +33,9 @@
     meta.content = content;
   }
 
+  const canonical = canonicalProductUrl();
+  setCanonical(canonical);
+
   function build() {
     const name = $('#productName')?.textContent?.trim();
     const offersRoot = $('#offers');
@@ -25,7 +46,6 @@
     const exactIdentity = detailRoot.dataset.identityMode === 'exact';
     const metaText = $('#productMeta')?.textContent?.trim() || '';
     const image = $('#productImage img')?.src || '';
-    const canonical = document.querySelector('link[rel="canonical"]')?.href || location.href;
     const cards = [...offersRoot.querySelectorAll('.sfOffer')];
     const offerRows = cards.map((card) => {
       const price = money(card.querySelector('.sfPrice')?.textContent);
@@ -52,9 +72,6 @@
     };
     if (image) product.image = [image];
 
-    // AggregateOffer smí popisovat pouze nabídky, u kterých máme dostatečně
-    // silnou identitu stejného SKU. U generických/srovnatelných záznamů by
-    // společný cenový rozsah byl pro vyhledávač zavádějící.
     if (exactIdentity && offerRows.length) {
       product.offers = {
         '@type':'AggregateOffer',
@@ -76,8 +93,9 @@
     script.textContent = JSON.stringify(product);
 
     const description = product.description;
+    document.title = `${name} – ceny a historie | Slevao.cz`;
     ensureMeta('og:type', 'product');
-    ensureMeta('og:title', `${name} – ceny a historie | Slevao.cz`);
+    ensureMeta('og:title', document.title);
     ensureMeta('og:description', description);
     ensureMeta('og:url', canonical);
     if (image) ensureMeta('og:image', image);
