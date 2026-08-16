@@ -214,3 +214,33 @@ button{font:inherit}
   .allLeafletOnlineSheet{min-height:152px}
   .allLeafletOnlineStripe{min-height:46px}
 }
+
+
+/* Přesné logo SLEVAO.cz bez mezery před koncovkou */
+.leafletsLogo,.leafletsFooterLogo{
+  width:auto;
+  height:auto;
+  display:inline-flex;
+  align-items:center;
+  gap:9px;
+  background:none;
+  color:#063f48;
+  text-decoration:none;
+  white-space:nowrap;
+  font-family:Inter,Arial,sans-serif;
+  font-weight:950;
+  letter-spacing:-1.5px;
+  line-height:1;
+}
+.leafletsLogo{font-size:30px}
+.leafletsFooterLogo{font-size:23px}
+.leafletsLogo img{width:52px;height:52px;display:block;object-fit:contain;filter:drop-shadow(0 7px 8px rgba(11,138,128,.18))}
+.leafletsFooterLogo img{width:40px;height:40px;display:block;object-fit:contain}
+.leafletsLogo span,.leafletsFooterLogo span{display:inline-flex;align-items:baseline;gap:0}
+.leafletsLogo b,.leafletsFooterLogo b{margin:0;color:#3bcfc3;font-size:.72em;letter-spacing:-1px}
+@media(max-width:720px){
+  .leafletsLogo{gap:6px;font-size:21px;letter-spacing:-1px}
+  .leafletsLogo img{width:40px;height:40px}
+  .leafletsFooterLogo{gap:6px;font-size:19px}
+  .leafletsFooterLogo img{width:34px;height:34px}
+}
