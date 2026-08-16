@@ -182,8 +182,10 @@
   async function renderSession() {
     const { data: { session: current } } = await db.auth.getSession();
     session = current;
-    $('authArea').hidden = Boolean(session);
-    $('profileArea').hidden = !session;
+    const signedIn = Boolean(session);
+    $('authArea').hidden = signedIn;
+    $('profileArea').hidden = !signedIn;
+    document.body.classList.toggle('accountSignedIn', signedIn);
 
     if (!session) {
       if (notificationChannel) {
