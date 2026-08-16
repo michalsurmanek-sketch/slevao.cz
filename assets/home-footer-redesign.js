@@ -4,7 +4,7 @@
   if (!document.querySelector('link[href*="public-features.css"]')) {
     const style = document.createElement('link');
     style.rel = 'stylesheet';
-    style.href = 'assets/public-features.css?v=20260804-2';
+    style.href = 'assets/public-features.css?v=20260816-5';
     document.head.appendChild(style);
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
