@@ -339,3 +339,29 @@
   .modalBox,
   .shoppingListFly { transition: none !important; animation: none !important; }
 }
+
+
+/* Closed mobile filter must not leave even a one-pixel edge visible. */
+@media (max-width: 800px) {
+  #filterPanel.filterPanel:not(.open) {
+    display: none !important;
+    visibility: hidden !important;
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transform: none !important;
+    inset: auto !important;
+  }
+  #filterPanel.filterPanel.open {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+  .filterColumn:not(:has(#filterPanel.open)) {
+    position: absolute !important;
+    width: 0 !important;
+    height: 0 !important;
+    overflow: hidden !important;
+    clip-path: inset(50%) !important;
+  }
+}
