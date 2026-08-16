@@ -1,4 +1,4 @@
-@import url('./mobile-category-scroll-arrow.css?v=20260816-2');
+@import url('./mobile-category-scroll-arrow.css?v=20260816-3');
 
 /* Dedicated mobile fix: keep the deals title and Filters button from overlapping. */
 @media (max-width: 800px) {
@@ -47,80 +47,5 @@
     justify-self: end !important;
     z-index: auto !important;
     flex: 0 0 auto !important;
-  }
-}
-
-/*
-  Final mobile category rail guard.
-  This file is the last external stylesheet loaded by index.html, so these rules
-  intentionally win over home-redesign-step3.css, mobile-ux.css,
-  mobile-store-row-fix.css and index-mobile-final.css.
-*/
-@media (max-width: 800px) {
-  html body main#top section#categoriesSection > .container {
-    position: relative !important;
-    overflow: visible !important;
-  }
-
-  html body main#top section#categoriesSection #categoryChips.categoryChips {
-    display: flex !important;
-    flex-wrap: nowrap !important;
-    width: 100% !important;
-    max-width: 100% !important;
-    min-width: 0 !important;
-    margin-inline: 0 !important;
-    padding: 3px 76px 8px 0 !important;
-    overflow-x: auto !important;
-    overflow-y: hidden !important;
-    scroll-padding-right: 76px !important;
-    overscroll-behavior-x: contain !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-
-  html body main#top section#categoriesSection #categoryChips.categoryChips::-webkit-scrollbar {
-    display: none !important;
-  }
-
-  html body main#top section#categoriesSection #categoryChips .categoryChip {
-    flex: 0 0 auto !important;
-    width: auto !important;
-    scroll-snap-align: start;
-  }
-
-  /* Vše musí zůstat první; další dostupné kategorie pokračují vodorovně doprava. */
-  html body main#top section#categoriesSection #categoryChips .categoryChip[data-category="all"] {
-    display: inline-flex !important;
-    order: 1 !important;
-  }
-  html body main#top section#categoriesSection #categoryChips .categoryChip[data-category="food"] {
-    order: 2 !important;
-  }
-  html body main#top section#categoriesSection #categoryChips .categoryChip:not([data-category="all"]):not([data-category="food"]) {
-    order: 3 !important;
-  }
-
-  /* Finální poloha šipky: výš a přesně proti řádku kategorií. */
-  html body main#top section#categoriesSection > .container::after {
-    right: 8px !important;
-    bottom: 72px !important;
-    width: 46px !important;
-    height: 46px !important;
-    font-size: 32px !important;
-    z-index: 60 !important;
-  }
-
-  html body main#top section#categoriesSection > .container::before {
-    right: 0 !important;
-    bottom: 48px !important;
-    height: 72px !important;
-    z-index: 59 !important;
-  }
-}
-
-@media (max-width: 430px) {
-  html body main#top section#categoriesSection > .container::after {
-    right: 7px !important;
-    bottom: 76px !important;
   }
 }
