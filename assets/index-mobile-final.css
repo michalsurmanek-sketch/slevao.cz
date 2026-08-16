@@ -382,3 +382,29 @@
     border-radius: 999px !important;
   }
 }
+
+
+/* Center the Offers and Stores icons with their labels in the mobile hero stats. */
+@media (max-width: 800px) {
+  .heroStats > span:nth-child(2),
+  .heroStats > span:nth-child(3) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+  .heroStats > span:nth-child(2)::before,
+  .heroStats > span:nth-child(3)::before {
+    align-self: center !important;
+    display: grid !important;
+    place-items: center !important;
+    margin: 0 !important;
+    line-height: 1 !important;
+    text-align: center !important;
+  }
+  .heroStats > span:nth-child(2) .heroStatCopy,
+  .heroStats > span:nth-child(3) .heroStatCopy {
+    align-items: center !important;
+    justify-content: center !important;
+    text-align: center !important;
+  }
+}
