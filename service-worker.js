@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260816-18';
+const CACHE_NAME = 'slevao-shell-20260816-19';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -24,9 +24,9 @@ const SHELL = [
   '/assets/product-identity-guard.css?v=20260811-1',
   '/assets/product-detail.js?v=20260811-7',
   '/assets/product-detail-safety.js?v=20260811-1',
-  '/assets/product-identity-guard.js?v=20260811-2',
-  '/assets/product-leaflet-location-global.js?v=20260811-3',
-  '/assets/product-seo.js?v=20260811-3',
+  '/assets/product-identity-guard.js?v=20260815-3',
+  '/assets/product-leaflet-location-global.js?v=20260815-6',
+  '/assets/product-seo.js?v=20260816-1',
   '/assets/product-premium-runtime.js?v=20260815-4',
   '/assets/product-intelligence.js?v=20260811-3',
   '/assets/product-equivalence.js?v=20260811-1',
