@@ -2,22 +2,14 @@
 @media(max-width:900px){
   #categoriesSection .container{position:relative}
   #categoriesSection .categoryChips{
-    padding-right:72px!important;
-    scroll-padding-right:72px;
+    padding-right:64px!important;
+    scroll-padding-right:64px;
   }
 
-  /* Jemný přechod napovídá, že za pravým okrajem pokračují další kategorie. */
+  /* Bez dalšího překryvu pod šipkou – jen samotná šipka. */
   #categoriesSection .container::before{
-    content:'';
-    position:absolute;
-    z-index:7;
-    right:0;
-    bottom:24px;
-    width:76px;
-    height:68px;
-    pointer-events:none;
-    background:linear-gradient(90deg,rgba(246,252,251,0),rgba(246,252,251,.88) 46%,rgba(246,252,251,.98));
-    border-radius:0 18px 18px 0;
+    content:none!important;
+    display:none!important;
   }
 
   #categoriesSection .container::after{
@@ -25,9 +17,9 @@
     position:absolute;
     z-index:8;
     right:8px;
-    bottom:-32px;
-    width:48px;
-    height:48px;
+    bottom:18px;
+    width:46px;
+    height:46px;
     display:grid;
     place-items:center;
     border:1px solid rgba(255,255,255,.72);
@@ -35,7 +27,7 @@
     background:linear-gradient(145deg,#2bc9bd,#159e94);
     color:#fff;
     box-shadow:0 9px 22px rgba(10,117,108,.27);
-    font-size:34px;
+    font-size:32px;
     line-height:1;
     font-weight:700;
     pointer-events:none;
@@ -46,10 +38,10 @@
 @media(max-width:430px){
   #categoriesSection .container::after{
     right:7px;
-    bottom:-32px;
-    width:46px;
-    height:46px;
-    font-size:32px;
+    bottom:18px;
+    width:44px;
+    height:44px;
+    font-size:31px;
   }
 }
 
