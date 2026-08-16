@@ -101,7 +101,6 @@
   .topbarTipButton.accountButton .accountButtonIcon{width:21px;height:21px}
 }
 
-
 /* Bez modrého systémového probliknutí při klepnutí na účet */
 .topbarTipButton.accountButton{
   -webkit-tap-highlight-color:transparent;
@@ -114,32 +113,84 @@
   transform:scale(.96);
 }
 
-/* Mobil: statistiky v hero jsou skutečně vycentrované ve třetinách. */
+/* Mobil: všechny tři statistiky mají stejnou třetinu, ikonu i text přesně ve středu. */
 @media(max-width:800px){
   html body .heroCard .heroStats{
+    display:grid!important;
     grid-template-columns:repeat(3,minmax(0,1fr))!important;
+    align-items:stretch!important;
   }
   html body .heroCard .heroStats>span{
+    position:relative!important;
     width:100%!important;
     min-width:0!important;
+    min-height:58px!important;
     display:flex!important;
     flex-direction:row!important;
     align-items:center!important;
     justify-content:center!important;
-    gap:6px!important;
-    padding-inline:4px!important;
+    gap:7px!important;
+    padding:6px 4px!important;
     text-align:center!important;
+    overflow:visible!important;
+  }
+  html body .heroCard .heroStats .statusPillIcon{
+    display:grid!important;
+    place-items:center!important;
+    flex:0 0 30px!important;
+    width:30px!important;
+    height:30px!important;
+    margin:0!important;
   }
   html body .heroCard .heroStats>span .statusPillCopy,
   html body .heroCard .heroStats>span .heroStatCopy{
     width:auto!important;
     min-width:0!important;
+    display:flex!important;
+    flex-direction:column!important;
     align-items:center!important;
     justify-content:center!important;
+    gap:1px!important;
+    margin:0!important;
     text-align:center!important;
   }
+  html body .heroCard .heroStats>span .statusPillLabel,
+  html body .heroCard .heroStats>span .statusPillDate,
+  html body .heroCard .heroStats>span .heroStatLabel,
+  html body .heroCard .heroStats>span .heroStatValue{
+    width:100%!important;
+    margin:0!important;
+    text-align:center!important;
+  }
+
+  /* Nabídky a Obchody: vlastní ikony. Starý ::before divider už ikony nepřepisuje. */
   html body .heroCard .heroStats>span:nth-child(2)::before,
   html body .heroCard .heroStats>span:nth-child(3)::before{
+    position:static!important;
+    inset:auto!important;
+    flex:0 0 30px!important;
+    width:30px!important;
+    height:30px!important;
+    min-width:30px!important;
+    margin:0!important;
+    padding:0!important;
+    border:0!important;
+    border-radius:50%!important;
+    background:#e7f4f2!important;
+    color:#0b978d!important;
+    display:grid!important;
+    place-items:center!important;
+    font-size:17px!important;
+    line-height:1!important;
+    font-weight:900!important;
+    text-align:center!important;
+  }
+  html body .heroCard .heroStats>span:nth-child(2)::before{content:"▤"!important}
+  html body .heroCard .heroStats>span:nth-child(3)::before{content:"%"!important}
+
+  /* Oddělovače jsou samostatně v ::after, aby nemohly zničit ikony. */
+  html body .heroCard .heroStats>span:nth-child(2)::after,
+  html body .heroCard .heroStats>span:nth-child(3)::after{
     content:""!important;
     position:absolute!important;
     left:0!important;
@@ -147,11 +198,6 @@
     bottom:11px!important;
     width:1px!important;
     height:auto!important;
-    min-width:0!important;
-    flex:none!important;
-    display:block!important;
-    margin:0!important;
-    padding:0!important;
     background:#dfe9e8!important;
   }
 }
