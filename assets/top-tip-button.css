@@ -97,3 +97,16 @@
   .topbarTipButton.accountButton span{display:none}
   .topbarTipButton.accountButton .accountButtonIcon{width:21px;height:21px}
 }
+
+
+/* Bez modrého systémového probliknutí při klepnutí na účet */
+.topbarTipButton.accountButton{
+  -webkit-tap-highlight-color:transparent;
+  -webkit-touch-callout:none;
+  user-select:none;
+}
+.topbarTipButton.accountButton:active{
+  border-color:#78d8cf;
+  background:#eaf9f7;
+  transform:scale(.96);
+}
