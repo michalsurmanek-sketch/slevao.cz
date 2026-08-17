@@ -14,6 +14,17 @@
     target.style.color = bad ? '#b32631' : '#0b7a58';
   }
 
+  function strongPassword(password) {
+    return password.length >= 10
+      && /[a-zá-ž]/.test(password)
+      && /[A-ZÁ-Ž]/.test(password)
+      && /\d/.test(password);
+  }
+
+  function passwordPolicyMessage() {
+    return 'Heslo musí mít alespoň 10 znaků, malé a velké písmeno a číslo.';
+  }
+
   function showRecoveryForm() {
     const panel = $('passwordRecoveryArea');
     const auth = $('authArea');
@@ -52,8 +63,8 @@
   async function savePassword() {
     const password = String($('newPassword')?.value || '');
     const confirmation = String($('newPasswordAgain')?.value || '');
-    if (password.length < 10) {
-      message('Nové heslo musí mít alespoň 10 znaků.', true);
+    if (!strongPassword(password)) {
+      message(passwordPolicyMessage(), true);
       return;
     }
     if (password !== confirmation) {
@@ -80,6 +91,16 @@
     message('Heslo bylo změněno. Přihlas se novým heslem.');
   }
 
+  function enforceRegistrationPassword(event) {
+    const password = String($('registerPassword')?.value || '');
+    if (strongPassword(password)) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    message(passwordPolicyMessage(), true);
+    $('registerPassword')?.focus();
+  }
+
+  $('signUp')?.addEventListener('click', enforceRegistrationPassword, true);
   $('forgotPassword')?.addEventListener('click', requestReset);
   $('saveNewPassword')?.addEventListener('click', savePassword);
 
