@@ -30,6 +30,7 @@
   <script defer src="assets/public-features.js?v=20260815-3"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260815-7"></script>
   <script defer src="assets/account.js?v=20260816-8"></script>
+  <script defer src="assets/account-recovery.js?v=20260817-1"></script>
   <script defer src="assets/product-personalization.js?v=20260815-3"></script>
 </head>
 <body class="sfPage">
@@ -45,8 +46,17 @@
   </section>
 
   <section id="authArea" class="sfAuthGrid accountAuth">
-    <div class="sfCard sfForm"><span class="sfEyebrow">Už mám účet</span><h2>Přihlášení</h2><label>E-mail<input id="loginEmail" type="email" autocomplete="email" placeholder="vas@email.cz"></label><label>Heslo<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Vaše heslo"></label><div class="accountAuthActions"><button id="signIn" class="sfButton primary" type="button">Přihlásit</button><button id="googleLogin" class="sfButton" type="button">Pokračovat přes Google</button></div></div>
+    <div class="sfCard sfForm"><span class="sfEyebrow">Už mám účet</span><h2>Přihlášení</h2><label>E-mail<input id="loginEmail" type="email" autocomplete="email" placeholder="vas@email.cz"></label><label>Heslo<input id="loginPassword" type="password" autocomplete="current-password" placeholder="Vaše heslo"></label><div class="accountAuthActions"><button id="signIn" class="sfButton primary" type="button">Přihlásit</button><button id="googleLogin" class="sfButton" type="button">Pokračovat přes Google</button><button id="forgotPassword" class="sfButton" type="button">Zapomněl jsem heslo</button></div></div>
     <div class="sfCard sfForm"><span class="sfEyebrow">Nový účet</span><h2>Registrace zdarma</h2><label>E-mail<input id="registerEmail" type="email" autocomplete="email" placeholder="vas@email.cz"></label><label>Heslo<input id="registerPassword" type="password" minlength="6" autocomplete="new-password" placeholder="Minimálně 6 znaků"></label><div class="accountAuthActions"><button id="signUp" class="sfButton primary" type="button">Vytvořit účet</button></div></div>
+  </section>
+
+  <section id="passwordRecoveryArea" class="sfSection sfCard sfPanel" hidden>
+    <div class="sfSectionHead"><div><span class="sfEyebrow">Obnova účtu</span><h2>Nastavit nové heslo</h2><p class="sfMuted">Zvol nové heslo pro svůj účet. Po uložení tě odhlásíme a přihlásíš se už novým heslem.</p></div></div>
+    <div class="sfForm">
+      <label>Nové heslo<input id="newPassword" type="password" minlength="10" autocomplete="new-password" placeholder="Alespoň 10 znaků"></label>
+      <label>Nové heslo znovu<input id="newPasswordAgain" type="password" minlength="10" autocomplete="new-password" placeholder="Zopakuj nové heslo"></label>
+      <div class="accountAuthActions"><button id="saveNewPassword" class="sfButton primary" type="button">Uložit nové heslo</button></div>
+    </div>
   </section>
 
   <section id="profileArea" hidden>
