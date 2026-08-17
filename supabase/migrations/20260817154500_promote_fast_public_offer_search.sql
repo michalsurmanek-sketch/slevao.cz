@@ -22,7 +22,8 @@ declare
   v_sql text;
 begin
   v_q := trim(regexp_replace(lower(public.unaccent(coalesce(p_query,''))), '[^a-z0-9]+',' ','g'));
-  if v_q='' then return; end if;
+  if char_length(v_q) < 2 then return; end if;
+  v_q := left(v_q,80);
 
   v_relaxed := case
     when v_q ~ '([a-z])\1$' then regexp_replace(v_q,'([a-z])\1$','\1')
