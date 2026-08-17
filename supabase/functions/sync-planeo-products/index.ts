@@ -81,7 +81,27 @@ Deno.serve(async (request) => {
     const response = await fetch(SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!response.ok) throw new Error(`PLANEO HTTP ${response.status}`);
     const html = await response.text();
-    const dates = parseDates(decode(html));
+    const text = decode(html);
+
+    if (/Akce sice skončila/i.test(text)) {
+      const now = new Date().toISOString();
+      const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'planeo').single();
+      if (storeError || !store) throw storeError || new Error('PLANEO nebylo nalezeno.');
+      await db.from('store_product_sync_state').update({
+        health_status: 'waiting_source',
+        health_reason: 'PLANEO: oficiální výprodej skončil; čekáme na novou akci.',
+        last_error: null,
+        last_parser_error: null,
+        is_running: false,
+        run_started_at: null,
+        last_run_at: now,
+        updated_at: now,
+      }).eq('store_id', store.id);
+      await db.from('leaflet_sources').update({ last_checked_at: now, last_error: null }).eq('store_id', store.id).eq('is_active', true);
+      return json({ ok: true, waiting_source: true, reason: 'official_sale_ended', store: store.name, source_url: SOURCE });
+    }
+
+    const dates = parseDates(text);
     const today = new Date().toISOString().slice(0, 10);
     if (today < dates.from || today > dates.to) throw new Error(`PLANEO akce není aktuální: ${dates.from} až ${dates.to}.`);
     const rows = parseProducts(html, dates);
