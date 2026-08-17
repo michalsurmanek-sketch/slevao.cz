@@ -4,7 +4,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const TODAY = new Date().toISOString().slice(0, 10);
-  const FAST_FEED = `${SUPABASE_URL}/functions/v1/homepage-leaflet-feed?limit=24`;
+  const PUBLIC_FEED = `${SUPABASE_URL}/rest/v1/rpc/get_public_current_leaflets`;
   const CACHE_NAME = 'slevao-all-leaflet-covers-v1';
   const LOCAL_LOGOS = {
     penny: 'assets/logos/penny.svg?v=4',
@@ -43,7 +43,6 @@
 
   let pdfjsPromise = null;
   let coverObserver = null;
-  let lastFastLeaflets = [];
   const documentPromises = new Map();
   const objectUrls = new Set();
 
@@ -106,16 +105,21 @@
   }
 
   async function fastLeaflets() {
-    const response = await fetchWithTimeout(FAST_FEED, {
-      headers: { apikey: SUPABASE_KEY },
+    const response = await fetchWithTimeout(PUBLIC_FEED, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'content-type':'application/json', accept:'application/json' },
+      body: JSON.stringify({ p_limit: 240 }),
       cache: 'default',
     }, 10000);
-    if (!response.ok) throw new Error(`Rychlý feed vrátil HTTP ${response.status}.`);
-    const payload = await response.json();
-    if (!payload?.ok || !Array.isArray(payload.leaflets)) return [];
-    return payload.leaflets
+    if (!response.ok) throw new Error(`Veřejný feed letáků vrátil HTTP ${response.status}.`);
+    const rows = await response.json();
+    return currentLeaflets(Array.isArray(rows) ? rows : [])
       .filter((leaflet) => leaflet?.store_slug && leaflet?.store_name && leaflet?.preview_url)
-      .map((leaflet) => ({ ...leaflet, category: categoryFor(leaflet) }));
+      .map((leaflet) => ({
+        ...leaflet,
+        key: leaflet.leaflet_key || leaflet.key || null,
+        category: categoryFor(leaflet),
+      }));
   }
 
   async function activeStores() {
@@ -200,15 +204,6 @@
         || String(a.leaflet_key || '').localeCompare(String(b.leaflet_key || ''), 'cs')
         || String(a.valid_to || '').localeCompare(String(b.valid_to || ''));
     });
-  }
-
-  function mergeFinal(allLeaflets, fastItems) {
-    if (!allLeaflets.length) return sortLeaflets(fastItems);
-    const completeSlugs = new Set(allLeaflets.map((leaflet) => leaflet.store_slug));
-    return sortLeaflets([
-      ...allLeaflets,
-      ...fastItems.filter((leaflet) => !completeSlugs.has(leaflet.store_slug)),
-    ]);
   }
 
   function logoMarkup(leaflet) {
@@ -482,28 +477,24 @@
   async function boot() {
     if (!gridRoot) return;
 
-    const fastPromise = fastLeaflets().catch((error) => {
-      console.debug('Rychlý feed letáků není dostupný:', error);
-      return [];
-    });
-
-    fastPromise.then((items) => {
-      if (!items.length) return;
-      lastFastLeaflets = items;
-      window.__slevaoAllLeaflets = sortLeaflets(items);
-      render(window.__slevaoAllLeaflets);
-    });
+    try {
+      const canonicalItems = await fastLeaflets();
+      if (canonicalItems.length) {
+        window.__slevaoAllLeaflets = sortLeaflets(canonicalItems);
+        render(window.__slevaoAllLeaflets);
+        return;
+      }
+      throw new Error('Veřejný feed nevrátil žádný aktuální leták.');
+    } catch (canonicalError) {
+      console.warn('Kanonický feed letáků není dostupný, používám nouzový fallback:', canonicalError);
+    }
 
     try {
-      const allItems = await allStoreLeaflets();
-      const fastItems = await fastPromise;
-      const finalItems = mergeFinal(allItems, fastItems);
-      if (!finalItems.length) throw new Error('Nebyl nalezen žádný aktuální leták.');
-      window.__slevaoAllLeaflets = finalItems;
-      render(finalItems);
+      const fallbackItems = await allStoreLeaflets();
+      if (!fallbackItems.length) throw new Error('Nebyl nalezen žádný aktuální leták.');
+      window.__slevaoAllLeaflets = sortLeaflets(fallbackItems);
+      render(window.__slevaoAllLeaflets);
     } catch (error) {
-      const fastItems = await fastPromise;
-      if (fastItems.length) return;
       gridRoot.innerHTML = `<div class="leafletsEmpty"><strong>Aktuální letáky se nepodařilo načíst</strong><span>Zkus stránku za chvíli obnovit.</span></div>`;
       console.error('All leaflets page failed:', error);
     }
