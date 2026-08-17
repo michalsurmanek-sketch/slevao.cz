@@ -7,141 +7,17 @@ const SOURCE = 'https://www.pro-doma.cz/akce';
 const ADAPTER = 'pro-doma-jina-events-v1';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
-
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: HEADERS }); }
-async function allowed(request: Request) {
-  const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
-  if (token === SERVICE || (CRON && request.headers.get('x-cron-secret') === CRON)) return true;
-  if (!token) return false;
-  const { data } = await db.auth.getUser(token);
-  return ['admin', 'editor'].includes(String(data.user?.app_metadata?.role || '').toLowerCase());
-}
+async function allowed(request: Request) { const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim(); if (token === SERVICE || (CRON && request.headers.get('x-cron-secret') === CRON)) return true; if (!token) return false; const { data } = await db.auth.getUser(token); return ['admin', 'editor'].includes(String(data.user?.app_metadata?.role || '').toLowerCase()); }
 function normalize(value: string) { return value.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
 function price(value: string) { return Number(value.replace(/\s/g, '').replace(',', '.')); }
 function pragueToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date()); }
 function iso(y: number, m: number, d: number) { return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`; }
-async function jina(url: string) {
-  const response = await fetch(`https://r.jina.ai/${url}`, { headers: { 'user-agent': 'Slevao/1.0', accept: 'text/plain,text/markdown' } });
-  if (!response.ok) throw new Error(`Jina HTTP ${response.status} pro ${url}`);
-  const text = await response.text();
-  if (text.length < 4000) throw new Error(`Jina vrátila příliš krátký obsah pro ${url}`);
-  return text;
-}
-function eventUrls(markdown: string) {
-  const urls = new Set<string>();
-  const re = /event_main\/[^\s)]+\)[\s\S]{0,500}?\]\((https:\/\/www\.pro-doma\.cz\/[^)\s]+)\)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(markdown))) {
-    try {
-      const u = new URL(m[1]);
-      if (u.hostname === 'www.pro-doma.cz' && u.pathname !== '/akce') urls.add(u.origin + u.pathname);
-    } catch { /* ignore */ }
-  }
-  return [...urls].slice(0, 30);
-}
-function dates(markdown: string) {
-  const text = markdown.replace(/\*\*/g, ' ');
-  const full = text.match(/(?:akce|nabídka|objednávky)?[^\n]{0,100}?(?:platí|platná)?[^\n]{0,100}?od\s+(\d{1,2})\.\s*(\d{1,2})\.?(?:\s*(\d{4}))?\s+do\s+(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/i);
-  if (full) {
-    const year = Number(full[6]);
-    return { from: iso(Number(full[3] || year), Number(full[2]), Number(full[1])), to: iso(year, Number(full[5]), Number(full[4])) };
-  }
-  const compact = text.match(/od\s+(\d{1,2})\.\s*(\d{1,2})\.\s*do\s+(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/i);
-  if (compact) return { from: iso(Number(compact[5]), Number(compact[2]), Number(compact[1])), to: iso(Number(compact[5]), Number(compact[4]), Number(compact[3])) };
-  return null;
-}
-function oldPrice(block: string, current: number) {
-  const a = block.match(/Akce-\d+%[\s\S]{0,120}?([0-9][0-9\s]*,[0-9]{2})\s+Kč/i)?.[1];
-  const b = block.match(/Ceníková cena dodavatele:\s*([0-9][0-9\s]*,[0-9]{2})\s+Kč/i)?.[1];
-  const value = a || b;
-  if (!value) return null;
-  const parsed = price(value);
-  return parsed > current ? parsed : null;
-}
-function products(markdown: string, validFrom: string, validTo: string, eventUrl: string) {
-  const start = markdown.indexOf('## Výpis produktů');
-  if (start < 0) return [];
-  const section = markdown.slice(start);
-  const rows: any[] = [];
-  const re = /\[!\[Image[^\]]*Obrázek produktu[^\]]*\]\((https:\/\/img\.pro-doma\.cz\/userimages\/product_main\/[^)]+)\)[\s\S]*?\]\((https:\/\/www\.pro-doma\.cz\/[^\s)]+)[^\n]*\)\s*\n### \[([^\]]+)\]\([^\n]+\)([\s\S]*?)(?=\n\[!\[Image|\n## Akce platná|\n## [A-ZÁČĎÉĚÍŇÓŘŠŤÚŮÝŽ]|$)/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(section))) {
-    const image = m[1].replace(/_tiny(\.[a-z]+)$/i, '$1');
-    const sourceUrl = m[2];
-    const title = m[3].replace(/\s+/g, ' ').trim();
-    const block = m[4];
-    const pm = block.match(/\*\*([0-9][0-9\s]*,[0-9]{2})\*\*Kč\/([\p{L}0-9²³]+)\s+s DPH/iu);
-    if (!pm) continue;
-    const current = price(pm[1]);
-    const unit = pm[2].toLowerCase();
-    if (title.length < 4 || title.length > 220 || current <= 0 || current > 1000000) continue;
-    if (!sourceUrl.startsWith('https://www.pro-doma.cz/') || !image.startsWith('https://img.pro-doma.cz/')) continue;
-    const old = oldPrice(block, current);
-    rows.push({
-      external_id: `prodoma:${normalize(sourceUrl)}`,
-      title,
-      normalized_title: normalize(title),
-      price: current,
-      old_price: old,
-      quantity_text: unit,
-      valid_from: validFrom,
-      valid_to: validTo,
-      source_url: sourceUrl,
-      source_page: 1,
-      product_id: null,
-      image_url: image,
-      confidence: 0.99,
-      metadata: { adapter: ADAPTER, parser_version: ADAPTER, event_url: eventUrl, price_unit: unit, price_policy: 'consumer_price_including_vat', evidence: { bold_vat_price: pm[1], old_price: old } },
-    });
-  }
-  return rows;
-}
-async function sha256(value: string) {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
-  return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join('');
-}
-
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: HEADERS });
-  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
-  try {
-    const body = await request.json().catch(() => ({}));
-    const index = await jina(SOURCE);
-    const urls = eventUrls(index);
-    if (!urls.length) throw new Error('PRO-DOMA: nebyly nalezeny oficiální eventy.');
-    const today = pragueToday();
-    const all: any[] = [];
-    const events: any[] = [];
-    for (const url of urls) {
-      const md = await jina(url);
-      const range = dates(md);
-      if (!range || today < range.from || today > range.to) { events.push({ url, status: 'ignored', reason: range ? 'outside_validity' : 'validity_missing', range }); continue; }
-      const rows = products(md, range.from, range.to, url);
-      events.push({ url, status: rows.length ? 'accepted' : 'ignored', products: rows.length, range });
-      all.push(...rows);
-    }
-    const rows = [...new Map(all.map((row) => [`${row.source_url}|${row.valid_from}|${row.valid_to}`, row])).values()];
-    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug','pro-doma').single();
-    if (storeError || !store) throw storeError || new Error('PRO-DOMA obchod nebyl nalezen.');
-    const now = new Date().toISOString();
-    if (rows.length < 5) {
-      await db.from('store_product_sync_state').upsert({ store_id: store.id, last_run_at: now, last_error: null, last_parser_error: null, is_running: false, health_status: 'waiting_source', health_reason: `PRO-DOMA: aktuální oficiální akce neobsahují dostatek bezpečných produktových cen (${rows.length}).`, parser_version: ADAPTER, source_type: 'official-jina-markdown', last_offer_count: 0, last_product_candidates: rows.length, last_published_count: 0, updated_at: now }, { onConflict: 'store_id' });
-      return json({ ok: true, waiting_source: true, publishable: rows.length, events });
-    }
-    if (rows.length > 300) throw new Error(`PRO-DOMA: podezřele mnoho produktů (${rows.length}).`);
-    const signature = await sha256(rows.map((r) => `${r.source_url}|${r.price}|${r.old_price}|${r.valid_from}|${r.valid_to}`).sort().join('\n'));
-    const { data: source } = await db.from('leaflet_sources').select('id').eq('store_id',store.id).limit(1).maybeSingle();
-    if (source?.id) await db.from('leaflet_sources').update({ source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, last_checked_at: now, last_error: null, adapter_key: ADAPTER, extraction_strategy: 'structured_markdown' }).eq('id',source.id);
-    else {
-      const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'PRO-DOMA oficiální akce', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_markdown' });
-      if (error) throw error;
-    }
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, events, candidates: rows });
-    const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'pro-doma', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 5, p_max_products: 300, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
-    if (publishError) throw publishError;
-    return json({ ok: true, store: store.name, published: rows.length, signature, events, result });
-  } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error), code: 'PRO_DOMA_SYNC_FAILED' }, 500);
-  }
-});
+async function jina(url: string) { const response = await fetch(`https://r.jina.ai/${url}`, { headers: { 'user-agent': 'Slevao/1.0', accept: 'text/plain,text/markdown' }, signal: AbortSignal.timeout(25000) }); if (!response.ok) throw new Error(`Jina HTTP ${response.status} pro ${url}`); const text = await response.text(); if (text.length < 4000) throw new Error(`Jina vrátila příliš krátký obsah pro ${url}`); return text; }
+function eventUrls(markdown: string) { const urls = new Set<string>(); const re = /event_main\/[^\s)]+\)[\s\S]{0,500}?\]\((https:\/\/www\.pro-doma\.cz\/[^)\s]+)\)/g; let m: RegExpExecArray | null; while ((m = re.exec(markdown))) { try { const u = new URL(m[1]); if (u.hostname === 'www.pro-doma.cz' && u.pathname !== '/akce') urls.add(u.origin + u.pathname); } catch {} } return [...urls].slice(0, 20); }
+function dates(markdown: string) { const text = markdown.replace(/\*\*/g, ' '); const full = text.match(/(?:akce|nabídka|objednávky)?[^\n]{0,100}?(?:platí|platná)?[^\n]{0,100}?od\s+(\d{1,2})\.\s*(\d{1,2})\.?(?:\s*(\d{4}))?\s+do\s+(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/i); if (full) { const year = Number(full[6]); return { from: iso(Number(full[3] || year), Number(full[2]), Number(full[1])), to: iso(year, Number(full[5]), Number(full[4])) }; } const compact = text.match(/od\s+(\d{1,2})\.\s*(\d{1,2})\.\s*do\s+(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/i); if (compact) return { from: iso(Number(compact[5]), Number(compact[2]), Number(compact[1])), to: iso(Number(compact[5]), Number(compact[4]), Number(compact[3])) }; return null; }
+function oldPrice(block: string, current: number) { const a = block.match(/Akce-\d+%[\s\S]{0,120}?([0-9][0-9\s]*,[0-9]{2})\s+Kč/i)?.[1]; const b = block.match(/Ceníková cena dodavatele:\s*([0-9][0-9\s]*,[0-9]{2})\s+Kč/i)?.[1]; const value = a || b; if (!value) return null; const parsed = price(value); return parsed > current ? parsed : null; }
+function products(markdown: string, validFrom: string, validTo: string, eventUrl: string) { const start = markdown.indexOf('## Výpis produktů'); if (start < 0) return []; const section = markdown.slice(start); const rows: any[] = []; const blocks = section.split(/\n\[!\[Image/).slice(1); for (const block of blocks) { const image = block.match(/(https:\/\/img\.pro-doma\.cz\/userimages\/product_main\/[^)]+)/)?.[1] || ''; const sourceUrl = block.match(/(https:\/\/www\.pro-doma\.cz\/[^\s)]+)/)?.[1] || ''; const title = block.match(/### \[([^\]]+)\]/)?.[1]?.replace(/\s+/g,' ').trim() || ''; const pm = block.match(/\*\*([0-9][0-9\s]*,[0-9]{2})\*\*Kč\/([\p{L}0-9²³]+)\s+s DPH/iu); if (!pm) continue; const current = price(pm[1]); const unit = pm[2].toLowerCase(); if (title.length < 4 || title.length > 220 || current <= 0 || current > 1000000) continue; if (!sourceUrl.startsWith('https://www.pro-doma.cz/') || !image.startsWith('https://img.pro-doma.cz/')) continue; const old = oldPrice(block,current); rows.push({ external_id:`prodoma:${normalize(sourceUrl)}`,title,normalized_title:normalize(title),price:current,old_price:old,quantity_text:unit,valid_from:validFrom,valid_to:validTo,source_url:sourceUrl,source_page:1,product_id:null,image_url:image,confidence:0.99,metadata:{adapter:ADAPTER,parser_version:ADAPTER,event_url:eventUrl,price_unit:unit,price_policy:'consumer_price_including_vat'} }); } return rows; }
+async function sha256(value: string) { const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join(''); }
+async function processBatch(urls:string[],today:string){ return Promise.all(urls.map(async url=>{ const md=await jina(url); const range=dates(md); if(!range||today<range.from||today>range.to)return{event:{url,status:'ignored',reason:range?'outside_validity':'validity_missing',range},rows:[]}; const rows=products(md,range.from,range.to,url); return{event:{url,status:rows.length?'accepted':'ignored',products:rows.length,range},rows}; })); }
+Deno.serve(async (request) => { if (request.method === 'OPTIONS') return new Response('ok', { headers: HEADERS }); if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405); if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401); try { const body = await request.json().catch(() => ({})); const index = await jina(SOURCE); const urls = eventUrls(index); if (!urls.length) throw new Error('PRO-DOMA: nebyly nalezeny oficiální eventy.'); const today = pragueToday(); const all:any[]=[]; const events:any[]=[]; for(let i=0;i<urls.length;i+=4){ const batch=await processBatch(urls.slice(i,i+4),today); for(const item of batch){events.push(item.event);all.push(...item.rows);} } const rows=[...new Map(all.map((row)=>[`${row.source_url}|${row.valid_from}|${row.valid_to}`,row])).values()]; const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug','pro-doma').single(); if (storeError || !store) throw storeError || new Error('PRO-DOMA obchod nebyl nalezen.'); const now = new Date().toISOString(); if (rows.length < 5) { await db.from('store_product_sync_state').upsert({ store_id: store.id,last_run_at:now,last_error:null,last_parser_error:null,is_running:false,health_status:'waiting_source',health_reason:`PRO-DOMA: aktuální oficiální akce neobsahují dostatek bezpečných produktových cen (${rows.length}).`,parser_version:ADAPTER,source_type:'official-jina-markdown',last_offer_count:0,last_product_candidates:rows.length,last_published_count:0,updated_at:now }, { onConflict:'store_id' }); return json({ok:true,waiting_source:true,publishable:rows.length,events}); } if(rows.length>300)throw new Error(`PRO-DOMA: podezřele mnoho produktů (${rows.length}).`); const signature=await sha256(rows.map((r:any)=>`${r.source_url}|${r.price}|${r.old_price}|${r.valid_from}|${r.valid_to}`).sort().join('\n')); const { data: source }=await db.from('leaflet_sources').select('id').eq('store_id',store.id).eq('is_active',true).limit(1).maybeSingle(); if(source?.id)await db.from('leaflet_sources').update({source_url:SOURCE,source_type:'html',is_active:true,auto_publish:false,last_checked_at:now,last_error:null,adapter_key:ADAPTER,extraction_strategy:'structured_markdown'}).eq('id',source.id); if(body.dry_run===true)return json({ok:true,dry_run:true,publishable:rows.length,signature,events,sample:rows.slice(0,8)}); const { data: result,error: publishError }=await db.rpc('publish_structured_store_offers',{p_store_slug:'pro-doma',p_adapter:ADAPTER,p_signature:signature,p_rows:rows,p_min_products:5,p_max_products:300,p_source_document_url:SOURCE,p_parser_version:ADAPTER}); if(publishError)throw publishError; return json({ok:true,store:store.name,published:rows.length,signature,events,result}); } catch(error){ return json({error:error instanceof Error?error.message:String(error),code:'PRO_DOMA_SYNC_FAILED'},500); } });
