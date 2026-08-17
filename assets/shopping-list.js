@@ -4,6 +4,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
+  const SHARED_POLL_MS = 30000;
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -26,6 +27,8 @@
   let sharedPermission = 'view';
   let sharedPollTimer = 0;
   let sharedBusy = false;
+  let sharedRevision = '';
+  let sharedLastRevisionCheck = 0;
 
   function readLocal() {
     try {
@@ -44,6 +47,14 @@
 
   function rowKey(row) {
     return row.product_id ? `p:${row.product_id}` : `c:${norm(row.custom_name || row.name)}`;
+  }
+
+  function productSignature(sourceRows = rows) {
+    return [...new Set(sourceRows
+      .filter((row) => !row.completed && row.product_id)
+      .map((row) => String(row.product_id)))]
+      .sort()
+      .join('|');
   }
 
   function sharedRows(data) {
@@ -70,6 +81,7 @@
   function applySharedData(data, { renderNow = true } = {}) {
     listId = data?.list_id || listId;
     sharedPermission = data?.permission === 'edit' ? 'edit' : 'view';
+    sharedRevision = String(data?.revision || sharedRevision || '');
     rows = sharedRows(data);
     const listName = data?.name || 'Sdílený nákupní seznam';
     document.title = `${listName} | Slevao.cz`;
@@ -86,12 +98,14 @@
 
   async function loadSharedList({ silent = false } = {}) {
     if (!sharedMode || sharedBusy) return;
+    const beforeProducts = productSignature();
     sharedBusy = true;
     try {
       const { data, error } = await db.rpc('get_shared_shopping_list', { p_token: sharedToken });
       if (error) throw error;
       applySharedData(data || {});
-      await fetchOffers();
+      const productsChanged = beforeProducts !== productSignature();
+      if (productsChanged || !activeOffers.length) await fetchOffers();
       if (!silent) showMessage('Sdílený seznam je aktuální.');
     } catch (error) {
       if (!silent) showMessage(error.message || 'Sdílený seznam se nepodařilo otevřít.', true);
@@ -103,10 +117,31 @@
     }
   }
 
+  async function checkSharedRevision({ force = false } = {}) {
+    if (!sharedMode || sharedBusy || (document.hidden && !force)) return;
+    const now = Date.now();
+    if (!force && now - sharedLastRevisionCheck < 2500) return;
+    sharedLastRevisionCheck = now;
+    try {
+      const { data, error } = await db.rpc('get_shared_shopping_list_revision', { p_token: sharedToken });
+      if (error) throw error;
+      const revision = String(data?.revision || '');
+      if (!revision) return;
+      if (!sharedRevision) {
+        sharedRevision = revision;
+        return;
+      }
+      if (revision !== sharedRevision) await loadSharedList({ silent: true });
+    } catch (error) {
+      console.debug('Kontrola revize sdíleného seznamu selhala:', error);
+    }
+  }
+
   async function mutateShared(action, row = null, overrides = {}) {
     if (!sharedMode || sharedPermission !== 'edit') {
       throw new Error('Tento sdílený odkaz dovoluje pouze prohlížení.');
     }
+    const beforeProducts = productSignature();
     const payload = {
       p_token: sharedToken,
       p_action: action,
@@ -123,7 +158,7 @@
       const { data, error } = await db.rpc('mutate_shared_shopping_list', payload);
       if (error) throw error;
       applySharedData(data || {});
-      await fetchOffers();
+      if (beforeProducts !== productSignature() || !activeOffers.length) await fetchOffers();
       return data;
     } finally {
       sharedBusy = false;
@@ -512,7 +547,11 @@
       $('accountStatus').textContent = 'Načítám sdílený seznam…';
       render();
       await loadSharedList();
-      sharedPollTimer = window.setInterval(() => loadSharedList({ silent: true }), 5000);
+      sharedPollTimer = window.setInterval(() => checkSharedRevision(), SHARED_POLL_MS);
+      document.addEventListener('visibilitychange', () => {
+        if (!document.hidden) checkSharedRevision({ force: true });
+      });
+      window.addEventListener('focus', () => checkSharedRevision({ force: true }));
       window.addEventListener('beforeunload', () => clearInterval(sharedPollTimer), { once: true });
       return;
     }
