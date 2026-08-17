@@ -36,22 +36,27 @@ begin
     return query select 'drogerie','drugstore',array['drogerie']::text[],0.98::numeric,'name-token-v4'; return;
   elsif not v_is_pharmacy and v_text ~ ' (telefon|smartphone|notebook|televize|sluchatka|pocitac|monitor|usb|hdmi) ' then
     return query select 'elektronika','electronics',array['elektronika']::text[],0.98::numeric,'name-token-v2'; return;
-  elsif v_text ~ ' (pivo|lezak|radler|cola|limonada|limonady|mineralka|mineralni|dzus|juice|sirup|energy|tonic|kava|caj|vino|voda|napoj|napoje|kombucha) ' then
-    return query select 'napoje','drinks',array['napoje']::text[],0.97::numeric,'name-token-v2'; return;
-  elsif v_text ~ ' (veprove|veprova|veprovy|hovezi|kureci|kure|kruti|kachni|jehneci|krkovice|kyta|plec|kotleta|panenka|svickova|rostenka|steak|bucek|koleno|mlete|sunka|slanina|salam|klobasa|parek|uzeny|uzenina|losos|treska|tunak|kapr|pstruh|makrela) ' then
-    return query select 'maso-ryby','food',array['maso']::text[],0.97::numeric,'name-token-v2'; return;
+  elsif v_text ~ ' (pivo|lezak|radler|cola|limonada|limonady|mineralka|dzus|juice|sirup|energy|tonic|kava|caj|vino|voda|napoj|napoje|kombucha) '
+        and v_text !~ ' (ustni voda|micelarni voda|toaletni voda|parfemovana voda) ' then
+    return query select 'napoje','drinks',array['napoje']::text[],0.97::numeric,'name-token-v5'; return;
+  elsif v_text ~ ' (veprove|veprova|veprovy|hovezi|kureci|kure|kruti|kachni|jehneci|krkovice|kyta|plec|kotleta|panenka|svickova|rostenka|steak|bucek|koleno|mlete|sunka|slanina|salam|klobasa|parek|uzeny|uzenina|losos|treska|tunak|kapr|pstruh|makrela) '
+        and v_text !~ ' (omacka|koreni|bujon|polevka|chips|prichut|rostlinne mlete|vegetarianske|veganske) ' then
+    return query select 'maso-ryby','food',array['maso']::text[],0.97::numeric,'name-token-v5'; return;
   elsif v_text ~ ' (mleko|jogurt|eidam|gouda|emental|hermelin|niva|mozzarella|cheddar|cottage|maslo|smetana|tvaroh|kefir) ' then
     return query select 'mlecne-vyrobky','food',array['mlecne']::text[],0.97::numeric,'name-token-v2'; return;
-  elsif v_text ~ ' (chleb|rohlik|rohliky|houska|housky|bageta|bagety|veka|kaiserka|toastovy|kobliha|croissant|kolac) ' and v_text !~ ' rohlik cz ' then
-    return query select 'pecivo','food',array['pecivo']::text[],0.97::numeric,'name-token-v2'; return;
+  elsif v_text ~ ' (chleb|rohlik|rohliky|houska|housky|bageta|bagety|veka|kaiserka|toastovy|kobliha|croissant|kolac) '
+        and v_text !~ ' (rohlik cz|toastovy syr|smes na .* chleb) ' then
+    return query select 'pecivo','food',array['pecivo']::text[],0.97::numeric,'name-token-v5'; return;
   elsif v_text ~ ' (cokolada|bonbony|susenk|susenky|oplatky|pralinky|lentilky|karamelky|zvykacky) ' or (v_text ~ ' tycinka ' and not v_is_drugstore and not v_is_pharmacy) then
     return query select 'sladkosti','food',array['sladkosti']::text[],0.97::numeric,'name-token-v2'; return;
-  elsif v_text ~ ' (tricko|kalhoty|bunda|boty|ponozky|mikina|saty|sukne|kosile) ' then
-    return query select 'moda','fashion',array['moda']::text[],0.97::numeric,'name-token-v2'; return;
+  elsif v_text ~ ' (tricko|kalhoty|bunda|boty|ponozky|mikina|saty|sukne|kosile) '
+        and v_text !~ ' (ubrousky|cistic|sprej|impregnace|vlozky do bot) ' then
+    return query select 'moda','fashion',array['moda']::text[],0.97::numeric,'name-token-v5'; return;
   elsif v_text ~ ' (pneumatika|pneumatiky|motorovy|sterac|sterace|autobaterie) ' then
     return query select 'auto','auto',array['auto']::text[],0.97::numeric,'name-token-v2'; return;
-  elsif v_text ~ ' (jablko|jablka|hruska|hrusky|banan|banany|pomeranc|pomerance|mandarinka|citron|citrony|hrozny|jahody|maliny|boruvky|tresne|merunky|broskve|svestky|mango|ananas|avokado|kiwi|meloun|brambory|cibule|cesnek|rajcata|paprika|papriky|okurka|okurky|mrkev|celer|kvetak|brokolice|cuketa|redkvicky|repa|zeli|salat|spenat) ' and v_text !~ ' (chips|prichut|liker|rumovy|ovocne|chlebicky|pochoutkovy|susene|smoothie|dzus|juice|napoj|nektar) ' then
-    return query select 'ovoce-zelenina','food',array['ovoce-zelenina']::text[],0.97::numeric,'name-token-v2'; return;
+  elsif v_text ~ ' (jablko|jablka|hruska|hrusky|banan|banany|pomeranc|pomerance|mandarinka|citron|citrony|hrozny|jahody|maliny|boruvky|tresne|merunky|broskve|svestky|mango|ananas|avokado|kiwi|meloun|brambory|cibule|cesnek|rajcata|paprika|papriky|okurka|okurky|mrkev|celer|kvetak|brokolice|cuketa|redkvicky|repa|zeli|salat|spenat) '
+        and v_text !~ ' (chips|prichut|liker|rumovy|ovocne|chlebicky|pochoutkovy|susene|smoothie|dzus|juice|napoj|nektar|kasicka|svacinka|prostredek|sedaci souprava|pohovka|nabytek|rybi salat|majonez) ' then
+    return query select 'ovoce-zelenina','food',array['ovoce-zelenina']::text[],0.97::numeric,'name-token-v5'; return;
   elsif v_text ~ ' (mouka|cukr|ryze|testoviny|ocet|lusteniny|koreni) ' and v_text !~ ' (pivo|lezak|radler) ' then
     return query select 'trvanlive-potraviny','food',array['trvanlive']::text[],0.96::numeric,'name-token-v2'; return;
   end if;
@@ -59,4 +64,4 @@ end;
 $$;
 revoke all on function public.preview_product_taxonomy(uuid) from public;
 grant execute on function public.preview_product_taxonomy(uuid) to anon, authenticated, service_role;
-comment on function public.preview_product_taxonomy(uuid) is 'Read-only taxonomy classifier preview v4 with retailer/context exclusions. Does not mutate products or offers; use for QA before backfill.';
+comment on function public.preview_product_taxonomy(uuid) is 'Read-only taxonomy classifier preview v5 with retailer/context exclusions. Does not mutate products or offers; use for QA before backfill.';
