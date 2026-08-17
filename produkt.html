@@ -7,6 +7,22 @@
   <meta name="theme-color" content="#0b776f">
   <meta name="robots" content="index,follow,max-image-preview:large">
   <link rel="canonical" href="https://slevao.cz/produkt.html">
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const rawId = String(params.get('id') || '').trim().toLowerCase();
+      const validId = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(rawId);
+      const canonical = validId
+        ? `https://slevao.cz/produkt.html?id=${encodeURIComponent(rawId)}`
+        : 'https://slevao.cz/produkt.html';
+      const canonicalLink = document.querySelector('link[rel="canonical"]');
+      if (canonicalLink) canonicalLink.href = canonical;
+      if (!validId) {
+        const robots = document.querySelector('meta[name="robots"]');
+        if (robots) robots.content = 'noindex,follow';
+      }
+    })();
+  </script>
   <link rel="icon" href="favicon.svg" type="image/svg+xml">
   <title>Produkt – ceny a historie | Slevao.cz</title>
   <link rel="stylesheet" href="assets/public-features.css?v=20260816-5">
