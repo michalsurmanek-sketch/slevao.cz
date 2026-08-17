@@ -119,7 +119,7 @@ function buildTitle(lines:{y:number;text:string}[],quantityY:number|null){
 }
 function parsePage(page:Page):Candidate[]{
   const tokens=(page.tokens||[]).map(t=>({text:clean(t.text),x:Number(t.x),y:Number(t.y),width:Number(t.width),height:Number(t.height)})).filter(t=>t.text&&Number.isFinite(t.x)&&Number.isFinite(t.y));
-  const as=anchors(tokens),pageWidth=Math.max(595,...tokens.map(t=>t.x+t.width));
+  const as=anchors(tokens),pageWidth=Math.max(595,...tokens.map(t=>t.x+t.width)),pageHeight=Math.max(842,...tokens.map(t=>t.y+t.height));
   const out:Candidate[]=[];
   for(const a of as){
     const band=bandFor(as,a,pageWidth),p=findMainPrice(tokens,a,band); if(!p)continue;
@@ -148,7 +148,25 @@ function parsePage(page:Page):Candidate[]{
     const title=buildTitle(lines,qLine?.y??null); if(!title)continue;
     out.push({
       title,price:round2(p.price),quantity_text:q?.text||saleUnit||'',source_page:page.page,confidence:0.99,
-      raw_data:{parser:'billa-coordinate-v2',price_anchor:'NAŠE CENA',verification:verifiedBy,printed_unit_price:matchedUnit,expected_price:expected==null?null:round2(expected),main_price_token:p.t.text}
+      raw_data:{
+        parser:'billa-coordinate-v2',
+        price_anchor:'NAŠE CENA',
+        verification:verifiedBy,
+        printed_unit_price:matchedUnit,
+        expected_price:expected==null?null:round2(expected),
+        main_price_token:p.t.text,
+        layout_geometry:{
+          purpose:'offer-region-hint-not-product-photo',
+          coordinate_space:'pdf-bottom-left',
+          page_width:round2(pageWidth),
+          page_height:round2(pageHeight),
+          band_left:round2(band.left),
+          band_right:round2(band.right),
+          anchor_x:round2(a.x),
+          anchor_y:round2(a.y),
+          price_token:{x:round2(p.t.x),y:round2(p.t.y),width:round2(p.t.width),height:round2(p.t.height)}
+        }
+      }
     });
   }
   return out;
