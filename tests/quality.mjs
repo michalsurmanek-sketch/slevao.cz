@@ -56,11 +56,14 @@ assert.match(homeCss, /\.mobileNav/, 'Homepage nemá mobilní spodní navigaci.'
 assert.match(homeCss, /@media\(max-width:800px\)/, 'Homepage nemá responzivní mobilní pravidla.');
 
 for (const pattern of [
+  /async function rpc\(/, /get_public_offer_page_filtered/, /get_public_offer_facets/,
+  /get_public_saved_offer_page/, /get_public_product_comparison/, /const PAGE_SIZE = 24/,
+  /AbortController/, /function unitPrice\(/, /function openCompare\(/, /function openReport\(/, /SAVED_KEY/,
+]) assert.match(homeJs, pattern, `Homepage postrádá povinnou serverovou logiku ${pattern}.`);
+for (const pattern of [
   /async function fetchOffers\(/, /for \(let from = 0; ; from \+= 1000\)/, /function deduplicate\(/,
-  /AbortController/, /CACHE_KEY/, /return collect\(simpleSelect\)/, /location\.reload\(\)/,
-  /function categoryOf\(/, /function geographyMatches\(/, /function unitPrice\(/,
-  /function openCompare\(/, /function openReport\(/, /SAVED_KEY/,
-]) assert.match(homeJs, pattern, `Homepage postrádá povinnou logiku ${pattern}.`);
+  /CACHE_KEY/, /function categoryOf\(/, /function geographyMatches\(/, /SEARCH_EXPANSIONS/,
+]) assert.doesNotMatch(homeJs, pattern, `Homepage znovu zavádí zakázanou klientskou datovou logiku ${pattern}.`);
 assert.match(homeJs, /encodeURIComponent\(store\.slug\).*\.html/, 'Karta obchodu musí odkazovat na jeho vlastní stránku.');
 assert.match(homeJs, /penny:'assets\/logos\/penny\.svg\?v=4'/, 'Homepage musí používat lokální logo PENNY.');
 assert.doesNotMatch(searchSuggest, /DecompressionStream|\.home-v2-parts|MutationObserver|setInterval/, 'Pomocný skript obsahuje starý zavaděč nebo nekonečnou DOM smyčku.');

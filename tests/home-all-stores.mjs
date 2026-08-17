@@ -23,9 +23,10 @@ assert.match(allStores, /storeSelect/, 'Nové obchody se nepřidávají do filtr
 assert.match(allStores, /class="storePageLink"[^\n]*encodeURIComponent\(store\.slug\)[^\n]*\.html/, 'Nově přidaná karta obchodu nemá odkaz na vlastní stránku.');
 assert.doesNotMatch(allStores, /order:\s*'name\.asc'/, 'Homepage nesmí znovu řadit obchody čistě podle abecedy.');
 assert.doesNotMatch(allStores, /activeSlugs|activeIds|offers[^\n]*filter/, 'Veřejný seznam znovu filtruje obchody podle existence nabídek.');
-assert.match(homepageRuntime, /function scrollToDealsAfterStoreLayout\(\)/, 'Výběr obchodu nemá vlastní dorovnání scrollu po změně výšky seznamu.');
-assert.match(homepageRuntime, /new ResizeObserver\(correctPosition\)/, 'Scroll po výběru obchodu nereaguje na rozbalení nebo překreslení seznamu.');
-assert.match(homepageRuntime, /setTimeout\(correctPosition,\s*180\)/, 'Scroll po výběru obchodu nemá závěrečné dorovnání po změně rozložení.');
-assert.match(homepageRuntime, /renderDeals\(\);\s*scrollToDealsAfterStoreLayout\(\)/, 'Kliknutí na obchod nepoužívá stabilizovaný scroll.');
+assert.match(allStores, /function stabilizeDealsScroll\(\)/, 'Výběr obchodu nemá vlastní dorovnání scrollu po změně výšky seznamu.');
+assert.match(allStores, /new MutationObserver\(scheduleSync\)/, 'Scroll po výběru obchodu nereaguje na překreslení seznamu.');
+assert.match(allStores, /\[90, 180, 320, 520\]\.forEach/, 'Scroll po výběru obchodu nemá opakované dorovnání po změně rozložení.');
+assert.match(allStores, /stabilizeDealsScroll\(\)/, 'Kliknutí na obchod nepoužívá stabilizovaný scroll.');
+assert.match(homepageRuntime, /refreshCurrent\(\)\.then\(scrollToDealsAfterStoreLayout\)/, 'Datový runtime po výběru obchodu nedokončí scroll až po načtení serverových výsledků.');
 
 console.log('Homepage priority stores OK');
