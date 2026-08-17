@@ -98,6 +98,15 @@
     document.dispatchEvent(new CustomEvent('slevao:semantic-filter', { detail:{ base } }));
   }
 
+  function loadServerSearch() {
+    if (document.querySelector('script[data-slevao-server-search]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/home-server-search.js?v=20260817-1';
+    script.defer = true;
+    script.dataset.slevaoServerSearch = '1';
+    document.head.appendChild(script);
+  }
+
   function init() {
     ensurePanel();
     search()?.addEventListener('input', () => requestAnimationFrame(render));
@@ -105,6 +114,7 @@
     const observed = document.getElementById('resultText');
     if (observed) new MutationObserver(() => requestAnimationFrame(render)).observe(observed, { childList:true, subtree:true, characterData:true });
     render();
+    loadServerSearch();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
