@@ -13,7 +13,13 @@ new Script(allStores, { filename: 'assets/home-all-stores.js' });
 new Script(homepageRuntime, { filename: 'assets/home-v2.js' });
 
 assert.match(homepage, /<script src="assets\/home-all-stores\.js\?v=[a-z0-9-]+" defer><\/script>/i, 'Homepage přímo nenačítá aktuální seznam obchodů.');
+assert.match(allStores, /public_store_feed_health/, 'Veřejný seznam obchodů nepoužívá autoritativní feed-health vrstvu.');
 assert.match(allStores, /is_active:\s*'eq\.true'/, 'Veřejný seznam nenačítá aktivní obchody.');
+assert.match(allStores, /feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score/, 'Homepage nenačítá stav a kvalitu feedu obchodů.');
+assert.match(allStores, /function feedStateLabel\(/, 'Homepage neumí vysvětlit obchod bez živého produktového feedu.');
+for (const label of ['Jen aktuální leták','Zdroj se obnovuje','Dočasně bez nabídek','Zatím bez nabídek']) {
+  assert(allStores.includes(label), `Homepage postrádá stav obchodu: ${label}`);
+}
 assert.match(allStores, /STORE_PRIORITY[\s\S]*'lidl'[\s\S]*'kaufland'[\s\S]*'penny'[\s\S]*'albert'/, 'Hlavní obchody nemají nastavené prioritní pořadí.');
 assert.match(allStores, /sortStores[\s\S]*rankStore\(a\) - rankStore\(b\)/, 'Obchody se neřadí podle prioritního hodnocení.');
 assert.match(allStores, /localeCompare\([^\n]*'cs'/, 'Neznámé obchody nemají abecední záložní řazení.');
