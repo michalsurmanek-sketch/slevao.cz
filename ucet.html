@@ -12,6 +12,20 @@
   <link rel="stylesheet" href="assets/search-notifications.css?v=20260804-1">
   <link rel="stylesheet" href="assets/product-personalization.css?v=20260816-4">
   <link rel="stylesheet" href="assets/account-redesign.css?v=20260816-11">
+  <script>
+    (() => {
+      const params = new URLSearchParams(location.search);
+      const redirect = params.get('redirect');
+      if (!redirect) return;
+      try {
+        const target = new URL(redirect, location.href);
+        if (target.origin === location.origin) return;
+      } catch {}
+      params.delete('redirect');
+      const query = params.toString();
+      history.replaceState(null, '', `${location.pathname}${query ? `?${query}` : ''}${location.hash}`);
+    })();
+  </script>
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script defer src="assets/public-features.js?v=20260815-3"></script>
   <script defer src="assets/public-nav-upgrade.js?v=20260815-7"></script>
