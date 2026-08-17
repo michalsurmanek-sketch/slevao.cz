@@ -41,16 +41,24 @@
       || String(a.name || '').localeCompare(String(b.name || ''), 'cs'));
   }
 
+  function feedStateLabel(store) {
+    if (Number(store.current_offer_count || 0) > 0 || store.feed_status === 'products-live') return '';
+    if (store.feed_status === 'leaflet-only') return 'Jen aktuální leták';
+    if (store.feed_status === 'broken-source') return 'Zdroj se obnovuje';
+    if (store.feed_status === 'temporarily-empty') return 'Dočasně bez nabídek';
+    return 'Zatím bez nabídek';
+  }
+
   async function loadStores() {
     const query = new URLSearchParams({
-      select: 'id,name,slug,logo_url,primary_color,is_active',
+      select: 'store_id:id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score',
       is_active: 'eq.true',
     });
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/public_store_feed_health?${query}`, {
       headers: { apikey: SUPABASE_KEY },
       cache: 'no-store',
     });
-    if (!response.ok) throw new Error(`Seznam obchodů vrátil HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Stav obchodů vrátil HTTP ${response.status}.`);
     stores = sortStores((await response.json()).filter((store) => store?.slug && store?.name));
   }
 
@@ -63,7 +71,9 @@
     const article = document.createElement('article');
     article.className = `storeCard ${selectedStore === store.slug ? 'active' : ''}`;
     article.dataset.dynamicStoreCard = store.slug;
-    article.innerHTML = `<a class="storePageLink" href="${encodeURIComponent(store.slug)}.html" title="Otevřít stránku ${esc(store.name)}">↗</a><button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHtml(store)}</div>${esc(store.name)}</button>`;
+    article.dataset.feedStatus = store.feed_status || 'supported';
+    const state = feedStateLabel(store);
+    article.innerHTML = `<a class="storePageLink" href="${encodeURIComponent(store.slug)}.html" title="Otevřít stránku ${esc(store.name)}">↗</a><button class="storeFilterButton" data-store="${esc(store.slug)}"><div class="storeLogoBox">${logoHtml(store)}</div>${esc(store.name)}${state ? `<br><small>${esc(state)}</small>` : ''}</button>`;
     return article;
   }
 
@@ -82,8 +92,13 @@
     if (!select) return;
     const existing = new Map([...select.options].map((option) => [option.value, option]));
     stores.forEach((store) => {
-      if (existing.has(store.slug)) return;
-      select.add(new Option(store.name, store.slug));
+      const state = feedStateLabel(store);
+      const label = state ? `${store.name} — ${state}` : store.name;
+      if (existing.has(store.slug)) {
+        existing.get(store.slug).textContent = label;
+        return;
+      }
+      select.add(new Option(label, store.slug));
     });
     const allOption = select.querySelector('option[value="all"]');
     const ordered = [allOption, ...stores.map((store) => select.querySelector(`option[value="${CSS.escape(store.slug)}"]`))].filter(Boolean);
