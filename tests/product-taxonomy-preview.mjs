@@ -12,6 +12,10 @@ assert.match(sql, /ustni voda/, 'Mouthwash must be handled by drugstore rules be
 assert.match(sql, /rohlik cz/, 'Rohlik.cz brand token must be excluded from bakery matching.');
 assert.match(sql, /chips\|prichut\|liker\|rumovy/, 'Processed/flavour exclusions must protect fruit and vegetable classification.');
 assert.match(sql, /kombucha/, 'Kombucha must be classified as a beverage before produce rules.');
+assert.match(sql, /antiperspirant\|deodorant\|hodiny/, 'Cosmetics and decorative wine terms must not classify as beverages.');
+assert.match(sql, /telove mleko\|cistici mleko/, 'Cosmetic milk must not classify as dairy.');
+assert.match(sql, /gummies\|vitamin/, 'Vitamin gummies and supplements must not classify as produce.');
+assert.match(sql, /ubrousky\|cistic\|sprej\|impregnace/, 'Shoe-care products must not classify as fashion.');
 assert.match(staging, /private\.product_taxonomy_candidates/, 'Classification candidates must stay in private QA staging.');
 assert.match(staging, /x\.confidence >= 0\.96/, 'Only high-confidence candidates may enter staging.');
 assert.doesNotMatch(staging, /update\s+public\.products/i, 'Staging migration must not mutate public products.');
