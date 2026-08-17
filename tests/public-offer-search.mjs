@@ -6,6 +6,8 @@ const sql = fs.readFileSync(new URL('../supabase/migrations/20260817154500_promo
 assert.match(sql, /search_public_offers\s*\(/, 'Missing public search RPC.');
 assert.match(sql, /language plpgsql/i, 'Fast public search must use dynamic PL/pgSQL planning.');
 assert.match(sql, /public\.unaccent\(coalesce\(p_query,''\)\)/, 'Search query must be accent-insensitive.');
+assert.match(sql, /char_length\(v_q\) < 2/, 'Search must reject one-character queries.');
+assert.match(sql, /v_q := left\(v_q,80\)/, 'Search query length must be bounded.');
 assert.match(sql, /least\(coalesce\(p_limit,24\),100\)/, 'Search limit must be bounded.');
 assert.match(sql, /greatest\(coalesce\(p_offset,0\),0\)/, 'Search offset must be non-negative.');
 assert.match(sql, /s\.is_active is true/, 'Search must exclude inactive stores.');
