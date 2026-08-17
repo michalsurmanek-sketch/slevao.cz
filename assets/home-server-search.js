@@ -100,6 +100,15 @@
     }
   }
 
+  function loadPublicMetrics() {
+    if (document.querySelector('script[data-slevao-public-metrics]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/home-public-metrics.js?v=20260817-1';
+    script.defer = true;
+    script.dataset.slevaoPublicMetrics = '1';
+    document.head.appendChild(script);
+  }
+
   function init() {
     const input = document.getElementById('q');
     const box = document.getElementById('searchSuggestions');
@@ -116,6 +125,8 @@
       }
       timer = window.setTimeout(() => search(query, box), DEBOUNCE_MS);
     }, { capture:true });
+
+    loadPublicMetrics();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
