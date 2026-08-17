@@ -15,6 +15,8 @@ const PUBLIC_PAGES: Record<string,{url:string;title:string}> = {
   penny:{url:'https://www.penny.cz/letaky',title:'Aktuální leták'},
   teta:{url:'https://www.tetadrogerie.cz/akce/letak',title:'Aktuální leták'},
   rossmann:{url:'https://www.rossmann.cz/obsah/akce-a-letaky',title:'Akce a letáky'},
+  dm:{url:'https://www.dm.cz/vyprodej/',title:'Akce a nabídky'},
+  globus:{url:'https://www.globus.cz/globus/letaky#aktualni',title:'Aktuální leták'},
   makro:{url:'https://www.makro.cz/aktualni-nabidka',title:'Aktuální nabídka'},
   rohlik:{url:'https://www.rohlik.cz/cenove-trhaky',title:'Cenové trháky'},
   kosik:{url:'https://www.kosik.cz/s1-akce',title:'Akční nabídka'},
