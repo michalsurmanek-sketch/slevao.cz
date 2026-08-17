@@ -112,6 +112,22 @@ function safePdfUrl(value: string) {
   return url.toString();
 }
 
+function safeViewerUrl(value: string | null | undefined, publicationSlug: string) {
+  const fallback = `https://view.publitas.com/${GROUP_SLUG}/${encodeURIComponent(publicationSlug)}/`;
+  const candidate = String(value || fallback).trim();
+  const url = new URL(candidate, 'https://view.publitas.com');
+  if (url.protocol !== 'https:' || url.hostname !== 'view.publitas.com') {
+    return fallback;
+  }
+  const expectedPrefix = `/${GROUP_SLUG}/${publicationSlug}`;
+  if (!decodeURIComponent(url.pathname).startsWith(expectedPrefix)) {
+    return fallback;
+  }
+  url.search = '';
+  url.hash = '';
+  return url.toString().replace(/\/+$/, '') + '/';
+}
+
 function pageImageUrl(value: string) {
   const url = new URL(`${value}-at1600.jpg`, 'https://view.publitas.com');
   if (url.hostname !== 'view.publitas.com' || !/^\/\d+\/\d+\/pages\/[a-f0-9-]+-at1600\.jpg$/i.test(url.pathname)) {
@@ -160,7 +176,7 @@ async function loadCurrentPublication(): Promise<CurrentPublication> {
   const pdfUrl = safePdfUrl(pdfPath);
   await probePdf(pdfUrl);
 
-  const viewerUrl = `https://letaki.kik.cz/${encodeURIComponent(current.slug)}/`;
+  const viewerUrl = safeViewerUrl(detail.config?.canonicalUrl, current.slug);
   const publicationTitle = String(
     current.browserTitle || detail.config?.publicationTitle || current.title || 'Aktuální leták KiK',
   ).replace(/\s+/g, ' ').trim();
