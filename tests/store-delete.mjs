@@ -38,7 +38,9 @@ for (const pattern of [
 ]) {
   assert.match(edgeFunction, pattern, `Záložní serverové smazání postrádá ochranu ${pattern}.`);
 }
-assert.match(edgeConfig, /verify_jwt\s*=\s*false/, 'Mazací funkce musí ověřovat přihlášení uvnitř funkce.');
-assert.match(deployWorkflow, /functions deploy delete-store[\s\S]*--no-verify-jwt/, 'Záložní mazací funkce se nenasazuje samostatně.');
+assert.match(edgeConfig, /verify_jwt\s*=\s*true/, 'Mazací funkce musí mít zapnuté ověření JWT na gateway.');
+assert.match(deployWorkflow, /functions deploy delete-store[\s\S]*--project-ref uhampjdqjxmbhaptgitn/, 'Záložní mazací funkce se nenasazuje samostatně.');
+const deleteDeployBlock = deployWorkflow.match(/supabase functions deploy delete-store[\s\S]*?(?=\n\s*- name:|\n\s*\z)/)?.[0] || '';
+assert.doesNotMatch(deleteDeployBlock, /--no-verify-jwt/, 'Deploy workflow nesmí vypnout JWT ochranu delete-store.');
 
 console.log('Store deletion safeguards OK');
