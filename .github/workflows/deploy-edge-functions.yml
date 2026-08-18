@@ -136,8 +136,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy homepage-leaflet-image \
-            --project-ref uhampjdqjxmbhaptgitn \
-            --no-verify-jwt
+            --project-ref uhampjdqjxmbhaptgitn
 
   deploy-homepage-leaflet-visibility:
     name: Nasadit viditelnost letáků
@@ -167,8 +166,7 @@ jobs:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy homepage-leaflet-visibility \
-            --project-ref uhampjdqjxmbhaptgitn \
-            --no-verify-jwt
+            --project-ref uhampjdqjxmbhaptgitn
 
   deploy-other-functions:
     name: Nasadit ostatní funkce
