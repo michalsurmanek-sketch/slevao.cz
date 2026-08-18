@@ -1,2 +1,3 @@
 # Admin/service-role maintenance endpoint; no DB cron caller depends on custom auth.
+# Deployment proof: changed-only workflow must apply verify_jwt=true in production.
 verify_jwt = true
