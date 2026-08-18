@@ -1,0 +1,60 @@
+name: Browser E2E smoke
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'tests/e2e/**'
+      - 'tests/mobile-css-loader-guard.mjs'
+      - 'playwright.config.mjs'
+      - '.github/workflows/browser-e2e.yml'
+  pull_request:
+    paths:
+      - 'index.html'
+      - 'assets/**'
+      - 'tests/e2e/**'
+      - 'tests/mobile-css-loader-guard.mjs'
+      - 'playwright.config.mjs'
+      - '.github/workflows/browser-e2e.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Playwright test runner
+        run: npm install --no-save @playwright/test
+      - name: Install Chromium
+        run: npx playwright install chromium
+      - name: Start static server
+        run: |
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/slevao-http.log 2>&1 &
+          echo $! > /tmp/slevao-http.pid
+          for i in {1..30}; do
+            curl -fsS http://127.0.0.1:4173/index.html >/dev/null && exit 0
+            sleep 1
+          done
+          cat /tmp/slevao-http.log
+          exit 1
+      - name: Run browser smoke tests
+        run: npx playwright test
+      - name: Upload Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-e2e-diagnostics
+          path: |
+            playwright-report
+            test-results
+          if-no-files-found: ignore
+          retention-days: 7
