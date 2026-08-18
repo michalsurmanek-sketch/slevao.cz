@@ -1,0 +1,3 @@
+# The database routing trigger invokes this processor with x-cron-secret.
+# The function also validates service-role and admin/editor callers internally.
+verify_jwt = false
