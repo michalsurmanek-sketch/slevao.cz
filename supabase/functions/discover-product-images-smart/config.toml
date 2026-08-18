@@ -1,0 +1,2 @@
+# Orchestrator keeps custom auth because it still accepts CRON_SECRET/legacy cron compatibility.
+verify_jwt = false
