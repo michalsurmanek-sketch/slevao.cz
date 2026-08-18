@@ -1,0 +1,32 @@
+name: Cleanup data migration replay patch helpers
+
+on:
+  push:
+    branches: ['stabilize/data-migration-replay-safety']
+    paths:
+      - '.github/workflows/cleanup-data-migration-replay-patch.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stabilize/data-migration-replay-safety
+      - name: Verify final replay-safe state
+        run: |
+          node tests/data-migration-replay-safety.mjs
+          grep -q 'node tests/data-migration-replay-safety.mjs' .github/workflows/quality.yml
+      - name: Remove one-shot helpers
+        run: |
+          git rm -f .github/workflows/patch-data-migration-replay-safety.yml \
+                    .github/workflows/patch-data-migration-replay-quality.yml \
+                    .github/workflows/cleanup-data-migration-replay-patch.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'Remove replay-safety patch helpers'
+          git push origin HEAD:stabilize/data-migration-replay-safety
