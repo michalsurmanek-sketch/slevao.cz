@@ -1,0 +1,2 @@
+# This orchestrator is invoked with x-cron-secret and forwards to the processor with a service-role Bearer token.
+verify_jwt = false
