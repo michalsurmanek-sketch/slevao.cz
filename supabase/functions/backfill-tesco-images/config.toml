@@ -1,1 +1,2 @@
+# Admin/service-role maintenance endpoint; no DB cron caller depends on custom auth.
 verify_jwt = true
