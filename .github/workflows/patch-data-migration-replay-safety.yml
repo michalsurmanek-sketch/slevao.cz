@@ -1,0 +1,91 @@
+name: Patch data migration replay safety
+
+on:
+  push:
+    branches: ['stabilize/data-migration-replay-safety']
+    paths:
+      - '.github/workflows/patch-data-migration-replay-safety.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: stabilize/data-migration-replay-safety
+      - name: Allow clean-database no-op without weakening drift guards
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+            'supabase/migrations/20260818191857_deactivate_safe_albert_v4_branded_duplicates_v1.sql': (
+              'if v_count < 4000 or v_count > 5000 or v_clusters <> 12 then',
+              'if not (v_count = 0 and v_clusters = 0)\n     and (v_count < 4000 or v_count > 5000 or v_clusters <> 12) then',
+            ),
+            'supabase/migrations/20260818194000_repair_albert_v1_private_taxonomy_refs.sql': (
+              'if v_candidates <> 9 or v_logs <> 2 or v_visual <> 0 or v_inactive_canonicals <> 0 then',
+              'if not (v_candidates = 0 and v_logs = 0 and v_visual = 0 and v_inactive_canonicals = 0)\n     and (v_candidates <> 9 or v_logs <> 2 or v_visual <> 0 or v_inactive_canonicals <> 0) then',
+            ),
+            'supabase/migrations/20260818200839_deactivate_safe_albert_v4_unbranded_duplicates_b.sql': (
+              'if v_count<>4443 or v_clusters<>9 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>4443 or v_clusters<>9) then',
+            ),
+            'supabase/migrations/20260818201017_deactivate_safe_albert_v4_unbranded_duplicates_z.sql': (
+              'if v_count<>3919 or v_clusters<>10 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>3919 or v_clusters<>10) then',
+            ),
+            'supabase/migrations/20260818201050_deactivate_safe_albert_v4_unbranded_duplicates_s.sql': (
+              'if v_count<>4340 or v_clusters<>11 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>4340 or v_clusters<>11) then',
+            ),
+            'supabase/migrations/20260818201119_deactivate_safe_albert_v4_unbranded_duplicates_p.sql': (
+              'if v_count<>3653 or v_clusters<>17 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>3653 or v_clusters<>17) then',
+            ),
+            'supabase/migrations/20260818201158_deactivate_safe_albert_v4_unbranded_duplicates_r.sql': (
+              'if v_count<>2738 or v_clusters<>9 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>2738 or v_clusters<>9) then',
+            ),
+            'supabase/migrations/20260818201223_deactivate_safe_albert_v4_unbranded_duplicates_tuvw.sql': (
+              'if v_count<>4252 or v_clusters<>17 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>4252 or v_clusters<>17) then',
+            ),
+            'supabase/migrations/20260818201246_deactivate_safe_albert_v4_unbranded_duplicates_jl.sql': (
+              'if v_count<>4314 or v_clusters<>11 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>4314 or v_clusters<>11) then',
+            ),
+            'supabase/migrations/20260818201331_deactivate_safe_albert_v4_unbranded_duplicates_mo.sql': (
+              'if v_count<>4685 or v_clusters<>17 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>4685 or v_clusters<>17) then',
+            ),
+            'supabase/migrations/20260818201357_deactivate_safe_albert_v4_unbranded_duplicates_acdf.sql': (
+              'if v_count<>3222 or v_clusters<>17 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>3222 or v_clusters<>17) then',
+            ),
+            'supabase/migrations/20260818201421_deactivate_safe_albert_v4_unbranded_duplicates_ghk.sql': (
+              'if v_count<>3189 or v_clusters<>13 then',
+              'if not (v_count=0 and v_clusters=0) and (v_count<>3189 or v_clusters<>13) then',
+            ),
+          }
+
+          for name, (old, new) in replacements.items():
+              p = Path(name)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{name}: expected exactly one guard, found {count}')
+              p.write_text(text.replace(old, new, 1))
+          PY
+          git diff --check
+      - name: Commit guarded replay-safety patch
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/migrations
+          git commit -m 'Allow no-data replay for Albert cleanup migrations'
+          git push origin HEAD:stabilize/data-migration-replay-safety
