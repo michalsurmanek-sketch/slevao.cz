@@ -1,0 +1,2 @@
+# Internal callers use a service-role Bearer token; admin/editor callers use a user access token.
+verify_jwt = true
