@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 
 const baseline = JSON.parse(fs.readFileSync('docs/edge-function-security-baseline.json', 'utf8'));
 const required = Array.isArray(baseline.jwt_required_debug_functions) ? baseline.jwt_required_debug_functions : [];
@@ -20,6 +21,23 @@ if (required.includes('debug-kaufland-source')) fail('public exception must not 
 
 for (const slug of ['debug-jip-pack-parser','debug-jip-page-html','debug-terno-parser-v4','debug-terno-ocr-quality','debug-penny-hydration-images','debug-makro-evaluate-prices','debug-makro-price-service','debug-makro-session','debug-makro-legacy-price']) {
   if (!required.includes(slug)) fail(`missing hardened endpoint ${slug}`);
+}
+
+const functionsDir = path.join('supabase', 'functions');
+const debugDirs = fs.readdirSync(functionsDir, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory() && entry.name.startsWith('debug-'))
+  .map((entry) => entry.name);
+
+for (const slug of debugDirs) {
+  const configPath = path.join(functionsDir, slug, 'config.toml');
+  if (!fs.existsSync(configPath)) continue; // Supabase default is verify_jwt=true.
+  const config = fs.readFileSync(configPath, 'utf8');
+  const disablesJwt = /verify_jwt\s*=\s*false/.test(config);
+  if (slug === 'debug-kaufland-source') {
+    if (!disablesJwt) fail('debug-kaufland-source exception must stay explicitly reproducible as verify_jwt=false');
+    continue;
+  }
+  if (disablesJwt) fail(`unexpected public debug config: ${slug}`);
 }
 
 console.log(`edge-function-debug-auth: ok (${required.length} JWT-required debug functions, 1 documented exception)`);
