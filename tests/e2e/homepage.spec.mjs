@@ -34,8 +34,7 @@ test('homepage loads the canonical mobile UX stylesheet only once', async ({ pag
   await page.waitForTimeout(750);
 
   expect(requests, `mobile-ux requests: ${JSON.stringify(requests)}`).toHaveLength(1);
-  const links = await page.locator('link[href*="mobile-ux.css"]').count();
-  expect(links).toBe(1);
+  expect(await page.locator('link[href*="mobile-ux.css"]').count()).toBe(1);
 });
 
 test('desktop homepage renders server-paginated offers', async ({ page }) => {
@@ -87,6 +86,6 @@ for (const width of MOBILE_WIDTHS) {
 
     await expect(page.locator('#q')).toBeVisible();
     await expectNoHorizontalOverflow(page);
-    await page.screenshot({ path: testInfo.outputPath(`mobile-${width}.png`), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`mobile-${width}.png`), fullPage: false });
   });
 }
