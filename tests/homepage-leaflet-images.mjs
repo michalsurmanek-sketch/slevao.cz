@@ -12,6 +12,8 @@ const manualShim = read('assets/home-manual-leaflet-images.js');
 const visibilityShim = read('assets/home-leaflet-visibility.js');
 const allStores = read('assets/home-all-stores.js');
 const kaufland = read('assets/home-kaufland-food-cover.js');
+const edgeConfig = read('supabase/functions/homepage-leaflet-image/config.toml');
+const deployWorkflow = read('.github/workflows/deploy-edge-functions.yml');
 
 for (const [name, source] of [
   ['admin-homepage-images.js', adminJs],
@@ -27,6 +29,11 @@ assert.match(adminJs, /uniquePath\(/, 'Každý obrázek nemá unikátní cestu.'
 assert.match(adminJs, /crypto\.randomUUID|Date\.now\(\)/, 'Unikátní cesta nemá bezpečnou verzi.');
 assert.doesNotMatch(adminJs, /homepage\/\$\{store\.slug\}\/cover\./, 'Obrázky se nesmí přepisovat pod pevnou adresou cover.');
 assert.match(adminJs, /persistMarker/, 'Nahraná adresa se nepřipíná k obchodu.');
+assert.match(adminJs, /Authorization: `Bearer \$\{current\.access_token\}`/, 'Legacy image služba musí dostávat přihlášený access token.');
+assert.match(edgeConfig, /verify_jwt\s*=\s*true/, 'Homepage image admin musí mít zapnuté JWT ověření na gateway.');
+const imageDeploy = deployWorkflow.match(/supabase functions deploy homepage-leaflet-image[\s\S]*?(?=\n\s*- name:|\n\s{2}deploy-homepage-leaflet-visibility:)/)?.[0] || '';
+assert.ok(imageDeploy, 'Deploy workflow neobsahuje samostatné nasazení homepage image funkce.');
+assert.doesNotMatch(imageDeploy, /--no-verify-jwt/, 'Deploy workflow nesmí vypnout JWT ochranu homepage image funkce.');
 
 for (const pattern of [
   /COVER_KEY = 'slevao-cover'/,

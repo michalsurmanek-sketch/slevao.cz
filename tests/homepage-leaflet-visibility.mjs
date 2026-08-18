@@ -12,6 +12,8 @@ const control = read('assets/home-leaflet-control.js');
 const visibilityShim = read('assets/home-leaflet-visibility.js');
 const loader = read('assets/home-all-stores.js');
 const nav = read('assets/admin-homepage-image-nav.js');
+const edgeConfig = read('supabase/functions/homepage-leaflet-visibility/config.toml');
+const deployWorkflow = read('.github/workflows/deploy-edge-functions.yml');
 
 for (const [name, source] of [
   ['admin-homepage-visibility.js', adminJs],
@@ -37,6 +39,10 @@ assert.match(adminJs, /readFreshStore|select\('id,name,slug,logo_url,website_url
 assert.match(adminJs, /\.update\(\{ \[field\]: nextValue \}\)/, 'Nastavení se neukládá přímo k obchodu.');
 assert.doesNotMatch(adminJs, /homepage-leaflet-visibility/, 'Administrace se nesmí vrátit k nefunkční Edge Function.');
 assert.doesNotMatch(adminJs, /\.update\(\{\s*is_active/, 'Přepínač nesmí měnit obecnou viditelnost obchodu.');
+assert.match(edgeConfig, /verify_jwt\s*=\s*true/, 'Legacy homepage visibility admin musí mít zapnuté JWT ověření.');
+const visibilityDeploy = deployWorkflow.match(/supabase functions deploy homepage-leaflet-visibility[\s\S]*?(?=\n\s*- name:|\n\s{2}deploy-other-functions:)/)?.[0] || '';
+assert.ok(visibilityDeploy, 'Deploy workflow neobsahuje samostatné nasazení homepage visibility funkce.');
+assert.doesNotMatch(visibilityDeploy, /--no-verify-jwt/, 'Deploy workflow nesmí vypnout JWT ochranu homepage visibility funkce.');
 
 assert.match(imageAdminJs, /data: fresh[\s\S]*markerField\(fresh\)[\s\S]*withMarker\(fresh\[field\], marker\)/, 'Obrázková administrace může přepsat novější nastavení viditelnosti.');
 
@@ -50,6 +56,7 @@ for (const pattern of [
   /data-forced-leaflet-card/,
   /Aktuální nabídky/,
 ]) assert.match(control, pattern, `Řízení hlavní sekce postrádá ${pattern}.`);
+assert.doesNotMatch(control, /homepage-leaflet-visibility/, 'Veřejná homepage nesmí záviset na chráněné legacy visibility Edge Function.');
 
 assert.match(visibilityShim, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Loader viditelnosti nenačítá verzované společné řízení.');
 assert.match(loader, /home-leaflet-control\.js\?v=[a-z0-9-]+/i, 'Hlavní loader nenačítá verzované společné řízení.');
