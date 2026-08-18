@@ -1,0 +1,79 @@
+name: Apply mobile CSS source fix
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.head_ref == 'fix/mobile-ux-duplicate-css'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Apply exact mobile CSS fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          nav = Path('assets/mobile-navigation.js')
+          text = nav.read_text()
+          old = """  const mobileUxVersion = '20260809-8';
+          if (!document.querySelector(`link[data-mobile-ux-version=\"${mobileUxVersion}\"]`)) {
+            const mobileUxLink = document.createElement('link');
+            mobileUxLink.rel = 'stylesheet';
+            mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
+            mobileUxLink.dataset.mobileUxVersion = mobileUxVersion;
+            document.head.appendChild(mobileUxLink);
+          }
+          """
+          new = """  const mobileUxVersion = '20260815-21';
+          if (!document.querySelector('link[href*=\"mobile-ux.css\"]')) {
+            const mobileUxLink = document.createElement('link');
+            mobileUxLink.rel = 'stylesheet';
+            mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
+            mobileUxLink.dataset.mobileUxVersion = mobileUxVersion;
+            document.head.appendChild(mobileUxLink);
+          }
+          """
+          if old not in text:
+            raise SystemExit('Expected mobile-ux injection block not found; refusing broad edit.')
+          nav.write_text(text.replace(old, new, 1))
+
+          index = Path('index.html')
+          html = index.read_text()
+          old_src = 'assets/mobile-navigation.js?v=20260815-9'
+          new_src = 'assets/mobile-navigation.js?v=20260818-1'
+          if old_src not in html:
+            raise SystemExit('Expected mobile-navigation cache version not found.')
+          index.write_text(html.replace(old_src, new_src, 1))
+
+          quality = Path('.github/workflows/quality.yml')
+          q = quality.read_text()
+          marker = 'node tests/mobile-css-single-source.mjs'
+          if marker not in q:
+            needle = 'node tests/public-filter-group-inference-v3.mjs'
+            if needle not in q:
+              raise SystemExit('Quality test insertion point not found.')
+            q = q.replace(needle, needle + ' && ' + marker, 1)
+            quality.write_text(q)
+          PY
+          node tests/mobile-css-single-source.mjs
+      - name: Commit exact fix to PR branch
+        run: |
+          if git diff --quiet; then
+            echo 'No changes needed.'
+            exit 0
+          fi
+          git config user.name 'slevao-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add assets/mobile-navigation.js index.html .github/workflows/quality.yml
+          git commit -m 'fix: stop stale mobile CSS reinjection'
+          git push origin HEAD:${{ github.head_ref }}
