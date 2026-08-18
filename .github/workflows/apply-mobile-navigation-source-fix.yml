@@ -1,0 +1,89 @@
+name: Apply mobile navigation CSS source fix
+
+on:
+  pull_request:
+
+permissions:
+  contents: write
+
+jobs:
+  apply-fix:
+    if: github.head_ref == 'fix/mobile-navigation-css-source'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+      - name: Apply exact source fix
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          nav = Path('assets/mobile-navigation.js')
+          text = nav.read_text()
+          old = '''(() => {
+            const mobileUxVersion = '20260809-8';
+            if (!document.querySelector(`link[data-mobile-ux-version="${mobileUxVersion}"]`)) {
+              const mobileUxLink = document.createElement('link');
+              mobileUxLink.rel = 'stylesheet';
+              mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
+              mobileUxLink.dataset.mobileUxVersion = mobileUxVersion;
+              document.head.appendChild(mobileUxLink);
+            }
+
+          '''
+          # Preserve the exact file indentation by normalizing the heredoc's Python indentation.
+          old = '\n'.join(line[10:] if line.startswith('          ') else line for line in old.splitlines()) + '\n'
+          new = '''(() => {
+            const mobileUxVersion = '20260815-21';
+            if (!document.querySelector('link[href*="mobile-ux.css"]')) {
+              const mobileUxLink = document.createElement('link');
+              mobileUxLink.rel = 'stylesheet';
+              mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
+              mobileUxLink.dataset.mobileUxVersion = mobileUxVersion;
+              document.head.appendChild(mobileUxLink);
+            }
+
+          '''
+          new = '\n'.join(line[10:] if line.startswith('          ') else line for line in new.splitlines()) + '\n'
+          if not text.startswith(old):
+            raise SystemExit('Expected mobile-navigation loader prefix not found; refusing broad edit.')
+          nav.write_text(new + text[len(old):])
+
+          direct = Path('assets/home-leaflet-direct.js')
+          direct_text = direct.read_text()
+          guard = '''  // Compatibility guard: mobile-navigation.js still checks the legacy marker.
+          // Mark the already-loaded canonical mobile-ux stylesheet so it is not injected a second time.
+          const canonicalMobileUx = document.querySelector('link[href*="mobile-ux.css"]');
+          if (canonicalMobileUx) canonicalMobileUx.dataset.mobileUxVersion = '20260809-8';
+
+          '''
+          guard = '\n'.join(line[10:] if line.startswith('          ') else line for line in guard.splitlines()) + '\n'
+          if guard not in direct_text:
+            raise SystemExit('Expected temporary mobile CSS compatibility guard not found.')
+          direct.write_text(direct_text.replace(guard, '', 1))
+
+          index = Path('index.html')
+          html = index.read_text()
+          replacements = {
+            'data-mobile-ux-version="20260809-10"': 'data-mobile-ux-version="20260815-21"',
+            'assets/home-leaflet-direct.js?v=20260809-4': 'assets/home-leaflet-direct.js?v=20260818-1',
+            'assets/mobile-navigation.js?v=20260815-9': 'assets/mobile-navigation.js?v=20260818-2',
+          }
+          for old_value, new_value in replacements.items():
+            if old_value not in html:
+              raise SystemExit(f'Expected index marker not found: {old_value}')
+            html = html.replace(old_value, new_value, 1)
+          index.write_text(html)
+
+          workflow = Path('.github/workflows/apply-mobile-navigation-source-fix.yml')
+          workflow.unlink()
+          PY
+      - name: Commit source fix to PR branch
+        run: |
+          git config user.name 'slevao-ci'
+          git config user.email 'actions@users.noreply.github.com'
+          git add -A
+          git commit -m 'fix: make mobile UX stylesheet loading single-source'
+          git push origin HEAD:${{ github.head_ref }}
