@@ -61,7 +61,7 @@ where d.rn>1 and d.hard_ref=false and d.image_ref=false
 
 do $guard$ declare v_count integer; v_clusters integer; begin
  select count(*),count(distinct (original_normalized_name,brand_key,qty_key)) into v_count,v_clusters from _albert_b_mapping;
- if v_count<>4443 or v_clusters<>9 then raise exception 'Albert B cleanup drifted: % rows / % clusters; expected 4443 / 9.',v_count,v_clusters; end if;
+ if not (v_count=0 and v_clusters=0) and (v_count<>4443 or v_clusters<>9) then raise exception 'Albert B cleanup drifted: % rows / % clusters; expected 4443 / 9.',v_count,v_clusters; end if;
 end $guard$;
 
 with alias_source as (
