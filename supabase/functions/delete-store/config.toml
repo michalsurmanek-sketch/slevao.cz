@@ -1,2 +1,2 @@
-# Authentication is verified inside the function so the admin session can be checked explicitly.
-verify_jwt = false
+# Supabase verifies the bearer JWT at the gateway; the function then enforces the admin role explicitly.
+verify_jwt = true
