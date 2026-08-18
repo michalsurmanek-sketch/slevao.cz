@@ -46,6 +46,8 @@
     if (store.feed_status === 'leaflet-only') return 'Jen aktuální leták';
     if (store.feed_status === 'broken-source') return 'Zdroj se obnovuje';
     if (store.feed_status === 'temporarily-empty') return 'Dočasně bez nabídek';
+    if (store.feed_status === 'source-blocked') return 'Nabídky teď nejsou dostupné';
+    if (store.feed_status === 'not-applicable') return 'Bez online nabídky';
     return 'Zatím bez nabídek';
   }
 
