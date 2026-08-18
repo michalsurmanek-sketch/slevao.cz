@@ -301,9 +301,21 @@ jobs:
               exit 1
             fi
 
-            echo "Nasazuji pouze změněnou funkci ${function_name} s auth režimem z ${config_file}."
-            supabase functions deploy "$function_name" \
-              --project-ref "$PROJECT_REF"
+            auth_mode="$(sed -nE 's/^verify_jwt[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$/\1/p' "$config_file" | tail -n 1)"
+            if [[ "$auth_mode" != 'true' && "$auth_mode" != 'false' ]]; then
+              echo "CHYBA: z ${config_file} se nepodařilo načíst verify_jwt."
+              exit 1
+            fi
+
+            echo "Nasazuji pouze změněnou funkci ${function_name}; verify_jwt=${auth_mode}."
+            if [[ "$auth_mode" == 'false' ]]; then
+              supabase functions deploy "$function_name" \
+                --project-ref "$PROJECT_REF" \
+                --no-verify-jwt
+            else
+              supabase functions deploy "$function_name" \
+                --project-ref "$PROJECT_REF"
+            fi
           done
 
       - name: Ověřit klíčové automatizační funkce
