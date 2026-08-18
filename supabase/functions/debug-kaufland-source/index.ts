@@ -67,7 +67,7 @@ async function proxyJipPage(req: Request) {
       headers: {
         'access-control-allow-origin': '*',
         'content-type': contentType,
-        'cache-control': 'public, max-age=1800',
+        'cache-control': 'private, max-age=1800',
         'x-content-type-options': 'nosniff',
       },
     });
@@ -95,7 +95,10 @@ async function removeInChunks(bucket: string, paths: string[]) {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: HEADERS });
-  if (req.method === 'GET') return proxyJipPage(req);
+  if (req.method === 'GET') {
+    if (!(await isAuthorized(req))) return response({ error: 'Unauthorized' }, 401);
+    return proxyJipPage(req);
+  }
   if (req.method !== 'POST') return response({ error: 'Method not allowed' }, 405);
   if (!(await isAuthorized(req))) return response({ error: 'Unauthorized' }, 401);
 
