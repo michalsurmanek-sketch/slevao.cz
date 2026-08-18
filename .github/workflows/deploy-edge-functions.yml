@@ -176,6 +176,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Aplikovat opravu velkých letáků
         run: |
@@ -223,28 +225,85 @@ jobs:
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Nasadit ostatní Edge Functions
+      - name: Nasadit pouze změněné Edge Functions
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          BEFORE_SHA: ${{ github.event.before }}
+          EVENT_NAME: ${{ github.event_name }}
+        shell: bash
         run: |
           set -euo pipefail
-          large_function="supabase/functions/process-leaflet-basic"
-          backup_dir="${RUNNER_TEMP}/supabase-large-functions"
-          mkdir -p "$backup_dir"
-          mv "$large_function" "$backup_dir/"
-          restore_large_function() {
-            mv "$backup_dir/process-leaflet-basic" "supabase/functions/"
+          PROJECT_REF='uhampjdqjxmbhaptgitn'
+
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            echo 'Ruční hromadný deploy je z bezpečnostních důvodů vypnutý. Použij změnu konkrétní funkce nebo její specializovaný workflow.'
+            exit 0
+          fi
+
+          before="$BEFORE_SHA"
+          if [[ -z "$before" || "$before" == '0000000000000000000000000000000000000000' ]]; then
+            before="$(git rev-parse HEAD^ 2>/dev/null || true)"
+          fi
+          if [[ -z "$before" ]]; then
+            echo 'Nelze bezpečně určit předchozí commit; hromadný deploy se neprovede.'
+            exit 1
+          fi
+
+          mapfile -t changed_functions < <(
+            git diff --name-only "$before" "$GITHUB_SHA" -- 'supabase/functions/**' \
+              | awk -F/ 'NF >= 3 { print $3 }' \
+              | sort -u
+          )
+
+          if [[ ${#changed_functions[@]} -eq 0 ]]; then
+            echo 'V tomto commitu není změněná žádná Edge Function.'
+            exit 0
+          fi
+
+          handled_elsewhere=(
+            delete-store
+            homepage-leaflet-image
+            homepage-leaflet-visibility
+            process-leaflet-basic
+            store-leaflet-document
+            sync-official-leaflet-sources
+          )
+
+          is_handled_elsewhere() {
+            local candidate="$1"
+            local known
+            for known in "${handled_elsewhere[@]}"; do
+              [[ "$candidate" == "$known" ]] && return 0
+            done
+            return 1
           }
-          trap restore_large_function EXIT
-          supabase functions deploy \
-            --project-ref uhampjdqjxmbhaptgitn
-          # These scheduled functions authenticate their internal orchestrator
-          # with x-cron-secret. Keep the platform JWT gateway disabled or the
-          # cron request is rejected before application authentication runs.
-          for function_name in sync-coop-source sync-jip-source sync-jysk-source; do
+
+          for function_name in "${changed_functions[@]}"; do
+            if is_handled_elsewhere "$function_name"; then
+              echo "Přeskakuji ${function_name}: nasazuje se specializovaným krokem nebo workflow."
+              continue
+            fi
+
+            function_dir="supabase/functions/${function_name}"
+            if [[ ! -d "$function_dir" ]]; then
+              echo "Přeskakuji odstraněný adresář ${function_name}."
+              continue
+            fi
+
+            config_file="${function_dir}/config.toml"
+            if [[ ! -f "$config_file" ]]; then
+              echo "CHYBA: ${function_name} nemá explicitní config.toml s verify_jwt."
+              echo 'Deploy je zastaven, aby se neznámý auth režim nepřepsal výchozí hodnotou.'
+              exit 1
+            fi
+            if ! grep -Eq '^verify_jwt[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$' "$config_file"; then
+              echo "CHYBA: ${config_file} neobsahuje jednoznačné verify_jwt=true/false."
+              exit 1
+            fi
+
+            echo "Nasazuji pouze změněnou funkci ${function_name} s auth režimem z ${config_file}."
             supabase functions deploy "$function_name" \
-              --project-ref uhampjdqjxmbhaptgitn \
-              --no-verify-jwt
+              --project-ref "$PROJECT_REF"
           done
 
       - name: Ověřit klíčové automatizační funkce
