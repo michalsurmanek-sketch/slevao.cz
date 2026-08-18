@@ -1,0 +1,3 @@
+# Temporary production exception: this function is called by the existing JIP/OCR proxy path.
+# All other debug-* Edge Functions must require JWT.
+verify_jwt = false
