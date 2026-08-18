@@ -1,0 +1,2 @@
+# DB triggers invoke this function with x-cron-secret; the function also accepts service-role/admin-editor callers internally.
+verify_jwt = false
