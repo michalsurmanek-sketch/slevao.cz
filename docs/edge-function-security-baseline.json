@@ -1,10 +1,11 @@
 {
   "updated_at": "2026-08-18",
-  "policy": "All debug-* Edge Functions require JWT unless explicitly allowlisted for a documented production dependency.",
-  "public_debug_exceptions": [
+  "policy": "All debug-* Edge Functions require platform JWT unless explicitly allowlisted for a documented custom-auth production dependency. No debug-* function may expose an unauthenticated operational route.",
+  "public_debug_exceptions": [],
+  "custom_auth_debug_functions": [
     {
       "slug": "debug-kaufland-source",
-      "reason": "Required by the existing JIP/OCR proxy path; keep public only until that dependency is migrated to authenticated service-role calls."
+      "reason": "Edge slot is reused for leaflet cleanup and restricted JIP image proxying; GET and POST both require service-role Bearer auth or CRON_SECRET while verify_jwt stays false for cron compatibility."
     }
   ],
   "jwt_required_debug_functions": [
