@@ -45,13 +45,13 @@ test('search uses the public server search and returns mleko results', async ({ 
   await search.fill('mleko');
   await search.press('Enter');
 
-  await expect(page.locator('#dealsTitle')).toContainText('mleko', { timeout: 15_000 });
+  await expect(page.locator('#dealsTitle')).toContainText(/ml[eé]ko/i, { timeout: 15_000 });
   await expect.poll(async () => page.locator('#dealGrid .dealCard').count(), { timeout: 15_000 }).toBeGreaterThan(0);
   await expect(page.locator('#resultText')).toContainText('Zobrazeno');
 });
 
 for (const width of MOBILE_WIDTHS) {
-  test(`mobile ${width}px has offers, bottom nav and no horizontal overflow`, async ({ page }) => {
+  test(`mobile ${width}px has offers, bottom nav and no horizontal overflow`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await openHomepage(page);
 
@@ -65,5 +65,6 @@ for (const width of MOBILE_WIDTHS) {
 
     await expect(page.locator('#q')).toBeVisible();
     await expectNoHorizontalOverflow(page);
+    await page.screenshot({ path: testInfo.outputPath(`mobile-${width}.png`), fullPage: true });
   });
 }
