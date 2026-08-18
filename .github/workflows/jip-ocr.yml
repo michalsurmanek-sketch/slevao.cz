@@ -19,9 +19,16 @@ jobs:
     env:
       SUPABASE_PROJECT_REF: uhampjdqjxmbhaptgitn
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify Supabase secrets
+        shell: bash
+        run: |
+          test -n "$SUPABASE_ACCESS_TOKEN"
+          test -n "$SUPABASE_SERVICE_ROLE_KEY"
 
       - name: Install Czech Tesseract
         run: |
