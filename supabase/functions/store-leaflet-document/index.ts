@@ -187,7 +187,7 @@ Deno.serve(async (request) => {
     job = data;
     const store = Array.isArray(job?.stores) ? job?.stores[0] : job?.stores;
     storeSlug = String(store?.slug || '');
-    const allowedStatuses = new Set(['published', 'review', 'publishing']);
+    const allowedStatuses = new Set(['published']);
     if (error || !job || store?.is_active === false || !allowedStatuses.has(String(job.status))) {
       return responseJson({ error: 'Leták nebyl nalezen.' }, 404);
     }
