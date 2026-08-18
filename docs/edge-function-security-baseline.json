@@ -1,0 +1,35 @@
+{
+  "updated_at": "2026-08-18",
+  "policy": "All debug-* Edge Functions require JWT unless explicitly allowlisted for a documented production dependency.",
+  "public_debug_exceptions": [
+    {
+      "slug": "debug-kaufland-source",
+      "reason": "Required by the existing JIP/OCR proxy path; keep public only until that dependency is migrated to authenticated service-role calls."
+    }
+  ],
+  "jwt_required_debug_functions": [
+    "debug-auto-kelly-source",
+    "debug-hornbach-source",
+    "debug-intersport-source",
+    "debug-jip-pack-parser",
+    "debug-jip-page-html",
+    "debug-jysk-source",
+    "debug-kosik-api",
+    "debug-makro-article-chunks",
+    "debug-makro-evaluate-prices",
+    "debug-makro-find-module",
+    "debug-makro-legacy-price",
+    "debug-makro-price-mode",
+    "debug-makro-price-service",
+    "debug-makro-public-source",
+    "debug-makro-session",
+    "debug-makro-source",
+    "debug-penny-hydration-images",
+    "debug-pepco-source",
+    "debug-terno-ocr-quality",
+    "debug-terno-parser-v4",
+    "debug-terno-source",
+    "debug-teta-source",
+    "debug-zabka-html"
+  ]
+}
