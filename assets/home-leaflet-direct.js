@@ -1,6 +1,11 @@
 (() => {
   'use strict';
 
+  // Compatibility guard: mobile-navigation.js still checks the legacy marker.
+  // Mark the already-loaded canonical mobile-ux stylesheet so it is not injected a second time.
+  const canonicalMobileUx = document.querySelector('link[href*="mobile-ux.css"]');
+  if (canonicalMobileUx) canonicalMobileUx.dataset.mobileUxVersion = '20260809-8';
+
   const grid = document.getElementById('leafletGrid');
   if (grid && grid.dataset.leafletGridGuard !== '1') {
     const descriptor = Object.getOwnPropertyDescriptor(Element.prototype, 'innerHTML');
@@ -153,7 +158,7 @@
       window.setTimeout(attach, 120);
       return;
     }
-    new MutationObserver(schedule).observe(currentGrid, { childList: true, subtree: true });
+    new MutationObserver(schedule).observe(currentGrid, { childList: true, subtree:true });
     schedule();
   }
 
