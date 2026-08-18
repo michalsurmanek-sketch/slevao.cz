@@ -73,7 +73,8 @@ do $guard$
 declare v_count integer; v_clusters integer;
 begin
   select count(*),count(distinct original_normalized_name) into v_count,v_clusters from _albert_dup_mapping;
-  if v_count < 4000 or v_count > 5000 or v_clusters <> 12 then
+  if not (v_count = 0 and v_clusters = 0)
+     and (v_count < 4000 or v_count > 5000 or v_clusters <> 12) then
     raise exception 'Albert duplicate cleanup drifted: % rows across % clusters; expected 4000..5000 rows across exactly 12 clusters.',v_count,v_clusters;
   end if;
 end

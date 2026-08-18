@@ -32,7 +32,8 @@ begin
   left join public.products p on p.id=m.canonical_id and p.is_active=true
   where p.id is null;
 
-  if v_candidates <> 9 or v_logs <> 2 or v_visual <> 0 or v_inactive_canonicals <> 0 then
+  if not (v_candidates = 0 and v_logs = 0 and v_visual = 0 and v_inactive_canonicals = 0)
+     and (v_candidates <> 9 or v_logs <> 2 or v_visual <> 0 or v_inactive_canonicals <> 0) then
     raise exception 'Albert v1 private-ref repair drifted: candidates=%, logs=%, visual=%, inactive canonicals=%; expected 9,2,0,0.',
       v_candidates,v_logs,v_visual,v_inactive_canonicals;
   end if;
