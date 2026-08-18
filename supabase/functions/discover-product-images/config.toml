@@ -1,0 +1,2 @@
+# Admin/editor or service-role image discovery. All production callers send a Bearer JWT.
+verify_jwt = true
