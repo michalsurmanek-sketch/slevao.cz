@@ -240,12 +240,12 @@ jobs:
             exit 0
           fi
 
-          before="$BEFORE_SHA"
-          if [[ -z "$before" || "$before" == '0000000000000000000000000000000000000000' ]]; then
-            before="$(git rev-parse HEAD^ 2>/dev/null || true)"
-          fi
+          before="$(git rev-parse "${GITHUB_SHA}^1" 2>/dev/null || true)"
           if [[ -z "$before" ]]; then
-            echo 'Nelze bezpečně určit předchozí commit; hromadný deploy se neprovede.'
+            before="$BEFORE_SHA"
+          fi
+          if [[ -z "$before" || "$before" == '0000000000000000000000000000000000000000' ]]; then
+            echo 'Nelze bezpečně určit prvního rodiče ani předchozí commit; deploy se neprovede.'
             exit 1
           fi
 

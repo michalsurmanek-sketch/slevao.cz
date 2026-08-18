@@ -5,6 +5,7 @@ const root = new URL('../', import.meta.url);
 const workflow = readFileSync(new URL('.github/workflows/deploy-edge-functions.yml', root), 'utf8');
 
 assert.match(workflow, /fetch-depth:\s*0/, 'Deploy workflow potřebuje historii pro bezpečný diff změněných funkcí.');
+assert.match(workflow, /git rev-parse "\$\{GITHUB_SHA\}\^1"/, 'Deploy workflow musí diffovat aktuální commit proti prvnímu rodiči merge commitu.');
 assert.match(workflow, /git diff --name-only[^\n]*"\$before"[^\n]*"\$GITHUB_SHA"[\s\S]*supabase\/functions/, 'Workflow neurčuje změněné Edge Functions z git diffu.');
 assert.match(workflow, /config_file="\$\{function_dir\}\/config\.toml"/, 'Workflow nekontroluje per-function auth config.');
 assert.match(workflow, /verify_jwt\[\[:space:\]\]\*=\[\[:space:\]\]\*\(true\|false\)/, 'Workflow nevyžaduje explicitní verify_jwt hodnotu.');
