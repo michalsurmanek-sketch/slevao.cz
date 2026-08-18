@@ -5,17 +5,12 @@ const index = fs.readFileSync('index.html', 'utf8');
 const navigation = fs.readFileSync('assets/mobile-navigation.js', 'utf8');
 const leafletDirect = fs.readFileSync('assets/home-leaflet-direct.js', 'utf8');
 
-assert.match(index, /href="assets\/mobile-ux\.css\?v=[^"]+"/, 'Homepage must load a canonical mobile-ux stylesheet.');
+assert.match(index, /href="assets\/mobile-ux\.css\?v=20260815-21"[^>]*data-mobile-ux-version="20260815-21"/, 'Homepage must load the canonical current mobile-ux stylesheet and matching marker.');
+assert.match(navigation, /const mobileUxVersion = '20260815-21';/, 'mobile-navigation fallback must use the current canonical mobile UX version.');
+assert.match(navigation, /querySelector\('link\[href\*="mobile-ux\.css"\]'\)/, 'mobile-navigation must detect any already-loaded mobile-ux stylesheet instead of a stale version marker.');
+assert.doesNotMatch(navigation, /link\[data-mobile-ux-version=.*mobileUxVersion/, 'Legacy version-marker duplicate detection must not return.');
+assert.doesNotMatch(leafletDirect, /canonicalMobileUx|20260809-8/, 'Temporary mobile CSS compatibility guard must be removed after the source loader fix.');
+assert.match(index, /assets\/mobile-navigation\.js\?v=20260818-2/, 'Homepage must cache-bust the fixed mobile-navigation runtime.');
+assert.match(index, /assets\/home-leaflet-direct\.js\?v=20260818-1/, 'Homepage must cache-bust removal of the temporary compatibility guard.');
 
-const directIndex = index.indexOf('assets/home-leaflet-direct.js');
-const navigationIndex = index.indexOf('assets/mobile-navigation.js');
-assert.ok(directIndex >= 0 && navigationIndex >= 0 && directIndex < navigationIndex,
-  'home-leaflet-direct.js compatibility guard must execute before mobile-navigation.js while the legacy loader exists.');
-
-const navigationDetectsAnyMobileUx = /querySelector\(['"`]link\[href\*=[^\n]*mobile-ux\.css/.test(navigation);
-const compatibilityGuard = /canonicalMobileUx[\s\S]*dataset\.mobileUxVersion\s*=\s*['"]20260809-8['"]/.test(leafletDirect);
-
-assert.ok(navigationDetectsAnyMobileUx || compatibilityGuard,
-  'Duplicate mobile-ux loading is unguarded: either the navigation loader must detect any existing stylesheet or the compatibility guard must mark it before navigation runs.');
-
-console.log('mobile CSS loader regression guard passed');
+console.log('mobile CSS loader single-source regression guard passed');
