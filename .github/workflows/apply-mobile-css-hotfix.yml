@@ -8,7 +8,7 @@ permissions:
 
 jobs:
   apply-fix:
-    if: github.head_ref == 'fix/mobile-ux-duplicate-css'
+    if: startsWith(github.head_ref, 'fix/mobile-ux-duplicate-css')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
