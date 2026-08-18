@@ -1,0 +1,2 @@
+# Called by discover-product-images-smart with service-role Bearer JWT.
+verify_jwt = true
