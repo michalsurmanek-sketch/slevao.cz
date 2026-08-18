@@ -1,3 +1,4 @@
-# Temporary production exception: this function is called by the existing JIP/OCR proxy path.
-# All other debug-* Edge Functions must require JWT.
+# Intentional custom-auth deployment: platform JWT stays disabled because scheduled
+# cleanup callers may authenticate with CRON_SECRET. Every operational GET/POST
+# route must independently require service-role Bearer auth or CRON_SECRET.
 verify_jwt = false
