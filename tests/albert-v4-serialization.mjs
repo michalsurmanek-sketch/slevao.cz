@@ -15,18 +15,17 @@ for (const needle of [
 for (const needle of [
   'v_product_norm text;',
   'v_product_norm := public.normalize_product_name(v_title);',
-  "=v_product_norm\\n        and (v_qty is null",
-  "=v_product_norm\\n        and ((v_qty is null",
-  'values(v_title,v_product_norm,v_brand,v_qty,v_image,'
+  "v_new := replace(v_new, E'=v_norm\\n        and (v_qty is null', E'=v_product_norm\\n        and (v_qty is null');",
+  "v_new := replace(v_new, E'=v_norm\\n        and ((v_qty is null', E'=v_product_norm\\n        and ((v_qty is null');",
+  "v_new := replace(v_new, 'values(v_title,v_norm,v_brand,v_qty,v_image,', 'values(v_title,v_product_norm,v_brand,v_qty,v_image,');",
+  "v_new like '%coalesce(p.normalized_name,public.normalize_product_name(p.name))=v_norm%'",
+  "raise exception 'Albert v4 product-key patch did not apply cleanly.'"
 ]) {
   if (!productKeySql.includes(needle)) throw new Error(`Missing Albert product-key guard: ${needle}`);
 }
 
 if (/pg_try_advisory_xact_lock/i.test(serializeSql)) {
   throw new Error('Albert v4 publisher must serialize, not silently skip, concurrent publishes.');
-}
-if (productKeySql.includes("coalesce(p.normalized_name,public.normalize_product_name(p.name))=v_norm")) {
-  throw new Error('Albert product lookup must not compare product normalized_name to offer normalized_title.');
 }
 
 console.log('Albert v4 serialization and product-key guards OK');
