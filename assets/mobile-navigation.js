@@ -1,6 +1,6 @@
 (() => {
-  const mobileUxVersion = '20260809-8';
-  if (!document.querySelector(`link[data-mobile-ux-version="${mobileUxVersion}"]`)) {
+  const mobileUxVersion = '20260815-21';
+  if (!document.querySelector('link[href*="mobile-ux.css"]')) {
     const mobileUxLink = document.createElement('link');
     mobileUxLink.rel = 'stylesheet';
     mobileUxLink.href = `assets/mobile-ux.css?v=${mobileUxVersion}`;
