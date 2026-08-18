@@ -24,6 +24,7 @@
   let session = null;
   let listId = null;
   let activeOffers = [];
+  let customOfferMap = new Map();
   let sharedPermission = 'view';
   let sharedPollTimer = 0;
   let sharedBusy = false;
@@ -51,8 +52,11 @@
 
   function productSignature(sourceRows = rows) {
     return [...new Set(sourceRows
-      .filter((row) => !row.completed && row.product_id)
-      .map((row) => String(row.product_id)))]
+      .filter((row) => !row.completed)
+      .map((row) => row.product_id
+        ? `p:${String(row.product_id)}`
+        : `c:${norm(row.custom_name || row.name)}`)
+      .filter((value) => !value.endsWith(':')))]
       .sort()
       .join('|');
   }
@@ -105,7 +109,7 @@
       if (error) throw error;
       applySharedData(data || {});
       const productsChanged = beforeProducts !== productSignature();
-      if (productsChanged || !activeOffers.length) await fetchOffers();
+      if (productsChanged || (!activeOffers.length && !customOfferMap.size)) await fetchOffers();
       if (!silent) showMessage('Sdílený seznam je aktuální.');
     } catch (error) {
       if (!silent) showMessage(error.message || 'Sdílený seznam se nepodařilo otevřít.', true);
@@ -158,7 +162,7 @@
       const { data, error } = await db.rpc('mutate_shared_shopping_list', payload);
       if (error) throw error;
       applySharedData(data || {});
-      if (beforeProducts !== productSignature() || !activeOffers.length) await fetchOffers();
+      if (beforeProducts !== productSignature() || (!activeOffers.length && !customOfferMap.size)) await fetchOffers();
       return data;
     } finally {
       sharedBusy = false;
@@ -294,29 +298,59 @@
   }
 
   async function fetchOffers() {
-    const productIds = [...new Set(rows.filter((row) => !row.completed).map((row) => row.product_id).filter(Boolean))];
-    if (!productIds.length) {
-      activeOffers = [];
-      renderResults();
-      return;
+    const activeRows = rows.filter((row) => !row.completed);
+    const productIds = [...new Set(activeRows.map((row) => row.product_id).filter(Boolean))];
+    const customQueries = [...new Set(activeRows
+      .filter((row) => !row.product_id)
+      .map((row) => String(row.custom_name || row.name || '').trim())
+      .filter(Boolean))];
+
+    const productPromise = productIds.length
+      ? db.from('offers')
+        .select('id,product_id,store_id,title,price,old_price,image_url,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
+        .in('product_id', productIds)
+        .eq('status', 'published')
+        .lte('valid_from', upcomingTo)
+        .gte('valid_to', today)
+        .limit(5000)
+      : Promise.resolve({ data: [], error: null });
+
+    const customPromise = customQueries.length
+      ? db.rpc('get_public_shopping_list_candidates', {
+        p_queries: customQueries,
+        p_limit_per_query: 30
+      })
+      : Promise.resolve({ data: [], error: null });
+
+    const [productResult, customResult] = await Promise.all([productPromise, customPromise]);
+    if (productResult.error) throw productResult.error;
+    if (customResult.error) throw customResult.error;
+
+    activeOffers = productResult.data || [];
+    customOfferMap = new Map();
+    for (const candidate of customResult.data || []) {
+      const key = String(candidate.query_key || norm(candidate.query_text));
+      if (!key || !candidate.offer) continue;
+      const offers = customOfferMap.get(key) || [];
+      offers.push(candidate.offer);
+      customOfferMap.set(key, offers);
     }
-    const { data, error } = await db.from('offers')
-      .select('id,product_id,store_id,title,price,old_price,image_url,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
-      .in('product_id', productIds)
-      .eq('status', 'published')
-      .lte('valid_from', upcomingTo)
-      .gte('valid_to', today)
-      .limit(5000);
-    if (error) throw error;
-    activeOffers = data || [];
+
     rows.forEach((row) => {
       if (!row.image_url) row.image_url = itemImage(row) || null;
     });
     render();
   }
 
-  function cheapestFor(productId, allowedStores = null) {
-    const candidates = activeOffers.filter((offer) => offer.product_id === productId && (!allowedStores || allowedStores.has(offer.store_id)));
+  function offersForItem(item, allowedStores = null) {
+    const source = item.product_id
+      ? activeOffers.filter((offer) => offer.product_id === item.product_id)
+      : (customOfferMap.get(norm(item.custom_name || item.name)) || []);
+    return allowedStores ? source.filter((offer) => allowedStores.has(offer.store_id)) : source;
+  }
+
+  function cheapestForItem(item, allowedStores = null) {
+    const candidates = offersForItem(item, allowedStores);
     const current = candidates.filter((offer) => String(offer.valid_from || '') <= today);
     return (current.length ? current : candidates).sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
   }
@@ -325,7 +359,7 @@
     const chosen = [];
     let total = 0;
     for (const item of items) {
-      const offer = cheapestFor(item.product_id, allowedStores);
+      const offer = cheapestForItem(item, allowedStores);
       if (!offer) return null;
       const quantity = Math.max(0.01, Number(item.quantity || 1));
       total += Number(offer.price || 0) * quantity;
@@ -341,10 +375,13 @@
   }
 
   function calculatePlans() {
-    const items = rows.filter((row) => !row.completed && row.product_id);
-    if (!items.length) return { items, absolute: null, oneStore: null, balanced: null };
+    const allItems = rows.filter((row) => !row.completed);
+    const items = allItems.filter((item) => offersForItem(item).length > 0);
+    const unresolved = allItems.filter((item) => !offersForItem(item).length);
+    if (!items.length) return { items, unresolved, absolute: null, oneStore: null, balanced: null };
+
     const absolute = planFromOffers(items);
-    const storeIds = [...new Set(activeOffers.map((offer) => offer.store_id))];
+    const storeIds = [...new Set(items.flatMap((item) => offersForItem(item).map((offer) => offer.store_id)).filter(Boolean))];
 
     let oneStore = null;
     for (const storeId of storeIds) {
@@ -365,7 +402,7 @@
         }
       }
     }
-    return { items, absolute, oneStore, balanced };
+    return { items, unresolved, absolute, oneStore, balanced };
   }
 
   function planHtml(title, plan, description, best = false) {
@@ -387,17 +424,24 @@
 
   function renderResults() {
     const plans = calculatePlans();
-    const customCount = rows.filter((row) => !row.completed && !row.product_id).length;
+    const unresolvedText = plans.unresolved?.length
+      ? `<p class="sfMuted">${plans.unresolved.length} ${plans.unresolved.length === 1 ? 'položku se nepodařilo spolehlivě najít v aktuálních nabídkách.' : 'položek se nepodařilo spolehlivě najít v aktuálních nabídkách.'}</p>`
+      : '';
     $('optimizer').innerHTML = plans.items.length
-      ? `${planHtml('Vše v jednom obchodě', plans.oneStore, 'Nejméně cestování. Všechny porovnávané položky koupíš na jednom místě.')}${planHtml('Absolutně nejnižší cena', plans.absolute, `Nejnižší cena každé položky. ${plans.absolute?.stores.length || 0} zastávek.`)}${planHtml('Nejlepší poměr cena a cesta', plans.balanced, 'Do výpočtu se započítává penalizace 35 Kč za každou další zastávku.', true)}${customCount ? `<p class="sfMuted">${customCount} vlastních položek nemá produktové propojení a není započítáno do cen.</p>` : ''}`
-      : '<div class="sfEmpty">Přidej akční produkty z domovské stránky nebo vlastní položky.</div>';
+      ? `${planHtml('Vše v jednom obchodě', plans.oneStore, 'Nejméně cestování. Všechny nalezené položky koupíš na jednom místě.')}${planHtml('Absolutně nejnižší cena', plans.absolute, `Nejnižší cena každé nalezené položky. ${plans.absolute?.stores.length || 0} zastávek.`)}${planHtml('Nejlepší poměr cena a cesta', plans.balanced, 'Do výpočtu se započítává penalizace 35 Kč za každou další zastávku.', true)}${unresolvedText}`
+      : rows.some((row) => !row.completed)
+        ? `<div class="sfEmpty">Pro položky v seznamu zatím nebyly nalezeny použitelné aktuální ceny.</div>${unresolvedText}`
+        : '<div class="sfEmpty">Přidej akční produkty z domovské stránky nebo vlastní položky.</div>';
   }
 
   function itemImage(row) {
     if (row.image_url) return row.image_url;
-    const offer = activeOffers.find((item) => {
+    const source = row.product_id
+      ? activeOffers
+      : (customOfferMap.get(norm(row.custom_name || row.name)) || []);
+    const offer = source.find((item) => {
       const product = Array.isArray(item.products) ? item.products[0] : item.products;
-      return item.product_id === row.product_id && (item.image_url || product?.image_url);
+      return (!row.product_id || item.product_id === row.product_id) && (item.image_url || product?.image_url);
     });
     const product = Array.isArray(offer?.products) ? offer.products[0] : offer?.products;
     return offer?.image_url || product?.image_url || '';
@@ -412,7 +456,7 @@
         <article class="sfListItem ${row.completed ? 'done' : ''}" data-id="${esc(row.local_id)}">
           <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} ${readOnly ? 'disabled' : ''} aria-label="Označit jako koupené">
           <span class="sfItemThumb ${itemImage(row) ? 'has-image' : ''}" aria-hidden="true">${itemImage(row) ? `<img src="${esc(itemImage(row))}" alt="" loading="lazy">` : '<span>▤</span>'}</span>
-          <div class="sfItemCopy"><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : 'Vlastní položka'))}</div></div>
+          <div class="sfItemCopy"><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : (offersForItem(row).length ? 'Vlastní položka · nalezené ceny' : 'Vlastní položka · zatím nenalezeno')))}</div></div>
           <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity ${readOnly ? 'disabled' : ''} aria-label="Množství">
           <button class="sfIconButton" type="button" data-delete ${readOnly ? 'disabled' : ''} aria-label="Odstranit">×</button>
         </article>`).join('')
@@ -457,6 +501,7 @@
     render();
     try {
       await persistRow(row);
+      await fetchOffers();
     } catch (error) {
       showMessage(error.message, true);
     }
