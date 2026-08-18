@@ -19,4 +19,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ověřit bezpečnost, JavaScript a SEO soubory
-        run: node tests/generic-product-image-workflow.mjs && node tests/hruska-verified-import.mjs && node tests/quality.mjs && node tests/globus-viewer.mjs && node tests/store-delete.mjs && node tests/home-all-stores.mjs && node tests/homepage-leaflet-images.mjs && node tests/homepage-leaflet-visibility.mjs && node tests/leaflets-aggregate-feed.mjs && node tests/shared-list-sync.mjs && node tests/autopilot-custom-items.mjs
+        run: node tests/generic-product-image-workflow.mjs && node tests/hruska-verified-import.mjs && node tests/quality.mjs && node tests/globus-viewer.mjs && node tests/store-delete.mjs && node tests/home-all-stores.mjs && node tests/homepage-leaflet-images.mjs && node tests/homepage-leaflet-visibility.mjs && node tests/leaflets-aggregate-feed.mjs && node tests/shared-list-sync.mjs && node tests/autopilot-custom-items.mjs && node tests/db-migration-sync-20260818.mjs
