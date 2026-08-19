@@ -1,17 +1,19 @@
 import fs from 'node:fs';
 
 const migrationPath = 'supabase/migrations/20260819133759_web_push_notifications_v1.sql';
+const hardeningMigrationPath = 'supabase/migrations/20260819135501_harden_web_push_subscription_constraints.sql';
 const edgePath = 'supabase/functions/web-push/index.ts';
 const edgeConfigPath = 'supabase/functions/web-push/config.toml';
 const clientPath = 'assets/web-push.js';
 const swPath = 'sw.js';
 const accountPath = 'ucet.html';
 
-for (const path of [migrationPath, edgePath, edgeConfigPath, clientPath, swPath, accountPath]) {
+for (const path of [migrationPath, hardeningMigrationPath, edgePath, edgeConfigPath, clientPath, swPath, accountPath]) {
   if (!fs.existsSync(path)) throw new Error(`Missing Web Push file: ${path}`);
 }
 
 const migration = fs.readFileSync(migrationPath, 'utf8');
+const hardening = fs.readFileSync(hardeningMigrationPath, 'utf8');
 const edge = fs.readFileSync(edgePath, 'utf8');
 const edgeConfig = fs.readFileSync(edgeConfigPath, 'utf8');
 const client = fs.readFileSync(clientPath, 'utf8');
@@ -38,6 +40,15 @@ for (const needle of [
   if (!migration.toLowerCase().includes(needle.toLowerCase())) throw new Error(`Missing Web Push migration guard: ${needle}`);
 }
 
+for (const needle of [
+  "conname='web_push_subscriptions_endpoint_length_chk'",
+  'check (length(endpoint) between 16 and 2048)',
+  "conname='web_push_subscriptions_user_agent_length_chk'",
+  'check (user_agent is null or length(user_agent) <= 500)',
+]) {
+  if (!hardening.toLowerCase().includes(needle.toLowerCase())) throw new Error(`Missing Web Push hardening migration guard: ${needle}`);
+}
+
 for (const forbidden of [
   /grant\s+all\s+on\s+table\s+public\.web_push_(?:subscriptions|deliveries)\s+to\s+(?:anon|authenticated)/i,
   /grant\s+select[\s\S]*web_push_(?:subscriptions|deliveries)[\s\S]*to\s+(?:anon|authenticated)/i,
@@ -49,17 +60,30 @@ for (const forbidden of [
 for (const needle of [
   "import webpush from 'npm:web-push@3.6.7'",
   "const CRON_SECRET = Deno.env.get('CRON_SECRET') || ''",
-  "admin.auth.getUser(token)",
+  'const MAX_ACTIVE_SUBSCRIPTIONS = 8',
+  'admin.auth.getUser(token)',
   "action === 'subscribe'",
   "action === 'unsubscribe'",
   "action === 'dispatch'",
   "if (!isInternal(req)) return json({ error: 'Unauthorized' }, 401)",
-  "webpush.setVapidDetails(VAPID_SUBJECT",
+  'function isDirectPrivateOrLocalHost(hostname: string)',
+  "host === 'localhost'",
+  "host.endsWith('.local')",
+  "host === 'metadata.google.internal'",
+  "if (host.includes(':')) return true",
+  'if (isDirectPrivateOrLocalHost(url.hostname))',
+  "if (url.username || url.password)",
+  "if (url.port && url.port !== '443')",
+  '.select(\'id,user_id\')',
+  "Push endpoint už je přiřazen jinému účtu.",
+  '.slice(MAX_ACTIVE_SUBSCRIPTIONS)',
+  "last_error: 'Deactivated by per-user subscription cap.'",
+  'webpush.setVapidDetails(VAPID_SUBJECT',
   'webpush.sendNotification',
-  "statusCode === 404 || statusCode === 410",
+  'statusCode === 404 || statusCode === 410',
   ".from('web_push_subscriptions')",
   ".from('web_push_deliveries')",
-  ".update({ sent_at:",
+  '.update({ sent_at:',
 ]) {
   if (!edge.includes(needle)) throw new Error(`Missing Web Push Edge guard: ${needle}`);
 }
@@ -80,7 +104,7 @@ for (const needle of [
   "action: 'unsubscribe'",
   'authorization: `Bearer ${current.access_token}`',
   'send_test: sendTest',
-  "event.stopImmediatePropagation()",
+  'event.stopImmediatePropagation()',
 ]) {
   if (!client.includes(needle)) throw new Error(`Missing Web Push client guard: ${needle}`);
 }
