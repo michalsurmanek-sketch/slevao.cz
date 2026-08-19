@@ -1,0 +1,6 @@
+-- Production history marker only.
+-- An intermediate public-offer page ranking experiment was applied briefly during the
+-- performance audit and then superseded by 20260819205450 before any source merge.
+-- The canonical narrow page implementation already exists in
+-- 20260819193747_narrow_public_offer_page_execution.sql, so replaying this version
+-- intentionally performs no schema change.

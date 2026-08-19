@@ -1,0 +1,5 @@
+-- Production history marker only.
+-- An intermediate indexed fuzzy-search implementation was applied during the audit
+-- and immediately superseded by 20260819210326_index_public_offer_fuzzy_search_v3.sql.
+-- Fresh replays intentionally skip the intermediate function body and apply the final
+-- v3 implementation directly.
