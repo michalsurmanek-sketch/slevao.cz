@@ -22,7 +22,24 @@ self.addEventListener('push', (event) => {
     },
   };
 
-  event.waitUntil(self.registration.showNotification(title, options));
+  event.waitUntil((async () => {
+    const windows = await clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const visibleAccount = windows.some((client) => {
+      try {
+        const url = new URL(client.url);
+        return url.origin === self.location.origin
+          && url.pathname.endsWith('/ucet.html')
+          && client.visibilityState === 'visible';
+      } catch {
+        return false;
+      }
+    });
+
+    // The visible account page already has a Realtime foreground notification
+    // listener. Suppress only that duplicate; hidden/closed pages still get Web Push.
+    if (visibleAccount) return;
+    await self.registration.showNotification(title, options);
+  })());
 });
 
 self.addEventListener('notificationclick', (event) => {
