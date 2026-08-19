@@ -46,11 +46,16 @@ function clean(s: string) {
 }
 
 function abs(base: string, href: string) {
+  try { return new URL(href.replace(/&amp;/g, '&'), base).toString(); }
+  catch { return null; }
+}
+
+function absoluteHttpsUrl(value: unknown, base: string) {
+  if (!value) return null;
   try {
-    return new URL(href.replace(/&amp;/g, '&'), base).toString();
-  } catch {
-    return null;
-  }
+    const url = new URL(String(value).replace(/&amp;/g, '&'), base);
+    return url.protocol === 'https:' ? url.toString() : null;
+  } catch { return null; }
 }
 
 function iso(y: number, m: number, d: number) {
@@ -82,7 +87,6 @@ function parseActionPrice(text: string): number | null {
     const value = Number(`${split[1]}.${split[2]}`);
     return Number.isFinite(value) && value >= 2 && value < 100000 ? value : null;
   }
-
   const compact = text.match(/(?:^|\s)(\d{3,7})\s*Týdenní akce\s*$/i);
   if (compact) {
     const value = Number(compact[1]) / 100;
@@ -114,15 +118,7 @@ function itemsFrom(html: string, base: string) {
     if (seen.has(key)) continue;
     seen.add(key);
     const quantity = text.match(/\b\d+(?:[,.]\d+)?\s*(?:ml|cl|l|g|kg|ks|kusů|cm|mm|m|párů|balení)\b/i)?.[0] || null;
-    out.push({
-      title,
-      price,
-      quantity_text: quantity,
-      source_url: url,
-      sku,
-      confidence: 0.92,
-      raw_text: text,
-    });
+    out.push({ title, price, quantity_text: quantity, source_url: url, sku, confidence: 0.92, raw_text: text });
   }
   return out;
 }
@@ -135,28 +131,81 @@ function decodeEscapes(value: string) {
     .replace(/&amp;/gi, '&');
 }
 
-function actionImageFromHtml(html: string, sku: string) {
-  const source = decodeEscapes(html);
-  const candidates = source.match(/https:\/\/asset\.action\.com\/image\/upload\/[^\s"'<>\\)]+/gi) || [];
-  const safe = candidates.flatMap((candidate) => {
+function metaContent(html: string, key: string) {
+  const escaped = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const patterns = [
+    new RegExp(`<meta[^>]+(?:property|name)=["']${escaped}["'][^>]+content=["']([^"']+)["']`, 'i'),
+    new RegExp(`<meta[^>]+content=["']([^"']+)["'][^>]+(?:property|name)=["']${escaped}["']`, 'i'),
+  ];
+  for (const pattern of patterns) {
+    const match = html.match(pattern);
+    if (match?.[1]) return decodeEscapes(match[1]);
+  }
+  return null;
+}
+
+function jsonLdProducts(html: string) {
+  const results: any[] = [];
+  const re = /<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi;
+  for (const match of html.matchAll(re)) {
     try {
-      const url = new URL(candidate.replace(/[),.;]+$/, ''));
-      if (url.protocol !== 'https:' || url.hostname !== 'asset.action.com') return [];
-      if (!url.pathname.startsWith('/image/upload/')) return [];
-      url.hash = '';
-      return [url.toString()];
-    } catch {
-      return [];
-    }
-  });
-  safe.sort((a, b) => {
-    const score = (value: string) =>
-      (value.includes(`/${sku}_`) || value.includes(`/${sku}.`) ? 100 : 0)
-      + (value.includes('/t_digital_product_image/') ? 20 : 0)
-      + (/\/w_(?:1080|1920)\//.test(value) ? 10 : 0);
+      const parsed = JSON.parse(match[1].trim());
+      const queue = Array.isArray(parsed) ? [...parsed] : [parsed];
+      while (queue.length) {
+        const item = queue.shift();
+        if (!item || typeof item !== 'object') continue;
+        if (Array.isArray(item['@graph'])) queue.push(...item['@graph']);
+        const type = Array.isArray(item['@type']) ? item['@type'] : [item['@type']];
+        if (type.some((x: unknown) => String(x).toLowerCase() === 'product')) results.push(item);
+      }
+    } catch { /* malformed JSON-LD is ignored */ }
+  }
+  return results;
+}
+
+function jsonLdImage(item: any, base: string) {
+  const image = Array.isArray(item?.image) ? item.image[0] : item?.image;
+  if (typeof image === 'string') return absoluteHttpsUrl(image, base);
+  if (image && typeof image === 'object') return absoluteHttpsUrl(image.url || image.contentUrl, base);
+  return null;
+}
+
+function safeActionImage(value: string | null) {
+  if (!value) return null;
+  try {
+    const url = new URL(decodeEscapes(value));
+    if (url.protocol !== 'https:' || url.hostname !== 'asset.action.com') return null;
+    if (!url.pathname.startsWith('/image/upload/')) return null;
+    url.hash = '';
+    return url.toString();
+  } catch { return null; }
+}
+
+function actionImageFromHtml(html: string, sku: string, base: string) {
+  const source = decodeEscapes(html);
+  const candidates: { url: string; source: string }[] = [];
+  for (const item of jsonLdProducts(source)) {
+    const image = safeActionImage(jsonLdImage(item, base));
+    if (image) candidates.push({ url: image, source: 'json_ld' });
+  }
+  for (const key of ['og:image', 'twitter:image']) {
+    const image = safeActionImage(absoluteHttpsUrl(metaContent(source, key), base));
+    if (image) candidates.push({ url: image, source: key });
+  }
+  for (const raw of source.match(/https:\/\/asset\.action\.com\/image\/upload\/[^\s"'<>\\)]+/gi) || []) {
+    const image = safeActionImage(raw.replace(/[),.;]+$/, ''));
+    if (image) candidates.push({ url: image, source: 'raw' });
+  }
+
+  const unique = [...new Map(candidates.map((candidate) => [candidate.url, candidate])).values()];
+  unique.sort((a, b) => {
+    const score = (candidate: { url: string; source: string }) =>
+      (candidate.url.includes(`/${sku}_`) || candidate.url.includes(`/${sku}.`) ? 100 : 0)
+      + (candidate.source === 'json_ld' ? 40 : candidate.source === 'og:image' ? 30 : 10)
+      + (candidate.url.includes('/t_digital_product_image/') ? 20 : 0);
     return score(b) - score(a);
   });
-  return safe[0] || null;
+  return unique[0]?.url || null;
 }
 
 async function fetchProductImage(item: any) {
@@ -168,26 +217,23 @@ async function fetchProductImage(item: any) {
         'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
         'accept-language': 'cs-CZ,cs;q=0.9',
         accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+        referer: 'https://www.action.com/cs-cz/tydenni-akce/',
       },
-      redirect: 'follow',
-      signal: controller.signal,
+      redirect: 'follow', signal: controller.signal,
     });
     if (!response.ok) return { ...item, image_url: null, image_error: `HTTP ${response.status}` };
     const html = await response.text();
-    const image = actionImageFromHtml(html, item.sku);
+    const image = actionImageFromHtml(html, item.sku, response.url || item.source_url);
     return { ...item, image_url: image, image_error: image ? null : 'official_image_not_found' };
   } catch (error) {
     return { ...item, image_url: null, image_error: errorMessage(error).slice(0, 200) };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
 async function enrichImages(items: any[]) {
   const out: any[] = [];
   for (let i = 0; i < items.length; i += IMAGE_CONCURRENCY) {
-    const batch = items.slice(i, i + IMAGE_CONCURRENCY);
-    out.push(...await Promise.all(batch.map(fetchProductImage)));
+    out.push(...await Promise.all(items.slice(i, i + IMAGE_CONCURRENCY).map(fetchProductImage)));
   }
   return out;
 }
@@ -209,119 +255,48 @@ Deno.serve(async (req) => {
     const { data: source, error: soe } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).order('created_at').limit(1).single();
     if (soe || !source) throw soe || new Error('Action zdroj nebyl nalezen.');
 
-    const res = await fetch(SOURCE_URL, {
-      headers: { 'user-agent': 'Mozilla/5.0', 'accept-language': 'cs-CZ,cs;q=0.9' },
-      redirect: 'follow',
-    });
+    const res = await fetch(SOURCE_URL, { headers: { 'user-agent': 'Mozilla/5.0', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!res.ok) throw new Error(`Action stránka HTTP ${res.status}`);
     const html = await res.text();
     const parsed = itemsFrom(html, res.url || SOURCE_URL);
-    if (parsed.length < MIN_PRODUCTS || parsed.length > MAX_PRODUCTS) {
-      throw new Error(`Action listing parser našel ${parsed.length} produktů; očekáváno ${MIN_PRODUCTS}–${MAX_PRODUCTS}.`);
-    }
+    if (parsed.length < MIN_PRODUCTS || parsed.length > MAX_PRODUCTS) throw new Error(`Action listing parser našel ${parsed.length} produktů; očekáváno ${MIN_PRODUCTS}–${MAX_PRODUCTS}.`);
 
     const enrichedAll = await enrichImages(parsed);
     const enriched = enrichedAll.filter((item) => /^https:\/\/asset\.action\.com\/image\/upload\//i.test(String(item.image_url || '')));
-    if (enriched.length < MIN_PRODUCTS || enriched.length > MAX_PRODUCTS) {
-      throw new Error(`Action image enrichment ověřil ${enriched.length}/${parsed.length} produktů; očekáváno alespoň ${MIN_PRODUCTS}.`);
-    }
-
     const d = dates(clean(html));
     if (!d.from || !d.to) throw new Error('Action stránka neobsahuje ověřitelnou platnost týdenní akce.');
 
-    const sourceHash = await hash([
-      source.id,d.from,d.to,SOURCE_ADAPTER,
-      ...enriched.map((item) => `${item.sku}|${item.title}|${item.price}|${item.image_url}`),
-    ].join('\n'));
-
     if (body.dry_run === true) {
       return Response.json({
-        ok: true,
-        dry_run: true,
-        adapter: SOURCE_ADAPTER,
-        parsed: parsed.length,
-        approved: enriched.length,
-        failed_images: enrichedAll.length - enriched.length,
-        dates: d,
-        source_hash: sourceHash,
-        candidates: enriched.map((item) => ({
-          sku: item.sku,title: item.title,price: item.price,quantity_text: item.quantity_text,
-          source_url: item.source_url,image_url: item.image_url,
-        })),
-      }, { headers: CORS });
+        ok: enriched.length >= MIN_PRODUCTS && enriched.length <= MAX_PRODUCTS,
+        dry_run: true,adapter:SOURCE_ADAPTER,parsed:parsed.length,approved:enriched.length,
+        failed_images:enrichedAll.length-enriched.length,dates:d,
+        failures:enrichedAll.filter((item)=>!item.image_url).slice(0,10).map((item)=>({sku:item.sku,title:item.title,error:item.image_error})),
+        candidates:enriched.map((item)=>({sku:item.sku,title:item.title,price:item.price,quantity_text:item.quantity_text,source_url:item.source_url,image_url:item.image_url})),
+      }, { status: enriched.length >= MIN_PRODUCTS && enriched.length <= MAX_PRODUCTS ? 200 : 422, headers: CORS });
     }
+
+    if (enriched.length < MIN_PRODUCTS || enriched.length > MAX_PRODUCTS) throw new Error(`Action image enrichment ověřil ${enriched.length}/${parsed.length} produktů; očekáváno alespoň ${MIN_PRODUCTS}.`);
+    const sourceHash = await hash([source.id,d.from,d.to,SOURCE_ADAPTER,...enriched.map((item)=>`${item.sku}|${item.title}|${item.price}|${item.image_url}`)].join('\n'));
 
     await db.from('leaflet_sources').update({ source_url: SOURCE_URL, source_type: 'html', is_active: true, last_error: null }).eq('id', source.id);
-
     const { data: old } = await db.from('leaflet_imports').select('id,status').eq('source_hash', sourceHash).maybeSingle();
     if (old) {
-      await db.from('leaflet_sources').update({
-        last_checked_at: now,last_success_at: now,last_error: null,
-        last_strategy_used: 'structured_html_v3',last_strategy_success_at: now,
-      }).eq('id', source.id);
-      return Response.json({ ok: true, existing: true, import_id: old.id, items: enriched.length, dates: d, adapter: SOURCE_ADAPTER }, { headers: CORS });
+      await db.from('leaflet_sources').update({ last_checked_at:now,last_success_at:now,last_error:null,last_strategy_used:'structured_html_v3',last_strategy_success_at:now }).eq('id', source.id);
+      return Response.json({ ok:true,existing:true,import_id:old.id,items:enriched.length,dates:d,adapter:SOURCE_ADAPTER }, { headers: CORS });
     }
 
-    const { data: imp, error: ie } = await db.from('leaflet_imports').insert({
-      source_id: source.id,
-      store_id: store.id,
-      source_document_url: SOURCE_URL,
-      source_hash: sourceHash,
-      status: 'review',
-      product_count: enriched.length,
-      confidence: 0.99,
-      detected_valid_from: d.from,
-      detected_valid_to: d.to,
-      finished_at: now,
-      metadata: {
-        adapter: SOURCE_ADAPTER,
-        parser_version: SOURCE_ADAPTER,
-        ai_used: false,
-        image_count: enriched.length,
-        failed_count: enrichedAll.length - enriched.length,
-        auto_approved_official_source: true,
-      },
-    }).select('id').single();
+    const { data: imp, error: ie } = await db.from('leaflet_imports').insert({ source_id:source.id,store_id:store.id,source_document_url:SOURCE_URL,source_hash:sourceHash,status:'review',product_count:enriched.length,confidence:0.99,detected_valid_from:d.from,detected_valid_to:d.to,finished_at:now,metadata:{adapter:SOURCE_ADAPTER,parser_version:SOURCE_ADAPTER,ai_used:false,image_count:enriched.length,failed_count:enrichedAll.length-enriched.length,auto_approved_official_source:true} }).select('id').single();
     if (ie || !imp) throw ie || new Error('Action v3 import se nepodařilo vytvořit.');
 
-    const rows = enriched.map((item) => ({
-      import_id: imp.id,
-      title: item.title,
-      quantity_text: item.quantity_text,
-      price: item.price,
-      image_url: item.image_url,
-      confidence: 0.99,
-      status: 'approved',
-      raw_data: {
-        parser: SOURCE_ADAPTER,
-        raw_text: item.raw_text,
-        source_url: item.source_url,
-        action_product_number: item.sku,
-        official_image: true,
-        auto_approved_reason: 'official_action_product_page_and_cdn_image',
-      },
-    }));
-    for (let i = 0; i < rows.length; i += 200) {
-      const { error } = await db.from('leaflet_import_items').insert(rows.slice(i, i + 200));
-      if (error) throw error;
-    }
-
-    await db.from('leaflet_sources').update({
-      last_checked_at: now,
-      last_success_at: now,
-      last_error: null,
-      last_strategy_used: 'structured_html_v3',
-      last_strategy_success_at: now,
-    }).eq('id', source.id);
-
-    return Response.json({
-      ok: true,created: true,import_id: imp.id,items: enriched.length,
-      failed_images: enrichedAll.length - enriched.length,dates: d,adapter: SOURCE_ADAPTER,
-    }, { headers: CORS });
-  } catch (e) {
-    const msg = errorMessage(e).slice(0, 1000);
-    const { data: store } = await db.from('stores').select('id').eq('slug', 'action').maybeSingle();
-    if (store) await db.from('leaflet_sources').update({ last_checked_at: now, last_error: msg }).eq('store_id', store.id);
-    return Response.json({ error: msg, code: 'ACTION_SOURCE_SYNC_FAILED' }, { status: 500, headers: CORS });
+    const rows = enriched.map((item)=>({ import_id:imp.id,title:item.title,quantity_text:item.quantity_text,price:item.price,image_url:item.image_url,confidence:0.99,status:'approved',raw_data:{parser:SOURCE_ADAPTER,raw_text:item.raw_text,source_url:item.source_url,action_product_number:item.sku,official_image:true,auto_approved_reason:'official_action_product_page_and_cdn_image'} }));
+    for (let i=0;i<rows.length;i+=200){ const {error}=await db.from('leaflet_import_items').insert(rows.slice(i,i+200)); if(error) throw error; }
+    await db.from('leaflet_sources').update({ last_checked_at:now,last_success_at:now,last_error:null,last_strategy_used:'structured_html_v3',last_strategy_success_at:now }).eq('id', source.id);
+    return Response.json({ ok:true,created:true,import_id:imp.id,items:enriched.length,failed_images:enrichedAll.length-enriched.length,dates:d,adapter:SOURCE_ADAPTER }, { headers: CORS });
+  } catch(e){
+    const msg=errorMessage(e).slice(0,1000);
+    const {data:store}=await db.from('stores').select('id').eq('slug','action').maybeSingle();
+    if(store) await db.from('leaflet_sources').update({last_checked_at:now,last_error:msg}).eq('store_id',store.id);
+    return Response.json({error:msg,code:'ACTION_SOURCE_SYNC_FAILED'},{status:500,headers:CORS});
   }
 });
