@@ -125,7 +125,7 @@ async function recordDelivery(notificationId: string, subscription: any, status:
   if (error) console.error('web_push_delivery_write_failed', error.message);
 }
 
-async function sendToSubscription(subscription: any, payload: string, notificationId: string) {
+async function sendToSubscription(subscription: any, payload: string, notificationId: string | null) {
   try {
     await webpush.sendNotification({
       endpoint: subscription.endpoint,
@@ -141,7 +141,7 @@ async function sendToSubscription(subscription: any, payload: string, notificati
       last_error: null,
       updated_at: now,
     }).eq('id', subscription.id);
-    await recordDelivery(notificationId, subscription, 'sent');
+    if (notificationId) await recordDelivery(notificationId, subscription, 'sent');
     return { sent: true, gone: false };
   } catch (error: any) {
     const statusCode = Number(error?.statusCode || error?.status || 0);
@@ -154,7 +154,7 @@ async function sendToSubscription(subscription: any, payload: string, notificati
       last_error: message,
       updated_at: now,
     }).eq('id', subscription.id);
-    await recordDelivery(notificationId, subscription, gone ? 'gone' : 'failed', message);
+    if (notificationId) await recordDelivery(notificationId, subscription, gone ? 'gone' : 'failed', message);
     return { sent: false, gone };
   }
 }
@@ -228,8 +228,7 @@ async function subscribe(req: Request, body: any) {
 
   let testSent = false;
   if (body?.send_test === true) {
-    const keys = await ensureVapidKeys();
-    void keys;
+    await ensureVapidKeys();
     const testPayload = JSON.stringify({
       title: 'Oznámení SLEVAO jsou aktivní ✓',
       body: 'Až sledovaná cena klesne, upozornění dorazí i bez otevřeného webu.',
@@ -245,12 +244,7 @@ async function subscribe(req: Request, body: any) {
       p256dh: subscription.p256dh,
       auth: subscription.auth,
       expiration_time: subscription.expirationTime,
-    }, testPayload, '00000000-0000-0000-0000-000000000000');
-    // The test notification has no DB notification row, so remove its synthetic delivery attempt.
-    await admin.from('web_push_deliveries')
-      .delete()
-      .eq('notification_id', '00000000-0000-0000-0000-000000000000')
-      .eq('subscription_id', saved.id);
+    }, testPayload, null);
     testSent = result.sent;
   }
 
