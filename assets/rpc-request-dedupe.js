@@ -4,8 +4,15 @@
   if (window.__slevaoFacetsFetchDedupe) return;
 
   const originalFetch = window.fetch.bind(window);
-  const inflight = new Map();
+  const entries = new Map();
   const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets';
+  const GRACE_MS = 1000;
+
+  function cleanupExpired(now) {
+    for (const [key, entry] of entries) {
+      if (entry.settledAt && now - entry.settledAt > GRACE_MS) entries.delete(key);
+    }
+  }
 
   window.fetch = function slevaoFetch(input, init) {
     const isRequest = typeof Request !== 'undefined' && input instanceof Request;
@@ -17,16 +24,29 @@
       return originalFetch(input, init);
     }
 
+    const now = Date.now();
+    cleanupExpired(now);
     const key = `${url}\n${body}`;
-    const existing = inflight.get(key);
-    if (existing) return existing.then((response) => response.clone());
+    const existing = entries.get(key);
+    if (existing && (!existing.settledAt || now - existing.settledAt <= GRACE_MS)) {
+      return existing.promise.then((response) => response.clone());
+    }
+    if (existing) entries.delete(key);
 
-    const shared = originalFetch(input, init)
-      .then((response) => response.clone())
-      .finally(() => inflight.delete(key));
+    const entry = { settledAt: 0, promise: null };
+    entry.promise = originalFetch(input, init).then(
+      (response) => {
+        entry.settledAt = Date.now();
+        return response.clone();
+      },
+      (error) => {
+        entries.delete(key);
+        throw error;
+      }
+    );
 
-    inflight.set(key, shared);
-    return shared.then((response) => response.clone());
+    entries.set(key, entry);
+    return entry.promise.then((response) => response.clone());
   };
 
   window.__slevaoFacetsFetchDedupe = true;
