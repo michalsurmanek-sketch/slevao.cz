@@ -1,0 +1,97 @@
+name: Patch Web Push integration
+
+on:
+  push:
+    branches: ['feature/web-push-notifications-v1']
+    paths:
+      - '.github/workflows/patch-web-push-integration.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feature/web-push-notifications-v1
+      - name: Apply guarded Web Push integration edits
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          edge_path = Path('supabase/functions/web-push/index.ts')
+          edge = edge_path.read_text()
+          synthetic = "'00000000-0000-0000-0000-000000000000'"
+          if synthetic in edge:
+              old = 'async function sendToSubscription(subscription: any, payload: string, notificationId: string) {'
+              new = 'async function sendToSubscription(subscription: any, payload: string, notificationId: string | null) {'
+              if edge.count(old) != 1:
+                  raise SystemExit('Unexpected sendToSubscription signature shape')
+              edge = edge.replace(old, new, 1)
+              for old_call, new_call in [
+                  ("    await recordDelivery(notificationId, subscription, 'sent');", "    if (notificationId) await recordDelivery(notificationId, subscription, 'sent');"),
+                  ("    await recordDelivery(notificationId, subscription, gone ? 'gone' : 'failed', message);", "    if (notificationId) await recordDelivery(notificationId, subscription, gone ? 'gone' : 'failed', message);"),
+                  (f"    }}, testPayload, {synthetic});", "    }, testPayload, null);"),
+              ]:
+                  if edge.count(old_call) != 1:
+                      raise SystemExit(f'Expected one sender patch target: {old_call}')
+                  edge = edge.replace(old_call, new_call, 1)
+              delete_block = """    // The test notification has no DB notification row, so remove its synthetic delivery attempt.\n    await admin.from('web_push_deliveries')\n      .delete()\n      .eq('notification_id', '00000000-0000-0000-0000-000000000000')\n      .eq('subscription_id', saved.id);\n"""
+              if edge.count(delete_block) != 1:
+                  raise SystemExit('Synthetic delivery cleanup block drifted')
+              edge = edge.replace(delete_block, '', 1)
+              edge_path.write_text(edge)
+          if synthetic in edge_path.read_text():
+              raise SystemExit('Synthetic notification FK remained in Edge source')
+
+          account_path = Path('ucet.html')
+          account = account_path.read_text()
+          push_script = '  <script defer src="assets/web-push.js?v=20260819-1"></script>\n'
+          if push_script not in account:
+              anchor = '  <script defer src="assets/account.js?v=20260816-8"></script>\n'
+              if account.count(anchor) != 1:
+                  raise SystemExit('Account script anchor drifted')
+              account = account.replace(anchor, anchor + push_script, 1)
+              account_path.write_text(account)
+
+          quality_path = Path('.github/workflows/quality.yml')
+          quality = quality_path.read_text()
+          commands = [
+              'node tests/store-leaflet-feed-published-only.mjs',
+              'node tests/data-migration-replay-safety.mjs',
+              'node tests/web-push-notifications-v1.mjs',
+          ]
+          lines = quality.splitlines()
+          run_indexes = [i for i,line in enumerate(lines) if line.startswith('        run: ')]
+          if len(run_indexes) != 1:
+              raise SystemExit(f'Expected one quality run line, got {len(run_indexes)}')
+          i = run_indexes[0]
+          for command in commands:
+              if command not in lines[i]:
+                  lines[i] += ' && ' + command
+          quality_path.write_text('\n'.join(lines) + '\n')
+
+          final_edge = edge_path.read_text()
+          if 'notificationId: string | null' not in final_edge:
+              raise SystemExit('Nullable test delivery id guard missing')
+          if 'if (notificationId) await recordDelivery' not in final_edge:
+              raise SystemExit('Delivery FK guard missing')
+          if push_script not in account_path.read_text():
+              raise SystemExit('Account Web Push client script missing')
+          final_quality = quality_path.read_text()
+          for command in commands:
+              if command not in final_quality:
+                  raise SystemExit(f'Quality command missing: {command}')
+          PY
+          git diff --check
+      - name: Commit final integration and remove helper
+        run: |
+          git rm .github/workflows/patch-web-push-integration.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/web-push/index.ts ucet.html .github/workflows/quality.yml
+          git commit -m 'Wire Web Push into account notifications'
+          git push origin HEAD:feature/web-push-notifications-v1
