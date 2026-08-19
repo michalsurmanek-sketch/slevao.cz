@@ -21,6 +21,25 @@ function errorMessage(value:unknown){
   if(value && typeof value==='object' && 'message' in value) return String((value as any).message||'Unknown error');
   try{return JSON.stringify(value);}catch{return String(value);}
 }
+function tidyTitle(value:unknown){
+  return clean(value)
+    .replace(/\s+(?:Ø\s*)?\d+(?:[,.]\d+)?(?:\s*\/\s*\d+(?:[,.]\d+)?)*\s*[×x]\s*[^|]{0,30}$/i,'')
+    .replace(/\s+Ø\s*\d[\d\s/.,-]*$/i,'')
+    .replace(/\s+Ø\s*$/i,'')
+    .replace(/\s+[×x]\s*$/i,'')
+    .trim();
+}
+function canonicalActionImage(value:unknown){
+  const raw=clean(value);
+  if(!raw)return null;
+  try{
+    const url=new URL(raw);
+    if(url.protocol!=='https:'||url.hostname!=='asset.action.com'||!url.pathname.startsWith('/image/upload/'))return null;
+    url.pathname=url.pathname.replace(/\/w_\d+\//,'/w_1080/');
+    url.hash='';
+    return url.toString();
+  }catch{return null;}
+}
 function todayPrague(){
   const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
   const o:any={}; for(const x of p)o[x.type]=p.find(y=>y.type===x.type)?.value||x.value; return `${o.year}-${o.month}-${o.day}`;
@@ -31,7 +50,7 @@ async function sha256(value:string){
 }
 async function markFailure(storeId:string|undefined,message:string){
   if(!storeId)return;
-  await db.from('store_product_sync_state').upsert({store_id:storeId,last_run_at:new Date().toISOString(),last_error:message,last_parser_error:message,health_status:'degraded',health_reason:`Action sync selhal: ${message}`.slice(0,500),is_running:false,run_started_at:null,updated_at:new Date().toISOString(),adapter_name:'sync-action-products',adapter_version:'v2',parser_version:ADAPTER},{onConflict:'store_id'});
+  await db.from('store_product_sync_state').upsert({store_id:storeId,last_run_at:new Date().toISOString(),last_error:message,last_parser_error:message,health_status:'degraded',health_reason:`Action sync selhal: ${message}`.slice(0,500),is_running:false,run_started_at:null,updated_at:new Date().toISOString(),adapter_name:'sync-action-products',adapter_version:'v3',parser_version:ADAPTER},{onConflict:'store_id'});
 }
 
 Deno.serve(async req=>{
@@ -63,12 +82,12 @@ Deno.serve(async req=>{
     for(const item of items||[]){
       const sourceUrl=clean(item.raw_data?.source_url);
       const sku=productNumber(sourceUrl);
-      const title=clean(item.title);
+      const title=tidyTitle(item.title);
       const price=Number(item.price);
-      const image=clean(item.image_url);
+      const image=canonicalActionImage(item.image_url);
       if(!sku || title.length<4 || !Number.isFinite(price) || price<2 || price>10000) continue;
       if(!sourceUrl.startsWith('https://www.action.com/cs-cz/p/')) continue;
-      if(!/^https:\/\/asset\.action\.com\//i.test(image)) continue;
+      if(!image) continue;
       rows.push({
         external_id:`action:${sku}`,
         title, normalized_title:norm(title), price, old_price:null,
@@ -92,7 +111,7 @@ Deno.serve(async req=>{
     });
     if(publishError) throw new Error(`${publishError.message||'Action publisher failed'} ${publishError.details||''}`.trim());
 
-    await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:new Date().toISOString(),last_success_at:new Date().toISOString(),last_offer_count:unique.length,expected_offer_count:unique.length,minimum_offer_count:20,last_published_count:unique.length,parser_version:ADAPTER,adapter_name:'sync-action-products',adapter_version:'v2',source_type:'official-html',source_category:'weekly-sale',last_error:null,last_parser_error:null,health_status:'ok',health_reason:`Action: ${unique.length} aktuálních produktů s oficiálními obrázky.`,is_running:false,run_started_at:null,updated_at:new Date().toISOString(),last_import_id:result?.import_id||null},{onConflict:'store_id'});
+    await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:new Date().toISOString(),last_success_at:new Date().toISOString(),last_offer_count:unique.length,expected_offer_count:unique.length,minimum_offer_count:20,last_published_count:unique.length,parser_version:ADAPTER,adapter_name:'sync-action-products',adapter_version:'v3',source_type:'official-html',source_category:'weekly-sale',last_error:null,last_parser_error:null,health_status:'ok',health_reason:`Action: ${unique.length} aktuálních produktů s oficiálními obrázky.`,is_running:false,run_started_at:null,updated_at:new Date().toISOString(),last_import_id:result?.import_id||null},{onConflict:'store_id'});
     return json({ok:true,published:unique.length,images:unique.length,signature,result});
   }catch(e){
     const message=errorMessage(e).slice(0,1000);
