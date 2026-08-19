@@ -37,6 +37,24 @@ test('homepage loads the canonical mobile UX stylesheet only once', async ({ pag
   expect(await page.locator('link[href*="mobile-ux.css"]').count()).toBe(1);
 });
 
+test('homepage sends one initial facets request', async ({ page }) => {
+  const requests = [];
+  page.on('request', (request) => {
+    if (
+      request.method() === 'POST'
+      && request.url().includes('/rest/v1/rpc/get_public_offer_facets')
+    ) {
+      requests.push({ url: request.url(), body: request.postData() || '' });
+    }
+  });
+
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await openHomepage(page);
+  await page.waitForTimeout(750);
+
+  expect(requests, `facets requests: ${JSON.stringify(requests)}`).toHaveLength(1);
+});
+
 test('desktop homepage renders server-paginated offers', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openHomepage(page);
