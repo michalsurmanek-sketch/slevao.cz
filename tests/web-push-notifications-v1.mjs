@@ -72,10 +72,10 @@ for (const needle of [
   "host === 'metadata.google.internal'",
   "if (host.includes(':')) return true",
   'if (isDirectPrivateOrLocalHost(url.hostname))',
-  "if (url.username || url.password)",
+  'if (url.username || url.password)',
   "if (url.port && url.port !== '443')",
-  '.select(\'id,user_id\')',
-  "Push endpoint už je přiřazen jinému účtu.",
+  ".select('id,user_id')",
+  'Push endpoint už je přiřazen jinému účtu.',
   '.slice(MAX_ACTIVE_SUBSCRIPTIONS)',
   "last_error: 'Deactivated by per-user subscription cap.'",
   'webpush.setVapidDetails(VAPID_SUBJECT',
@@ -105,6 +105,10 @@ for (const needle of [
   'authorization: `Bearer ${current.access_token}`',
   'send_test: sendTest',
   'event.stopImmediatePropagation()',
+  "event.target.closest?.('#logout')",
+  'async function signOutFromUser()',
+  'if (sub) await removeSubscription(sub)',
+  'await db.auth.signOut()',
 ]) {
   if (!client.includes(needle)) throw new Error(`Missing Web Push client guard: ${needle}`);
 }
@@ -115,6 +119,9 @@ for (const needle of [
   'self.registration.showNotification',
   "self.addEventListener('notificationclick'",
   "clients.matchAll({ type: 'window', includeUncontrolled: true })",
+  "url.pathname.endsWith('/ucet.html')",
+  "client.visibilityState === 'visible'",
+  'if (visibleAccount) return',
   'clients.openWindow(target)',
 ]) {
   if (!sw.includes(needle)) throw new Error(`Missing Service Worker push behavior: ${needle}`);
