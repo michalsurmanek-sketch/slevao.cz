@@ -175,16 +175,39 @@
       : 'Push upozornění jsou aktivní. SLEVAO tě upozorní i bez otevřeného webu.');
   }
 
+  async function signOutFromUser() {
+    if (!db) throw new Error('Odhlášení není dostupné.');
+    const sub = await currentSubscription().catch(() => null);
+    if (sub) await removeSubscription(sub);
+    const { error } = await db.auth.signOut();
+    if (error) throw error;
+    subscribed = false;
+    renderState();
+    showMessage('Byl jsi odhlášen.');
+  }
+
   document.addEventListener('click', (event) => {
-    const target = event.target.closest?.('#enableBrowserAlerts');
-    if (!target) return;
+    const alertTarget = event.target.closest?.('#enableBrowserAlerts');
+    if (alertTarget) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      alertTarget.disabled = true;
+      enableFromUser().catch((error) => {
+        subscribed = false;
+        renderState();
+        showMessage(error?.message || 'Push upozornění se nepodařilo zapnout.', true);
+      });
+      return;
+    }
+
+    const logoutTarget = event.target.closest?.('#logout');
+    if (!logoutTarget) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    target.disabled = true;
-    enableFromUser().catch((error) => {
-      subscribed = false;
-      renderState();
-      showMessage(error?.message || 'Push upozornění se nepodařilo zapnout.', true);
+    logoutTarget.disabled = true;
+    signOutFromUser().catch((error) => {
+      logoutTarget.disabled = false;
+      showMessage(error?.message || 'Odhlášení se nepodařilo dokončit.', true);
     });
   }, true);
 
@@ -194,7 +217,7 @@
 
   db?.auth?.onAuthStateChange?.((event) => {
     if (event === 'SIGNED_OUT') {
-      currentSubscription().then((sub) => removeSubscription(sub)).catch(() => {});
+      currentSubscription().then((sub) => sub?.unsubscribe?.()).catch(() => {});
       subscribed = false;
       renderState();
       return;
@@ -208,5 +231,11 @@
     isSupported: supported,
     isSubscribed: () => subscribed,
     refresh,
+    unsubscribe: async () => {
+      const sub = await currentSubscription();
+      if (sub) await removeSubscription(sub);
+      subscribed = false;
+      renderState();
+    },
   };
 })();
