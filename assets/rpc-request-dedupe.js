@@ -19,23 +19,14 @@
 
     const key = `${url}\n${body}`;
     const existing = inflight.get(key);
-    if (existing) {
-      return existing.then(({ response, error }) => {
-        if (error) throw error;
-        return response.clone();
-      });
-    }
+    if (existing) return existing.then((response) => response.clone());
 
-    const request = originalFetch(input, init);
-    const shared = request
-      .then(
-        (response) => ({ response: response.clone(), error: null }),
-        (error) => ({ response: null, error })
-      )
+    const shared = originalFetch(input, init)
+      .then((response) => response.clone())
       .finally(() => inflight.delete(key));
 
     inflight.set(key, shared);
-    return request;
+    return shared.then((response) => response.clone());
   };
 
   window.__slevaoFacetsFetchDedupe = true;
