@@ -1,0 +1,4 @@
+# Public GET exposes only the VAPID public key. POST subscribe/unsubscribe validates
+# the Supabase user JWT in the handler; internal dispatch requires CRON_SECRET or
+# service-role Bearer auth. Platform JWT must remain disabled for pg_net dispatch.
+verify_jwt = false
