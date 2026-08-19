@@ -117,9 +117,12 @@ for (const page of storePageFiles) assert(brandedStoreSlugs.includes(page.replac
 
 const publicLeafletFeed = read('supabase/functions/store-leaflet-feed/index.ts');
 for (const pattern of [
-  /TESCO_LISTING_URL/, /documentsFromOfficialHtml/, /async function storeLeaflets/,
-  /storeSlug === 'penny'/, /async function pennyOfficialLeaflet/, /function actionOfficialLeaflet/,
+  /get_public_current_leaflets/, /OFFICIAL_FALLBACKS/, /function safeOfficialUrl\(/,
+  /\.eq\('is_active', true\)/, /source: 'canonical'/, /'official-fallback'/,
 ]) assert.match(publicLeafletFeed, pattern, `Veřejný feed postrádá ${pattern}.`);
+for (const pattern of [/\.from\(['"]leaflet_imports['"]\)/, /['"]review['"]/, /['"]publishing['"]/, /fetch\s*\(/]) {
+  assert.doesNotMatch(publicLeafletFeed, pattern, `Veřejný feed znovu zavádí zakázanou fallback logiku ${pattern}.`);
+}
 assert.doesNotMatch(publicLeafletFeed, /(?:error_message|metadata)\s*:/, 'Veřejný feed zpřístupňuje interní diagnostická pole v odpovědi.');
 assert.match(read('supabase/functions/store-leaflet-feed/config.toml'), /verify_jwt = false/, 'Veřejný feed vyžaduje přihlášení návštěvníka.');
 
