@@ -1,0 +1,5 @@
+-- Production history marker only.
+-- This version restored the already source-controlled implementation from
+-- 20260819193747_narrow_public_offer_page_execution.sql after the temporary audit
+-- experiment recorded by 20260819205244. Fresh replays already have that canonical
+-- implementation, so this marker is intentionally a no-op.
