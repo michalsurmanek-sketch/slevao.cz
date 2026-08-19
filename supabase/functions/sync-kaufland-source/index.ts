@@ -180,21 +180,39 @@ Deno.serve(async (request) => {
     const signature = await sha256(products.map((product) => `${ADAPTER}|${PARSER_REV}|${product.offerId}|${product.klNr || ''}|${product.productTitle}|${product.unit || ''}|${product.dateFrom}|${product.dateTo}|${product.price}|${product.oldPrice || ''}`).sort().join('\n'));
     const validFrom = products.map((product) => product.dateFrom).sort()[0]; const validTo = products.map((product) => product.dateTo).sort().at(-1)!;
     stage = 'check_existing'; const today = pragueDate(); const { count: currentOfferCount, error: countError } = await db.from('offers').select('id', { count: 'exact', head: true }).eq('store_id', store.id).eq('status', 'published').gte('valid_to', today).not('external_id', 'is', null); if (countError) throw countError;
-    const previousCount = Number(state?.last_offer_count || 0); const healthyMinimum = Math.max(50, Math.floor(previousCount * 0.9)); const unchanged = state?.last_source_signature === signature && Boolean(state?.last_import_id) && Number(currentOfferCount || 0) >= healthyMinimum;
+    const liveCount = Number(currentOfferCount || 0);
+    const previousCount = Number(state?.last_offer_count || 0);
+    const sourceMinimum = Math.max(50, Math.floor(products.length * 0.9));
+    const unchanged = state?.last_source_signature === signature && Boolean(state?.last_import_id) && liveCount >= sourceMinimum;
+    await db.from('kaufland_product_sync_audit').update({
+      http_status: response.status,
+      html_length: html.length,
+      product_candidates: products.length,
+      parsed_products: products.length,
+      metadata: {
+        parser_version: PARSER_REV,
+        adapter: ADAPTER,
+        source_signature: signature,
+        live_offer_count: liveCount,
+        historical_offer_count: previousCount,
+        validity: { from: validFrom, to: validTo },
+        diagnostic_stage: 'check_existing'
+      }
+    }).eq('id', auditId);
     if (unchanged) {
-      const published = Number(currentOfferCount || 0);
-      await db.from('kaufland_product_sync_audit').update({ status: 'completed', http_status: response.status, html_length: html.length, product_candidates: products.length, parsed_products: products.length, published_offers: published, metadata: { parser_version: PARSER_REV, adapter: ADAPTER, source_signature: signature, import_id: state.last_import_id, no_changes: true, validity: { from: validFrom, to: validTo } } }).eq('id', auditId);
+      const published = liveCount;
+      await db.from('kaufland_product_sync_audit').update({ status: 'completed', http_status: response.status, html_length: html.length, product_candidates: products.length, parsed_products: products.length, published_offers: published, metadata: { parser_version: PARSER_REV, adapter: ADAPTER, source_signature: signature, import_id: state.last_import_id, no_changes: true, live_offer_count: liveCount, historical_offer_count: previousCount, validity: { from: validFrom, to: validTo } } }).eq('id', auditId);
       await db.from('store_product_sync_state').upsert({ store_id: store.id, is_running: false, run_started_at: null, last_run_at: checkedAt, last_success_at: checkedAt, last_source_signature: signature, last_offer_count: published, expected_offer_count: products.length, last_published_count: published, last_valid_from: validFrom, last_valid_to: validTo, parser_version: PARSER_REV, adapter_name: 'sync-kaufland-source', adapter_version: ADAPTER, last_audit_id: auditId, last_http_status: response.status, last_html_length: html.length, last_duration_ms: Date.now() - startedAt, last_error: null, last_parser_error: null, health_status: 'ok', health_reason: `Oficiální nabídka se nezměnila; ověřeno ${published} produktů přes ${PARSER_REV}.` }, { onConflict: 'store_id' });
       await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_success_at: checkedAt, last_error: null, last_strategy_used: 'official_ssr_products_unchanged', last_strategy_success_at: checkedAt }).eq('id', source.id);
       return json({ ok: true, self_published: true, no_changes: true, store: store.name, parser_revision: PARSER_REV, import_id: state.last_import_id, parsed_products: products.length, published_products: published, valid_from: validFrom, valid_to: validTo });
     }
-    if (previousCount >= 50 && products.length < Math.floor(previousCount * 0.6)) throw new Error(`Kaufland vrátil ${products.length} produktů oproti předchozím ${previousCount}; výměna byla zastavena.`);
+    if (liveCount >= 50 && products.length < Math.floor(liveCount * 0.6)) throw new Error(`Kaufland vrátil ${products.length} produktů oproti ${liveCount} aktuálně platným produktům; výměna byla zastavena.`);
     stage = 'prepare_import'; const sourceHash = await sha256(`${source.id}|${signature}|${ADAPTER}|${PARSER_REV}`); const metadata = { adapter: ADAPTER, parser_revision: PARSER_REV, title: 'Kaufland – aktuální produktová nabídka', document_type: 'product_data', hide_from_leaflet_feed: true, source_page: OFFER_URL, source_signature: signature, parsed_count: products.length, last_seen_at: checkedAt };
     const { data: existingImport, error: importLookupError } = await db.from('leaflet_imports').select('id').eq('source_hash', sourceHash).maybeSingle(); if (importLookupError) throw importLookupError; let importId = existingImport?.id || '';
     if (existingImport) { const { error } = await db.from('leaflet_imports').update({ status: 'processing', product_count: products.length, detected_valid_from: validFrom, detected_valid_to: validTo, error_message: null, metadata, updated_at: checkedAt }).eq('id', existingImport.id); if (error) throw error; }
     else { const { data: created, error } = await db.from('leaflet_imports').insert({ source_id: source.id, store_id: store.id, source_document_url: OFFER_URL, source_hash: sourceHash, status: 'processing', product_count: products.length, confidence: 0.99, coverage_scope: 'national', detected_valid_from: validFrom, detected_valid_to: validTo, started_at: checkedAt, metadata }).select('id').single(); if (error || !created) throw error || new Error('Produktový import Kaufland nešel založit.'); importId = created.id; }
     stage = 'atomic_publish'; const { data: applied, error: applyError } = await db.rpc('apply_kaufland_official_offers', { p_store_id: store.id, p_import_id: importId, p_signature: signature, p_offers: products }); if (applyError) throw applyError; const published = Number(applied?.published || 0);
-    stage = 'finish'; await db.from('kaufland_product_sync_audit').update({ status: 'completed', http_status: response.status, html_length: html.length, product_candidates: products.length, parsed_products: products.length, published_offers: published, metadata: { parser_version: PARSER_REV, adapter: ADAPTER, source_signature: signature, import_id: importId, result: applied, validity: { from: validFrom, to: validTo } } }).eq('id', auditId);
+    stage = 'finish'; await db.from('kaufland_product_sync_audit').update({ status: 'completed', http_status: response.status, html_length: html.length, product_candidates: products.length, parsed_products: products.length, published_offers: published, metadata: { parser_version: PARSER_REV, adapter: ADAPTER, source_signature: signature, import_id: importId, result: applied, live_offer_count: liveCount, historical_offer_count: previousCount, validity: { from: validFrom, to: validTo } } }).eq('id', auditId);
     await db.from('store_product_sync_state').upsert({ store_id: store.id, is_running: false, run_started_at: null, last_run_at: checkedAt, last_success_at: checkedAt, last_source_signature: signature, source_fingerprint: signature, product_set_hash: signature, last_offer_count: published, expected_offer_count: products.length, last_published_count: published, last_valid_from: validFrom, last_valid_to: validTo, parser_version: PARSER_REV, adapter_name: 'sync-kaufland-source', adapter_version: ADAPTER, source_type: 'official-ssr-json', source_category: 'current-week', last_import_id: importId, last_audit_id: auditId, last_http_status: response.status, last_html_length: html.length, last_duration_ms: Date.now() - startedAt, last_error: null, last_parser_error: null, health_status: 'ok', health_reason: `Automaticky publikováno ${published}/${products.length} produktů přes ${PARSER_REV}.` }, { onConflict: 'store_id' });
     await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_success_at: checkedAt, last_error: null, last_strategy_used: 'official_ssr_products', last_strategy_success_at: checkedAt }).eq('id', source.id);
     return json({ ok: true, self_published: true, no_changes: false, store: store.name, adapter: ADAPTER, parser_revision: PARSER_REV, import_id: importId, parsed_products: products.length, published_products: published, expired_old_offers: Number(applied?.expired || 0), valid_from: validFrom, valid_to: validTo });
