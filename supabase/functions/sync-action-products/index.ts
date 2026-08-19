@@ -16,6 +16,11 @@ function allowed(req:Request){
 function clean(v:unknown){ return String(v??'').replace(/\s+/g,' ').trim(); }
 function norm(v:unknown){ return clean(v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
 function productNumber(url:string){ return url.match(/\/p\/(\d{5,12})\//)?.[1] || null; }
+function errorMessage(value:unknown){
+  if(value instanceof Error) return value.message;
+  if(value && typeof value==='object' && 'message' in value) return String((value as any).message||'Unknown error');
+  try{return JSON.stringify(value);}catch{return String(value);}
+}
 function todayPrague(){
   const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
   const o:any={}; for(const x of p)o[x.type]=p.find(y=>y.type===x.type)?.value||x.value; return `${o.year}-${o.month}-${o.day}`;
@@ -38,7 +43,7 @@ Deno.serve(async req=>{
     const body=await req.json().catch(()=>({}));
     const today=todayPrague();
     const {data:store,error:storeError}=await db.from('stores').select('id,name').eq('slug','action').single();
-    if(storeError||!store) throw storeError||new Error('Action nebyl nalezen.');
+    if(storeError||!store) throw new Error(errorMessage(storeError||'Action nebyl nalezen.'));
     storeId=store.id;
 
     const {data:imp,error:impError}=await db.from('leaflet_imports')
@@ -47,12 +52,12 @@ Deno.serve(async req=>{
       .eq('metadata->>adapter',SOURCE_ADAPTER)
       .lte('detected_valid_from',today).gte('detected_valid_to',today)
       .order('created_at',{ascending:false}).limit(1).single();
-    if(impError||!imp) throw impError||new Error('Aktuální Action v3 import nebyl nalezen.');
+    if(impError||!imp) throw new Error(errorMessage(impError||'Aktuální Action v3 import nebyl nalezen.'));
 
     const {data:items,error:itemError}=await db.from('leaflet_import_items')
       .select('id,title,price,quantity_text,image_url,confidence,status,raw_data')
       .eq('import_id',imp.id).in('status',['approved','published','ignored']);
-    if(itemError) throw itemError;
+    if(itemError) throw new Error(errorMessage(itemError));
 
     const rows:any[]=[];
     for(const item of items||[]){
@@ -90,7 +95,7 @@ Deno.serve(async req=>{
     await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:new Date().toISOString(),last_success_at:new Date().toISOString(),last_offer_count:unique.length,expected_offer_count:unique.length,minimum_offer_count:20,last_published_count:unique.length,parser_version:ADAPTER,adapter_name:'sync-action-products',adapter_version:'v2',source_type:'official-html',source_category:'weekly-sale',last_error:null,last_parser_error:null,health_status:'ok',health_reason:`Action: ${unique.length} aktuálních produktů s oficiálními obrázky.`,is_running:false,run_started_at:null,updated_at:new Date().toISOString(),last_import_id:result?.import_id||null},{onConflict:'store_id'});
     return json({ok:true,published:unique.length,images:unique.length,signature,result});
   }catch(e){
-    const message=e instanceof Error?e.message:String(e);
+    const message=errorMessage(e).slice(0,1000);
     await markFailure(storeId,message);
     return json({ok:false,error:message,code:'ACTION_PRODUCTS_SYNC_FAILED'},500);
   }
