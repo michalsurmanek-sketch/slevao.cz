@@ -28,12 +28,16 @@ for (const forbidden of [
 }
 
 const pagePos = sql.indexOf('page_ids as');
-const fullJoinPos = sql.indexOf('join private.public_offer_search_cache pg on pg.offer_id=p.offer_id');
-if (pagePos < 0 || fullJoinPos < 0 || pagePos > fullJoinPos) {
-  throw new Error('Full cache rows must be joined only after page_ids has limited the result set.');
+const jsonPos = sql.indexOf('select jsonb_build_object(', pagePos);
+const finalFromPos = sql.indexOf('from page_ids p', jsonPos);
+const fullJoinPos = sql.indexOf('join private.public_offer_search_cache pg on pg.offer_id=p.offer_id', finalFromPos);
+if (pagePos < 0 || jsonPos < 0 || finalFromPos < 0 || fullJoinPos < 0 || !(pagePos < jsonPos && jsonPos < finalFromPos && finalFromPos < fullJoinPos)) {
+  throw new Error('Full cache payload must only be resolved in the final SELECT after page_ids.');
 }
 
-const jsonPos = sql.indexOf('select jsonb_build_object(');
-if (jsonPos < fullJoinPos) throw new Error('JSON payload must be built only after the limited offer IDs are resolved.');
+const narrowSlice = sql.slice(pagePos, jsonPos);
+for (const wideField of ['metadata','product_name','product_brand','product_filter_tags','store_logo_url','category_name']) {
+  if (narrowSlice.includes(wideField)) throw new Error(`page_ids must stay narrow; found ${wideField}.`);
+}
 
 console.log('Public offer page narrow execution guard OK');
