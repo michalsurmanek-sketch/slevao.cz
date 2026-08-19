@@ -56,7 +56,7 @@ interface DateRange {
 
 const SOURCE_CATALOG: SourceDefinition[] = [
   { slug: 'enapo', name: 'Enapo – akční leták', urls: ['https://www.enapo.cz/akcni-letak'] },
-  { slug: 'flop', name: 'Flop – akční leták', urls: ['https://www.flop.cz/akcni-letak', 'https://www.flop-potraviny.cz/akcni-letak'] },
+  { slug: 'flop', name: 'Flop – akční leták', urls: ['https://www.flop-potraviny.cz/akcni-letaky/'] },
   { slug: 'terno', name: 'Terno – aktuální letáky', urls: ['https://www.terno.cz/letaky'] },
   { slug: 'trefa', name: 'Trefa – aktuální letáky', urls: ['https://www.trefa.cz/letaky', 'https://www.trefa.cz/akcni-letak'] },
   { slug: 'jip', name: 'JIP – akční nabídka', urls: ['https://www.jip-potraviny.cz/akcni-nabidka', 'https://www.jipoc.cz/akcni-letak'] },
