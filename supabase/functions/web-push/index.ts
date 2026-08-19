@@ -6,6 +6,7 @@ const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const VAPID_SUBJECT = 'mailto:info@slevao.cz';
 const SITE_ORIGIN = 'https://slevao.cz';
+const MAX_ACTIVE_SUBSCRIPTIONS = 8;
 
 const admin = createClient(SUPABASE_URL, SERVICE_ROLE, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -69,13 +70,55 @@ async function ensureVapidKeys() {
   return { publicKey: String(row.public_key), privateKey: String(row.private_key) };
 }
 
+function isDirectPrivateOrLocalHost(hostname: string) {
+  const host = String(hostname || '').toLowerCase().replace(/^\[|\]$/g, '').replace(/\.$/, '');
+  if (!host) return true;
+  if (
+    host === 'localhost'
+    || host.endsWith('.localhost')
+    || host.endsWith('.local')
+    || host.endsWith('.internal')
+    || host.endsWith('.lan')
+    || host === 'metadata.google.internal'
+  ) return true;
+
+  // Browser push services use public DNS names. Reject literal IPv6 addresses so
+  // loopback, link-local and unique-local targets cannot be registered directly.
+  if (host.includes(':')) return true;
+
+  const parts = host.split('.');
+  if (parts.length !== 4 || !parts.every((part) => /^\d{1,3}$/.test(part))) return false;
+  const octets = parts.map(Number);
+  if (octets.some((part) => part < 0 || part > 255)) return true;
+  const [a, b, c] = octets;
+  return Boolean(
+    a === 0
+    || a === 10
+    || a === 127
+    || a >= 224
+    || (a === 100 && b >= 64 && b <= 127)
+    || (a === 169 && b === 254)
+    || (a === 172 && b >= 16 && b <= 31)
+    || (a === 192 && b === 168)
+    || (a === 192 && b === 0)
+    || (a === 192 && b === 2)
+    || (a === 198 && (b === 18 || b === 19))
+    || (a === 198 && b === 51 && c === 100)
+    || (a === 203 && b === 0 && c === 113)
+  );
+}
+
 function cleanSubscription(raw: any) {
   const endpoint = String(raw?.endpoint || '').trim();
   const p256dh = String(raw?.keys?.p256dh || '').trim();
   const auth = String(raw?.keys?.auth || '').trim();
+  if (endpoint.length < 16 || endpoint.length > 2048) throw new Error('Neplatná délka push endpointu.');
   let url: URL;
   try { url = new URL(endpoint); } catch { throw new Error('Neplatný push endpoint.'); }
   if (url.protocol !== 'https:') throw new Error('Push endpoint musí používat HTTPS.');
+  if (url.username || url.password) throw new Error('Push endpoint nesmí obsahovat přihlašovací údaje.');
+  if (url.port && url.port !== '443') throw new Error('Push endpoint musí používat standardní HTTPS port.');
+  if (isDirectPrivateOrLocalHost(url.hostname)) throw new Error('Privátní nebo lokální push endpoint není povolen.');
   if (p256dh.length < 40 || p256dh.length > 256 || auth.length < 8 || auth.length > 128) {
     throw new Error('Neplatné šifrovací klíče push subscription.');
   }
@@ -213,6 +256,17 @@ async function subscribe(req: Request, body: any) {
   const subscription = cleanSubscription(body?.subscription);
   const now = new Date().toISOString();
   const userAgent = String(req.headers.get('user-agent') || '').slice(0, 500) || null;
+
+  const { data: existing, error: existingError } = await admin
+    .from('web_push_subscriptions')
+    .select('id,user_id')
+    .eq('endpoint', subscription.endpoint)
+    .maybeSingle();
+  if (existingError) throw existingError;
+  if (existing && String(existing.user_id) !== String(user.id)) {
+    return json({ error: 'Push endpoint už je přiřazen jinému účtu.' }, 409);
+  }
+
   const { data: saved, error } = await admin.from('web_push_subscriptions').upsert({
     user_id: user.id,
     endpoint: subscription.endpoint,
@@ -225,6 +279,25 @@ async function subscribe(req: Request, body: any) {
     updated_at: now,
   }, { onConflict: 'endpoint' }).select('id').single();
   if (error) throw error;
+
+  const { data: activeRows, error: activeError } = await admin
+    .from('web_push_subscriptions')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (activeError) throw activeError;
+  const overflowIds = (activeRows || [])
+    .slice(MAX_ACTIVE_SUBSCRIPTIONS)
+    .map((row: any) => row.id)
+    .filter(Boolean);
+  if (overflowIds.length) {
+    const { error: capError } = await admin.from('web_push_subscriptions')
+      .update({ is_active: false, updated_at: now, last_error: 'Deactivated by per-user subscription cap.' })
+      .in('id', overflowIds);
+    if (capError) throw capError;
+  }
 
   let testSent = false;
   if (body?.send_test === true) {
