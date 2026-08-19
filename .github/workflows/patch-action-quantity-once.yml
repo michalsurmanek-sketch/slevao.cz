@@ -1,0 +1,57 @@
+name: Patch Action quantity once
+
+on:
+  push:
+    branches: ['fix/action-v3-source-pipeline']
+    paths:
+      - '.github/workflows/patch-action-quantity-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/action-v3-source-pipeline
+      - name: Add deterministic Action quantity parsing
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('supabase/functions/sync-action-source/index.ts')
+          s = p.read_text()
+
+          old_product = "function productNumber(url: string | null) { return String(url || '').match(/\\/p\\/(\\d{5,12})\\//)?.[1] || null; }"
+          new_product = old_product + "\nfunction quantityFrom(text: string) {\n  const direct = text.match(/\\b\\d+(?:[,.]\\d+)?\\s*(?:ml|cl|l|g|kg|ks|kusů|kusy|cm|mm|m|párů|páry|balení)\\b/i)?.[0] || null;\n  if (direct) return direct;\n  const pieces = text.match(/\\b(\\d+)\\s*(?:dílná|dílný|dílné|dílnou|dílných)\\b/i);\n  return pieces ? `${pieces[1]} ks` : null;\n}"
+          if s.count(old_product) != 1:
+              raise SystemExit(f'Expected exactly one productNumber anchor, found {s.count(old_product)}')
+          s = s.replace(old_product, new_product, 1)
+
+          old_qty = "const quantity = text.match(/\\b\\d+(?:[,.]\\d+)?\\s*(?:ml|cl|l|g|kg|ks|kusů|cm|mm|m|párů|balení)\\b/i)?.[0] || null;"
+          new_qty = "const quantity = quantityFrom(text);"
+          if s.count(old_qty) != 1:
+              raise SystemExit(f'Expected exactly one old quantity parser, found {s.count(old_qty)}')
+          s = s.replace(old_qty, new_qty, 1)
+
+          old_hash = "${item.sku}|${item.title}|${item.price}|${item.image_url}"
+          new_hash = "${item.sku}|${item.title}|${item.price}|${item.quantity_text || ''}|${item.image_url}"
+          if s.count(old_hash) != 1:
+              raise SystemExit(f'Expected exactly one Action source-hash row, found {s.count(old_hash)}')
+          s = s.replace(old_hash, new_hash, 1)
+
+          if 'function quantityFrom(text: string)' not in s or "${item.quantity_text || ''}" not in s:
+              raise SystemExit('Action quantity/source-hash patch was incomplete')
+          p.write_text(s)
+          PY
+          git diff --check
+      - name: Commit patch and remove helper
+        run: |
+          git rm .github/workflows/patch-action-quantity-once.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add supabase/functions/sync-action-source/index.ts
+          git commit -m 'Parse Action piece counts before approval'
+          git push origin HEAD:fix/action-v3-source-pipeline
