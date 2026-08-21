@@ -126,6 +126,12 @@ assert.match(equivalence, /currentBrand !== otherBrand/, 'Ekvivalence musí kont
 assert.match(equivalence, /sameQuantity\(currentQuantity, otherQuantity\)/, 'Ekvivalence musí kontrolovat shodné balení.');
 assert.match(equivalence, /sourceSection\.after\(section\)/, 'Ekvivalentní ceny musí zůstat v oddělené sekci.');
 assert.doesNotMatch(equivalence, /price_history|price_alerts|product_favorites/, 'Ekvivalence nesmí míchat historii, hlídače ani oblíbené produkty.');
+assert.match(equivalence, /function pragueDate\(value = new Date\(\)\)/, 'Ekvivalence musí odvozovat pražský business day dynamicky.');
+assert.match(equivalence, /function addCalendarDays\(dateKey, days\)/, 'Ekvivalence musí používat kalendářní sedmidenní okno.');
+assert.match(equivalence, /const today = pragueDate\(\);[\s\S]*const upcomingTo = addCalendarDays\(today, 7\);/, 'Ekvivalence musí vytvořit čerstvé datumové okno až při initu.');
+assert.doesNotMatch(equivalence, /offsetDays\s*\*\s*86400000|const today = pragueDate\(\);\s*const upcomingTo = pragueDate\(7\);/, 'Ekvivalence nesmí používat 24hodinový offset ani top-level zmrazené datum.');
+assert.match(equivalence, /const shared = window\.__slevaoProductPromise/, 'Ekvivalence musí znovu použít sdílený aktuální produkt.');
+assert.match(equivalence, /const queryIds = current \? ids : \[productId, \.\.\.ids\]/, 'Ekvivalence má při sdíleném produktu dotazovat jen protější product IDs.');
 assert.match(equivalenceCss, /\.sfEqPanel/, 'Ekvivalentní ceny nemají vlastní vzhled.');
 
 const productAssets = [...html.matchAll(/(?:src|href)="assets\/([^"]+\?v=[^"]+)"/g)].map((match) => match[1]);
