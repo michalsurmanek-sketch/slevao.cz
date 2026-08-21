@@ -13,6 +13,7 @@
   const STORES_PER_PAGE = 8;
   const ENDING_VISIBLE = 3;
   const AUTO_ROTATE_MS = 10000;
+  const DATA_REFRESH_MS = 5 * 60 * 1000;
   const STORE_PRIORITY = [
     'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
     'action', 'coop', 'hruska', 'norma', 'terno', 'rohlik', 'kosik',
@@ -38,6 +39,7 @@
   let overviewStores = [];
   let endingOffers = [];
   let endingOffset = 0;
+  let lastOverviewRefreshAt = 0;
 
   function pagerMarkup(type, label) {
     return `<div class="overviewPager" aria-label="${label}">
@@ -438,6 +440,12 @@
     }
   }
 
+  async function refreshOverviewData() {
+    if (document.hidden) return;
+    await Promise.allSettled([loadEnding(), loadOverviewStores()]);
+    lastOverviewRefreshAt = Date.now();
+  }
+
   function observe(id) {
     const node = $(id);
     if (!node) return;
@@ -455,17 +463,21 @@
     schedule();
     observe('leafletGrid');
     observe('storeGrid');
-    loadEnding();
-    loadOverviewStores();
+    refreshOverviewData();
 
     window.addEventListener('resize', schedule, { passive: true });
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) clearAutoRotate();
-      else startAutoRotate();
+      if (document.hidden) {
+        clearAutoRotate();
+        return;
+      }
+      startAutoRotate();
+      if (Date.now() - lastOverviewRefreshAt >= DATA_REFRESH_MS) refreshOverviewData();
     });
 
-    window.setInterval(loadEnding, 300000);
-    window.setInterval(loadOverviewStores, 300000);
+    window.setInterval(() => {
+      if (!document.hidden) refreshOverviewData();
+    }, DATA_REFRESH_MS);
     startAutoRotate();
   }
 
