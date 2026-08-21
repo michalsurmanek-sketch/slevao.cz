@@ -110,7 +110,9 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const TODAY = new Date().toISOString().slice(0, 10);
+  const TODAY = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
+  }).format(new Date());
   const productLinks = new Map();
   let loaded = false;
   let loading = null;
