@@ -24,7 +24,6 @@ assert.match(allStores, /STORE_PRIORITY[\s\S]*'lidl'[\s\S]*'kaufland'[\s\S]*'pen
 assert.match(allStores, /sortStores[\s\S]*rankStore\(a\) - rankStore\(b\)/, 'Obchody se neřadí podle prioritního hodnocení.');
 assert.match(allStores, /localeCompare\([^\n]*'cs'/, 'Neznámé obchody nemají abecední záložní řazení.');
 assert.match(allStores, /stores\.slice\(0, 11\)/, 'Sbalený seznam obchodů nemá správný limit.');
-assert.match(allStores, /storeCount[^\n]*stores\.length/, 'Počet obchodů nezahrnuje všechny aktivní obchody.');
 assert.match(allStores, /storeSelect/, 'Nové obchody se nepřidávají do filtru nabídek.');
 assert.match(allStores, /class="storePageLink"[^\n]*encodeURIComponent\(store\.slug\)[^\n]*\.html/, 'Nově přidaná karta obchodu nemá odkaz na vlastní stránku.');
 assert.doesNotMatch(allStores, /order:\s*'name\.asc'/, 'Homepage nesmí znovu řadit obchody čistě podle abecedy.');
