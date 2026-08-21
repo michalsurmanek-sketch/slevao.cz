@@ -77,6 +77,16 @@ assert.match(personalization, /function bestOffer\(productId, today = pragueDate
 assert.match(personalization, /const eligible = rows\.filter\(\(row\) => !row\.valid_to \|\| String\(row\.valid_to\) >= today\);/, 'Personalizace musí po změně dne vyřadit i mezitím expirované nabídky z paměti.');
 assert.doesNotMatch(personalization, /const today = new Date\(\)\.toISOString\(\)\.slice\(0, 10\)|Date\.now\(\) \+ 7 \* 86400000/, 'Personalizace nesmí používat top-level UTC den ani pevný 24hodinový +7 offset.');
 
+assert.doesNotMatch(personalization, /auth\.getSession\(\)/, 'Personalizace nesmí duplikovat INITIAL_SESSION ručním getSession startem.');
+assert.doesNotMatch(personalization, /function initializeSession\(/, 'Personalizace nesmí mít druhou paralelní inicializační cestu session.');
+assert.match(personalization, /let hydratedUserId = null;/, 'Personalizace musí pamatovat naposledy hydratovaný účet.');
+assert.match(personalization, /const changed = hydratedUserId !== userId;/, 'Hydratace musí rozlišovat skutečnou změnu uživatele.');
+assert.match(personalization, /if \(!changed\) \{[\s\S]*updateFavoriteButtons\(\);[\s\S]*return;[\s\S]*\}/, 'Opakovaný SIGNED_IN stejného uživatele nesmí znovu synchronizovat data.');
+assert.match(personalization, /event === 'INITIAL_SESSION' \|\| event === 'SIGNED_IN' \|\| event === 'SIGNED_OUT'/, 'Auth listener musí používat INITIAL_SESSION jako jediný start a reagovat na skutečné přihlášení/odhlášení.');
+assert.match(personalization, /event === 'TOKEN_REFRESHED' \|\| event === 'USER_UPDATED' \|\| event === 'PASSWORD_RECOVERY'/, 'Token a profilové auth eventy musí mít lehkou cestu bez opakované hydratace.');
+assert.match(personalization, /authWork = authWork\.catch\(\(\) => \{\}\)\.then\(\(\) => hydrateSession\(nextSession\)\)/, 'Auth hydratace musí být serializovaná, aby se souběžné eventy nepřekrývaly.');
+assert.match(personalization, /authSubscription\?\.unsubscribe\?\.\(\)/, 'Auth subscription se musí při pagehide odhlásit.');
+
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
 assert.match(seo, /offersRoot\.dataset\.loaded !== '1'/, 'SEO nečeká na kompletní nabídky.');
