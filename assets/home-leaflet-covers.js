@@ -36,6 +36,7 @@
   let pdfjsPromise = null;
   let renderGeneration = 0;
   let rendering = false;
+  let cacheRefreshTimer = 0;
   const objectUrls = new Set();
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -69,6 +70,18 @@
     try {
       localStorage.setItem(META_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), leaflets }));
     } catch {}
+  }
+
+  function scheduleFreshCacheRefresh(cachedMeta) {
+    window.clearTimeout(cacheRefreshTimer);
+    const savedAt = Number(cachedMeta?.savedAt || 0);
+    if (!savedAt) return;
+    const delay = Math.max(1000, META_CACHE_TTL - Math.max(0, Date.now() - savedAt));
+    cacheRefreshTimer = window.setTimeout(() => {
+      cacheRefreshTimer = 0;
+      if (document.hidden || rendering) return;
+      renderSection(true);
+    }, delay);
   }
 
   function formatDate(value) {
@@ -402,18 +415,8 @@
       if (generation !== renderGeneration) return;
       if (!freshLeaflets.length) throw new Error('Nebyl nalezen žádný aktuální leták.');
 
+      scheduleFreshCacheRefresh(cacheFresh ? cachedMeta : { savedAt: Date.now() });
       await renderFreshProgressively(grid, freshLeaflets, generation, cachedCards);
-
-      if (cacheFresh) {
-        window.setTimeout(async () => {
-          try {
-            const refreshed = await loadFreshLeaflets();
-            if (!refreshed.length) return;
-            const same = JSON.stringify(refreshed.map((x) => [x.store_slug, x.preview_url])) === JSON.stringify(freshLeaflets.map((x) => [x.store_slug, x.preview_url]));
-            if (!same) renderSection(true);
-          } catch {}
-        }, 1000);
-      }
     } catch (error) {
       console.error('Načtení titulních stran selhalo:', error);
       if (!grid.querySelector('.leafletCard[data-direct-leaflet-card="1"]')) {
@@ -427,11 +430,19 @@
   function start() {
     const grid = document.getElementById('leafletGrid');
     if (!grid) return;
-    loadPdfjs().catch(() => {});
     renderSection(false);
   }
 
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden || rendering) return;
+    const cachedMeta = readMetaCache();
+    const savedAt = Number(cachedMeta?.savedAt || 0);
+    if (!savedAt || Date.now() - savedAt >= META_CACHE_TTL) renderSection(true);
+    else scheduleFreshCacheRefresh(cachedMeta);
+  });
+
   window.addEventListener('pagehide', () => {
+    window.clearTimeout(cacheRefreshTimer);
     objectUrls.forEach((url) => URL.revokeObjectURL(url));
     objectUrls.clear();
   });
