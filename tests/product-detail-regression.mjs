@@ -48,6 +48,12 @@ assert.match(detail, /const today = pragueDate\(\);[\s\S]*const upcomingTo = add
 assert.doesNotMatch(detail, /offsetDays\s*\*\s*86400000/, 'Detail nesmí posouvat pražský den pevnými 24hodinovými bloky přes DST.');
 assert.doesNotMatch(detail, /const today = pragueDate\(0\)|const upcomingTo = pragueDate\(7\)/, 'Detail nesmí zmrazit dnešek a budoucí hranici při inicializaci skriptu.');
 
+assert.match(detail, /window\.__slevaoProductOffersPromise = Promise\.resolve\(offersRequest\)/, 'Hlavní detail musí zveřejnit jeden sdílený in-flight offers request.');
+assert.match(detail, /store_location_name,metadata,stores\(id,name,slug,logo_url\)/, 'Sdílený offers snapshot musí obsahovat metadata potřebná pro přesnou lokaci v letáku.');
+assert.match(leaflet, /const shared = window\.__slevaoProductOffersPromise/, 'Exact leaflet vrstva musí nejdřív použít sdílený offers request.');
+assert.match(leaflet, /if \(!result\?\.error && Array\.isArray\(result\?\.rows\)\) return result\.rows;/, 'Exact leaflet vrstva musí použít úspěšný sdílený snapshot bez druhého query.');
+assert.match(leaflet, /const fallback = await db\.from\('offers'\)/, 'Exact leaflet vrstva musí zachovat vlastní offers fallback při selhání sdíleného requestu.');
+
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
 assert.match(seo, /offersRoot\.dataset\.loaded !== '1'/, 'SEO nečeká na kompletní nabídky.');
