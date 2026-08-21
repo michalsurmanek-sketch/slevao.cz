@@ -13,11 +13,10 @@
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
     return `${values.year}-${values.month}-${values.day}`;
   };
-  const addDays = (date, days) => {
-    const next = new Date(`${date}T12:00:00`);
-    next.setDate(next.getDate() + days);
-    const pad = (value) => String(value).padStart(2, '0');
-    return `${next.getFullYear()}-${pad(next.getMonth() + 1)}-${pad(next.getDate())}`;
+  const addDays = (dateKey, days) => {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
   };
   const median = (values) => {
     const rows = values.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
@@ -34,6 +33,65 @@
       if (window.SlevaoPublic?.getSupabase) return window.SlevaoPublic.getSupabase();
     }
     throw new Error('Datové služby nejsou dostupné.');
+  }
+
+  async function loadProduct() {
+    const shared = window.__slevaoProductPromise;
+    if (shared && typeof shared.then === 'function') {
+      try {
+        const result = await shared;
+        if (!result?.error && result?.data) return result.data;
+      } catch {}
+    }
+
+    const db = await getDb();
+    const { data, error } = await db.from('products')
+      .select('id,brand,ean,quantity_text,is_verified')
+      .eq('id', productId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
+  async function loadOffers(today, upcomingTo) {
+    const shared = window.__slevaoProductOffersPromise;
+    if (shared && typeof shared.then === 'function') {
+      try {
+        const result = await shared;
+        if (!result?.error && Array.isArray(result?.rows)) return result.rows;
+      } catch {}
+    }
+
+    const db = await getDb();
+    const { data, error } = await db.from('offers')
+      .select('id,product_id,store_id,price,old_price,unit_price,valid_from,valid_to')
+      .eq('product_id', productId)
+      .eq('status', 'published')
+      .gte('valid_to', today)
+      .lte('valid_from', upcomingTo)
+      .limit(100);
+    if (error) throw error;
+    return data || [];
+  }
+
+  async function loadHistory(since) {
+    const shared = window.__slevaoProductHistoryPromise;
+    if (shared && typeof shared.then === 'function') {
+      try {
+        const result = await shared;
+        if (!result?.error && Array.isArray(result?.rows)) return result.rows;
+      } catch {}
+    }
+
+    const db = await getDb();
+    const { data, error } = await db.from('price_history')
+      .select('price,old_price,unit_price,recorded_at')
+      .eq('product_id', productId)
+      .gte('recorded_at', since)
+      .order('recorded_at', { ascending:true })
+      .limit(1000);
+    if (error) throw error;
+    return data || [];
   }
 
   function exactIdentity(product) {
@@ -207,35 +265,15 @@
 
   async function init() {
     try {
-      const db = await getDb();
       const today = pragueDate();
       const upcomingTo = addDays(today, 7);
       const since = new Date(Date.now() - 120 * 86400000).toISOString();
-      const [productResult, offersResult, historyResult] = await Promise.all([
-        db.from('products')
-          .select('id,brand,ean,quantity_text,is_verified')
-          .eq('id', productId)
-          .maybeSingle(),
-        db.from('offers')
-          .select('id,product_id,store_id,price,old_price,unit_price,valid_from,valid_to')
-          .eq('product_id', productId)
-          .eq('status', 'published')
-          .gte('valid_to', today)
-          .lte('valid_from', upcomingTo)
-          .limit(100),
-        db.from('price_history')
-          .select('price,old_price,unit_price,recorded_at')
-          .eq('product_id', productId)
-          .gte('recorded_at', since)
-          .order('recorded_at', { ascending:true })
-          .limit(1000)
+      const [product, offers, history] = await Promise.all([
+        loadProduct(),
+        loadOffers(today, upcomingTo),
+        loadHistory(since)
       ]);
-      if (productResult.error) throw productResult.error;
-      if (offersResult.error) throw offersResult.error;
-      if (historyResult.error) throw historyResult.error;
-      const offers = offersResult.data || [];
-      const history = historyResult.data || [];
-      const context = buildContext(offers, history, exactIdentity(productResult.data));
+      const context = buildContext(offers, history, exactIdentity(product));
       renderSummary(offers, context);
       decorateCards(offers, context);
       const target = document.getElementById('offers');
