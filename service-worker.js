@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260821-8';
+const CACHE_NAME = 'slevao-shell-20260821-9';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -43,7 +43,7 @@ const SHELL = [
   '/assets/shopping-list.js?v=20260804-3',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights.js?v=20260804-2',
-  '/assets/account.js?v=20260815-4'
+  '/assets/account.js?v=20260821-1'
 ];
 
 self.addEventListener('install', (event) => {

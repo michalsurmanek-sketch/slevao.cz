@@ -13,6 +13,8 @@
   let session = null;
   let notificationChannel = null;
   let notificationPoll = 0;
+  let hydratedUserId = null;
+  let authWork = Promise.resolve();
   const SEEN_NOTIFICATION_KEY = 'slevao-seen-live-notifications';
 
   function message(text, bad = false) {
@@ -64,14 +66,14 @@
     };
   }
 
-  async function processPendingAlert() {
-    if (!session) return;
+  async function processPendingAlert(userId) {
+    if (!userId) return;
     let pending = null;
     try { pending = JSON.parse(localStorage.getItem(PENDING_ALERT_KEY) || 'null'); } catch {}
     if (!pending?.product_id || !(Number(pending.target_price) > 0)) return;
 
     const { error } = await db.from('price_alerts').insert({
-      user_id: session.user.id,
+      user_id: userId,
       product_id: pending.product_id,
       search_term: pending.search_term || null,
       target_price: Number(pending.target_price),
@@ -83,14 +85,15 @@
     message(`Hlídač pro ${pending.search_term || 'produkt'} do ${money(pending.target_price)} Kč byl aktivován.`);
   }
 
-  async function loadCounts() {
-    if (!session) return;
+  async function loadCounts(userId = session?.user?.id) {
+    if (!userId) return;
     const [lists, alerts, unread, notifications] = await Promise.all([
-      db.from('shopping_lists').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_archived', false),
-      db.from('price_alerts').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_active', true),
-      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', session.user.id).eq('is_read', false),
-      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', session.user.id)
+      db.from('shopping_lists').select('id', { count:'exact', head:true }).eq('user_id', userId).eq('is_archived', false),
+      db.from('price_alerts').select('id', { count:'exact', head:true }).eq('user_id', userId).eq('is_active', true),
+      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', userId).eq('is_read', false),
+      db.from('notifications').select('id', { count:'exact', head:true }).eq('user_id', userId)
     ]);
+    if (String(session?.user?.id || '') !== String(userId)) return;
     $('accountListCount').textContent = String(lists.count || 0);
     $('accountAlertCount').textContent = String(alerts.count || 0);
     $('accountUnreadCount').textContent = String(unread.count || 0);
@@ -98,13 +101,14 @@
     $('markAllRead').disabled = !(unread.count > 0);
   }
 
-  async function loadAlerts() {
-    if (!session) return;
+  async function loadAlerts(userId = session?.user?.id) {
+    if (!userId) return;
     const { data, error } = await db.from('price_alerts')
       .select('id,product_id,search_term,target_price,store_id,is_active,last_triggered_at,created_at,products(name,brand,quantity_text,image_url),stores(name,slug)')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending:false });
     if (error) throw error;
+    if (String(session?.user?.id || '') !== String(userId)) return;
 
     $('alerts').innerHTML = data?.length ? data.map((row) => {
       const product = Array.isArray(row.products) ? row.products[0] : row.products;
@@ -138,75 +142,101 @@
     </article>`;
   }
 
-  async function loadNotifications() {
-    if (!session) return;
+  async function loadNotifications(userId = session?.user?.id) {
+    if (!userId) return;
     const { data, error } = await db.from('notifications')
       .select('id,type,title,message,offer_id,product_id,price_alert_id,is_read,created_at,products(name,brand,quantity_text),offers(price,valid_from,valid_to,stores(name,slug))')
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .order('created_at', { ascending:false })
       .limit(100);
     if (error) throw error;
+    if (String(session?.user?.id || '') !== String(userId)) return;
     $('notifications').innerHTML = data?.length
       ? data.map(notificationHtml).join('')
       : '<div class="sfEmpty">Zatím nemáš žádné upozornění. Oblíb si produkt nebo nastav cílovou cenu a nové akce se zde objeví automaticky.</div>';
   }
 
-  async function loadAccountData() {
-    await Promise.all([loadCounts(), loadAlerts(), loadNotifications()]);
+  async function loadAccountData(userId = session?.user?.id) {
+    if (!userId) return;
+    await Promise.all([loadCounts(userId), loadAlerts(userId), loadNotifications(userId)]);
   }
 
-  function subscribeNotifications() {
-    if (!session || notificationChannel) return;
-    notificationChannel = db.channel(`slevao-notifications-${session.user.id}`)
+  async function stopNotifications() {
+    if (notificationChannel) {
+      await db.removeChannel(notificationChannel);
+      notificationChannel = null;
+    }
+    clearInterval(notificationPoll);
+    notificationPoll = 0;
+  }
+
+  function subscribeNotifications(userId) {
+    if (!userId || notificationChannel) return;
+    notificationChannel = db.channel(`slevao-notifications-${userId}`)
       .on('postgres_changes', {
-        event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${session.user.id}`
+        event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${userId}`
       }, ({ new: row }) => {
+        if (String(session?.user?.id || '') !== String(userId)) return;
         deliverBrowserNotification(row);
         message(row.message || 'Sledovaný produkt právě splnil nastavenou cenu.');
-        loadAccountData().catch(() => {});
+        loadAccountData(userId).catch(() => {});
       })
       .subscribe();
     clearInterval(notificationPoll);
     notificationPoll = window.setInterval(async () => {
+      if (String(session?.user?.id || '') !== String(userId)) return;
       const { data } = await db.from('notifications')
         .select('id,title,message,product_id')
-        .eq('user_id', session.user.id)
+        .eq('user_id', userId)
         .eq('is_read', false)
         .order('created_at', { ascending:false })
         .limit(5);
       (data || []).reverse().forEach(deliverBrowserNotification);
-      await loadCounts();
+      await loadCounts(userId);
     }, 60000);
   }
 
-  async function renderSession() {
-    const { data: { session: current } } = await db.auth.getSession();
-    session = current;
-    const signedIn = Boolean(session);
+  function renderAuthShell(signedIn) {
     if (signedIn) document.body.classList.remove('accountRegistrationPending');
     const registrationPending = document.body.classList.contains('accountRegistrationPending');
     $('authArea').hidden = signedIn || registrationPending;
     $('profileArea').hidden = !signedIn;
     document.body.classList.toggle('accountSignedIn', signedIn);
+  }
 
-    if (!session) {
-      if (notificationChannel) {
-        await db.removeChannel(notificationChannel);
-        notificationChannel = null;
-      }
-      clearInterval(notificationPoll);
-      notificationPoll = 0;
+  async function applySession(nextSession) {
+    session = nextSession || null;
+    const userId = String(session?.user?.id || '');
+    const changed = hydratedUserId !== userId;
+    renderAuthShell(Boolean(userId));
+
+    if (!changed) {
+      if (userId) $('accountEmail').textContent = session.user.email || 'Přihlášený uživatel';
+      return;
+    }
+
+    await stopNotifications();
+
+    if (!userId) {
+      hydratedUserId = '';
       return;
     }
 
     $('accountEmail').textContent = session.user.email || 'Přihlášený uživatel';
     try {
-      await processPendingAlert();
-      await loadAccountData();
-      subscribeNotifications();
+      await processPendingAlert(userId);
+      await loadAccountData(userId);
+      if (String(session?.user?.id || '') !== userId) return;
+      subscribeNotifications(userId);
+      hydratedUserId = userId;
     } catch (error) {
       message(error.message || 'Účet se nepodařilo načíst.', true);
     }
+  }
+
+  function queueSessionApply(nextSession) {
+    authWork = authWork.catch(() => {}).then(() => applySession(nextSession));
+    return authWork;
   }
 
   async function signIn() {
@@ -214,11 +244,11 @@
     const password = $('loginPassword').value;
     if (!email || !password) { message('Vyplň e-mail a heslo.', true); return; }
     $('signIn').disabled = true;
-    const { error } = await db.auth.signInWithPassword({ email, password });
+    const { data, error } = await db.auth.signInWithPassword({ email, password });
     $('signIn').disabled = false;
     if (error) { message(error.message, true); return; }
     localStorage.setItem('slevao-account-email', email);
-    await renderSession();
+    if (data.session) await queueSessionApply(data.session);
     if (redirect && redirect !== 'ucet.html') setTimeout(() => { location.href = redirect; }, 700);
   }
 
@@ -237,7 +267,7 @@
     localStorage.setItem('slevao-account-email', email);
     if (data.session) {
       message('Účet byl vytvořen a jsi přihlášený.');
-      await renderSession();
+      await queueSessionApply(data.session);
     } else {
       document.body.classList.add('accountRegistrationPending');
       $('authArea').hidden = true;
@@ -259,9 +289,8 @@
   $('logout').addEventListener('click', async () => {
     await db.auth.signOut();
     document.body.classList.remove('accountRegistrationPending');
-    session = null;
     message('Byl jsi odhlášen.');
-    renderSession();
+    await queueSessionApply(null);
   });
 
   $('alerts').addEventListener('click', async (event) => {
@@ -300,13 +329,14 @@
   $('markAllRead').addEventListener('click', async () => {
     if (!session) return;
     $('markAllRead').disabled = true;
+    const userId = session.user.id;
     const { error } = await db.from('notifications')
       .update({ is_read: true })
-      .eq('user_id', session.user.id)
+      .eq('user_id', userId)
       .eq('is_read', false);
     if (error) { message(error.message, true); return; }
     message('Všechna upozornění jsou označená jako přečtená.');
-    await Promise.all([loadCounts(), loadNotifications()]);
+    await Promise.all([loadCounts(userId), loadNotifications(userId)]);
   });
 
   $('enableBrowserAlerts')?.addEventListener('click', async () => {
@@ -322,6 +352,19 @@
   $('loginEmail').value = remembered;
   $('registerEmail').value = remembered;
   updateBrowserAlertButton();
-  db.auth.onAuthStateChange(() => setTimeout(renderSession, 0));
-  renderSession();
+
+  const { data:{ subscription:authSubscription } } = db.auth.onAuthStateChange((event, nextSession) => {
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+      session = nextSession || session;
+      if (event === 'USER_UPDATED' && session?.user?.email) $('accountEmail').textContent = session.user.email;
+      return;
+    }
+    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      queueSessionApply(event === 'SIGNED_OUT' ? null : nextSession).catch(() => {});
+    }
+  });
+  window.addEventListener('pagehide', () => {
+    authSubscription?.unsubscribe?.();
+    stopNotifications().catch(() => {});
+  }, { once:true });
 })();
