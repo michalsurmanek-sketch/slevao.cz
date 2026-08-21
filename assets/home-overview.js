@@ -333,9 +333,13 @@
     const price = Number(offer.price || 0);
     const oldPrice = Number(offer.old_price || 0);
     const discount = oldPrice > price ? Math.round((oldPrice - price) / oldPrice * 100) : 0;
-    const href = store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection';
+    const productId = String(offer.product_id || '').trim();
+    const href = productId
+      ? `produkt.html?id=${encodeURIComponent(productId)}`
+      : (store.slug ? `${encodeURIComponent(store.slug)}.html` : '#dealsSection');
+    const productLink = productId ? ` data-product-detail-link="1" aria-label="Zobrazit detail produktu ${esc(title)}"` : '';
 
-    return `<a class="overviewDealRow" href="${href}">
+    return `<a class="overviewDealRow" href="${href}"${productLink}>
       <span class="overviewDealImage">${image ? `<img src="${esc(image)}" alt="${esc(title)}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove()">` : '<span class="overviewProductFallback">🏷️</span>'}</span>
       <span class="overviewDealCopy"><strong>${esc(title)}</strong><small>${offerLogo(store)}${esc(store.name || 'Obchod')}</small></span>
       <span class="overviewEndingBadge">${endingLabel(offer.valid_to)}</span>
@@ -391,21 +395,29 @@
   async function loadEnding() {
     const target = $('overviewEnding');
     try {
-      const query = new URLSearchParams({
-        select: 'id,title,price,old_price,image_url,valid_to,published_at,stores(name,slug,logo_url),products(name,image_url,quantity_text)',
-        status: 'eq.published',
-        valid_from: `lte.${TODAY}`,
-        valid_to: `gte.${TODAY}`,
-        order: 'valid_to.asc,published_at.desc',
-        limit: '40'
-      });
-
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/offers?${query}`, {
-        headers: { apikey: SUPABASE_KEY },
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_offer_page_filtered`, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          p_limit: 40,
+          p_offset: 0,
+          p_include_upcoming: false,
+          p_store_slug: null,
+          p_min_price: null,
+          p_max_price: null,
+          p_only_images: false,
+          p_sort: 'ending',
+          p_query: null,
+          p_filter_group: null,
+          p_region_code: null,
+          p_city_name: null,
+          p_mode: 'all'
+        }),
         cache: 'no-store'
       });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      renderEnding(await response.json());
+      const rows = await response.json();
+      renderEnding((Array.isArray(rows) ? rows : []).map((row) => row?.offer).filter(Boolean));
     } catch (error) {
       console.warn('Přehled končících akcí se nepodařilo načíst:', error);
       endingOffers = [];
