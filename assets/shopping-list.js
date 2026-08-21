@@ -5,6 +5,7 @@
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
   const SHARED_POLL_MS = 30000;
+  const OFFER_REFRESH_MS = 5 * 60 * 1000;
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -13,8 +14,19 @@
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(value);
+  }
+
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
+  }
+
   const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
   const queryParams = new URLSearchParams(location.search);
   const sharedToken = hashParams.get('share') || queryParams.get('share') || '';
@@ -30,6 +42,9 @@
   let sharedBusy = false;
   let sharedRevision = '';
   let sharedLastRevisionCheck = 0;
+  let offersLoading = null;
+  let lastOffersLoadedAt = 0;
+  let offerBusinessDay = '';
 
   function readLocal() {
     try {
@@ -298,68 +313,94 @@
   }
 
   async function fetchOffers() {
-    const activeRows = rows.filter((row) => !row.completed);
-    const productIds = [...new Set(activeRows.map((row) => row.product_id).filter(Boolean))];
-    const customQueries = [...new Set(activeRows
-      .filter((row) => !row.product_id)
-      .map((row) => String(row.custom_name || row.name || '').trim())
-      .filter(Boolean))];
+    if (offersLoading) return offersLoading;
+    offersLoading = (async () => {
+      const today = pragueDate();
+      const upcomingTo = addCalendarDays(today, 7);
+      const activeRows = rows.filter((row) => !row.completed);
+      const productIds = [...new Set(activeRows.map((row) => row.product_id).filter(Boolean))];
+      const customQueries = [...new Set(activeRows
+        .filter((row) => !row.product_id)
+        .map((row) => String(row.custom_name || row.name || '').trim())
+        .filter(Boolean))];
 
-    const productPromise = productIds.length
-      ? db.from('offers')
-        .select('id,product_id,store_id,title,price,old_price,image_url,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
-        .in('product_id', productIds)
-        .eq('status', 'published')
-        .lte('valid_from', upcomingTo)
-        .gte('valid_to', today)
-        .limit(5000)
-      : Promise.resolve({ data: [], error: null });
+      const productPromise = productIds.length
+        ? db.from('offers')
+          .select('id,product_id,store_id,title,price,old_price,image_url,unit_price,unit_price_unit,valid_from,valid_to,stores(id,name,slug),products(id,name,brand,quantity_text,image_url)')
+          .in('product_id', productIds)
+          .eq('status', 'published')
+          .lte('valid_from', upcomingTo)
+          .gte('valid_to', today)
+          .limit(5000)
+        : Promise.resolve({ data: [], error: null });
 
-    const customPromise = customQueries.length
-      ? db.rpc('get_public_shopping_list_candidates', {
-        p_queries: customQueries,
-        p_limit_per_query: 30
-      })
-      : Promise.resolve({ data: [], error: null });
+      const customPromise = customQueries.length
+        ? db.rpc('get_public_shopping_list_candidates', {
+          p_queries: customQueries,
+          p_limit_per_query: 30
+        })
+        : Promise.resolve({ data: [], error: null });
 
-    const [productResult, customResult] = await Promise.all([productPromise, customPromise]);
-    if (productResult.error) throw productResult.error;
-    if (customResult.error) throw customResult.error;
+      const [productResult, customResult] = await Promise.all([productPromise, customPromise]);
+      if (productResult.error) throw productResult.error;
+      if (customResult.error) throw customResult.error;
 
-    activeOffers = productResult.data || [];
-    customOfferMap = new Map();
-    for (const candidate of customResult.data || []) {
-      const key = String(candidate.query_key || norm(candidate.query_text));
-      if (!key || !candidate.offer) continue;
-      const offers = customOfferMap.get(key) || [];
-      offers.push(candidate.offer);
-      customOfferMap.set(key, offers);
+      activeOffers = productResult.data || [];
+      customOfferMap = new Map();
+      for (const candidate of customResult.data || []) {
+        const key = String(candidate.query_key || norm(candidate.query_text));
+        if (!key || !candidate.offer) continue;
+        const offers = customOfferMap.get(key) || [];
+        offers.push(candidate.offer);
+        customOfferMap.set(key, offers);
+      }
+
+      rows.forEach((row) => {
+        if (!row.image_url) row.image_url = itemImage(row) || null;
+      });
+      lastOffersLoadedAt = Date.now();
+      offerBusinessDay = today;
+      render();
+    })();
+    try {
+      return await offersLoading;
+    } finally {
+      offersLoading = null;
     }
-
-    rows.forEach((row) => {
-      if (!row.image_url) row.image_url = itemImage(row) || null;
-    });
-    render();
   }
 
-  function offersForItem(item, allowedStores = null) {
+  function offersAreStale() {
+    return pragueDate() !== offerBusinessDay || Date.now() - lastOffersLoadedAt >= OFFER_REFRESH_MS;
+  }
+
+  async function refreshOffersIfStale() {
+    if (document.hidden || !offersAreStale()) return;
+    try {
+      await fetchOffers();
+    } catch (error) {
+      showMessage(`Ceny se nepodařilo obnovit: ${error.message}`, true);
+    }
+  }
+
+  function offersForItem(item, allowedStores = null, today = pragueDate()) {
     const source = item.product_id
       ? activeOffers.filter((offer) => offer.product_id === item.product_id)
       : (customOfferMap.get(norm(item.custom_name || item.name)) || []);
-    return allowedStores ? source.filter((offer) => allowedStores.has(offer.store_id)) : source;
+    const eligible = source.filter((offer) => !offer.valid_to || String(offer.valid_to) >= today);
+    return allowedStores ? eligible.filter((offer) => allowedStores.has(offer.store_id)) : eligible;
   }
 
-  function cheapestForItem(item, allowedStores = null) {
-    const candidates = offersForItem(item, allowedStores);
-    const current = candidates.filter((offer) => String(offer.valid_from || '') <= today);
-    return (current.length ? current : candidates).sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+  function cheapestForItem(item, allowedStores = null, today = pragueDate()) {
+    const candidates = offersForItem(item, allowedStores, today);
+    const current = candidates.filter((offer) => !offer.valid_from || String(offer.valid_from) <= today);
+    return (current.length ? current : candidates).slice().sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
   }
 
-  function planFromOffers(items, allowedStores = null) {
+  function planFromOffers(items, allowedStores = null, today = pragueDate()) {
     const chosen = [];
     let total = 0;
     for (const item of items) {
-      const offer = cheapestForItem(item, allowedStores);
+      const offer = cheapestForItem(item, allowedStores, today);
       if (!offer) return null;
       const quantity = Math.max(0.01, Number(item.quantity || 1));
       total += Number(offer.price || 0) * quantity;
@@ -375,17 +416,18 @@
   }
 
   function calculatePlans() {
+    const today = pragueDate();
     const allItems = rows.filter((row) => !row.completed);
-    const items = allItems.filter((item) => offersForItem(item).length > 0);
-    const unresolved = allItems.filter((item) => !offersForItem(item).length);
+    const items = allItems.filter((item) => offersForItem(item, null, today).length > 0);
+    const unresolved = allItems.filter((item) => !offersForItem(item, null, today).length);
     if (!items.length) return { items, unresolved, absolute: null, oneStore: null, balanced: null };
 
-    const absolute = planFromOffers(items);
-    const storeIds = [...new Set(items.flatMap((item) => offersForItem(item).map((offer) => offer.store_id)).filter(Boolean))];
+    const absolute = planFromOffers(items, null, today);
+    const storeIds = [...new Set(items.flatMap((item) => offersForItem(item, null, today).map((offer) => offer.store_id)).filter(Boolean))];
 
     let oneStore = null;
     for (const storeId of storeIds) {
-      const plan = planFromOffers(items, new Set([storeId]));
+      const plan = planFromOffers(items, new Set([storeId]), today);
       if (plan && (!oneStore || plan.total < oneStore.total)) oneStore = plan;
     }
 
@@ -393,7 +435,7 @@
     let balancedScore = oneStore ? oneStore.total : Infinity;
     for (let i = 0; i < storeIds.length; i++) {
       for (let j = i; j < storeIds.length; j++) {
-        const plan = planFromOffers(items, new Set([storeIds[i], storeIds[j]]));
+        const plan = planFromOffers(items, new Set([storeIds[i], storeIds[j]]), today);
         if (!plan) continue;
         const score = plan.total + Math.max(0, plan.stores.length - 1) * 35;
         if (score < balancedScore) {
@@ -593,10 +635,6 @@
       render();
       await loadSharedList();
       sharedPollTimer = window.setInterval(() => checkSharedRevision(), SHARED_POLL_MS);
-      document.addEventListener('visibilitychange', () => {
-        if (!document.hidden) checkSharedRevision({ force: true });
-      });
-      window.addEventListener('focus', () => checkSharedRevision({ force: true }));
       window.addEventListener('beforeunload', () => clearInterval(sharedPollTimer), { once: true });
       return;
     }
@@ -620,6 +658,16 @@
       showMessage(`Ceny se nepodařilo načíst: ${error.message}`, true);
     }
   }
+
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    if (sharedMode) checkSharedRevision({ force: true });
+    refreshOffersIfStale();
+  });
+  window.addEventListener('focus', () => {
+    if (sharedMode) checkSharedRevision({ force: true });
+    refreshOffersIfStale();
+  });
 
   $('addCustom').addEventListener('click', () => addCustom().catch((error) => showMessage(error.message, true)));
   $('customName').addEventListener('keydown', (event) => {
