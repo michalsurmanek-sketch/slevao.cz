@@ -131,7 +131,6 @@
       grid.querySelectorAll('.storeCard').forEach((card) => {
         card.classList.toggle('active', card.querySelector('[data-store]')?.dataset.store === selectedStore);
       });
-      if ($('storeCount')) $('storeCount').textContent = stores.length.toLocaleString('cs-CZ');
       if (toggle) toggle.textContent = expanded ? 'Zobrazit méně' : `Zobrazit všechny (${stores.length})`;
       syncDropdown();
     } finally {
@@ -196,6 +195,7 @@
       await loadStores();
       scheduleSync();
       window.setInterval(async () => {
+        if (document.hidden) return;
         try { await loadStores(); scheduleSync(); } catch (error) { console.warn('Aktualizace obchodů selhala:', error); }
       }, 5 * 60 * 1000);
     } catch (error) {
