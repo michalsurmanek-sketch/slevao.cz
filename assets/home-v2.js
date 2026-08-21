@@ -10,7 +10,6 @@
   const pragueDateKey = (value = new Date()) => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(value);
-  const TODAY = pragueDateKey();
   const REGIONS = [
     ['CZ010','Hlavní město Praha'],['CZ020','Středočeský kraj'],['CZ031','Jihočeský kraj'],['CZ032','Plzeňský kraj'],
     ['CZ041','Karlovarský kraj'],['CZ042','Ústecký kraj'],['CZ051','Liberecký kraj'],['CZ052','Královéhradecký kraj'],
@@ -38,7 +37,7 @@
   const oldPriceOf = (offer) => Number(offer?.old_price || 0);
   const savingOf = (offer) => Math.max(0, oldPriceOf(offer) - priceOf(offer));
   const discountOf = (offer) => oldPriceOf(offer) > priceOf(offer) ? Math.round(savingOf(offer) / oldPriceOf(offer) * 100) : 0;
-  const isUpcoming = (offer) => String(offer?.valid_from || '') > TODAY;
+  const isUpcoming = (offer, today = pragueDateKey()) => String(offer?.valid_from || '') > today;
   const readJSON = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || '') || fallback; } catch { return fallback; } };
   const writeJSON = (key, value) => { try { localStorage.setItem(key, JSON.stringify(value)); } catch {} };
   const initialQuery = new URLSearchParams(location.search).get('q')?.trim() || '';
@@ -167,6 +166,7 @@
     state.allStores = Array.isArray(data?.stores) ? [...data.stores].sort((a,b) => String(a.name || '').localeCompare(String(b.name || ''),'cs')) : [];
     if ($('offerCount')) $('offerCount').textContent = Number(data?.current_count || 0).toLocaleString('cs-CZ');
     if ($('storeCount')) $('storeCount').textContent = state.allStores.length.toLocaleString('cs-CZ');
+    return state.globalFacets;
   }
 
   async function loadLocationRows() {
@@ -328,8 +328,9 @@
 
   function renderDeals() {
     const rows = state.offers;
+    const today = pragueDateKey();
     const store = state.allStores.find((item) => item.slug === state.store);
-    const upcomingOnly = rows.length > 0 && rows.every(isUpcoming);
+    const upcomingOnly = rows.length > 0 && rows.every((offer) => isUpcoming(offer, today));
     const nextStart = upcomingOnly ? [...new Set(rows.map((offer) => offer.valid_from).filter(Boolean))].sort()[0] : '';
     const modeTitles = { all:state.query ? `Výsledky pro „${state.query}“` : 'Všechny aktuální nabídky', recommended:upcomingOnly ? 'Akce, které začnou brzy' : 'Nejvýhodnější právě teď', food:'Potraviny v akci', discount:'Největší slevy', ending:'Akce, které končí dnes', new:'Nově přidané nabídky', under50:'Nabídky do 50 Kč', under100:'Nabídky do 100 Kč' };
     if ($('dealsTitle')) $('dealsTitle').textContent = state.savedOnly ? 'Uložené nabídky' : store ? `Akční nabídky – ${store.name}` : (modeTitles[state.mode] || 'Aktuální nabídky');
@@ -352,7 +353,7 @@
       const brand = offer.products?.brand || '';
       const purchaseCondition = bulkPurchaseLabel(offer.description);
       const location = leafletLocation(offer);
-      const card = `<article class="dealCard"><div class="dealMedia">${offer.image_url ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.products?.name || offer.title || 'Produkt')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentElement.insertAdjacentHTML('afterbegin','<span class=dealPlaceholder>🏷️</span>')">` : '<span class="dealPlaceholder">🏷️</span>'}${discount ? `<span class="discountBadge">−${discount} %</span>` : ''}${isUpcoming(offer) ? `<span class="endingBadge">Platí od ${date(offer.valid_from)}</span>` : offer.valid_to === TODAY ? '<span class="endingBadge">Končí dnes</span>' : ''}<button class="dealMenu" data-report-id="${esc(offer.id)}" title="Nahlásit problém">⋯</button><button class="saveOffer ${saved ? 'active' : ''}" data-save-id="${esc(offer.id)}" aria-label="${saved ? 'Odebrat z uložených' : 'Uložit nabídku'}">${saved ? '♥' : '♡'}</button></div><div class="dealBody"><div class="storeLine">${logoHTML(storeData)}<span>${esc(offer.stores?.name || 'Obchod')}</span></div><h3>${esc(offer.products?.name || offer.title || 'Produkt')}</h3><div class="productDetail">${esc([brand,quantity,purchaseCondition].filter(Boolean).join(' · ') || offer.categories?.name || '')}</div><div class="priceRow"><span class="price">${money(offer.price)} Kč</span>${oldPriceOf(offer) ? `<span class="oldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>${unitPrice(offer) ? `<div class="unitPrice">${unitPrice(offer)}</div>` : ''}${saving ? `<span class="saving">Ušetříš ${money(saving)} Kč</span>` : ''}<div class="dealActions"><button class="compareButton" data-compare-id="${esc(offer.id)}" ${offer.product_id ? '' : 'disabled'}>${offer.product_id ? 'Porovnat' : 'Bez porovnání'}</button><a class="storeButton" href="${encodeURIComponent(offer.stores?.slug || '')}.html">Stránka obchodu</a></div><div class="validity">Platí ${date(offer.valid_from)}–${date(offer.valid_to)}</div>${location ? `<a class="leafletLocationButton" href="${esc(location.url)}" target="_blank" rel="noopener noreferrer" aria-label="Ukázat produkt v letáku na straně ${location.page}"><span>📄</span> Leták · strana ${location.page}</a>` : ''}<div class="sourceLine">Zdroj: nabídka obchodu · aktualizováno průběžně</div></div></article>`;
+      const card = `<article class="dealCard"><div class="dealMedia">${offer.image_url ? `<img src="${esc(offer.image_url)}" alt="${esc(offer.products?.name || offer.title || 'Produkt')}" loading="lazy" referrerpolicy="no-referrer" onerror="this.remove();this.parentElement.insertAdjacentHTML('afterbegin','<span class=dealPlaceholder>🏷️</span>')">` : '<span class="dealPlaceholder">🏷️</span>'}${discount ? `<span class="discountBadge">−${discount} %</span>` : ''}${isUpcoming(offer, today) ? `<span class="endingBadge">Platí od ${date(offer.valid_from)}</span>` : offer.valid_to === today ? '<span class="endingBadge">Končí dnes</span>' : ''}<button class="dealMenu" data-report-id="${esc(offer.id)}" title="Nahlásit problém">⋯</button><button class="saveOffer ${saved ? 'active' : ''}" data-save-id="${esc(offer.id)}" aria-label="${saved ? 'Odebrat z uložených' : 'Uložit nabídku'}">${saved ? '♥' : '♡'}</button></div><div class="dealBody"><div class="storeLine">${logoHTML(storeData)}<span>${esc(offer.stores?.name || 'Obchod')}</span></div><h3>${esc(offer.products?.name || offer.title || 'Produkt')}</h3><div class="productDetail">${esc([brand,quantity,purchaseCondition].filter(Boolean).join(' · ') || offer.categories?.name || '')}</div><div class="priceRow"><span class="price">${money(offer.price)} Kč</span>${oldPriceOf(offer) ? `<span class="oldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>${unitPrice(offer) ? `<div class="unitPrice">${unitPrice(offer)}</div>` : ''}${saving ? `<span class="saving">Ušetříš ${money(saving)} Kč</span>` : ''}<div class="dealActions"><button class="compareButton" data-compare-id="${esc(offer.id)}" ${offer.product_id ? '' : 'disabled'}>${offer.product_id ? 'Porovnat' : 'Bez porovnání'}</button><a class="storeButton" href="${encodeURIComponent(offer.stores?.slug || '')}.html">Stránka obchodu</a></div><div class="validity">Platí ${date(offer.valid_from)}–${date(offer.valid_to)}</div>${location ? `<a class="leafletLocationButton" href="${esc(location.url)}" target="_blank" rel="noopener noreferrer" aria-label="Ukázat produkt v letáku na straně ${location.page}"><span>📄</span> Leták · strana ${location.page}</a>` : ''}<div class="sourceLine">Zdroj: nabídka obchodu · aktualizováno průběžně</div></div></article>`;
       return card + ((index + 1) % 10 === 0 ? miniAdCard(index + 1) : '');
     }).join('');
   }
@@ -368,14 +369,15 @@
     if ($('loadMore')) $('loadMore').disabled = value;
   }
 
-  async function refreshCurrent({ append=false, refreshFacets=true, scroll=false } = {}) {
+  async function refreshCurrent({ append=false, refreshFacets=true, scroll=false, facetsPromise=null } = {}) {
     const version = ++state.requestVersion;
     setBusy(true);
     try {
       const offset = append ? state.offers.length : 0;
+      const facetsTask = refreshFacets ? (facetsPromise || fetchFacets()) : Promise.resolve(state.facets);
       const [page, facets] = await Promise.all([
         fetchPage(offset),
-        refreshFacets ? fetchFacets() : Promise.resolve(state.facets)
+        facetsTask
       ]);
       if (version !== state.requestVersion) return;
       state.offers = append ? [...state.offers, ...page.offers] : page.offers;
@@ -571,7 +573,7 @@
     const parsed = new Date(Number(value) || value || Date.now());
     const key = pragueDateKey(parsed);
     const formatted = new Intl.DateTimeFormat('cs-CZ', { timeZone:'Europe/Prague', day:'numeric', month:'numeric' }).format(parsed);
-    return `${key === TODAY ? 'dnes ' : ''}${formatted}`;
+    return `${key === pragueDateKey() ? 'dnes ' : ''}${formatted}`;
   }
 
   function renderUpdateStatus(updatedAt = Date.now()) {
@@ -587,7 +589,11 @@
     if ($('sideSearch')) $('sideSearch').value=state.query;
     renderRegions();
     try {
-      await Promise.all([loadGlobalFacets(), refreshCurrent()]);
+      const globalFacetsPromise = loadGlobalFacets();
+      await Promise.all([
+        globalFacetsPromise,
+        refreshCurrent({ facetsPromise: initialQuery ? null : globalFacetsPromise })
+      ]);
       renderUpdateStatus(Date.now());
     } catch (error) {
       console.error(error);
