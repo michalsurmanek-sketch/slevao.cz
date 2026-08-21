@@ -102,22 +102,39 @@
     }
   }
 
-  async function rest(path, params) {
-    const query = new URLSearchParams(params);
-    const response = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/${path}?${query}`, {
-      headers: { apikey: SUPABASE_KEY },
-      cache: 'default',
-    });
-    if (!response.ok) throw new Error(`Databáze vrátila HTTP ${response.status}.`);
-    return response.json();
+  function loadLeafletStoreRows(force = false) {
+    if (typeof window.__slevaoLoadLeafletStoreRows !== 'function') {
+      let rows = [];
+      let pending = null;
+      window.__slevaoLoadLeafletStoreRows = async (refresh = false) => {
+        if (pending) return pending;
+        if (!refresh && rows.length) return rows;
+
+        const query = new URLSearchParams({
+          select: 'id,slug,name,logo_url,website_url,is_active',
+          is_active: 'eq.true',
+          order: 'name.asc',
+        });
+        const request = fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
+          headers: { apikey: SUPABASE_KEY },
+          cache: 'no-store',
+        }).then(async (response) => {
+          if (!response.ok) throw new Error(`Obchody vrátily HTTP ${response.status}.`);
+          rows = (await response.json()).filter((store) => store?.slug);
+          window.__slevaoLeafletStoreRows = rows;
+          return rows;
+        }).finally(() => {
+          pending = null;
+        });
+        pending = request;
+        return request;
+      };
+    }
+    return window.__slevaoLoadLeafletStoreRows(force);
   }
 
   async function activeStores() {
-    const stores = await rest('stores', {
-      select: 'id,slug,name,logo_url,website_url',
-      is_active: 'eq.true',
-      order: 'name.asc',
-    });
+    const stores = await loadLeafletStoreRows(false);
     const priority = new Map(PRIORITY_SLUGS.map((slug, index) => [slug, index]));
     return stores
       .filter((store) => store?.slug)
