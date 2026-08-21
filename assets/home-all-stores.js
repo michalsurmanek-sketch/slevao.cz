@@ -41,6 +41,16 @@
       || String(a.name || '').localeCompare(String(b.name || ''), 'cs'));
   }
 
+  function publishStoreDirectory() {
+    const directory = stores.map((store) => ({
+      name: store.name,
+      slug: store.slug,
+      logo_url: store.logo_url || null,
+    }));
+    window.__slevaoStoreDirectory = directory;
+    document.dispatchEvent(new CustomEvent('slevao:store-directory', { detail: { stores: directory } }));
+  }
+
   function feedStateLabel(store) {
     if (Number(store.current_offer_count || 0) > 0 || store.feed_status === 'products-live') return '';
     if (store.feed_status === 'leaflet-only') return 'Jen aktuální leták';
@@ -62,6 +72,7 @@
     });
     if (!response.ok) throw new Error(`Stav obchodů vrátil HTTP ${response.status}.`);
     stores = sortStores((await response.json()).filter((store) => store?.slug && store?.name));
+    publishStoreDirectory();
   }
 
   function logoHtml(store) {
