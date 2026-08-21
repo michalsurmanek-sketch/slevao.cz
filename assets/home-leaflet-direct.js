@@ -67,33 +67,6 @@
       .sort((a, b) => String(a.valid_from || '').localeCompare(String(b.valid_from || '')))[0] || null;
   }
 
-  async function loadBatch(storeSlugs) {
-    const safe = [...new Set(storeSlugs)]
-      .map((slug) => String(slug || '').trim().toLowerCase())
-      .filter((slug) => /^[a-z0-9-]+$/.test(slug));
-    if (!safe.length) return;
-
-    const params = new URLSearchParams({
-      select: 'store_slug,document_url,valid_from,valid_to',
-      store_slug: `in.(${safe.join(',')})`,
-      valid_to: `gte.${today}`,
-      valid_from: `lte.${upcomingTo}`,
-      order: 'store_slug.asc,valid_from.asc,valid_to.asc',
-      limit: String(Math.min(500, Math.max(60, safe.length * 20)))
-    });
-
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
-        headers: { apikey: SUPABASE_KEY },
-        cache: 'default'
-      });
-      if (!response.ok) throw new Error(`Letáky se nepodařilo načíst (${response.status}).`);
-      const rows = Array.isArray(await response.json()) ? await Promise.resolve([]) : [];
-    } catch (error) {
-      throw error;
-    }
-  }
-
   async function fetchBatch(storeSlugs) {
     const safe = [...new Set(storeSlugs)]
       .map((slug) => String(slug || '').trim().toLowerCase())
@@ -115,9 +88,10 @@
         cache: 'default'
       });
       if (!response.ok) throw new Error(`Letáky se nepodařilo načíst (${response.status}).`);
-      const rows = await response.json();
+      const payload = await response.json();
+      const rows = Array.isArray(payload) ? payload : [];
       safe.forEach((slug) => {
-        const row = chooseLeaflet(Array.isArray(rows) ? rows : [], slug);
+        const row = chooseLeaflet(rows, slug);
         resolved.set(slug, leafletUrl(row?.document_url));
       });
     } catch (error) {
