@@ -9,7 +9,6 @@
     timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
   }).format(new Date());
   const MAX_CARDS = 12;
-  const STORE_BATCH_SIZE = 12;
   const COVER_CONCURRENCY = 5;
   const CACHE_NAME = 'slevao-homepage-leaflet-covers-v6';
   const META_CACHE_KEY = 'slevao-homepage-leaflets-meta-v6';
@@ -132,55 +131,41 @@
       });
   }
 
-  function currentLeaflet(rows) {
-    return (Array.isArray(rows) ? rows : [])
-      .filter((leaflet) => leaflet?.preview_url)
-      .filter((leaflet) => !leaflet.valid_from || leaflet.valid_from <= TODAY)
-      .filter((leaflet) => !leaflet.valid_to || leaflet.valid_to >= TODAY)
-      .sort((a, b) => {
-        const aPriority = a.key === 'hypermarket' ? 0 : a.key === 'supermarket' ? 1 : 2;
-        const bPriority = b.key === 'hypermarket' ? 0 : b.key === 'supermarket' ? 1 : 2;
-        return aPriority - bPriority
-          || String(b.valid_from || '').localeCompare(String(a.valid_from || ''))
-          || String(b.valid_to || '').localeCompare(String(a.valid_to || ''));
-      })[0] || null;
-  }
-
-  async function storeLeaflet(store) {
-    const endpoint = `${SUPABASE_URL}/functions/v1/store-leaflet-feed?store=${encodeURIComponent(store.slug)}&source=homepage-v5`;
-    const response = await fetchWithTimeout(endpoint, {
-      headers: { apikey: SUPABASE_KEY },
+  async function currentLeaflets() {
+    const response = await fetchWithTimeout(`${SUPABASE_URL}/rest/v1/rpc/get_public_current_leaflets`, {
+      method: 'POST',
+      headers: { apikey: SUPABASE_KEY, 'content-type': 'application/json' },
+      body: JSON.stringify({ p_limit: 240 }),
       cache: 'default',
-    }, 6500);
-    if (!response.ok) throw new Error(`${store.slug}: HTTP ${response.status}`);
-    const payload = await response.json();
-    const leaflet = currentLeaflet(payload?.leaflets);
-    if (!leaflet) throw new Error(`${store.slug}: žádný aktuální dokument`);
-    return {
-      store_slug: store.slug,
-      store_name: store.name,
-      logo_url: leaflet.logo_url || store.logo_url || LOCAL_LOGOS[store.slug] || null,
-      title: leaflet.title || 'Aktuální leták',
-      valid_from: leaflet.valid_from || null,
-      valid_to: leaflet.valid_to || null,
-      preview_url: String(leaflet.preview_url),
-    };
+    });
+    if (!response.ok) throw new Error(`Aktuální letáky vrátily HTTP ${response.status}.`);
+
+    const firstByStore = new Map();
+    for (const leaflet of await response.json()) {
+      const slug = String(leaflet?.store_slug || '').trim();
+      if (!slug || !leaflet?.preview_url || firstByStore.has(slug)) continue;
+      if (leaflet.valid_from && leaflet.valid_from > TODAY) continue;
+      if (leaflet.valid_to && leaflet.valid_to < TODAY) continue;
+      firstByStore.set(slug, leaflet);
+    }
+    return firstByStore;
   }
 
   async function loadFreshLeaflets() {
-    const stores = await activeStores();
-    const output = [];
-    const seen = new Set();
-    for (let offset = 0; offset < stores.length && output.length < MAX_CARDS; offset += STORE_BATCH_SIZE) {
-      const batch = stores.slice(offset, offset + STORE_BATCH_SIZE);
-      const results = await Promise.allSettled(batch.map(storeLeaflet));
-      results.forEach((result) => {
-        if (result.status !== 'fulfilled' || seen.has(result.value.store_slug)) return;
-        seen.add(result.value.store_slug);
-        output.push(result.value);
-      });
-    }
-    const leaflets = output.slice(0, MAX_CARDS);
+    const [stores, leafletByStore] = await Promise.all([activeStores(), currentLeaflets()]);
+    const leaflets = stores.map((store) => {
+      const leaflet = leafletByStore.get(store.slug);
+      if (!leaflet) return null;
+      return {
+        store_slug: store.slug,
+        store_name: leaflet.store_name || store.name,
+        logo_url: leaflet.logo_url || store.logo_url || LOCAL_LOGOS[store.slug] || null,
+        title: leaflet.title || 'Aktuální leták',
+        valid_from: leaflet.valid_from || null,
+        valid_to: leaflet.valid_to || null,
+        preview_url: String(leaflet.preview_url),
+      };
+    }).filter(Boolean).slice(0, MAX_CARDS);
     if (leaflets.length) writeMetaCache(leaflets);
     return leaflets;
   }
