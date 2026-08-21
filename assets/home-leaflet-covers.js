@@ -5,9 +5,10 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const TODAY = new Intl.DateTimeFormat('en-CA', {
+  const PRAGUE_DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
+  });
+  const pragueToday = () => PRAGUE_DAY_FORMAT.format(new Date());
   const MAX_CARDS = 12;
   const COVER_CONCURRENCY = 5;
   const CACHE_NAME = 'slevao-homepage-leaflet-covers-v6';
@@ -59,7 +60,8 @@
     try {
       const cached = JSON.parse(localStorage.getItem(META_CACHE_KEY) || 'null');
       if (!cached || !Array.isArray(cached.leaflets)) return null;
-      const current = cached.leaflets.filter((item) => (!item.valid_from || item.valid_from <= TODAY) && (!item.valid_to || item.valid_to >= TODAY));
+      const today = pragueToday();
+      const current = cached.leaflets.filter((item) => (!item.valid_from || item.valid_from <= today) && (!item.valid_to || item.valid_to >= today));
       if (!current.length) return null;
       return { ...cached, leaflets: current.slice(0, MAX_CARDS) };
     } catch {
@@ -157,12 +159,13 @@
     });
     if (!response.ok) throw new Error(`Aktuální letáky vrátily HTTP ${response.status}.`);
 
+    const today = pragueToday();
     const firstByStore = new Map();
     for (const leaflet of await response.json()) {
       const slug = String(leaflet?.store_slug || '').trim();
       if (!slug || !leaflet?.preview_url || firstByStore.has(slug)) continue;
-      if (leaflet.valid_from && leaflet.valid_from > TODAY) continue;
-      if (leaflet.valid_to && leaflet.valid_to < TODAY) continue;
+      if (leaflet.valid_from && leaflet.valid_from > today) continue;
+      if (leaflet.valid_to && leaflet.valid_to < today) continue;
       firstByStore.set(slug, leaflet);
     }
     return firstByStore;
