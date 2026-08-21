@@ -29,6 +29,10 @@ assert.match(account, /filter: `user_id=eq\.\$\{userId\}`/, 'Realtime filtr mus�
 assert.match(account, /window\.setInterval\(async \(\) => \{[\s\S]*String\(session\?\.user\?\.id \|\| ''\) !== String\(userId\)/, 'Polling nesmí pokračovat pro předchozího uživatele.');
 assert.match(account, /async function stopNotifications\(\)/, 'Účet musí mít centrální teardown realtime/pollingu.');
 
+assert.match(account, /\$\('alerts'\)\.addEventListener\('click',[\s\S]*?db\.from\('price_alerts'\)[\s\S]*?\.update\(\{ is_active: !active \}\)[\s\S]*?\.eq\('id', row\.dataset\.id\)[\s\S]*?\.eq\('user_id', userId\)/, 'Toggle cenového hlídače musí být omezen na aktuální user ID.');
+assert.match(account, /\$\('alerts'\)\.addEventListener\('click',[\s\S]*?db\.from\('price_alerts'\)[\s\S]*?\.delete\(\)[\s\S]*?\.eq\('id', row\.dataset\.id\)[\s\S]*?\.eq\('user_id', userId\)/, 'Smazání cenového hlídače musí být omezené na aktuální user ID.');
+assert.match(account, /\$\('notifications'\)\.addEventListener\('click',[\s\S]*?db\.from\('notifications'\)[\s\S]*?\.update\(\{ is_read: true \}\)[\s\S]*?\.eq\('id', row\.dataset\.notificationId\)[\s\S]*?\.eq\('user_id', userId\)/, 'Označení jedné notifikace musí být omezené na aktuální user ID.');
+
 assert.match(account, /onAuthStateChange\(\(event, nextSession\) =>/, 'Účet musí být řízen Supabase auth eventy.');
 for (const event of ['INITIAL_SESSION', 'SIGNED_IN', 'SIGNED_OUT']) {
   assert.ok(account.includes(`event === '${event}'`), `Auth lifecycle musí obsloužit ${event}.`);
