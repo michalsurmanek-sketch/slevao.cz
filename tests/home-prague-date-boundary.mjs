@@ -4,7 +4,6 @@ import fs from 'node:fs';
 const files = [
   'assets/home-leaflet-covers.js',
   'assets/home-overview.js',
-  'assets/home-overview-leaflets-fix.js',
 ];
 
 for (const file of files) {
