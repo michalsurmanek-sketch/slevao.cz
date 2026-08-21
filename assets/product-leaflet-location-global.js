@@ -134,13 +134,27 @@
     delete destination.dataset.exactLeafletLocation;
   }
 
+  async function loadOffers() {
+    const shared = window.__slevaoProductOffersPromise;
+    if (shared && typeof shared.then === 'function') {
+      try {
+        const result = await shared;
+        if (!result?.error && Array.isArray(result?.rows)) return result.rows;
+      } catch {}
+    }
+
+    const fallback = await db.from('offers')
+      .select('id,store_id,valid_from,valid_to,source_url,metadata,stores(slug)')
+      .eq('product_id', productId)
+      .eq('status', 'published')
+      .limit(100);
+    if (fallback.error) throw fallback.error;
+    return fallback.data || [];
+  }
+
   async function loadData() {
-    const [offersResult, locationsResult] = await Promise.all([
-      db.from('offers')
-        .select('id,store_id,valid_from,valid_to,source_url,metadata,stores(slug)')
-        .eq('product_id', productId)
-        .eq('status', 'published')
-        .limit(100),
+    const [offerRows, locationsResult] = await Promise.all([
+      loadOffers(),
       db.from('public_product_leaflet_locations')
         .select('store_id,source_page,document_url,import_id,valid_from,valid_to,updated_at')
         .eq('product_id', productId)
@@ -148,8 +162,7 @@
         .limit(100),
     ]);
 
-    if (offersResult.error) throw offersResult.error;
-    const offers = new Map((offersResult.data || []).map((offer) => [String(offer.id), offer]));
+    const offers = new Map((offerRows || []).map((offer) => [String(offer.id), offer]));
     const locations = locationsResult.error ? [] : (locationsResult.data || []);
     return { offers, locations };
   }
