@@ -5,7 +5,7 @@
 
   if (!document.querySelector('script[data-slevao-leaflet-control]')) {
     const control = document.createElement('script');
-    control.src = `assets/home-leaflet-control.js?v=20260812-2`;
+    control.src = `assets/home-leaflet-control.js?v=20260821-1`;
     control.defer = true;
     control.dataset.slevaoLeafletControl = 'true';
     document.head.append(control);
