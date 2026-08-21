@@ -459,23 +459,22 @@
     lastOverviewDay = pragueToday();
   }
 
-  function observe(id) {
+  function observe(id, options) {
     const node = $(id);
     if (!node) return;
-
-    new MutationObserver(schedule).observe(node, {
-      childList: true,
-      subtree: true,
-      attributes: true,
-      attributeFilter: ['src', 'hidden', 'style', 'class']
-    });
+    new MutationObserver(schedule).observe(node, options);
   }
 
   function init() {
     shell();
     schedule();
-    observe('leafletGrid');
-    observe('storeGrid');
+    observe('leafletGrid', {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ['src', 'hidden', 'style', 'class']
+    });
+    observe('storeGrid', { childList: true, subtree: true });
     document.addEventListener('slevao:store-directory', (event) => applyStoreDirectory(event.detail?.stores));
     refreshOverviewData();
 
