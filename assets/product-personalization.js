@@ -12,8 +12,18 @@
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(value);
+  }
+
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
+  }
 
   let session = null;
   let favoriteIds = readFavoriteIds();
@@ -253,14 +263,15 @@
     }
   }
 
-  function bestOffer(productId) {
+  function bestOffer(productId, today = pragueDate()) {
     const rows = accountOffers.get(productId) || [];
-    const current = rows.filter((row) => String(row.valid_from || '') <= today);
-    return (current.length ? current : rows).slice().sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
+    const eligible = rows.filter((row) => !row.valid_to || String(row.valid_to) >= today);
+    const current = eligible.filter((row) => !row.valid_from || String(row.valid_from) <= today);
+    return (current.length ? current : eligible).slice().sort((a, b) => Number(a.price) - Number(b.price))[0] || null;
   }
 
-  function personalCard(product, mode = 'favorite') {
-    const offer = bestOffer(product.id);
+  function personalCard(product, mode = 'favorite', today = pragueDate()) {
+    const offer = bestOffer(product.id, today);
     const image = product.image_url
       ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}" loading="lazy">`
       : '<span class="sfNoImage" aria-hidden="true">%</span>';
@@ -283,6 +294,8 @@
 
   async function fetchPersonalProducts(ids) {
     if (!ids.length) return { products:[], offers:[] };
+    const today = pragueDate();
+    const upcomingTo = addCalendarDays(today, 7);
     const [{ data:products, error:productError }, { data:offers, error:offerError }] = await Promise.all([
       db.from('products').select('id,name,brand,quantity_text,image_url,slug').in('id', ids).limit(500),
       db.from('offers').select('id,product_id,store_id,price,old_price,valid_from,valid_to,stores(id,name,slug)')
@@ -340,13 +353,14 @@
         accountOffers.set(String(offer.product_id), rows);
       });
 
+      const today = pragueDate();
       const favoriteProducts = favoriteOrder.map((id) => accountProducts.get(id)).filter(Boolean);
       const recentProducts = recentOrder.map((id) => accountProducts.get(id)).filter(Boolean).slice(0, 12);
       favoriteContainer.innerHTML = favoriteProducts.length
-        ? favoriteProducts.map((row) => personalCard(row, 'favorite')).join('')
+        ? favoriteProducts.map((row) => personalCard(row, 'favorite', today)).join('')
         : '<div class="sfEmpty" style="grid-column:1/-1">Zatím nemáš oblíbený produkt. Ulož si ho ve vyhledávání nebo na detailu.</div>';
       recentContainer.innerHTML = recentProducts.length
-        ? recentProducts.map((row) => personalCard(row, 'recent')).join('')
+        ? recentProducts.map((row) => personalCard(row, 'recent', today)).join('')
         : '<div class="sfEmpty" style="grid-column:1/-1">Historie prohlížení je prázdná.</div>';
       const count = document.getElementById('accountFavoriteCount');
       if (count) count.textContent = String(favoriteProducts.length);
