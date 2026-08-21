@@ -14,17 +14,17 @@
     ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${String(value).slice(0,10)}T12:00:00`))
     : '–';
 
-  function pragueDate(offsetDays = 0) {
-    const target = new Date(Date.now() + offsetDays * 86400000);
-    const parts = new Intl.DateTimeFormat('en-CA', {
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
       timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
-    }).formatToParts(target);
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return `${values.year}-${values.month}-${values.day}`;
+    }).format(value);
   }
 
-  const today = pragueDate();
-  const upcomingTo = pragueDate(7);
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
+  }
 
   async function getDb(timeout = 5000) {
     if (window.SlevaoPublic?.getSupabase) return window.SlevaoPublic.getSupabase();
@@ -109,16 +109,33 @@
     return [...ids];
   }
 
-  async function loadProducts(db, ids) {
-    const { data, error } = await db.from('products')
-      .select('id,name,brand,quantity_text,image_url,is_verified,is_active')
-      .in('id', [productId, ...ids])
-      .limit(60);
-    if (error) throw error;
-    return data || [];
+  async function sharedCurrentProduct() {
+    const shared = window.__slevaoProductPromise;
+    if (!shared || typeof shared.then !== 'function') return null;
+    try {
+      const result = await shared;
+      return !result?.error && result?.data ? result.data : null;
+    } catch {
+      return null;
+    }
   }
 
-  async function loadOffers(db, ids) {
+  async function loadProducts(db, ids) {
+    const current = await sharedCurrentProduct();
+    const queryIds = current ? ids : [productId, ...ids];
+    if (!queryIds.length) return current ? [current] : [];
+    const { data, error } = await db.from('products')
+      .select('id,name,brand,quantity_text,image_url,is_verified,is_active')
+      .in('id', queryIds)
+      .limit(60);
+    if (error) throw error;
+    const rows = data || [];
+    return current
+      ? [current, ...rows.filter((row) => String(row.id) !== String(productId))]
+      : rows;
+  }
+
+  async function loadOffers(db, ids, today, upcomingTo) {
     if (!ids.length) return [];
     const { data, error } = await db.from('offers')
       .select('id,product_id,store_id,title,price,old_price,valid_from,valid_to,stores(id,name,slug,logo_url)')
@@ -131,7 +148,7 @@
     return data || [];
   }
 
-  function bestOffersPerStore(rows) {
+  function bestOffersPerStore(rows, today) {
     const result = new Map();
     for (const row of rows || []) {
       const storeId = String(row.store_id || '');
@@ -162,7 +179,7 @@
     return `${prefix} · ${confidence} %`;
   }
 
-  function offerHtml(offer) {
+  function offerHtml(offer, today) {
     const store = offer.stores || {};
     const upcoming = String(offer.valid_from || '') > today;
     const validity = upcoming
@@ -178,7 +195,7 @@
     </article>`;
   }
 
-  function render(current, products, offers, links) {
+  function render(current, products, offers, links, today) {
     const safeProducts = products.filter((row) =>
       String(row.id) !== String(current.id)
       && row.is_verified === true
@@ -190,7 +207,7 @@
     const blocks = [];
     const allSafeOffers = [];
     for (const row of safeProducts) {
-      const rows = bestOffersPerStore(offers.filter((offer) => String(offer.product_id) === String(row.id)));
+      const rows = bestOffersPerStore(offers.filter((offer) => String(offer.product_id) === String(row.id)), today);
       if (!rows.length) continue;
       allSafeOffers.push(...rows);
       const link = links.find((item) =>
@@ -201,7 +218,7 @@
           <div><b>${esc(row.name)}</b><small>${esc([row.brand, row.quantity_text].filter(Boolean).join(' · '))}</small></div>
           <span class="sfEqEvidence">${esc(evidenceLabel(link))}</span>
         </div>
-        <div class="sfEqOffers">${rows.map(offerHtml).join('')}</div>
+        <div class="sfEqOffers">${rows.map((offer) => offerHtml(offer, today)).join('')}</div>
       </article>`);
     }
     if (!blocks.length) return;
@@ -230,10 +247,15 @@
       if (!links.length) return;
       const ids = counterpartIds(links);
       if (!ids.length) return;
-      const [products, offers] = await Promise.all([loadProducts(db, ids), loadOffers(db, ids)]);
+      const today = pragueDate();
+      const upcomingTo = addCalendarDays(today, 7);
+      const [products, offers] = await Promise.all([
+        loadProducts(db, ids),
+        loadOffers(db, ids, today, upcomingTo)
+      ]);
       const current = products.find((row) => String(row.id) === String(productId));
       if (!current?.is_verified || current.is_active === false) return;
-      render(current, products, offers, links);
+      render(current, products, offers, links, today);
     } catch (error) {
       console.warn('SLEVAO ověřené ekvivalence:', error?.message || error);
     }
