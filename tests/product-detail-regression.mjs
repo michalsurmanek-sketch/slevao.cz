@@ -40,7 +40,13 @@ assert.match(detail, /function dedupeOffers\(/, 'Detail nemá deduplikaci nabíd
 assert.match(detail, /const visible = dedupeOffers\(offers\)/, 'Render nepoužívá deduplikované nabídky.');
 assert.match(detail, /nejnižší cena dnes/, 'Detail neoznačuje dnešní minimum jednoznačně.');
 assert.match(detail, /nejnižší nadcházející cena/, 'Detail neoznačuje nadcházející minimum jednoznačně.');
-assert.match(detail, /const current = visible\.filter\(\(row\) => !isUpcoming\(row\)\)/, 'Hlavní cena musí preferovat aktuálně platné nabídky.');
+assert.match(detail, /const current = visible\.filter\(\(row\) => !isUpcoming\(row, today\)\)/, 'Hlavní cena musí preferovat aktuálně platné nabídky proti aktuálnímu pražskému dni.');
+
+assert.match(detail, /function pragueDate\(value = new Date\(\)\)/, 'Detail musí odvozovat business day dynamicky pro Europe/Prague.');
+assert.match(detail, /function addCalendarDays\(dateKey, days\)/, 'Sedmidenní okno musí používat kalendářní aritmetiku.');
+assert.match(detail, /const today = pragueDate\(\);[\s\S]*const upcomingTo = addCalendarDays\(today, 7\);/, 'Dotaz nabídek musí vytvořit čerstvé pražské sedmidenní okno při načtení.');
+assert.doesNotMatch(detail, /offsetDays\s*\*\s*86400000/, 'Detail nesmí posouvat pražský den pevnými 24hodinovými bloky přes DST.');
+assert.doesNotMatch(detail, /const today = pragueDate\(0\)|const upcomingTo = pragueDate\(7\)/, 'Detail nesmí zmrazit dnešek a budoucí hranici při inicializaci skriptu.');
 
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
@@ -81,6 +87,8 @@ assert.match(intelligence, /BEZ DOPORUČENÍ/, 'Nejistá identita nemá bezpečn
 assert.doesNotMatch(intelligence, /offers\.length >= 2/, 'Slevao skóre stále používá počet řádků nabídek místo počtu obchodů.');
 assert.match(intelligence, /timeZone:'Europe\/Prague'/, 'Slevao skóre nepoužívá české datum pro platnost nabídek.');
 
+assert.doesNotMatch(detail, /public_product_leaflet_locations|function matchingLeaflet\(/, 'Základní detail nesmí duplikovat méně přesné párování produktu na leták.');
+assert.match(leaflet, /db\.from\('public_product_leaflet_locations'\)/, 'Exact leaflet vrstva musí zůstat jediným vlastníkem location cache.');
 assert.match(leaflet, /function exactLocation\(/, 'Detail nemá přesné párování produktu na leták.');
 assert.match(leaflet, /unique\.length === 1/, 'Leták se nesmí otevřít na nejednoznačné stránce.');
 assert.match(leaflet, /validPdf\(row\.document_url\)/, 'Odkaz do letáku musí ověřovat PDF adresu.');
