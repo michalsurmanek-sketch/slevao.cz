@@ -46,7 +46,8 @@
   const today = pragueDate(0);
   const upcomingTo = pragueDate(7);
   const resolved = new Map();
-  const pending = new Map();
+  const queued = new Set();
+  let batchPromise = null;
 
   function leafletUrl(documentUrl) {
     const raw = String(documentUrl || '').trim();
@@ -54,77 +55,75 @@
     return `${raw.split('#')[0]}#page=1&zoom=page-fit`;
   }
 
-  async function queryLeaflet(storeSlug, upcoming = false) {
+  function chooseLeaflet(rows, storeSlug) {
+    const candidates = rows.filter((row) => String(row?.store_slug || '') === storeSlug);
+    const current = candidates
+      .filter((row) => String(row?.valid_from || '') <= today && String(row?.valid_to || '') >= today)
+      .sort((a, b) => String(a.valid_to || '').localeCompare(String(b.valid_to || '')))[0];
+    if (current) return current;
+
+    return candidates
+      .filter((row) => String(row?.valid_from || '') > today && String(row?.valid_from || '') <= upcomingTo)
+      .sort((a, b) => String(a.valid_from || '').localeCompare(String(b.valid_from || '')))[0] || null;
+  }
+
+  async function fetchBatch(storeSlugs) {
+    const safe = [...new Set(storeSlugs)]
+      .map((slug) => String(slug || '').trim().toLowerCase())
+      .filter((slug) => /^[a-z0-9-]+$/.test(slug));
+    if (!safe.length) return;
+
     const params = new URLSearchParams({
-      select: 'document_url,valid_from,valid_to',
-      store_slug: `eq.${storeSlug}`,
+      select: 'store_slug,document_url,valid_from,valid_to',
+      store_slug: `in.(${safe.join(',')})`,
       valid_to: `gte.${today}`,
-      valid_from: upcoming ? `gt.${today}` : `lte.${today}`,
-      order: upcoming ? 'valid_from.asc' : 'valid_to.asc',
-      limit: '1'
+      valid_from: `lte.${upcomingTo}`,
+      order: 'store_slug.asc,valid_from.asc,valid_to.asc',
+      limit: String(Math.min(500, Math.max(60, safe.length * 20)))
     });
 
-    if (upcoming) params.set('valid_from', `lte.${upcomingTo}`);
-
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
-      headers: { apikey: SUPABASE_KEY },
-      cache: 'default'
-    });
-    if (!response.ok) throw new Error(`Leták se nepodařilo načíst (${response.status}).`);
-    const row = (await response.json())[0];
-    return leafletUrl(row?.document_url);
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
+        headers: { apikey: SUPABASE_KEY },
+        cache: 'default'
+      });
+      if (!response.ok) throw new Error(`Letáky se nepodařilo načíst (${response.status}).`);
+      const payload = await response.json();
+      const rows = Array.isArray(payload) ? payload : [];
+      safe.forEach((slug) => {
+        const row = chooseLeaflet(rows, slug);
+        resolved.set(slug, leafletUrl(row?.document_url));
+      });
+    } catch (error) {
+      console.warn('Přímé letáky nejsou dostupné:', error);
+      safe.forEach((slug) => resolved.set(slug, ''));
+    }
   }
 
-  async function resolveLeaflet(storeSlug) {
-    if (!storeSlug) return '';
-    if (resolved.has(storeSlug)) return resolved.get(storeSlug);
-    if (pending.has(storeSlug)) return pending.get(storeSlug);
+  function queueBatch(storeSlugs) {
+    storeSlugs.forEach((slug) => {
+      if (slug && !resolved.has(slug)) queued.add(slug);
+    });
+    if (batchPromise) return batchPromise;
 
-    const request = (async () => {
-      try {
-        let url = await queryLeaflet(storeSlug, false);
-        if (!url) {
-          const params = new URLSearchParams({
-            select: 'document_url,valid_from,valid_to',
-            store_slug: `eq.${storeSlug}`,
-            valid_to: `gte.${today}`,
-            valid_from: `gt.${today}`,
-            order: 'valid_from.asc',
-            limit: '20'
-          });
-          const response = await fetch(`${SUPABASE_URL}/rest/v1/public_product_leaflet_locations?${params}`, {
-            headers: { apikey: SUPABASE_KEY },
-            cache: 'default'
-          });
-          if (response.ok) {
-            const rows = await response.json();
-            const row = rows.find((item) => String(item.valid_from || '') <= upcomingTo);
-            url = leafletUrl(row?.document_url);
-          }
-        }
-        resolved.set(storeSlug, url || '');
-        return url || '';
-      } catch (error) {
-        console.warn(`Přímý leták pro ${storeSlug} není dostupný:`, error);
-        resolved.set(storeSlug, '');
-        return '';
-      } finally {
-        pending.delete(storeSlug);
+    batchPromise = (async () => {
+      while (queued.size) {
+        const batch = [...queued];
+        queued.clear();
+        await fetchBatch(batch);
       }
-    })();
+    })().finally(() => {
+      batchPromise = null;
+      schedule();
+    });
 
-    pending.set(storeSlug, request);
-    return request;
+    return batchPromise;
   }
 
-  async function enhanceCard(card) {
-    const storeControl = card.querySelector('.leafletAction [data-store]');
-    const storeSlug = storeControl?.dataset.store || '';
+  function enhanceCard(card, storeSlug) {
     const link = card.querySelector('.leafletAction a');
-    if (!storeSlug || !link) return;
-
-    const url = await resolveLeaflet(storeSlug);
-    if (!url || !card.isConnected) return;
+    const url = resolved.get(storeSlug) || '';
+    if (!link || !url || !card.isConnected) return;
 
     link.href = url;
     link.target = '_blank';
@@ -139,7 +138,16 @@
     frame = 0;
     const currentGrid = document.getElementById('leafletGrid');
     if (!currentGrid) return;
-    currentGrid.querySelectorAll('.leafletCard[data-direct-leaflet-card="1"]').forEach((card) => enhanceCard(card));
+
+    const missing = [];
+    currentGrid.querySelectorAll('.leafletCard[data-direct-leaflet-card="1"]').forEach((card) => {
+      const storeSlug = card.querySelector('.leafletAction [data-store]')?.dataset.store || '';
+      if (!storeSlug) return;
+      if (resolved.has(storeSlug)) enhanceCard(card, storeSlug);
+      else missing.push(storeSlug);
+    });
+
+    if (missing.length) queueBatch(missing);
   }
 
   function schedule() {
