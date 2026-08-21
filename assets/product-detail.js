@@ -214,8 +214,12 @@
       'Produkt'
     );
     const offersRequest = withTimeout(
-      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,stores(id,name,slug,logo_url)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
+      db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,metadata,stores(id,name,slug,logo_url)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
       'Aktuální nabídky'
+    );
+    window.__slevaoProductOffersPromise = Promise.resolve(offersRequest).then(
+      (result) => ({ rows: result?.error ? [] : (result?.data || []), error: result?.error || null }),
+      (error) => ({ rows: [], error })
     );
 
     const productResult = await productRequest;
@@ -224,8 +228,8 @@
     product = productResult.data;
     renderIdentity();
 
-    const offersResult = await offersRequest.catch((error) => ({ data:[], error }));
-    offers = offersResult.error ? [] : (offersResult.data || []);
+    const sharedOffers = await window.__slevaoProductOffersPromise;
+    offers = sharedOffers?.error ? [] : (sharedOffers?.rows || []);
     renderOffers();
 
     const historyRequest = withTimeout(
