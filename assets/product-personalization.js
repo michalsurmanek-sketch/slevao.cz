@@ -48,7 +48,7 @@
     return new Set(Array.isArray(rows) ? rows.map(String).filter(Boolean) : []);
   }
 
-  function saveFavoriteIds() {
+  function saveAnonymousFavoriteIds() {
     try { localStorage.setItem(FAVORITES_KEY, JSON.stringify([...favoriteIds])); } catch {}
   }
 
@@ -185,18 +185,7 @@
       .eq('user_id', session.user.id)
       .limit(5000);
     if (error) throw error;
-    (data || []).forEach((row) => favoriteIds.add(String(row.product_id)));
-    saveFavoriteIds();
-  }
-
-  async function syncLocalFavorites() {
-    if (!session || !favoriteIds.size) return;
-    const rows = [...favoriteIds].map((productId) => ({ user_id:session.user.id, product_id:productId }));
-    for (let index = 0; index < rows.length; index += 300) {
-      const { error } = await db.from('product_favorites')
-        .upsert(rows.slice(index, index + 300), { onConflict:'user_id,product_id', ignoreDuplicates:true });
-      if (error) throw error;
-    }
+    favoriteIds = new Set((data || []).map((row) => String(row.product_id)).filter(Boolean));
   }
 
   async function syncRecentRows() {
@@ -215,20 +204,21 @@
   async function toggleFavorite(productId) {
     productId = String(productId || '');
     if (!productId) return;
+    const userId = String(session?.user?.id || '');
     const removing = favoriteIds.has(productId);
     if (removing) favoriteIds.delete(productId); else favoriteIds.add(productId);
-    saveFavoriteIds();
+    if (!userId) saveAnonymousFavoriteIds();
     updateFavoriteButtons();
 
     try {
-      if (session) {
+      if (userId) {
         if (removing) {
           const { error } = await db.from('product_favorites')
-            .delete().eq('user_id', session.user.id).eq('product_id', productId);
+            .delete().eq('user_id', userId).eq('product_id', productId);
           if (error) throw error;
         } else {
           const { error } = await db.from('product_favorites')
-            .upsert({ user_id:session.user.id, product_id:productId }, { onConflict:'user_id,product_id' });
+            .upsert({ user_id:userId, product_id:productId }, { onConflict:'user_id,product_id' });
           if (error) throw error;
         }
       }
@@ -236,7 +226,7 @@
       renderAccountDashboard();
     } catch (error) {
       if (removing) favoriteIds.add(productId); else favoriteIds.delete(productId);
-      saveFavoriteIds();
+      if (!userId) saveAnonymousFavoriteIds();
       updateFavoriteButtons();
       toast(error.message || 'Oblíbené se nepodařilo uložit.');
     }
@@ -392,13 +382,15 @@
 
     if (!userId) {
       hydratedUserId = '';
+      favoriteIds = readFavoriteIds();
       accountProducts = new Map();
       accountOffers = new Map();
       updateFavoriteButtons();
       return;
     }
 
-    await syncLocalFavorites();
+    favoriteIds = new Set();
+    updateFavoriteButtons();
     await syncRecentRows();
     await loadServerFavorites();
     hydratedUserId = userId;

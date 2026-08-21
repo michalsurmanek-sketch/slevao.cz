@@ -87,6 +87,15 @@ assert.match(personalization, /event === 'TOKEN_REFRESHED' \|\| event === 'USER_
 assert.match(personalization, /authWork = authWork\.catch\(\(\) => \{\}\)\.then\(\(\) => hydrateSession\(nextSession\)\)/, 'Auth hydratace musí být serializovaná, aby se souběžné eventy nepřekrývaly.');
 assert.match(personalization, /authSubscription\?\.unsubscribe\?\.\(\)/, 'Auth subscription se musí při pagehide odhlásit.');
 
+assert.doesNotMatch(personalization, /function syncLocalFavorites\(/, 'Anonymní device favorites se nesmí automaticky nahrávat do libovolného přihlášeného účtu.');
+assert.match(personalization, /favoriteIds = new Set\(\(data \|\| \[\]\)\.map\(\(row\) => String\(row\.product_id\)\)\.filter\(Boolean\)\);/, 'Přihlášené favorites musí být nahrazeny čistým serverovým setem aktuálního účtu.');
+assert.match(personalization, /if \(!userId\) \{[\s\S]*favoriteIds = readFavoriteIds\(\);/, 'Po odhlášení se musí obnovit pouze anonymní device favorites.');
+assert.match(personalization, /favoriteIds = new Set\(\);[\s\S]*await syncRecentRows\(\);[\s\S]*await loadServerFavorites\(\);/, 'Při přihlášení se device favorites nesmí míchat do serverových favorites.');
+assert.match(personalization, /const userId = String\(session\?\.user\?\.id \|\| ''\);[\s\S]*if \(!userId\) saveAnonymousFavoriteIds\(\);/, 'Do localStorage se smějí zapisovat favorites pouze bez přihlášeného user ID.');
+const serverFavoriteLoader = personalization.match(/async function loadServerFavorites\(\)[\s\S]*?\n  \}/)?.[0] || '';
+assert.ok(serverFavoriteLoader, 'Chybí serverový loader favorites.');
+assert.doesNotMatch(serverFavoriteLoader, /localStorage|saveAnonymousFavoriteIds/, 'Serverové favorites se nesmí persistovat do anonymního device storage.');
+
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
 assert.match(seo, /offersRoot\.dataset\.loaded !== '1'/, 'SEO nečeká na kompletní nabídky.');
