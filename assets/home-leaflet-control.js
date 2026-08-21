@@ -8,12 +8,14 @@
   const COVER_KEY = 'slevao-cover';
   const VISIBILITY_KEY = 'slevao-leaflet-visibility';
   const FORCE_KEY = 'slevao-leaflet-force';
+  const SETTINGS_REFRESH_MS = 5 * 60 * 1000;
 
   let storeSettings = new Map();
   let loading = null;
   let scheduled = 0;
   let generation = 0;
   let applying = false;
+  let lastSettingsRefreshAt = 0;
   const imageChecks = new Map();
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -102,6 +104,7 @@
         if (setting.slug) next.set(setting.slug, setting);
       }
       storeSettings = next;
+      lastSettingsRefreshAt = Date.now();
       generation += 1;
       imageChecks.clear();
     })().catch((error) => {
@@ -299,9 +302,10 @@
     window.setInterval(() => {
       if (document.hidden) return;
       refresh(true);
-    }, 5 * 60 * 1000);
+    }, SETTINGS_REFRESH_MS);
     document.addEventListener('visibilitychange', () => {
-      if (!document.hidden) refresh(true);
+      if (document.hidden) return;
+      if (Date.now() - lastSettingsRefreshAt >= SETTINGS_REFRESH_MS) refresh(true);
     });
   }
 
