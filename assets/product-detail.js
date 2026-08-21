@@ -210,35 +210,44 @@
     const today = pragueDate();
     const upcomingTo = addCalendarDays(today, 7);
     const productRequest = withTimeout(
-      db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id').eq('id', productId).maybeSingle(),
+      db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id,is_verified,is_active,metadata').eq('id', productId).maybeSingle(),
       'Produkt'
     );
     const offersRequest = withTimeout(
       db.from('offers').select('id,product_id,store_id,title,price,old_price,unit_price,unit_price_unit,valid_from,valid_to,source_url,store_location_name,metadata,stores(id,name,slug,logo_url)').eq('product_id', productId).eq('status','published').lte('valid_from', upcomingTo).gte('valid_to', today).limit(100),
       'Aktuální nabídky'
     );
+    const historyRequest = withTimeout(
+      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug,logo_url)').eq('product_id', productId).order('recorded_at').limit(1000),
+      'Historie cen',
+      10000
+    );
+
+    window.__slevaoProductPromise = Promise.resolve(productRequest).then(
+      (result) => ({ data: result?.error ? null : (result?.data || null), error: result?.error || null }),
+      (error) => ({ data: null, error })
+    );
     window.__slevaoProductOffersPromise = Promise.resolve(offersRequest).then(
       (result) => ({ rows: result?.error ? [] : (result?.data || []), error: result?.error || null }),
       (error) => ({ rows: [], error })
     );
+    window.__slevaoProductHistoryPromise = Promise.resolve(historyRequest).then(
+      (result) => ({ rows: result?.error ? [] : (result?.data || []), error: result?.error || null }),
+      (error) => ({ rows: [], error })
+    );
 
-    const productResult = await productRequest;
-    if (productResult.error) throw productResult.error;
-    if (!productResult.data) throw new Error('Produkt nebyl nalezen.');
-    product = productResult.data;
+    const sharedProduct = await window.__slevaoProductPromise;
+    if (sharedProduct?.error) throw sharedProduct.error;
+    if (!sharedProduct?.data) throw new Error('Produkt nebyl nalezen.');
+    product = sharedProduct.data;
     renderIdentity();
 
     const sharedOffers = await window.__slevaoProductOffersPromise;
     offers = sharedOffers?.error ? [] : (sharedOffers?.rows || []);
     renderOffers();
 
-    const historyRequest = withTimeout(
-      db.from('price_history').select('id,product_id,store_id,offer_id,price,old_price,unit_price,recorded_at,valid_from,valid_to,stores(name,slug,logo_url)').eq('product_id', productId).order('recorded_at').limit(1000),
-      'Historie cen',
-      10000
-    );
-    const historyResult = await historyRequest.catch((error) => ({ data:[], error }));
-    if (!historyResult.error) history = historyResult.data || [];
+    const sharedHistory = await window.__slevaoProductHistoryPromise;
+    if (!sharedHistory?.error) history = sharedHistory?.rows || [];
     renderHistory();
     renderOffers();
   }

@@ -32,6 +32,24 @@
     throw new Error('Datová služba identity není dostupná.');
   }
 
+  async function loadProduct() {
+    const shared = window.__slevaoProductPromise;
+    if (shared && typeof shared.then === 'function') {
+      try {
+        const result = await shared;
+        if (!result?.error && result?.data) return result.data;
+      } catch {}
+    }
+
+    const db = await getDb();
+    const { data, error } = await db.from('products')
+      .select('id,brand,ean,quantity_text,is_verified,metadata')
+      .eq('id', productId)
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  }
+
   function updateDynamicCopy(exact) {
     const statLabels = root.querySelectorAll('.sfStats .sfStat small');
     if (statLabels[0]) statLabels[0].textContent = exact ? 'Nejnižší za 30 dní' : 'Minimum srovnatelných cen za 30 dní';
@@ -108,12 +126,7 @@
 
   async function init() {
     try {
-      const db = await getDb();
-      const { data, error } = await db.from('products')
-        .select('id,brand,ean,quantity_text,is_verified,metadata')
-        .eq('id', productId)
-        .maybeSingle();
-      if (error) throw error;
+      const data = await loadProduct();
       apply(exactIdentity(data) ? 'exact' : 'comparable');
     } catch {
       // Při nejistotě se nikdy netvrdí, že jde o přesně stejné SKU.
