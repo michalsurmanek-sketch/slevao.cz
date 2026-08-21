@@ -10,24 +10,29 @@ const safety = read('assets/product-detail-safety.js');
 const identityGuard = read('assets/product-identity-guard.js');
 const identityCss = read('assets/product-identity-guard.css');
 const publicFeatures = read('assets/public-features.js');
+const publicNav = read('assets/public-nav-upgrade.js');
 const seo = read('assets/product-seo.js');
 const intelligence = read('assets/product-intelligence.js');
 const leaflet = read('assets/product-leaflet-location-global.js');
 const premiumRuntime = read('assets/product-premium-runtime.js');
+const personalization = read('assets/product-personalization.js');
 const equivalence = read('assets/product-equivalence.js');
 const equivalenceCss = read('assets/product-equivalence.css');
 const serviceWorker = read('service-worker.js');
 const html = read('produkt.html');
+const accountHtml = read('ucet.html');
 
 for (const [path, source] of [
   ['assets/product-detail.js', detail],
   ['assets/product-detail-safety.js', safety],
   ['assets/product-identity-guard.js', identityGuard],
   ['assets/public-features.js', publicFeatures],
+  ['assets/public-nav-upgrade.js', publicNav],
   ['assets/product-seo.js', seo],
   ['assets/product-intelligence.js', intelligence],
   ['assets/product-leaflet-location-global.js', leaflet],
   ['assets/product-premium-runtime.js', premiumRuntime],
+  ['assets/product-personalization.js', personalization],
   ['assets/product-equivalence.js', equivalence],
   ['service-worker.js', serviceWorker],
 ]) {
@@ -64,6 +69,13 @@ assert.match(intelligence, /const shared = window\.__slevaoProductOffersPromise/
 assert.match(intelligence, /const shared = window\.__slevaoProductHistoryPromise/, 'Intelligence musí používat sdílenou historii.');
 assert.match(intelligence, /db\.from\('products'\)[\s\S]*db\.from\('offers'\)[\s\S]*db\.from\('price_history'\)/, 'Intelligence musí zachovat vlastní DB fallbacky pro samostatné použití.');
 assert.match(intelligence, /Date\.UTC\(year, month - 1, day \+ Number\(days \|\| 0\)\)/, 'Intelligence fallback musí používat kalendářní sedmidenní okno bez DST driftu.');
+
+assert.match(personalization, /function pragueDate\(value = new Date\(\)\)/, 'Personalizace musí používat čerstvý Europe/Prague business day.');
+assert.match(personalization, /function addCalendarDays\(dateKey, days\)/, 'Personalizace musí používat kalendářní aritmetiku pro sedmidenní okno.');
+assert.match(personalization, /async function fetchPersonalProducts\(ids\)[\s\S]*const today = pragueDate\(\);[\s\S]*const upcomingTo = addCalendarDays\(today, 7\);/, 'Osobní produkty musí vytvořit čerstvé Prague +7 okno při každém načtení.');
+assert.match(personalization, /function bestOffer\(productId, today = pragueDate\(\)\)/, 'Výběr osobní nabídky musí používat čerstvý pražský den.');
+assert.match(personalization, /const eligible = rows\.filter\(\(row\) => !row\.valid_to \|\| String\(row\.valid_to\) >= today\);/, 'Personalizace musí po změně dne vyřadit i mezitím expirované nabídky z paměti.');
+assert.doesNotMatch(personalization, /const today = new Date\(\)\.toISOString\(\)\.slice\(0, 10\)|Date\.now\(\) \+ 7 \* 86400000/, 'Personalizace nesmí používat top-level UTC den ani pevný 24hodinový +7 offset.');
 
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
@@ -144,5 +156,19 @@ for (const asset of productAssets) {
     `PWA cache nemá stejnou verzi assetu jako produkt.html: ${asset}.`,
   );
 }
+
+const productPersonalizationVersion = html.match(/assets\/product-personalization\.js\?v=([0-9-]+)/)?.[1] || '';
+const accountPersonalizationVersion = accountHtml.match(/assets\/product-personalization\.js\?v=([0-9-]+)/)?.[1] || '';
+const dynamicPersonalizationVersion = publicNav.match(/assets\/product-personalization\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(productPersonalizationVersion, 'Produkt nemá verzovaný personalizační runtime.');
+assert.equal(accountPersonalizationVersion, productPersonalizationVersion, 'Účet musí načítat stejnou verzi personalizace jako produkt.');
+assert.equal(dynamicPersonalizationVersion, productPersonalizationVersion, 'Dynamický public-nav loader musí načítat stejnou verzi personalizace jako produkt.');
+assert.ok(serviceWorker.includes(`'/assets/product-personalization.js?v=${productPersonalizationVersion}'`), 'PWA musí cacheovat stejnou verzi personalizace jako produkt a účet.');
+
+const productNavVersion = html.match(/assets\/public-nav-upgrade\.js\?v=([0-9-]+)/)?.[1] || '';
+const accountNavVersion = accountHtml.match(/assets\/public-nav-upgrade\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(productNavVersion, 'Produkt nemá verzovaný public-nav runtime.');
+assert.equal(accountNavVersion, productNavVersion, 'Účet musí načítat stejnou verzi public-nav runtime jako produkt.');
+assert.ok(serviceWorker.includes(`'/assets/public-nav-upgrade.js?v=${productNavVersion}'`), 'PWA musí cacheovat stejnou verzi public-nav runtime jako produkt a účet.');
 
 console.log('Detail produktu: regresní diagnostika prošla.');
