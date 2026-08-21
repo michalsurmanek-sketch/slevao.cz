@@ -17,22 +17,22 @@
 
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-  function pragueDate(offsetDays = 0) {
-    const target = new Date(Date.now() + offsetDays * 86400000);
-    const parts = new Intl.DateTimeFormat('en-CA', {
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).formatToParts(target);
-    const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return `${values.year}-${values.month}-${values.day}`;
+    }).format(value);
   }
 
-  const today = pragueDate(0);
-  const upcomingTo = pragueDate(7);
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
+  }
+
   const productId = new URLSearchParams(location.search).get('id');
   let product = null;
   let offers = [];
   let history = [];
-  let leafletLocations = [];
 
   const median = (values) => {
     const rows = values.map(Number).filter(Number.isFinite).sort((a,b) => a-b);
@@ -41,7 +41,7 @@
     return rows.length % 2 ? rows[mid] : (rows[mid - 1] + rows[mid]) / 2;
   };
 
-  const isUpcoming = (offer) => String(offer?.valid_from || '') > today;
+  const isUpcoming = (offer, today = pragueDate()) => String(offer?.valid_from || '') > today;
 
   function offerStoreKey(offer) {
     return String(offer?.store_id || '').trim();
@@ -121,32 +121,24 @@
     return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Vývoj ceny produktu"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height-pad}" stroke="#dbe8e5"/><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#dbe8e5"/><path d="${path}" fill="none" stroke="#0b776f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#12b8a6"><title>${money(point.row.price)} Kč · ${date(point.row.recorded_at)}</title></circle>`).join('')}<text x="6" y="${pad+4}" font-size="13" fill="#667774">${money(max)} Kč</text><text x="6" y="${height-pad+4}" font-size="13" fill="#667774">${money(min)} Kč</text><text x="${pad}" y="${height-7}" font-size="12" fill="#667774">${date(rows[0].recorded_at)}</text><text x="${width-pad}" y="${height-7}" text-anchor="end" font-size="12" fill="#667774">${date(rows.at(-1).recorded_at)}</text></svg>`;
   }
 
-  function matchingLeaflet(offer) {
-    return leafletLocations.find((row) => row.store_id === offer.store_id && (!row.valid_from || row.valid_from === offer.valid_from))
-      || leafletLocations.find((row) => row.store_id === offer.store_id)
-      || null;
-  }
-
-  function offerHtml(offer, isBest) {
+  function offerHtml(offer, isBest, today) {
     const label = dealLabel(offer);
     const store = offer.stores;
     const discount = Number(offer.old_price) > Number(offer.price)
       ? Math.round((Number(offer.old_price) - Number(offer.price)) / Number(offer.old_price) * 100) : 0;
-    const location = matchingLeaflet(offer);
-    const leafletUrl = location?.document_url ? `${location.document_url}#page=${Math.max(1, Number(location.source_page || 1))}` : null;
-    const validity = isUpcoming(offer)
+    const validity = isUpcoming(offer, today)
       ? `začíná ${date(offer.valid_from)} · platí do ${date(offer.valid_to)}`
       : `platí do ${date(offer.valid_to)}`;
-    const bestText = isBest ? (isUpcoming(offer) ? ' · nejnižší nadcházející cena' : ' · nejnižší cena dnes') : '';
+    const bestText = isBest ? (isUpcoming(offer, today) ? ' · nejnižší nadcházející cena' : ' · nejnižší cena dnes') : '';
     return `<article class="sfCard sfOffer ${isBest ? 'best' : ''}">
       <div class="sfOfferStoreRow">${storeLogoHtml(store)}<div class="sfOfferStore">${esc(offerStoreLabel(offer))}${bestText}</div></div>
       <div><span class="sfPrice">${money(offer.price)} Kč</span>${offer.old_price ? `<span class="sfOldPrice">${money(offer.old_price)} Kč</span>` : ''}</div>
       <div class="sfMuted">${offer.unit_price ? `${money(offer.unit_price)} Kč/${esc(offer.unit_price_unit || 'jednotka')} · ` : ''}${validity}</div>
-      <div style="margin-top:9px"><span class="sfBadge ${label.className}">${esc(label.label)}</span>${isUpcoming(offer) ? ' <span class="sfBadge warn">Od zítřka / brzy</span>' : ''}${discount ? ` <span class="sfBadge">−${discount} %</span>` : ''}</div>
+      <div style="margin-top:9px"><span class="sfBadge ${label.className}">${esc(label.label)}</span>${isUpcoming(offer, today) ? ' <span class="sfBadge warn">Od zítřka / brzy</span>' : ''}${discount ? ` <span class="sfBadge">−${discount} %</span>` : ''}</div>
       <div class="sfOfferActions">
         <button class="sfButton primary" type="button" data-add-offer="${offer.id}">Přidat do seznamu</button>
         <button class="sfButton" type="button" data-alert-offer="${offer.id}">Hlídat cenu</button>
-        ${leafletUrl ? `<a class="sfButton" href="${esc(leafletUrl)}" target="_blank" rel="noopener">Leták · strana ${location.source_page}</a>` : `<a class="sfButton" href="${esc(store?.slug || '')}.html">Stránka obchodu</a>`}
+        <a class="sfButton" href="${esc(store?.slug || '')}.html">Stránka obchodu</a>
         <button class="sfButton" type="button" data-report-offer="${offer.id}">Nahlásit problém</button>
       </div>
     </article>`;
@@ -163,17 +155,18 @@
   }
 
   function renderOffers() {
-    const visible = dedupeOffers(offers).sort((a,b) => Number(isUpcoming(a)) - Number(isUpcoming(b)) || Number(a.price) - Number(b.price));
-    const current = visible.filter((row) => !isUpcoming(row));
+    const today = pragueDate();
+    const visible = dedupeOffers(offers).sort((a,b) => Number(isUpcoming(a, today)) - Number(isUpcoming(b, today)) || Number(a.price) - Number(b.price));
+    const current = visible.filter((row) => !isUpcoming(row, today));
     const comparable = current.length ? current : visible;
     const cheapest = comparable.slice().sort((a,b) => Number(a.price) - Number(b.price))[0] || null;
     $('currentPrice').textContent = cheapest ? `${money(cheapest.price)} Kč` : 'Bez viditelné ceny';
     $('currentStore').innerHTML = cheapest
-      ? `<span class="sfCurrentStore">${storeLogoHtml(cheapest.stores, 'sfCurrentStoreLogo')}<span>${esc(isUpcoming(cheapest) ? `Od ${date(cheapest.valid_from)} nejlevněji v ${offerStoreLabel(cheapest)}` : `Právě teď nejlevněji v ${offerStoreLabel(cheapest)}`)}</span></span>`
+      ? `<span class="sfCurrentStore">${storeLogoHtml(cheapest.stores, 'sfCurrentStoreLogo')}<span>${esc(isUpcoming(cheapest, today) ? `Od ${date(cheapest.valid_from)} nejlevněji v ${offerStoreLabel(cheapest)}` : `Právě teď nejlevněji v ${offerStoreLabel(cheapest)}`)}</span></span>`
       : 'Aktuální ani nadcházející nabídka není dostupná';
     $('statStores').textContent = String(new Set(visible.map(offerStoreKey).filter(Boolean)).size);
     $('statTypical').textContent = typicalPrice() == null ? '–' : `${money(typicalPrice())} Kč`;
-    $('offers').innerHTML = visible.length ? visible.map((offer) => offerHtml(offer, cheapest && String(offer.id) === String(cheapest.id))).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
+    $('offers').innerHTML = visible.length ? visible.map((offer) => offerHtml(offer, cheapest && String(offer.id) === String(cheapest.id), today)).join('') : '<div class="sfEmpty">Tento produkt nemá platnou ani brzy začínající akční nabídku.</div>';
     $('offers').dataset.loaded = '1';
     window.dispatchEvent(new CustomEvent('slevao:product-offers-rendered', { detail:{ productId, offerCount:visible.length } }));
   }
@@ -214,6 +207,8 @@
   async function load() {
     if (!productId) throw new Error('V odkazu chybí identifikátor produktu.');
 
+    const today = pragueDate();
+    const upcomingTo = addCalendarDays(today, 7);
     const productRequest = withTimeout(
       db.from('products').select('id,name,slug,brand,ean,quantity_text,image_url,description,category_id').eq('id', productId).maybeSingle(),
       'Produkt'
@@ -238,15 +233,8 @@
       'Historie cen',
       10000
     );
-    const locationRequest = withTimeout(
-      db.from('public_product_leaflet_locations').select('*').eq('product_id', productId).order('valid_to', { ascending:false }).limit(30),
-      'Umístění v letáku',
-      8000
-    );
-
-    const [historySettled, locationSettled] = await Promise.allSettled([historyRequest, locationRequest]);
-    if (historySettled.status === 'fulfilled' && !historySettled.value.error) history = historySettled.value.data || [];
-    if (locationSettled.status === 'fulfilled' && !locationSettled.value.error) leafletLocations = locationSettled.value.data || [];
+    const historyResult = await historyRequest.catch((error) => ({ data:[], error }));
+    if (!historyResult.error) history = historyResult.data || [];
     renderHistory();
     renderOffers();
   }
