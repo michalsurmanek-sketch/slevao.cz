@@ -35,4 +35,11 @@ assert.match(allStores, /\[90, 180, 320, 520\]\.forEach/, 'Scroll po výběru ob
 assert.match(allStores, /stabilizeDealsScroll\(\)/, 'Kliknutí na obchod nepoužívá stabilizovaný scroll.');
 assert.match(homepageRuntime, /refreshCurrent\(\)\.then\(scrollToDealsAfterStoreLayout\)/, 'Datový runtime po výběru obchodu nedokončí scroll až po načtení serverových výsledků.');
 
+assert.match(allStores, /const STORE_REFRESH_MS = 5 \* 60 \* 1000;/, 'Adresář obchodů nemá jednotné pětiminutové freshness okno.');
+assert.match(allStores, /lastStoresRefreshAt = Date\.now\(\);/, 'Úspěšné načtení obchodů nezapisuje čas poslední aktualizace.');
+assert.match(allStores, /document\.addEventListener\('visibilitychange'/, 'Adresář obchodů nereaguje na návrat uživatele na kartu.');
+assert.match(allStores, /Date\.now\(\) - lastStoresRefreshAt >= STORE_REFRESH_MS/, 'Návrat na kartu neobnovuje pouze zastaralý adresář obchodů.');
+assert.match(allStores, /if \(!document\.hidden\) refreshStores\(\);/, 'Periodický refresh musí zůstat pozastavený na skryté kartě.');
+assert.match(allStores, /\}, STORE_REFRESH_MS\);/, 'Periodický refresh nepoužívá stejné freshness okno.');
+
 console.log('Homepage priority stores OK');
