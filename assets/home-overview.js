@@ -414,30 +414,19 @@
     }
   }
 
+  function applyStoreDirectory(rows) {
+    overviewStores = (Array.isArray(rows) ? rows : [])
+      .filter((store) => store?.slug && store?.name)
+      .sort((a, b) => (STORE_RANK.get(a.slug) ?? 999) - (STORE_RANK.get(b.slug) ?? 999)
+        || String(a.name).localeCompare(String(b.name), 'cs'));
+    syncStores();
+    fitPanels();
+  }
+
   async function loadOverviewStores() {
-    try {
-      const query = new URLSearchParams({
-        select: 'name,slug,logo_url,is_active',
-        is_active: 'eq.true'
-      });
-
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/stores?${query}`, {
-        headers: { apikey: SUPABASE_KEY },
-        cache: 'no-store'
-      });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      overviewStores = (await response.json())
-        .filter((store) => store?.slug && store?.name)
-        .sort((a, b) => (STORE_RANK.get(a.slug) ?? 999) - (STORE_RANK.get(b.slug) ?? 999)
-          || String(a.name).localeCompare(String(b.name), 'cs'));
-
-      syncStores();
-      fitPanels();
-    } catch (error) {
-      console.warn('Přehled obchodů se nepodařilo načíst:', error);
-      syncStores();
-    }
+    const directory = Array.isArray(window.__slevaoStoreDirectory) ? window.__slevaoStoreDirectory : [];
+    if (directory.length) applyStoreDirectory(directory);
+    else syncStores();
   }
 
   async function refreshOverviewData() {
@@ -463,6 +452,7 @@
     schedule();
     observe('leafletGrid');
     observe('storeGrid');
+    document.addEventListener('slevao:store-directory', (event) => applyStoreDirectory(event.detail?.stores));
     refreshOverviewData();
 
     window.addEventListener('resize', schedule, { passive: true });
