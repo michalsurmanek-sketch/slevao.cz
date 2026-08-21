@@ -295,29 +295,40 @@
 
   $('alerts').addEventListener('click', async (event) => {
     const row = event.target.closest('[data-id]');
-    if (!row) return;
+    const userId = session?.user?.id;
+    if (!row || !userId) return;
     try {
       const toggle = event.target.closest('[data-toggle]');
       if (toggle) {
         const active = toggle.dataset.toggle === 'true';
-        const { error } = await db.from('price_alerts').update({ is_active: !active }).eq('id', row.dataset.id);
+        const { error } = await db.from('price_alerts')
+          .update({ is_active: !active })
+          .eq('id', row.dataset.id)
+          .eq('user_id', userId);
         if (error) throw error;
       }
       if (event.target.closest('[data-delete]')) {
-        const { error } = await db.from('price_alerts').delete().eq('id', row.dataset.id);
+        const { error } = await db.from('price_alerts')
+          .delete()
+          .eq('id', row.dataset.id)
+          .eq('user_id', userId);
         if (error) throw error;
       }
-      await loadAccountData();
+      await loadAccountData(userId);
     } catch (error) { message(error.message, true); }
   });
 
   $('notifications').addEventListener('click', async (event) => {
     const button = event.target.closest('[data-open-notification]');
     const row = event.target.closest('[data-notification-id]');
-    if (!button || !row) return;
+    const userId = session?.user?.id;
+    if (!button || !row || !userId) return;
     button.disabled = true;
     try {
-      const { error } = await db.from('notifications').update({ is_read: true }).eq('id', row.dataset.notificationId);
+      const { error } = await db.from('notifications')
+        .update({ is_read: true })
+        .eq('id', row.dataset.notificationId)
+        .eq('user_id', userId);
       if (error) throw error;
       location.href = row.dataset.target || 'index.html#dealsSection';
     } catch (error) {
