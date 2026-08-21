@@ -4,6 +4,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
+  const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
@@ -66,21 +67,50 @@
     };
   }
 
+  function ensurePendingAlertRequestId(pending) {
+    const existing = String(pending?.request_id || '').trim().toLowerCase();
+    if (UUID_PATTERN.test(existing)) return existing;
+    const generated = globalThis.crypto?.randomUUID?.() || '';
+    if (!UUID_PATTERN.test(generated)) return '';
+    pending.request_id = generated;
+    try { localStorage.setItem(PENDING_ALERT_KEY, JSON.stringify(pending)); } catch {}
+    return generated;
+  }
+
+  async function verifyPendingAlertRetry(userId, pending, requestId) {
+    let query = db.from('price_alerts')
+      .select('id')
+      .eq('id', requestId)
+      .eq('user_id', userId)
+      .eq('product_id', pending.product_id)
+      .eq('target_price', Number(pending.target_price));
+    query = pending.store_id ? query.eq('store_id', pending.store_id) : query.is('store_id', null);
+    const { data, error } = await query.maybeSingle();
+    if (error) throw error;
+    return Boolean(data?.id);
+  }
+
   async function processPendingAlert(userId) {
     if (!userId) return;
     let pending = null;
     try { pending = JSON.parse(localStorage.getItem(PENDING_ALERT_KEY) || 'null'); } catch {}
     if (!pending?.product_id || !(Number(pending.target_price) > 0)) return;
 
-    const { error } = await db.from('price_alerts').insert({
+    const requestId = ensurePendingAlertRequestId(pending);
+    const payload = {
+      ...(requestId ? { id:requestId } : {}),
       user_id: userId,
       product_id: pending.product_id,
       search_term: pending.search_term || null,
       target_price: Number(pending.target_price),
       store_id: pending.store_id || null,
       is_active: true
-    });
-    if (error) throw error;
+    };
+    const { error } = await db.from('price_alerts').insert(payload);
+    if (error) {
+      const isRetryConflict = requestId && error.code === '23505';
+      if (!isRetryConflict || !(await verifyPendingAlertRetry(userId, pending, requestId))) throw error;
+    }
     localStorage.removeItem(PENDING_ALERT_KEY);
     message(`Hlídač pro ${pending.search_term || 'produkt'} do ${money(pending.target_price)} Kč byl aktivován.`);
   }

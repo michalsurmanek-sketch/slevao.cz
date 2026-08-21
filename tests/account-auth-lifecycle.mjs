@@ -23,6 +23,12 @@ assert.match(account, /if \(!changed\)[\s\S]*?return;/, 'Opakovaný auth event s
 assert.match(account, /async function processPendingAlert\(userId\)/, 'Pending cenový hlídač musí být navázaný na konkrétní user ID.');
 assert.match(account, /await processPendingAlert\(userId\);[\s\S]*await loadAccountData\(userId\);[\s\S]*hydratedUserId = userId;/, 'Pending hlídač a účetní data se musí zpracovat jen v nové-user hydrataci.');
 assert.match(account, /String\(session\?\.user\?\.id \|\| ''\) !== String\(userId\)/, 'Asynchronní odpovědi musí ignorovat stale user session.');
+assert.match(account, /function ensurePendingAlertRequestId\(pending\)/, 'Pending hlídač musí dostat stabilní request UUID.');
+assert.match(account, /globalThis\.crypto\?\.randomUUID\?\.\(\)/, 'Pending hlídač musí generovat UUID před insertem.');
+assert.match(account, /pending\.request_id = generated;[\s\S]*localStorage\.setItem\(PENDING_ALERT_KEY, JSON\.stringify\(pending\)\)/, 'Request UUID musí být uloženo do pending storage před insertem.');
+assert.match(account, /\.\.\.\(requestId \? \{ id:requestId \} : \{\}\)/, 'Insert musí znovu použít stabilní request UUID jako primary key.');
+assert.match(account, /error\.code === '23505'[\s\S]*verifyPendingAlertRetry\(userId, pending, requestId\)/, 'Duplicate retry se smí přijmout jen po ověření vlastního odpovídajícího řádku.');
+assert.match(account, /verifyPendingAlertRetry\(userId, pending, requestId\)[\s\S]*\.eq\('id', requestId\)[\s\S]*\.eq\('user_id', userId\)[\s\S]*\.eq\('product_id', pending\.product_id\)[\s\S]*\.eq\('target_price', Number\(pending\.target_price\)\)/, 'Retry ověření musí kontrolovat UUID, user, produkt a cílovou cenu.');
 
 assert.match(account, /function subscribeNotifications\(userId\)/, 'Realtime notifikace musí být připoutané ke konkrétnímu user ID.');
 assert.match(account, /filter: `user_id=eq\.\$\{userId\}`/, 'Realtime filtr musí používat pevné user ID subscription.');
