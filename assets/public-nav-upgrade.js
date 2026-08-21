@@ -26,7 +26,7 @@
       }
       if (!window.supabase) return;
       const script = document.createElement('script');
-      script.src = 'assets/product-personalization.js?v=20260821-1';
+      script.src = 'assets/product-personalization.js?v=20260821-2';
       script.defer = true;
       document.head.appendChild(script);
     };
