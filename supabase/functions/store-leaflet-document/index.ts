@@ -22,6 +22,12 @@ function responseJson(body: unknown, status: number): Response {
   return Response.json(body, { status, headers: CORS_HEADERS });
 }
 
+function pragueToday(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(new Date());
+}
+
 function normalizedEscapes(value: string): string {
   return String(value || '')
     .replace(/\\u0026/gi, '&')
@@ -191,7 +197,7 @@ Deno.serve(async (request) => {
     if (error || !job || store?.is_active === false || !allowedStatuses.has(String(job.status))) {
       return responseJson({ error: 'Leták nebyl nalezen.' }, 404);
     }
-    if (job.detected_valid_to && job.detected_valid_to < new Date().toISOString().slice(0, 10)) {
+    if (job.detected_valid_to && job.detected_valid_to < pragueToday()) {
       return responseJson({ error: 'Platnost letáku skončila.' }, 410);
     }
     sourceDocumentUrl = String(job.source_document_url || '');
