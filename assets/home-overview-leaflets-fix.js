@@ -197,6 +197,24 @@
     return loading;
   }
 
+  function prefetchProductLinks() {
+    loadProductLinks();
+  }
+
+  async function followProductLink(event) {
+    const row = event.target.closest('.overviewDealRow');
+    if (!row || row.dataset.productDetailLink === '1') return;
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+    const fallbackHref = row.getAttribute('href') || '';
+    event.preventDefault();
+    await loadProductLinks();
+    rewriteEndingLinks();
+
+    const target = row.dataset.productDetailLink === '1' ? row.getAttribute('href') : fallbackHref;
+    if (target) window.location.assign(target);
+  }
+
   function watchEndingSection() {
     const target = document.getElementById('overviewEnding');
     if (!target) {
@@ -205,11 +223,14 @@
     }
 
     endingObserver = new MutationObserver(() => {
-      window.requestAnimationFrame(rewriteEndingLinks);
+      if (loaded) window.requestAnimationFrame(rewriteEndingLinks);
     });
     endingObserver.observe(target, { childList: true, subtree: true });
 
-    loadProductLinks();
+    target.addEventListener('pointerenter', prefetchProductLinks, { once: true, passive: true });
+    target.addEventListener('pointerdown', prefetchProductLinks, { once: true, passive: true });
+    target.addEventListener('focusin', prefetchProductLinks, { once: true });
+    target.addEventListener('click', followProductLink);
   }
 
   window.addEventListener('pagehide', () => {
