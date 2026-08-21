@@ -36,13 +36,6 @@
     return match ? Number(match[1].replace(/\s/g,'')) : 0;
   }
 
-  function syncHeroOfferCount() {
-    const count = countFromToolbar();
-    const heroCount = document.getElementById('offerCount');
-    if (!heroCount || !count) return;
-    heroCount.textContent = count.toLocaleString('cs-CZ');
-  }
-
   function ensurePanel() {
     const quickTabs = document.getElementById('quickTabs');
     if (!quickTabs) return null;
@@ -62,7 +55,6 @@
   }
 
   function render() {
-    syncHeroOfferCount();
     const query = currentQuery();
     const base = ALIASES.get(query);
     const deals = document.getElementById('dealsSection');
