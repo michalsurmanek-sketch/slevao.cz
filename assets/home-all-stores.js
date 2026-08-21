@@ -13,6 +13,7 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const STORE_REFRESH_MS = 5 * 60 * 1000;
   const STORE_PRIORITY = [
     'lidl', 'kaufland', 'penny', 'albert', 'tesco', 'billa', 'globus', 'makro',
     'action', 'coop', 'hruska', 'norma', 'terno', 'rohlik', 'kosik',
@@ -31,6 +32,7 @@
   let scheduled = 0;
   let syncing = false;
   let scrollSequence = 0;
+  let lastStoresRefreshAt = 0;
 
   function rankStore(store) {
     return STORE_RANK.has(store.slug) ? STORE_RANK.get(store.slug) : STORE_PRIORITY.length + 100;
@@ -72,6 +74,7 @@
     });
     if (!response.ok) throw new Error(`Stav obchodů vrátil HTTP ${response.status}.`);
     stores = sortStores((await response.json()).filter((store) => store?.slug && store?.name));
+    lastStoresRefreshAt = Date.now();
     publishStoreDirectory();
   }
 
@@ -197,6 +200,15 @@
     }, true);
   }
 
+  async function refreshStores() {
+    try {
+      await loadStores();
+      scheduleSync();
+    } catch (error) {
+      console.warn('Aktualizace obchodů selhala:', error);
+    }
+  }
+
   async function init() {
     const grid = $('storeGrid');
     if (!grid) return;
@@ -205,10 +217,13 @@
     try {
       await loadStores();
       scheduleSync();
-      window.setInterval(async () => {
+      window.setInterval(() => {
+        if (!document.hidden) refreshStores();
+      }, STORE_REFRESH_MS);
+      document.addEventListener('visibilitychange', () => {
         if (document.hidden) return;
-        try { await loadStores(); scheduleSync(); } catch (error) { console.warn('Aktualizace obchodů selhala:', error); }
-      }, 5 * 60 * 1000);
+        if (Date.now() - lastStoresRefreshAt >= STORE_REFRESH_MS) refreshStores();
+      });
     } catch (error) {
       console.warn('Všechny aktivní obchody se nepodařilo načíst:', error);
     }
