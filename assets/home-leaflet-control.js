@@ -70,7 +70,7 @@
   }
 
   async function loadSettings(force = false) {
-    if (loading && !force) return loading;
+    if (loading) return loading;
     loading = (async () => {
       const rows = await fetchStores();
       const next = new Map();
@@ -273,7 +273,10 @@
       childList: true, subtree: true, attributes: true, attributeFilter: ['src'],
     });
     refresh(true);
-    window.setInterval(() => refresh(true), 5 * 60 * 1000);
+    window.setInterval(() => {
+      if (document.hidden) return;
+      refresh(true);
+    }, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => {
       if (!document.hidden) refresh(true);
     });
