@@ -15,8 +15,19 @@
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
-  const today = new Date().toISOString().slice(0, 10);
-  const upcomingTo = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10);
+
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(value);
+  }
+
+  function addCalendarDays(dateKey, days) {
+    const [year, month, day] = String(dateKey || '').split('-').map(Number);
+    if (!year || !month || !day) return String(dateKey || '');
+    return new Date(Date.UTC(year, month - 1, day + Number(days || 0))).toISOString().slice(0, 10);
+  }
+
   const hash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(location.search);
   const sharedToken = hash.get('share') || query.get('share') || '';
@@ -29,6 +40,7 @@
   let budget = 0;
   let metrics = blankMetrics();
   let lastSignature = '';
+  let lastBusinessDay = '';
   let busy = false;
 
   function safeJson(key, fallback) {
@@ -178,13 +190,17 @@
     history = data || [];
   }
 
-  function chooseOffer(offers, productId) {
-    const candidates = offers.filter((offer) => String(offer.product_id) === String(productId));
-    const current = candidates.filter((offer) => String(offer.valid_from || '') <= today);
+  function chooseOffer(offers, productId, today = pragueDate()) {
+    const candidates = offers
+      .filter((offer) => String(offer.product_id) === String(productId))
+      .filter((offer) => !offer.valid_to || String(offer.valid_to) >= today);
+    const current = candidates.filter((offer) => !offer.valid_from || String(offer.valid_from) <= today);
     return (current.length ? current : candidates).slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0] || null;
   }
 
   async function calculate() {
+    const today = pragueDate();
+    const upcomingTo = addCalendarDays(today, 7);
     const active = rows.filter((row) => !row.completed && !row.is_completed);
     const ids = [...new Set(active.map((row) => row.product_id).filter(Boolean).map(String))];
     let offers = [];
@@ -222,7 +238,7 @@
         continue;
       }
 
-      const offer = chooseOffer(offers, row.product_id);
+      const offer = chooseOffer(offers, row.product_id, today);
       if (!offer) {
         next.missingCount++;
         next.snapshots.push({ ...base, offer_id: null, price: null, old_price: null, store_id: null, store_name: null, subtotal: null, reference_subtotal: null });
@@ -475,11 +491,13 @@
 
   async function refreshAll(force = false) {
     if (busy) return;
+    const businessDay = pragueDate();
     if (!sharedMode) {
       const current = signature();
-      if (!force && current === lastSignature) return;
+      if (!force && current === lastSignature && businessDay === lastBusinessDay) return;
       lastSignature = current;
     }
+    lastBusinessDay = businessDay;
     try {
       await loadRows();
       await calculate();
@@ -498,6 +516,7 @@
     renderMetrics();
     renderHistory();
     lastSignature = signature();
+    lastBusinessDay = pragueDate();
     const timer = window.setInterval(() => refreshAll(false), sharedMode ? 5000 : 2500);
     window.addEventListener('beforeunload', () => clearInterval(timer), { once: true });
     window.addEventListener('storage', () => refreshAll(true));
