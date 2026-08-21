@@ -15,10 +15,16 @@ if (/allowedStatuses\s*=\s*new Set\(\[[^\]]*['\"]publishing['\"]/i.test(source))
 }
 for (const needle of [
   "store?.is_active === false",
-  "job.detected_valid_to && job.detected_valid_to < new Date().toISOString().slice(0, 10)",
+  "function pragueToday(): string",
+  "timeZone: 'Europe/Prague'",
+  "new Intl.DateTimeFormat('en-CA'",
+  "job.detected_valid_to && job.detected_valid_to < pragueToday()",
   "officialPublicDocument(requestUrl.searchParams.get('source_url') || '')"
 ]) {
   if (!source.includes(needle)) throw new Error(`Existing public leaflet guard disappeared: ${needle}`);
 }
+if (source.includes("new Date().toISOString().slice(0, 10)")) {
+  throw new Error('Leaflet document expiry must not derive the business day from UTC.');
+}
 
-console.log('store-leaflet-document: published-only import boundary OK');
+console.log('store-leaflet-document: published-only Prague import boundary OK');
