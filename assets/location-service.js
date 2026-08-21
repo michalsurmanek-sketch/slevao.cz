@@ -4,10 +4,12 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
-  const TODAY = new Date().toISOString().slice(0, 10);
 
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+  const pragueDate = (value = new Date()) => new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+  }).format(value);
   const readList = () => {
     try {
       const rows = JSON.parse(localStorage.getItem(LIST_KEY) || '[]');
@@ -134,6 +136,7 @@
   async function fetchOffersForStores(storeIds, branches = []) {
     const stores = [...new Set((storeIds || []).filter(Boolean).map(String))];
     if (!stores.length) return [];
+    const today = pragueDate();
     const output = [];
     for (let from = 0; from < stores.length; from += 20) {
       const ids = stores.slice(from, from + 20);
@@ -141,8 +144,8 @@
         select: offerSelect,
         store_id: `in.(${ids.join(',')})`,
         status: 'eq.published',
-        valid_from: `lte.${TODAY}`,
-        valid_to: `gte.${TODAY}`,
+        valid_from: `lte.${today}`,
+        valid_to: `gte.${today}`,
         order: 'price.asc',
         limit: '5000',
       });
@@ -155,6 +158,7 @@
     const productIds = [...new Set((rows || []).filter((row) => !row.completed && row.product_id).map((row) => String(row.product_id)))];
     const stores = [...new Set((storeIds || []).filter(Boolean).map(String))];
     if (!productIds.length || !stores.length) return [];
+    const today = pragueDate();
     const output = [];
     for (let from = 0; from < productIds.length; from += 35) {
       const ids = productIds.slice(from, from + 35);
@@ -163,8 +167,8 @@
         product_id: `in.(${ids.join(',')})`,
         store_id: `in.(${stores.join(',')})`,
         status: 'eq.published',
-        valid_from: `lte.${TODAY}`,
-        valid_to: `gte.${TODAY}`,
+        valid_from: `lte.${today}`,
+        valid_to: `gte.${today}`,
         limit: '5000',
       });
       output.push(...batch);
@@ -257,7 +261,8 @@
   }
 
   window.SlevaoLocation = {
-    TODAY,
+    get TODAY() { return pragueDate(); },
+    pragueDate,
     money,
     fold,
     readList,
