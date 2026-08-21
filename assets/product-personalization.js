@@ -31,6 +31,8 @@
   let accountProducts = new Map();
   let accountOffers = new Map();
   let observerQueued = false;
+  let hydratedUserId = null;
+  let authWork = Promise.resolve();
 
   function safeJson(key, fallback) {
     try {
@@ -379,16 +381,34 @@
     toast('Historie prohlížení byla vymazána.');
   }
 
-  async function initializeSession() {
-    const { data } = await db.auth.getSession();
-    session = data.session || null;
-    if (session) {
-      await syncLocalFavorites();
-      await syncRecentRows();
-      await loadServerFavorites();
+  async function hydrateSession(nextSession) {
+    session = nextSession || null;
+    const userId = String(session?.user?.id || '');
+    const changed = hydratedUserId !== userId;
+    if (!changed) {
+      updateFavoriteButtons();
+      return;
     }
+
+    if (!userId) {
+      hydratedUserId = '';
+      accountProducts = new Map();
+      accountOffers = new Map();
+      updateFavoriteButtons();
+      return;
+    }
+
+    await syncLocalFavorites();
+    await syncRecentRows();
+    await loadServerFavorites();
+    hydratedUserId = userId;
     updateFavoriteButtons();
-    renderAccountDashboard();
+    await renderAccountDashboard();
+  }
+
+  function queueSessionHydration(nextSession) {
+    authWork = authWork.catch(() => {}).then(() => hydrateSession(nextSession));
+    return authWork;
   }
 
   document.addEventListener('click', async (event) => {
@@ -411,9 +431,14 @@
     if (event.target.closest('#clearRecentProducts')) await clearRecent();
   });
 
-  db.auth.onAuthStateChange((_event, nextSession) => {
-    session = nextSession || null;
-    initializeSession().catch(() => {});
+  const { data:{ subscription:authSubscription } } = db.auth.onAuthStateChange((event, nextSession) => {
+    if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+      session = nextSession || session;
+      return;
+    }
+    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'SIGNED_OUT') {
+      queueSessionHydration(event === 'SIGNED_OUT' ? null : nextSession).catch(() => {});
+    }
   });
 
   const observer = new MutationObserver((mutations) => {
@@ -428,7 +453,7 @@
 
   const currentProductId = detailProductId();
   if (currentProductId) recordRecentView(currentProductId).catch(() => {});
-  initializeSession().catch(() => {});
+  window.addEventListener('pagehide', () => authSubscription?.unsubscribe?.(), { once:true });
 
   window.SlevaoPersonalization = {
     isFavorite,
