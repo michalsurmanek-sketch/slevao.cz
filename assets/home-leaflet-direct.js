@@ -32,19 +32,23 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const DAY_MS = 86400000;
+  const DIRECT_CACHE_TTL = 30 * 60 * 1000;
+  const REFRESH_CHECK_MS = 5 * 60 * 1000;
 
-  function pragueDate(offsetDays = 0) {
-    const target = new Date(Date.now() + offsetDays * DAY_MS);
+  function pragueDate(offsetDays = 0, now = new Date()) {
     const parts = new Intl.DateTimeFormat('en-CA', {
       timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
-    }).formatToParts(target);
+    }).formatToParts(now);
     const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-    return `${values.year}-${values.month}-${values.day}`;
+    const calendarDay = new Date(Date.UTC(
+      Number(values.year), Number(values.month) - 1, Number(values.day), 12
+    ));
+    calendarDay.setUTCDate(calendarDay.getUTCDate() + offsetDays);
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'UTC', year: 'numeric', month: '2-digit', day: '2-digit'
+    }).format(calendarDay);
   }
 
-  const today = pragueDate(0);
-  const upcomingTo = pragueDate(7);
   const resolved = new Map();
   const queued = new Set();
   let batchPromise = null;
@@ -55,7 +59,7 @@
     return `${raw.split('#')[0]}#page=1&zoom=page-fit`;
   }
 
-  function chooseLeaflet(rows, storeSlug) {
+  function chooseLeaflet(rows, storeSlug, today, upcomingTo) {
     const candidates = rows.filter((row) => String(row?.store_slug || '') === storeSlug);
     const current = candidates
       .filter((row) => String(row?.valid_from || '') <= today && String(row?.valid_to || '') >= today)
@@ -67,12 +71,25 @@
       .sort((a, b) => String(a.valid_from || '').localeCompare(String(b.valid_from || '')))[0] || null;
   }
 
+  function freshResolved(storeSlug) {
+    const entry = resolved.get(storeSlug);
+    if (!entry) return null;
+    const today = pragueDate(0);
+    if (entry.day !== today || Date.now() - entry.fetchedAt >= DIRECT_CACHE_TTL) {
+      resolved.delete(storeSlug);
+      return null;
+    }
+    return entry;
+  }
+
   async function fetchBatch(storeSlugs) {
     const safe = [...new Set(storeSlugs)]
       .map((slug) => String(slug || '').trim().toLowerCase())
       .filter((slug) => /^[a-z0-9-]+$/.test(slug));
     if (!safe.length) return;
 
+    const today = pragueDate(0);
+    const upcomingTo = pragueDate(7);
     const params = new URLSearchParams({
       select: 'store_slug,document_url,valid_from,valid_to',
       store_slug: `in.(${safe.join(',')})`,
@@ -90,19 +107,21 @@
       if (!response.ok) throw new Error(`Letáky se nepodařilo načíst (${response.status}).`);
       const payload = await response.json();
       const rows = Array.isArray(payload) ? payload : [];
+      const fetchedAt = Date.now();
       safe.forEach((slug) => {
-        const row = chooseLeaflet(rows, slug);
-        resolved.set(slug, leafletUrl(row?.document_url));
+        const row = chooseLeaflet(rows, slug, today, upcomingTo);
+        resolved.set(slug, { url: leafletUrl(row?.document_url), fetchedAt, day: today });
       });
     } catch (error) {
       console.warn('Přímé letáky nejsou dostupné:', error);
-      safe.forEach((slug) => resolved.set(slug, ''));
+      const fetchedAt = Date.now();
+      safe.forEach((slug) => resolved.set(slug, { url: '', fetchedAt, day: today }));
     }
   }
 
   function queueBatch(storeSlugs) {
     storeSlugs.forEach((slug) => {
-      if (slug && !resolved.has(slug)) queued.add(slug);
+      if (slug && !freshResolved(slug)) queued.add(slug);
     });
     if (batchPromise) return batchPromise;
 
@@ -120,12 +139,34 @@
     return batchPromise;
   }
 
-  function enhanceCard(card, storeSlug) {
-    const link = card.querySelector('.leafletAction a');
-    const url = resolved.get(storeSlug) || '';
-    if (!link || !url || !card.isConnected) return;
+  function rememberFallbackLink(link, storeSlug) {
+    if (!link.dataset.directLeafletFallback) {
+      link.dataset.directLeafletFallback = link.getAttribute('href') || `${encodeURIComponent(storeSlug)}.html`;
+    }
+  }
 
-    link.href = url;
+  function resetCardLink(card, storeSlug) {
+    const link = card.querySelector('.leafletAction a');
+    if (!link || !card.isConnected) return;
+    rememberFallbackLink(link, storeSlug);
+    if (link.dataset.directLeaflet !== '1') return;
+    link.href = link.dataset.directLeafletFallback;
+    link.removeAttribute('target');
+    link.removeAttribute('rel');
+    delete link.dataset.directLeaflet;
+    link.setAttribute('aria-label', `Otevřít nabídky obchodu ${storeSlug}`);
+    link.removeAttribute('title');
+  }
+
+  function enhanceCard(card, storeSlug, entry) {
+    const link = card.querySelector('.leafletAction a');
+    if (!link || !entry?.url || !card.isConnected) {
+      resetCardLink(card, storeSlug);
+      return;
+    }
+
+    rememberFallbackLink(link, storeSlug);
+    link.href = entry.url;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.dataset.directLeaflet = '1';
@@ -143,8 +184,12 @@
     currentGrid.querySelectorAll('.leafletCard[data-direct-leaflet-card="1"]').forEach((card) => {
       const storeSlug = card.querySelector('.leafletAction [data-store]')?.dataset.store || '';
       if (!storeSlug) return;
-      if (resolved.has(storeSlug)) enhanceCard(card, storeSlug);
-      else missing.push(storeSlug);
+      const entry = freshResolved(storeSlug);
+      if (entry) enhanceCard(card, storeSlug, entry);
+      else {
+        resetCardLink(card, storeSlug);
+        missing.push(storeSlug);
+      }
     });
 
     if (missing.length) queueBatch(missing);
@@ -164,6 +209,13 @@
     new MutationObserver(schedule).observe(currentGrid, { childList: true, subtree:true });
     schedule();
   }
+
+  window.setInterval(() => {
+    if (!document.hidden) schedule();
+  }, REFRESH_CHECK_MS);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) schedule();
+  });
 
   attach();
 })();
