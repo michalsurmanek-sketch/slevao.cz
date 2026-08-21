@@ -33,6 +33,7 @@
   let observerQueued = false;
   let hydratedUserId = null;
   let authWork = Promise.resolve();
+  const pendingRecentViews = new Set();
 
   function safeJson(key, fallback) {
     try {
@@ -61,7 +62,7 @@
       .slice(0, 30);
   }
 
-  function saveRecentRows() {
+  function saveAnonymousRecentRows() {
     try { localStorage.setItem(RECENT_KEY, JSON.stringify(recentRows.slice(0, 30))); } catch {}
   }
 
@@ -188,19 +189,6 @@
     favoriteIds = new Set((data || []).map((row) => String(row.product_id)).filter(Boolean));
   }
 
-  async function syncRecentRows() {
-    if (!session || !recentRows.length) return;
-    const rows = recentRows.slice(0, 30).map((row) => ({
-      user_id:session.user.id,
-      product_id:String(row.id),
-      last_viewed_at:row.viewed_at || new Date().toISOString(),
-      view_count:Math.max(1, Number(row.view_count || 1))
-    }));
-    const { error } = await db.from('recently_viewed_products')
-      .upsert(rows, { onConflict:'user_id,product_id' });
-    if (error) throw error;
-  }
-
   async function toggleFavorite(productId) {
     productId = String(productId || '');
     if (!productId) return;
@@ -232,26 +220,53 @@
     }
   }
 
-  async function recordRecentView(productId) {
+  async function writeRecentView(productId) {
     productId = String(productId || '');
     if (!productId) return;
     const now = new Date().toISOString();
-    const existing = recentRows.find((row) => String(row.id) === productId);
-    recentRows = [
-      { id:productId, viewed_at:now, view_count:Number(existing?.view_count || 0) + 1 },
-      ...recentRows.filter((row) => String(row.id) !== productId)
-    ].slice(0, 30);
-    saveRecentRows();
+    const userId = String(session?.user?.id || '');
 
-    if (session) {
-      const { data } = await db.from('recently_viewed_products')
-        .select('view_count').eq('user_id', session.user.id).eq('product_id', productId).maybeSingle();
-      await db.from('recently_viewed_products').upsert({
-        user_id:session.user.id,
-        product_id:productId,
-        last_viewed_at:now,
-        view_count:Number(data?.view_count || 0) + 1
-      }, { onConflict:'user_id,product_id' });
+    if (!userId) {
+      const existing = recentRows.find((row) => String(row.id) === productId);
+      recentRows = [
+        { id:productId, viewed_at:now, view_count:Number(existing?.view_count || 0) + 1 },
+        ...recentRows.filter((row) => String(row.id) !== productId)
+      ].slice(0, 30);
+      saveAnonymousRecentRows();
+      return;
+    }
+
+    const { data } = await db.from('recently_viewed_products')
+      .select('view_count').eq('user_id', userId).eq('product_id', productId).maybeSingle();
+    const { error } = await db.from('recently_viewed_products').upsert({
+      user_id:userId,
+      product_id:productId,
+      last_viewed_at:now,
+      view_count:Number(data?.view_count || 0) + 1
+    }, { onConflict:'user_id,product_id' });
+    if (error) throw error;
+  }
+
+  async function recordRecentView(productId) {
+    productId = String(productId || '');
+    if (!productId) return;
+    if (hydratedUserId === null) {
+      pendingRecentViews.add(productId);
+      return;
+    }
+    await writeRecentView(productId);
+  }
+
+  async function flushPendingRecentViews() {
+    const rows = [...pendingRecentViews];
+    pendingRecentViews.clear();
+    for (const productId of rows) {
+      try {
+        await writeRecentView(productId);
+      } catch (error) {
+        pendingRecentViews.add(productId);
+        throw error;
+      }
     }
   }
 
@@ -306,8 +321,7 @@
       .order('last_viewed_at', { ascending:false })
       .limit(20);
     if (error) throw error;
-    const ids = (data || []).map((row) => String(row.product_id));
-    return [...new Set([...ids, ...recentRows.map((row) => String(row.id))])].slice(0, 20);
+    return [...new Set((data || []).map((row) => String(row.product_id)).filter(Boolean))].slice(0, 20);
   }
 
   function ensureAccountSections() {
@@ -364,9 +378,13 @@
   }
 
   async function clearRecent() {
-    recentRows = [];
-    saveRecentRows();
-    if (session) await db.from('recently_viewed_products').delete().eq('user_id', session.user.id);
+    const userId = String(session?.user?.id || '');
+    if (userId) {
+      await db.from('recently_viewed_products').delete().eq('user_id', userId);
+    } else {
+      recentRows = [];
+      saveAnonymousRecentRows();
+    }
     renderAccountDashboard();
     toast('Historie prohlížení byla vymazána.');
   }
@@ -385,15 +403,16 @@
       favoriteIds = readFavoriteIds();
       accountProducts = new Map();
       accountOffers = new Map();
+      await flushPendingRecentViews();
       updateFavoriteButtons();
       return;
     }
 
     favoriteIds = new Set();
     updateFavoriteButtons();
-    await syncRecentRows();
     await loadServerFavorites();
     hydratedUserId = userId;
+    await flushPendingRecentViews();
     updateFavoriteButtons();
     await renderAccountDashboard();
   }
