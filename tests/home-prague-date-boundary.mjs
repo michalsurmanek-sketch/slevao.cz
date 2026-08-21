@@ -4,6 +4,7 @@ import fs from 'node:fs';
 const files = [
   'assets/home-leaflet-covers.js',
   'assets/home-overview.js',
+  'assets/home-v2.js',
 ];
 
 for (const file of files) {
@@ -25,6 +26,14 @@ assert(overview.includes('const pragueToday = () => PRAGUE_DAY_FORMAT.format(new
 assert(overview.includes('lastOverviewDay = pragueToday();'), 'Successful overview refreshes must remember the Prague calendar day.');
 assert(overview.includes('today !== lastOverviewDay || Date.now() - lastOverviewRefreshAt >= DATA_REFRESH_MS'), 'Returning across Prague midnight must refresh overview data even inside the normal time TTL.');
 assert(!overview.includes("new Date(`${value}T12:00:00`)"), 'Ending-day distance must not depend on browser-local Date arithmetic.');
+
+const home = fs.readFileSync('assets/home-v2.js', 'utf8');
+assert(!home.includes('const TODAY ='), 'Main homepage offer badges must not freeze the Prague business day at page startup.');
+assert(home.includes('const isUpcoming = (offer, today = pragueDateKey())'), 'Upcoming-offer checks must default to the current Prague day.');
+assert(home.includes('const today = pragueDateKey();'), 'Deal rendering must snapshot the current Prague day per render.');
+assert(home.includes('isUpcoming(offer, today)'), 'Deal cards must use the current render-day snapshot for upcoming badges.');
+assert(home.includes('offer.valid_to === today'), 'Ending-today badges must use the current render-day snapshot.');
+assert(home.includes("key === pragueDateKey() ? 'dnes ' : ''"), 'Update status must compare against the current Prague day, not startup day.');
 
 function extractFunction(source, name) {
   const marker = `function ${name}(`;

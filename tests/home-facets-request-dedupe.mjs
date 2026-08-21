@@ -4,9 +4,10 @@ import vm from 'node:vm';
 
 const index = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('assets/rpc-request-dedupe.js', 'utf8');
+const home = fs.readFileSync('assets/home-v2.js', 'utf8');
 
 const dedupePos = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
-const homePos = index.indexOf('assets/home-v2.js?v=20260815-26');
+const homePos = index.indexOf('assets/home-v2.js?v=20260821-1');
 assert(dedupePos >= 0, 'Homepage must load the facets request dedupe bootstrap.');
 assert(homePos >= 0 && dedupePos < homePos, 'Facets dedupe must load before home-v2.js.');
 assert(source.includes("const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets'"), 'Dedupe must be scoped to the facets RPC.');
@@ -14,6 +15,13 @@ assert(source.includes('const GRACE_MS = 1000'), 'Facets dedupe must use the sho
 assert(source.includes('response.clone()'), 'Deduped callers must receive independent Response clones.');
 assert(source.includes('cleanupExpired(now)'), 'Expired response entries must be cleaned without timers.');
 assert(!/localStorage|sessionStorage|setTimeout|setInterval/.test(source), 'Dedupe must not become persistent storage or timer-driven cache.');
+
+assert(home.includes('return state.globalFacets;'), 'Global startup facets must be reusable by the main refresh path.');
+assert(home.includes('refreshFacets=true, scroll=false, facetsPromise=null'), 'Main refresh must accept an optional shared startup facets promise.');
+assert(home.includes('const facetsTask = refreshFacets ? (facetsPromise || fetchFacets()) : Promise.resolve(state.facets);'), 'Main refresh must reuse supplied facets instead of creating a duplicate request.');
+assert(home.includes('const globalFacetsPromise = loadGlobalFacets();'), 'Homepage startup must create one global facets promise.');
+assert(home.includes('refreshCurrent({ facetsPromise: initialQuery ? null : globalFacetsPromise })'), 'Clean startup must reuse global facets while query startup keeps query-specific facets.');
+assert(!home.includes('Promise.all([loadGlobalFacets(), refreshCurrent()])'), 'Legacy app-level duplicate startup facets path must stay removed.');
 
 class FakeResponse {
   constructor(body) { this.body = body; }
@@ -79,4 +87,4 @@ assert.equal(underlyingCalls, 5, 'Non-facets RPCs must bypass the dedupe layer.'
 releases.shift()();
 await other;
 
-console.log('Homepage facets request dedupe OK');
+console.log('Homepage facets request dedupe and startup reuse OK');
