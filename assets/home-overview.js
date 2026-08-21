@@ -6,9 +6,10 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const TODAY = new Intl.DateTimeFormat('en-CA', {
+  const PRAGUE_DAY_FORMAT = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
-  }).format(new Date());
+  });
+  const pragueToday = () => PRAGUE_DAY_FORMAT.format(new Date());
   const LEAFLETS_PER_PAGE = 3;
   const STORES_PER_PAGE = 8;
   const ENDING_VISIBLE = 3;
@@ -40,6 +41,7 @@
   let endingOffers = [];
   let endingOffset = 0;
   let lastOverviewRefreshAt = 0;
+  let lastOverviewDay = '';
 
   function pagerMarkup(type, label) {
     return `<div class="overviewPager" aria-label="${label}">
@@ -304,9 +306,18 @@
     });
   }
 
+  function calendarOrdinal(value) {
+    const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!match) return Number.NaN;
+    return Math.trunc(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])) / 86400000);
+  }
+
   function days(value) {
     if (!value) return 999;
-    return Math.max(0, Math.round((new Date(`${value}T12:00:00`) - new Date(`${TODAY}T12:00:00`)) / 86400000));
+    const target = calendarOrdinal(value);
+    const today = calendarOrdinal(pragueToday());
+    if (!Number.isFinite(target) || !Number.isFinite(today)) return 999;
+    return Math.max(0, target - today);
   }
 
   function endingLabel(value) {
@@ -445,6 +456,7 @@
     if (document.hidden) return;
     await Promise.allSettled([loadEnding(), loadOverviewStores()]);
     lastOverviewRefreshAt = Date.now();
+    lastOverviewDay = pragueToday();
   }
 
   function observe(id) {
@@ -474,7 +486,8 @@
         return;
       }
       startAutoRotate();
-      if (Date.now() - lastOverviewRefreshAt >= DATA_REFRESH_MS) refreshOverviewData();
+      const today = pragueToday();
+      if (today !== lastOverviewDay || Date.now() - lastOverviewRefreshAt >= DATA_REFRESH_MS) refreshOverviewData();
     });
 
     window.setInterval(() => {
