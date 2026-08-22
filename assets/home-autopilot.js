@@ -9,11 +9,9 @@
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
-  const localDate = () => {
-    const now = new Date();
-    const pad = (value) => String(value).padStart(2, '0');
-    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
-  };
+  const pragueDate = (value = new Date()) => new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+  }).format(value);
 
   function readList() {
     try {
@@ -47,7 +45,7 @@
   async function loadCurrentOffers(productIds) {
     const api = await publicApi();
     const db = await api.getSupabase();
-    const today = localDate();
+    const today = pragueDate();
     const output = [];
 
     for (const ids of chunks(productIds, MAX_IDS_PER_QUERY)) {
