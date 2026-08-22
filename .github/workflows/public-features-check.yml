@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'produkt.html'
+      - 'obchod.html'
       - 'assets/public-features.js'
       - 'assets/public-nav-upgrade.js'
       - 'assets/shopping-list.js'
@@ -25,6 +26,8 @@ on:
       - 'assets/home-personal-deals.js'
       - 'assets/pwa-install.js'
       - 'assets/account.js'
+      - 'assets/store-feed.js'
+      - 'assets/store-generic-bootstrap.js'
       - 'assets/store-bottom-nav.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/admin-modern-ui.js'
@@ -32,6 +35,7 @@ on:
       - 'manifest.webmanifest'
       - 'offline.html'
       - 'tests/product-detail-regression.mjs'
+      - 'tests/store-feed-data-integrity.mjs'
       - 'scripts/generate-product-sitemap.mjs'
       - '.github/workflows/public-features-check.yml'
   workflow_dispatch:
@@ -64,6 +68,8 @@ jobs:
           node --check assets/home-personal-deals.js
           node --check assets/pwa-install.js
           node --check assets/account.js
+          node --check assets/store-feed.js
+          node --check assets/store-generic-bootstrap.js
           node --check assets/store-bottom-nav.js
           node --check assets/home-footer-redesign.js
           node --check assets/admin-modern-ui.js
@@ -72,3 +78,5 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
       - name: Regresní diagnostika detailu produktu
         run: node tests/product-detail-regression.mjs
+      - name: Datová integrita store feedu
+        run: node tests/store-feed-data-integrity.mjs

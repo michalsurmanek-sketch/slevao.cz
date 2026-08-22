@@ -85,7 +85,7 @@
 
   function loadFeed() {
     const script = document.createElement('script');
-    script.src = 'assets/store-feed.js?v=20260822-1';
+    script.src = 'assets/store-feed.js?v=20260822-2';
     script.defer = true;
     script.onerror = () => showError('Načtení selhalo', 'Skript s nabídkami se nepodařilo načíst. Obnov stránku přes Ctrl+F5.');
     document.body.append(script);
