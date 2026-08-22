@@ -5,6 +5,11 @@
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const $ = (id) => document.getElementById(id);
   const escSelectorValue = (value) => String(value || '').replace(/[^a-z0-9-]/gi, '');
+  const GROCERY_CATEGORY_STORES = new Set([
+    'albert','billa','brnenka','cba','coop','enapo','eso-market','flop','globus','hruska','jednota','jip',
+    'kaufland','konzum','kosik','kubik','lidl','makro','norma','penny','potraviny-muj-obchod','pramen-cz',
+    'ratio','rohlik','rosa-market','tamda','tempo','terno','tesco','trefa','zabka',
+  ]);
 
   function requestedSlug() {
     const params = new URLSearchParams(location.search);
@@ -83,6 +88,13 @@
     }
   }
 
+  function configureCategoryBar(store) {
+    const bar = $('categoryBar');
+    if (!bar) return;
+    bar.hidden = !GROCERY_CATEGORY_STORES.has(store.slug);
+    bar.dataset.categoryMode = bar.hidden ? 'hidden' : 'grocery';
+  }
+
   function loadFeed() {
     const script = document.createElement('script');
     script.src = 'assets/store-feed.js?v=20260822-2';
@@ -116,6 +128,7 @@
         color: store.primary_color || '#069D92',
       };
       updatePage(store);
+      configureCategoryBar(store);
       loadFeed();
     } catch (error) {
       console.error(error);

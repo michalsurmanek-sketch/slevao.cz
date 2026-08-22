@@ -5,7 +5,7 @@ const NAV_VERSION = '20260822-1';
 const NAV_SCRIPT = `assets/store-bottom-nav.js?v=${NAV_VERSION}`;
 const FEED_VERSION = '20260822-2';
 const FEED_SCRIPT = `assets/store-feed.js?v=${FEED_VERSION}`;
-const GENERIC_VERSION = '20260822-2';
+const GENERIC_VERSION = '20260822-3';
 const GENERIC_BOOTSTRAP = `assets/store-generic-bootstrap.js?v=${GENERIC_VERSION}`;
 const EXPECTED_STORE_COUNT = 73;
 const PUBLIC_PAGES = ['kontakt.html', 'ochrana-soukromi.html', 'podminky.html'];
@@ -53,5 +53,8 @@ const genericBootstrap = readFileSync(new URL('../assets/store-generic-bootstrap
 assert.ok(genericPage.includes(NAV_SCRIPT), 'obchod.html musí používat stejnou aktuální store-bottom-nav verzi.');
 assert.ok(genericPage.includes(GENERIC_BOOTSTRAP), 'obchod.html musí načítat aktuální generický bootstrap.');
 assert.ok(genericBootstrap.includes(FEED_SCRIPT), 'Generický bootstrap musí dynamicky načítat aktuální store-feed runtime.');
+assert.ok(genericBootstrap.includes('const GROCERY_CATEGORY_STORES = new Set(['), 'Generický bootstrap musí mít explicitní allowlist obchodů pro potravinové filtry.');
+assert.ok(genericBootstrap.includes("bar.hidden = !GROCERY_CATEGORY_STORES.has(store.slug);"), 'Nepotravinové obchody nesmí dostat zavádějící potravinové filtry.');
+assert.ok(genericBootstrap.includes("bar.dataset.categoryMode = bar.hidden ? 'hidden' : 'grocery';"), 'Režim kategorií musí být diagnostikovatelný v DOM.');
 
 console.log(`OK: ${stores.size} store stránek a ${PUBLIC_PAGES.length} veřejné stránky jsou chráněné; runtime ${FEED_SCRIPT} + ${NAV_SCRIPT}.`);
