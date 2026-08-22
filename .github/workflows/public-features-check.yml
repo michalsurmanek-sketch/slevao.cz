@@ -42,6 +42,7 @@ on:
       - 'manifest.webmanifest'
       - 'offline.html'
       - 'tests/favorite-offer-reconciliation.mjs'
+      - 'tests/home-facets-request-dedupe.mjs'
       - 'tests/home-request-race-resilience.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
@@ -93,6 +94,8 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
       - name: Homepage uložené a oblíbené produkty
         run: node tests/favorite-offer-reconciliation.mjs
+      - name: Homepage facety a deduplikace
+        run: node tests/home-facets-request-dedupe.mjs
       - name: Homepage request race a fallback
         run: node tests/home-request-race-resilience.mjs
       - name: Web Push aktivační kontrakt
