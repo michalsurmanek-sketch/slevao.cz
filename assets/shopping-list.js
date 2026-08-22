@@ -289,7 +289,10 @@
       is_completed: Boolean(row.completed)
     };
     if (row.server_id) {
-      const { error } = await db.from('shopping_list_items').update(payload).eq('id', row.server_id);
+      const { error } = await db.from('shopping_list_items')
+        .update(payload)
+        .eq('id', row.server_id)
+        .eq('shopping_list_id', listId);
       if (error) throw error;
     } else {
       const { data, error } = await db.from('shopping_list_items').insert(payload).select('id').single();
@@ -304,12 +307,16 @@
       await mutateShared('delete', row);
       return;
     }
-    rows = rows.filter((item) => item.local_id !== row.local_id);
-    saveLocal();
     if (session && row.server_id) {
-      const { error } = await db.from('shopping_list_items').delete().eq('id', row.server_id);
+      const scopedListId = listId || await ensureRemoteList();
+      const { error } = await db.from('shopping_list_items')
+        .delete()
+        .eq('id', row.server_id)
+        .eq('shopping_list_id', scopedListId);
       if (error) throw error;
     }
+    rows = rows.filter((item) => item.local_id !== row.local_id);
+    saveLocal();
   }
 
   async function fetchOffers() {
@@ -613,16 +620,23 @@
       return;
     }
 
-    rows = rows.filter((row) => !row.completed);
-    saveLocal();
-    render();
     if (session) {
       const ids = completed.map((row) => row.server_id).filter(Boolean);
       if (ids.length) {
-        const { error } = await db.from('shopping_list_items').delete().in('id', ids);
-        if (error) showMessage(error.message, true);
+        const scopedListId = listId || await ensureRemoteList();
+        const { error } = await db.from('shopping_list_items')
+          .delete()
+          .eq('shopping_list_id', scopedListId)
+          .in('id', ids);
+        if (error) {
+          showMessage(error.message || 'Položky se nepodařilo odstranit.', true);
+          return;
+        }
       }
     }
+    rows = rows.filter((row) => !row.completed);
+    saveLocal();
+    render();
   }
 
   async function init() {
@@ -680,6 +694,7 @@
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
+    const previous = { ...row };
     if (event.target.matches('[data-complete]')) row.completed = event.target.checked;
     if (event.target.matches('[data-quantity]')) row.quantity = Math.max(0.01, Number(event.target.value || 1));
     row.updated_at = new Date().toISOString();
@@ -690,14 +705,20 @@
     } catch (error) {
       showMessage(error.message || 'Změnu se nepodařilo uložit.', true);
       if (sharedMode) await loadSharedList({ silent: true });
+      else {
+        Object.assign(row, previous);
+        render();
+      }
     }
   });
 
   $('listItems').addEventListener('click', async (event) => {
-    if (!event.target.closest('[data-delete]')) return;
+    const button = event.target.closest('[data-delete]');
+    if (!button || button.disabled) return;
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
+    button.disabled = true;
     try {
       await deleteRow(row);
       if (!sharedMode) {
@@ -705,6 +726,7 @@
         await fetchOffers();
       }
     } catch (error) {
+      if (button.isConnected) button.disabled = false;
       showMessage(error.message || 'Položku se nepodařilo odstranit.', true);
     }
   });
