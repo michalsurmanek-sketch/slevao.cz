@@ -9,6 +9,14 @@
     document.head.appendChild(syncScript);
   }
 
+  if (typeof document !== 'undefined' && !document.querySelector('script[data-slevao-count-semantics]')) {
+    const countScript = document.createElement('script');
+    countScript.src = 'assets/home-count-semantics.js?v=20260822-1';
+    countScript.async = false;
+    countScript.dataset.slevaoCountSemantics = '1';
+    document.head.appendChild(countScript);
+  }
+
   if (window.__slevaoFacetsFetchDedupe) return;
 
   const originalFetch = window.fetch.bind(window);
