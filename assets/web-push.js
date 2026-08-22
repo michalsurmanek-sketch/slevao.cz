@@ -143,15 +143,40 @@
       return;
     }
     const sub = await currentSubscription().catch(() => null);
-    subscribed = Boolean(sub && Notification.permission === 'granted');
+    const browserReady = Boolean(sub && Notification.permission === 'granted');
+    if (!browserReady) {
+      subscribed = false;
+      renderState();
+      return;
+    }
+    if (!syncServer) {
+      subscribed = true;
+      renderState();
+      return;
+    }
+    if (syncing) return;
+    const current = await session();
+    if (!current) {
+      subscribed = false;
+      renderState();
+      return;
+    }
+
+    syncing = true;
+    subscribed = false;
     renderState();
-    if (subscribed && syncServer && !syncing) {
-      const current = await session();
-      if (!current) return;
-      syncing = true;
-      try { await saveSubscription(sub, false); }
-      catch (error) { console.warn('slevao_web_push_sync_failed', error); }
-      finally { syncing = false; }
+    try {
+      const result = await saveSubscription(sub, false);
+      subscribed = result?.subscribed === true;
+      if (!subscribed && result?.requires_test) {
+        showMessage('Oznámení je potřeba znovu potvrdit tlačítkem.', true);
+      }
+    } catch (error) {
+      subscribed = false;
+      console.warn('slevao_web_push_sync_failed', error);
+    } finally {
+      syncing = false;
+      renderState();
     }
   }
 
@@ -174,12 +199,21 @@
       });
     }
 
-    const result = await saveSubscription(sub, true);
+    let result;
+    try {
+      result = await saveSubscription(sub, true);
+    } catch (error) {
+      await removeSubscription(sub);
+      throw error;
+    }
+    if (result?.subscribed !== true || result?.test_sent !== true) {
+      await removeSubscription(sub);
+      throw new Error('Testovací oznámení se nepodařilo doručit. Zkus oznámení zapnout znovu.');
+    }
+
     subscribed = true;
     renderState();
-    showMessage(result?.test_sent
-      ? 'Push upozornění jsou aktivní. Testovací oznámení bylo odesláno.'
-      : 'Push upozornění jsou aktivní. SLEVAO tě upozorní i bez otevřeného webu.');
+    showMessage('Push upozornění jsou aktivní. Testovací oznámení bylo odesláno.');
   }
 
   async function signOutFromUser() {
