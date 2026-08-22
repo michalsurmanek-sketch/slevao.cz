@@ -41,6 +41,14 @@
     document.head.appendChild(script);
   }
 
+  function loadLocationService() {
+    if (document.querySelector('script[src*="location-service.js"]')) return;
+    const script = document.createElement('script');
+    script.src = 'assets/location-service.js?v=20260821-1';
+    script.defer = true;
+    document.head.appendChild(script);
+  }
+
   function loadStoreArrivalCopyVariation() {
     if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
     const script = document.createElement('script');
@@ -182,6 +190,7 @@
 
   loadPersonalization();
   loadPwa();
+  loadLocationService();
   loadStoreArrivalCopyVariation();
   loadStoreArrivalAlerts();
   loadStoreArrivalTest();
