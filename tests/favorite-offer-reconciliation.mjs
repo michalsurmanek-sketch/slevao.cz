@@ -82,8 +82,14 @@ function runStoreBridge(initial = {}) {
   const prefixEnd = storeRuntime.indexOf("\n  if (!document.querySelector('link[href*=\"public-features.css\"]'))");
   assert.ok(prefixEnd > 0, 'Store favorite bootstrap nejde izolovaně behaviorálně otestovat.');
   const favoriteBootstrap = `${storeRuntime.slice(0, prefixEnd)}\n})();`;
-  const localStorage = new StorageMock(initial);
-  const sessionStorage = new StorageMock();
+  class StoreStorageMock {
+    constructor(values = {}) { this.map = new Map(Object.entries(values)); }
+    getItem(key) { return this.map.has(String(key)) ? this.map.get(String(key)) : null; }
+    setItem(key, value) { this.map.set(String(key), String(value)); }
+    removeItem(key) { this.map.delete(String(key)); }
+  }
+  const localStorage = new StoreStorageMock(initial);
+  const sessionStorage = new StoreStorageMock();
   let storageListener = null;
   const window = {
     localStorage,
@@ -91,7 +97,7 @@ function runStoreBridge(initial = {}) {
     setTimeout(callback) { callback(); return 1; },
   };
   const context = {
-    Storage: StorageMock,
+    Storage: StoreStorageMock,
     localStorage,
     sessionStorage,
     window,
