@@ -58,6 +58,12 @@ new Script(`
   };
 `, { filename:'shopping-list-mutation-helpers.js' }).runInNewContext(context);
 
+async function flushMicrotasks() {
+  await Promise.resolve();
+  await Promise.resolve();
+  await Promise.resolve();
+}
+
 const api = context.__api;
 const row = { local_id:'row-a', server_id:'server-a', quantity:1, completed:false };
 const order = [];
@@ -71,7 +77,7 @@ const second = api.enqueueRowMutation(row, async () => {
   order.push('second-start');
   order.push('second-end');
 });
-await Promise.resolve();
+await flushMicrotasks();
 assert.deepEqual(order, ['first-start'], 'Druhá mutace stejné položky odstartovala paralelně.');
 releaseFirst();
 await Promise.all([first, second]);
@@ -93,7 +99,7 @@ let releaseWait;
 const pending = api.enqueueRowMutation(row, () => new Promise((resolve) => { releaseWait = resolve; }));
 let waitFinished = false;
 const waiting = api.waitForRowMutations([row]).then(() => { waitFinished = true; });
-await Promise.resolve();
+await flushMicrotasks();
 assert.equal(waitFinished, false, 'waitForRowMutations nečeká na aktivní frontu položky.');
 releaseWait();
 await Promise.all([pending, waiting]);
