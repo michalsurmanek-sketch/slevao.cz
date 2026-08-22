@@ -159,6 +159,21 @@
     }
   };
 
+  const requestAll = async (table, params, pageSize = 500) => {
+    const rows = [];
+    for (let offset = 0; offset < 25000; offset += pageSize) {
+      const batch = await request(table, {
+        ...params,
+        limit: String(pageSize),
+        offset: String(offset),
+      });
+      if (!Array.isArray(batch)) throw new Error('Databáze vrátila neplatnou dávku dat.');
+      rows.push(...batch);
+      if (batch.length < pageSize) return rows;
+    }
+    throw new Error('Počet nabídek překročil bezpečný limit stránkování.');
+  };
+
   const unique = (rows) => [...new Map(rows.map((offer) => [
     [fold(offer.title), offer.valid_from, offer.valid_to].join('|'), offer,
   ])).values()];
@@ -441,18 +456,18 @@
     $('status').textContent = 'Načítám aktuální leták…';
     try {
       const stores = await request('stores', {
-        select: 'id,name,slug,logo_url,primary_color', slug: `eq.${config.slug}`, limit: '1',
+        select: 'id,name,slug,logo_url,primary_color,is_active', slug: `eq.${config.slug}`, is_active: 'eq.true', limit: '1',
       });
-      if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');
+      if (!stores[0]) throw new Error('Obchod není v databázi nebo není aktivní.');
       const today = pragueDateKey();
-      const rows = await request('offers', {
+      const rows = await requestAll('offers', {
         select: 'id,title,price,old_price,image_url,valid_from,valid_to,is_verified,metadata,products(name)',
         store_id: `eq.${stores[0].id}`,
         status: 'eq.published',
         is_verified: 'eq.true',
         valid_from:`lte.${today}`,
         valid_to:`gte.${today}`,
-        order: 'published_at.desc',
+        order: 'published_at.desc,id.asc',
       });
       apply(stores[0], rows, '● Živý feed');
     } catch (error) {
