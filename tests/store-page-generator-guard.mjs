@@ -8,8 +8,10 @@ const FEED_SCRIPT = `assets/store-feed.js?v=${FEED_VERSION}`;
 const GENERIC_VERSION = '20260822-2';
 const GENERIC_BOOTSTRAP = `assets/store-generic-bootstrap.js?v=${GENERIC_VERSION}`;
 const EXPECTED_STORE_COUNT = 73;
+const PUBLIC_PAGES = ['kontakt.html', 'ochrana-soukromi.html', 'podminky.html'];
 const generator = readFileSync(new URL('../scripts/generate-store-pages.mjs', import.meta.url), 'utf8');
 const canonicalCatalog = readFileSync(new URL('../supabase/migrations/20260801133000_complete_store_brand_logos.sql', import.meta.url), 'utf8');
+const sitemap = readFileSync(new URL('../sitemap.xml', import.meta.url), 'utf8');
 const stores = new Set();
 for (const match of canonicalCatalog.matchAll(/\('([a-z0-9-]+)'\s*,\s*'[^']+'\)/g)) stores.add(match[1]);
 
@@ -22,13 +24,21 @@ assert.match(generator, /patchExistingStorePage\(pageUrl, slug\)/, 'Existující
 assert.ok(generator.includes(`const STORE_NAV_VERSION = '${NAV_VERSION}'`), 'Generátor musí používat aktuální cache-bust store navigace.');
 assert.ok(generator.includes(`const STORE_FEED_VERSION = '${FEED_VERSION}'`), 'Generátor musí používat aktuální cache-bust store feedu.');
 assert.ok(generator.includes(`const EXPECTED_STORE_COUNT = ${EXPECTED_STORE_COUNT}`), 'Generátor musí failnout při neúplném store katalogu.');
+assert.ok(generator.includes(`const PUBLIC_PAGES = ['kontakt.html', 'ochrana-soukromi.html', 'podminky.html'];`), 'Generátor musí zachovat povinné veřejné stránky v sitemapě.');
+assert.ok(generator.includes('publicPageUrls'), 'Generátor musí veřejné stránky skutečně vložit do sitemap výstupu.');
 assert.ok(generator.includes('id="leafletGrid"'), 'Šablona nového obchodu musí obsahovat letákovou sekci.');
 assert.ok(generator.includes('id="leafletViewer"'), 'Šablona nového obchodu musí obsahovat interní prohlížeč letáku.');
 assert.ok(generator.includes('assets/store-bottom-nav.css'), 'Šablona nového obchodu musí obsahovat mobilní/store navigaci.');
 
+for (const page of PUBLIC_PAGES) {
+  assert.ok(existsSync(new URL(`../${page}`, import.meta.url)), `Chybí veřejná stránka ${page}.`);
+  assert.ok(sitemap.includes(`<loc>https://slevao.cz/${page}</loc>`), `Sitemap neobsahuje veřejnou stránku ${page}.`);
+}
+
 for (const slug of stores) {
   const pageUrl = new URL(`../${slug}.html`, import.meta.url);
   assert.ok(existsSync(pageUrl), `Chybí store stránka ${slug}.html.`);
+  assert.ok(sitemap.includes(`<loc>https://slevao.cz/${slug}.html</loc>`), `Sitemap neobsahuje store stránku ${slug}.html.`);
   const html = readFileSync(pageUrl, 'utf8');
   const navRefs = html.match(/assets\/store-bottom-nav\.js\?v=[^"'\s<>]+/g) || [];
   const feedRefs = html.match(/assets\/store-feed\.js\?v=[^"'\s<>]+/g) || [];
@@ -44,4 +54,4 @@ assert.ok(genericPage.includes(NAV_SCRIPT), 'obchod.html musí používat stejno
 assert.ok(genericPage.includes(GENERIC_BOOTSTRAP), 'obchod.html musí načítat aktuální generický bootstrap.');
 assert.ok(genericBootstrap.includes(FEED_SCRIPT), 'Generický bootstrap musí dynamicky načítat aktuální store-feed runtime.');
 
-console.log(`OK: ${stores.size} store stránek používá ${FEED_SCRIPT} a ${NAV_SCRIPT}; generický bootstrap používá ${GENERIC_VERSION}.`);
+console.log(`OK: ${stores.size} store stránek a ${PUBLIC_PAGES.length} veřejné stránky jsou chráněné; runtime ${FEED_SCRIPT} + ${NAV_SCRIPT}.`);
