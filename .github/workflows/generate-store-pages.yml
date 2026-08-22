@@ -1,0 +1,45 @@
+name: Synchronizace store stránek
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/generate-store-pages.mjs'
+      - 'tests/store-page-generator-guard.mjs'
+      - '.github/workflows/generate-store-pages.yml'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: store-pages-main
+  cancel-in-progress: true
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Připravit Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Bezpečně synchronizovat store stránky
+        run: node scripts/generate-store-pages.mjs
+      - name: Ověřit store stránky a generátor
+        run: node tests/store-page-generator-guard.mjs
+      - name: Uložit pouze vygenerované změny
+        run: |
+          if git diff --quiet -- '*.html' sitemap.xml; then
+            echo "Store stránky jsou aktuální."
+            exit 0
+          fi
+          git config user.name "slevao-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add -- '*.html' sitemap.xml
+          git commit -m "chore: sync store page runtime versions"
+          git push
