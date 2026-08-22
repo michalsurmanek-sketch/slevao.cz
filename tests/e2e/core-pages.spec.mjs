@@ -64,7 +64,7 @@ async function openCorePage(page, entry, width) {
   await expect(page.locator(`script[src="${PUBLIC_FEATURES}"]`)).toHaveCount(1);
   await expect(page.locator(`script[src="${PUBLIC_NAV}"]`)).toHaveCount(1);
   if (entry.path === '/seznam.html') {
-    await expect(page.locator('script[src="assets/shopping-insights-bootstrap.js?v=20260822-2"]')).toHaveCount(1);
+    await expect(page.locator('script[src="assets/shopping-insights-bootstrap.js?v=20260822-3"]')).toHaveCount(1);
     for (const source of SHOPPING_RUNTIMES) {
       await expect(page.locator(`script[src="${source}"]`), `missing auth-gated runtime ${source}`).toHaveCount(1);
     }
@@ -92,9 +92,9 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   expect(response.status()).toBe(200);
   const source = await response.text();
 
-  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-14';");
+  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-15';");
   expect(source).toContain(`/${PUBLIC_FEATURES}`);
-  expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-2');
+  expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-3');
   for (const runtime of SHOPPING_RUNTIMES) {
     expect(source, `PWA shell is missing ${runtime}`).toContain(`/${runtime}`);
   }
