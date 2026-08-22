@@ -13,7 +13,10 @@ for (const needle of [
   "const ACTIVE_USER_KEY = 'slevao-active-user-v1';",
   "const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';",
   "const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';",
-  "const LIST_URL = 'assets/shopping-list.js?v=20260822-2';",
+  "'assets/shopping-list.js?v=20260822-2'",
+  "'assets/shopping-insights.js?v=20260821-1'",
+  "'assets/shopping-route.js?v=20260815-4'",
+  "'assets/shopping-route-autostart.js?v=20260807-1'",
   'function installBudgetOwnerBridge()',
   "activeUserId() ? `user:${activeUserId()}` : 'guest'",
   'Storage.prototype.getItem = function getItem',
@@ -22,8 +25,9 @@ for (const needle of [
   'const { data, error } = await db.auth.getSession();',
   'setMarkerUserId(currentUserId);',
   'bootedUserId = currentUserId;',
-  'loadShoppingRuntimes();',
-  'function loadList()',
+  'await loadShoppingRuntimes();',
+  'RUNTIME_URLS.reduce(',
+  'chain.then(() => loadScript(url))',
   "db.auth.onAuthStateChange((event, nextSession) =>",
   "if (event === 'INITIAL_SESSION') return;",
   "if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return;",
@@ -35,16 +39,23 @@ for (const needle of [
 }
 
 const setOwnerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);');
-const loadRuntimesIndex = bootstrap.indexOf('    loadShoppingRuntimes();', setOwnerIndex);
+const loadRuntimesIndex = bootstrap.indexOf('    await loadShoppingRuntimes();', setOwnerIndex);
 assert.ok(setOwnerIndex >= 0 && loadRuntimesIndex > setOwnerIndex, 'Owner marker musí být nastaven před vložením shopping runtime skriptů.');
-assert.match(bootstrap, /function loadShoppingRuntimes\(\) \{\s*loadList\(\);\s*loadInsights\(\);\s*\}/, 'Shopping list musí být vložen před insights runtime.');
 
 assert.match(html, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'seznam.html nenačítá aktuální identity bootstrap.');
-assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js před ověřením ownera.');
-assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-insights\.js/, 'seznam.html nesmí spouštět shopping-insights.js napřímo.');
+for (const directRuntime of ['shopping-list.js', 'shopping-insights.js', 'shopping-route.js', 'shopping-route-autostart.js']) {
+  assert.doesNotMatch(html, new RegExp(`<script[^>]+src="assets\\/${directRuntime.replace('.', '\\.')}"`), `${directRuntime} nesmí obejít auth owner gate.`);
+}
 assert.match(worker, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'PWA necachuje aktuální identity bootstrap.');
-assert.match(worker, /assets\/shopping-list\.js\?v=20260822-2/, 'PWA necachuje dynamicky načítaný Shopping List runtime.');
-assert.match(worker, /assets\/shopping-insights\.js\?v=20260821-1/, 'PWA necachuje dynamicky načítaný Insights runtime.');
+for (const runtime of [
+  'assets/shopping-list.js?v=20260822-2',
+  'assets/shopping-insights.js?v=20260821-1',
+  'assets/shopping-route.js?v=20260815-4',
+  'assets/shopping-route-autostart.js?v=20260807-1',
+]) {
+  assert.ok(worker.includes(runtime), `PWA necachuje auth-gated runtime ${runtime}.`);
+}
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-14';/, 'PWA shell nebyl po shopping auth gate posunutý.');
 
 const functionStart = bootstrap.indexOf('  function installBudgetOwnerBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
@@ -134,6 +145,7 @@ function createBootstrapScenario({ shared = false } = {}) {
     head: {
       appendChild(script) {
         appended.push({ src:script.src, owner:storage.getItem(ACTIVE) });
+        script.onload?.();
       },
     },
   };
@@ -149,7 +161,7 @@ function createBootstrapScenario({ shared = false } = {}) {
     setTimeout(callback) { callback(); return 1; },
     addEventListener(type, callback) { if (type === 'pagehide') pagehide = callback; },
   };
-  const context = {
+  const vmContext = {
     Storage: ScenarioStorage,
     window,
     localStorage:storage,
@@ -161,9 +173,11 @@ function createBootstrapScenario({ shared = false } = {}) {
     JSON,
     Array,
     Boolean,
+    Promise,
+    Error,
     console,
   };
-  new Script(bootstrap, { filename:'shopping-auth-owner-bootstrap-test.js' }).runInNewContext(context);
+  new Script(bootstrap, { filename:'shopping-auth-owner-bootstrap-test.js' }).runInNewContext(vmContext);
   return {
     storage,
     appended,
@@ -174,11 +188,18 @@ function createBootstrapScenario({ shared = false } = {}) {
   };
 }
 
+const expectedRuntimeOrder = [
+  'assets/shopping-list.js?v=20260822-2',
+  'assets/shopping-insights.js?v=20260821-1',
+  'assets/shopping-route.js?v=20260815-4',
+  'assets/shopping-route-autostart.js?v=20260807-1',
+];
+
 const scenario = createBootstrapScenario();
 await flushAsync();
 assert.deepEqual(
   scenario.appended.map((entry) => entry.src),
-  ['assets/shopping-list.js?v=20260822-2', 'assets/shopping-insights.js?v=20260821-1'],
+  expectedRuntimeOrder,
   'Shopping runtimy se nenačetly v bezpečném pořadí.'
 );
 assert.ok(scenario.appended.every((entry) => entry.owner === 'user-b'), 'Shopping runtime se vložil dřív, než bootstrap přepnul stale owner marker na aktuální session user B.');
@@ -196,6 +217,7 @@ assert.equal(scenario.wasUnsubscribed(), true, 'Auth listener se při opuštěn�
 
 const sharedScenario = createBootstrapScenario({ shared:true });
 await flushAsync();
+assert.deepEqual(sharedScenario.appended.map((entry) => entry.src), expectedRuntimeOrder, 'Shared seznam nenačetl kompletní shopping runtime řetězec.');
 const sharedAuthCallback = sharedScenario.getAuthCallback();
 sharedAuthCallback('SIGNED_OUT', null);
 assert.equal(sharedScenario.storage.getItem(ACTIVE), null, 'Shared režim neaktualizoval owner marker pro další navigaci.');
