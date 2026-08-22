@@ -8,6 +8,7 @@ on:
       - 'produkt.html'
       - 'obchod.html'
       - 'assets/rpc-request-dedupe.js'
+      - 'assets/home-v2.js'
       - 'assets/home-favorite-offer-sync.js'
       - 'assets/home-product-favorites.js'
       - 'assets/web-push.js'
@@ -41,6 +42,7 @@ on:
       - 'manifest.webmanifest'
       - 'offline.html'
       - 'tests/favorite-offer-reconciliation.mjs'
+      - 'tests/home-request-race-resilience.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -60,6 +62,7 @@ jobs:
       - name: Zkontrolovat JavaScript a manifest
         run: |
           node --check assets/rpc-request-dedupe.js
+          node --check assets/home-v2.js
           node --check assets/home-favorite-offer-sync.js
           node --check assets/home-product-favorites.js
           node --check assets/web-push.js
@@ -90,6 +93,8 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
       - name: Homepage uložené a oblíbené produkty
         run: node tests/favorite-offer-reconciliation.mjs
+      - name: Homepage request race a fallback
+        run: node tests/home-request-race-resilience.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
