@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const nav = readFileSync(new URL('assets/public-nav-upgrade.js', root), 'utf8');
 const account = readFileSync(new URL('assets/account.js', root), 'utf8');
+const storeBottomNav = readFileSync(new URL('assets/store-bottom-nav.js', root), 'utf8');
 const index = readFileSync(new URL('index.html', root), 'utf8');
 const product = readFileSync(new URL('produkt.html', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
@@ -20,6 +21,7 @@ const consumers = [
 
 new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 new Script(account, { filename:'assets/account.js' });
+new Script(storeBottomNav, { filename:'assets/store-bottom-nav.js' });
 
 assert.match(nav, /const LEGACY_LIST_KEY = 'slevao-shopping-list-v1';/, 'Bridge nehlídá legacy shopping-list klíč.');
 assert.match(nav, /const LIST_KEY_PREFIX = 'slevao-shopping-list-v2:';/, 'Bridge nemá owner-scoped v2 prefix.');
@@ -44,6 +46,16 @@ const navVersion = '20260822-2';
 for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nemá nasazený owner bridge.`);
 }
+for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
+  assert.ok(
+    source.indexOf(`assets/public-nav-upgrade.js?v=${navVersion}`) < source.indexOf('assets/public-features.js'),
+    `${name} musí nainstalovat owner bridge před prvním public-features čtením.`
+  );
+}
+assert.match(storeBottomNav, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'Store loader nemá aktuální owner bridge.');
+assert.ok(storeBottomNav.indexOf('public-nav-upgrade.js?v=20260822-2') < storeBottomNav.indexOf('public-features.js?v=20260804-2'), 'Store loader musí vložit bridge před public-features.');
+assert.match(storeBottomNav, /navScript\.async = false;/, 'Store public-nav loader nemá vynucené pořadí.');
+assert.match(storeBottomNav, /script\.async = false;/, 'Store public-features loader nemá vynucené pořadí.');
 assert.match(accountHtml, /assets\/account\.js\?v=20260822-1/, 'Účet nenačítá owner-aware account runtime.');
 assert.match(worker, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'PWA nemá owner bridge.');
 assert.match(worker, /assets\/account\.js\?v=20260822-1/, 'PWA nemá owner-aware account runtime.');
@@ -53,14 +65,14 @@ const bridgeEnd = nav.indexOf('\n  function loadPersonalization()', bridgeStart)
 assert.ok(bridgeStart >= 0 && bridgeEnd > bridgeStart, 'Owner bridge nejde izolovaně otestovat.');
 const bridgeFunction = nav.slice(bridgeStart, bridgeEnd);
 
-class StorageMock {
-  constructor(initial = {}) { this.map = new Map(Object.entries(initial)); }
-  getItem(key) { return this.map.has(String(key)) ? this.map.get(String(key)) : null; }
-  setItem(key, value) { this.map.set(String(key), String(value)); }
-  removeItem(key) { this.map.delete(String(key)); }
-}
-
 function runBridge(initial = {}) {
+  class StorageMock {
+    constructor(values = {}) { this.map = new Map(Object.entries(values)); }
+    getItem(key) { return this.map.has(String(key)) ? this.map.get(String(key)) : null; }
+    setItem(key, value) { this.map.set(String(key), String(value)); }
+    removeItem(key) { this.map.delete(String(key)); }
+  }
+
   const localStorage = new StorageMock(initial);
   const context = {
     Storage: StorageMock,
