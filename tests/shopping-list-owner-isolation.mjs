@@ -30,7 +30,7 @@ assert.match(nav, /legacyRows\.some\(\(row\) => row\?\.server_id\)/, 'Legacy syn
 assert.match(nav, /delete copy\.server_id;/, 'Guest claim může přenést cizí server_id.');
 assert.match(nav, /existing\.quantity = Math\.max\(/, 'Guest claim není idempotentní pro množství.');
 assert.match(nav, /Storage\.prototype\.getItem = function getItem/, 'Legacy čtení není bridgované.');
-assert.match(nav, /Storage\.prototype\.setItem = function setItem/, 'Legacy zápis není bridgovaný.');
+assert.match(nav, /Storage\.prototype\.setItem = function setItem/, 'Legacy zápis není bridgované.');
 assert.match(nav, /Storage\.prototype\.removeItem = function removeItem/, 'Legacy mazání není bridgované.');
 assert.ok(nav.indexOf('installShoppingListOwnerBridge();') < nav.indexOf('loadLocationService();'), 'Owner bridge musí vzniknout před location/list consumery.');
 
@@ -56,9 +56,10 @@ assert.match(storeBottomNav, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'St
 assert.ok(storeBottomNav.indexOf('public-nav-upgrade.js?v=20260822-2') < storeBottomNav.indexOf('public-features.js?v=20260804-2'), 'Store loader musí vložit bridge před public-features.');
 assert.match(storeBottomNav, /navScript\.async = false;/, 'Store public-nav loader nemá vynucené pořadí.');
 assert.match(storeBottomNav, /script\.async = false;/, 'Store public-features loader nemá vynucené pořadí.');
-assert.match(accountHtml, /assets\/account\.js\?v=20260822-1/, 'Účet nenačítá owner-aware account runtime.');
+const accountVersion = accountHtml.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(accountVersion, 'Účet nenačítá verzovaný owner-aware account runtime.');
 assert.match(worker, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'PWA nemá owner bridge.');
-assert.match(worker, /assets\/account\.js\?v=20260822-1/, 'PWA nemá owner-aware account runtime.');
+assert.ok(worker.includes(`'/assets/account.js?v=${accountVersion}'`), 'PWA nemá stejný owner-aware account runtime jako účet.');
 
 const bridgeStart = nav.indexOf('  function installShoppingListOwnerBridge()');
 const bridgeEnd = nav.indexOf('\n  function loadPersonalization()', bridgeStart);
