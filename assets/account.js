@@ -339,19 +339,19 @@
 
   $('alerts').addEventListener('click', async (event) => {
     const row = event.target.closest('[data-id]');
+    const action = event.target.closest('[data-toggle],[data-delete]');
     const userId = session?.user?.id;
-    if (!row || !userId) return;
+    if (!row || !action || action.disabled || !userId) return;
+    action.disabled = true;
     try {
-      const toggle = event.target.closest('[data-toggle]');
-      if (toggle) {
-        const active = toggle.dataset.toggle === 'true';
+      if (action.matches('[data-toggle]')) {
+        const active = action.dataset.toggle === 'true';
         const { error } = await db.from('price_alerts')
           .update({ is_active: !active })
           .eq('id', row.dataset.id)
           .eq('user_id', userId);
         if (error) throw error;
-      }
-      if (event.target.closest('[data-delete]')) {
+      } else if (action.matches('[data-delete]')) {
         const { error } = await db.from('price_alerts')
           .delete()
           .eq('id', row.dataset.id)
@@ -359,7 +359,11 @@
         if (error) throw error;
       }
       await loadAccountData(userId);
-    } catch (error) { message(error.message, true); }
+    } catch (error) {
+      message(error.message || 'Hlídač se nepodařilo upravit.', true);
+    } finally {
+      if (action.isConnected) action.disabled = false;
+    }
   });
 
   $('notifications').addEventListener('click', async (event) => {
@@ -382,16 +386,22 @@
   });
 
   $('markAllRead').addEventListener('click', async () => {
-    if (!session) return;
-    $('markAllRead').disabled = true;
+    const button = $('markAllRead');
+    if (!session || button.disabled) return;
+    button.disabled = true;
     const userId = session.user.id;
-    const { error } = await db.from('notifications')
-      .update({ is_read: true })
-      .eq('user_id', userId)
-      .eq('is_read', false);
-    if (error) { message(error.message, true); return; }
-    message('Všechna upozornění jsou označená jako přečtená.');
-    await Promise.all([loadCounts(userId), loadNotifications(userId)]);
+    try {
+      const { error } = await db.from('notifications')
+        .update({ is_read: true })
+        .eq('user_id', userId)
+        .eq('is_read', false);
+      if (error) throw error;
+      message('Všechna upozornění jsou označená jako přečtená.');
+      await Promise.all([loadCounts(userId), loadNotifications(userId)]);
+    } catch (error) {
+      button.disabled = false;
+      message(error.message || 'Upozornění se nepodařilo označit jako přečtená.', true);
+    }
   });
 
   $('enableBrowserAlerts')?.addEventListener('click', async () => {
