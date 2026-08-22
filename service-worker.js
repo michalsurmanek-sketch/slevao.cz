@@ -46,6 +46,9 @@ const SHELL = [
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights-bootstrap.js?v=20260822-2',
   '/assets/shopping-insights.js?v=20260821-1',
+  '/assets/shopping-route.css?v=20260815-3',
+  '/assets/shopping-route.js?v=20260815-4',
+  '/assets/shopping-route-autostart.js?v=20260807-1',
   '/assets/account-notification-seen-guard.js?v=20260822-1',
   '/assets/account.js?v=20260822-3'
 ];
