@@ -6,13 +6,47 @@ const STORE_FEED_VERSION = '20260822-2';
 const STORE_FEED_SCRIPT = `assets/store-feed.js?v=${STORE_FEED_VERSION}`;
 const STORE_FEED_CSS_VERSION = '20260801-16';
 const STORE_NAV_CSS_VERSION = '20260802-3';
+const EXPECTED_STORE_COUNT = 73;
+const PUBLIC_PAGES = ['kontakt.html', 'ochrana-soukromi.html', 'podminky.html'];
 
-const migration = readFileSync(new URL('../supabase/migrations/20260730124500_expand_czech_store_catalog.sql', import.meta.url), 'utf8').split(')\ninsert into public.stores')[0];
-const homepage = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const expansionMigration = readFileSync(new URL('../supabase/migrations/20260730124500_expand_czech_store_catalog.sql', import.meta.url), 'utf8').split(')\ninsert into public.stores')[0];
+const canonicalCatalog = readFileSync(new URL('../supabase/migrations/20260801133000_complete_store_brand_logos.sql', import.meta.url), 'utf8');
+
+function fallbackStoreName(slug) {
+  return String(slug || '')
+    .split('-')
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ');
+}
+
+function existingStoreName(slug) {
+  const pageUrl = new URL(`../${slug}.html`, import.meta.url);
+  if (!existsSync(pageUrl)) return fallbackStoreName(slug);
+  const html = readFileSync(pageUrl, 'utf8');
+  const configMatch = html.match(/window\.SLEVAO_STORE\s*=\s*(\{[^;<>]+\})/);
+  if (configMatch) {
+    try {
+      const config = JSON.parse(configMatch[1]);
+      if (String(config?.name || '').trim()) return String(config.name).trim();
+    } catch {}
+  }
+  const titleMatch = html.match(/<title>([^|<]+?)(?:\s+leták|\s+–|\s+\|)/i);
+  return String(titleMatch?.[1] || '').trim() || fallbackStoreName(slug);
+}
+
 const stores = new Map();
-for (const match of migration.matchAll(/\('([a-z0-9-]+)',\s*'([^']+)'/g)) stores.set(match[1], match[2]);
-const catalog = homepage.match(/const CATALOG=\[(.*?)\]\.map/s)?.[1] || '';
-for (const match of catalog.matchAll(/\['([^']+)','([^']+)'/g)) stores.set(match[1], match[2]);
+for (const match of expansionMigration.matchAll(/\('([a-z0-9-]+)',\s*'([^']+)'/g)) stores.set(match[1], match[2]);
+for (const match of canonicalCatalog.matchAll(/\('([a-z0-9-]+)'\s*,\s*'[^']+'\)/g)) {
+  const slug = match[1];
+  if (!stores.has(slug)) stores.set(slug, existingStoreName(slug));
+}
+if (stores.size !== EXPECTED_STORE_COUNT) {
+  throw new Error(`Kanonický katalog obchodů má ${stores.size} položek, očekáváno ${EXPECTED_STORE_COUNT}.`);
+}
+for (const page of PUBLIC_PAGES) {
+  if (!existsSync(new URL(`../${page}`, import.meta.url))) throw new Error(`Chybí veřejná stránka ${page}.`);
+}
 
 const escapeHtml = (value) => String(value)
   .replaceAll('&', '&amp;')
@@ -69,6 +103,8 @@ for (const [slug, name] of [...stores].sort()) {
   created += 1;
 }
 
-const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://slevao.cz/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n${[...stores].sort().map(([slug]) => `  <url><loc>https://slevao.cz/${slug}.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`).join('\n')}\n</urlset>\n`;
+const publicPageUrls = PUBLIC_PAGES.map((page) => `  <url><loc>https://slevao.cz/${page}</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>`).join('\n');
+const storeUrls = [...stores].sort().map(([slug]) => `  <url><loc>https://slevao.cz/${slug}.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>`).join('\n');
+const sitemap = `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n  <url><loc>https://slevao.cz/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>\n${publicPageUrls}\n${storeUrls}\n</urlset>\n`;
 writeFileSync(new URL('../sitemap.xml', import.meta.url), sitemap);
-console.log(`Store stránky: ${stores.size}; nové: ${created}; bezpečně patchované: ${patched}.`);
+console.log(`Store stránky: ${stores.size}; veřejné stránky: ${PUBLIC_PAGES.length}; nové: ${created}; bezpečně patchované: ${patched}.`);
