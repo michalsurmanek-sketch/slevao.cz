@@ -49,18 +49,6 @@
     try { localStorage.setItem(SEEN_NOTIFICATION_KEY, JSON.stringify(ids)); } catch {}
   }
 
-  function updateBrowserAlertButton() {
-    const button = $('enableBrowserAlerts');
-    if (!button) return;
-    if (!('Notification' in window)) {
-      button.hidden = true;
-      return;
-    }
-    button.hidden = false;
-    button.textContent = Notification.permission === 'granted' ? 'Oznámení zapnuta' : 'Zapnout oznámení';
-    button.disabled = Notification.permission === 'granted';
-  }
-
   function deliverBrowserNotification(row) {
     if (!row?.id || seenNotificationIds().has(row.id)) return;
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -409,19 +397,9 @@
     }
   });
 
-  $('enableBrowserAlerts')?.addEventListener('click', async () => {
-    if (!('Notification' in window)) return;
-    const permission = await Notification.requestPermission();
-    updateBrowserAlertButton();
-    message(permission === 'granted'
-      ? 'Oznámení jsou zapnutá. Když sledovaná cena klesne, Slevao tě upozorní.'
-      : 'Oznámení nebyla povolena. Upozornění zůstanou dostupná v účtu.', permission === 'denied');
-  });
-
   const remembered = params.get('email') || localStorage.getItem('slevao-account-email') || '';
   $('loginEmail').value = remembered;
   $('registerEmail').value = remembered;
-  updateBrowserAlertButton();
 
   const { data:{ subscription:authSubscription } } = db.auth.onAuthStateChange((event, nextSession) => {
     if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
