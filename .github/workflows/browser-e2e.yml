@@ -5,6 +5,10 @@ on:
     branches: ['main']
     paths:
       - 'index.html'
+      - 'produkt.html'
+      - 'seznam.html'
+      - 'ucet.html'
+      - 'service-worker.js'
       - 'assets/**'
       - 'tests/e2e/**'
       - 'tests/mobile-css-loader-guard.mjs'
@@ -13,6 +17,10 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'produkt.html'
+      - 'seznam.html'
+      - 'ucet.html'
+      - 'service-worker.js'
       - 'assets/**'
       - 'tests/e2e/**'
       - 'tests/mobile-css-loader-guard.mjs'
