@@ -174,9 +174,16 @@
     throw new Error('Počet nabídek překročil bezpečný limit stránkování.');
   };
 
-  const unique = (rows) => [...new Map(rows.map((offer) => [
-    [fold(offer.title), offer.valid_from, offer.valid_to].join('|'), offer,
-  ])).values()];
+  const unique = (rows) => {
+    const seen = new Set();
+    return rows.filter((offer) => {
+      const id = String(offer?.id || '');
+      if (!id) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  };
 
   function searchableText(offer) {
     const productName = Array.isArray(offer.products) ? offer.products[0]?.name : offer.products?.name;

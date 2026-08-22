@@ -12,4 +12,13 @@ assert.ok(source.includes("order: 'published_at.desc,id.asc'"), 'Stránkování 
 assert.ok(source.includes("if (batch.length < pageSize) return rows;"), 'Stránkování musí skončit po poslední neúplné dávce.');
 assert.ok(source.includes("throw new Error('Počet nabídek překročil bezpečný limit stránkování.')"), 'Stránkování musí mít bezpečnostní horní mez.');
 
-console.log('OK: store-feed stránkuje nabídky, používá stabilní pořadí a respektuje stores.is_active.');
+const uniqueStart = source.indexOf('const unique = (rows) =>');
+const uniqueEnd = source.indexOf('\n\n  function searchableText', uniqueStart);
+assert.ok(uniqueStart >= 0 && uniqueEnd > uniqueStart, 'Store feed musí mít kontrolovanou deduplikaci.');
+const uniqueSource = source.slice(uniqueStart, uniqueEnd);
+assert.ok(uniqueSource.includes("const id = String(offer?.id || '')"), 'Deduplikace smí identifikovat nabídku pouze podle offer.id.');
+assert.ok(uniqueSource.includes('seen.has(id)'), 'Deduplikace musí odstranit jen opakovaný stejný offer.id.');
+assert.ok(uniqueSource.includes('seen.add(id)'), 'Deduplikace musí evidovat již zobrazené offer.id.');
+assert.doesNotMatch(uniqueSource, /fold\(offer\.title\)|valid_from|valid_to|product_id|price/, 'Deduplikace nesmí slučovat různé nabídky podle názvu, platnosti, produktu ani ceny.');
+
+console.log('OK: store-feed stránkuje nabídky, používá stabilní pořadí, respektuje stores.is_active a deduplikuje jen stejné offer.id.');
