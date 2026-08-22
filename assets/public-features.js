@@ -3,9 +3,7 @@
 
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
-  const LEGACY_LIST_KEY = 'slevao-shopping-list-v1';
-  const LIST_KEY_PREFIX = 'slevao-shopping-list-v2:';
-  const ACTIVE_USER_KEY = 'slevao-active-user-v1';
+  const LIST_KEY = 'slevao-shopping-list-v1';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   let supabasePromise = null;
   let toastTimer = 0;
@@ -13,62 +11,9 @@
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+  const read = () => { try { const rows = JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); return Array.isArray(rows) ? rows : []; } catch { return []; } };
+  const write = (rows) => { try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch {} updateNavCount(); };
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-
-  function parseRows(raw) {
-    try {
-      const value = JSON.parse(raw || '[]');
-      return Array.isArray(value) ? value : [];
-    } catch {
-      return [];
-    }
-  }
-
-  function activeOwner() {
-    const userId = String(localStorage.getItem(ACTIVE_USER_KEY) || '').trim();
-    return userId ? `user:${userId}` : 'guest';
-  }
-
-  function storageKey(owner = activeOwner()) {
-    return `${LIST_KEY_PREFIX}${String(owner || 'guest')}`;
-  }
-
-  function migrateLegacyGuest() {
-    const guestKey = storageKey('guest');
-    if (localStorage.getItem(guestKey) !== null) return;
-    const legacyRaw = localStorage.getItem(LEGACY_LIST_KEY);
-    if (legacyRaw === null) return;
-    const legacyRows = parseRows(legacyRaw);
-    if (legacyRows.some((row) => row?.server_id)) return;
-    try {
-      localStorage.setItem(guestKey, JSON.stringify(legacyRows));
-      localStorage.removeItem(LEGACY_LIST_KEY);
-    } catch {}
-  }
-
-  function read(owner = activeOwner()) {
-    if (owner === 'guest') migrateLegacyGuest();
-    try { return parseRows(localStorage.getItem(storageKey(owner))); } catch { return []; }
-  }
-
-  function write(rows, owner = activeOwner()) {
-    try { localStorage.setItem(storageKey(owner), JSON.stringify(Array.isArray(rows) ? rows : [])); } catch {}
-    updateNavCount();
-  }
-
-  function clear(owner = activeOwner()) {
-    try { localStorage.removeItem(storageKey(owner)); } catch {}
-    updateNavCount();
-  }
-
-  function setActiveUser(userId) {
-    const normalized = String(userId || '').trim();
-    try {
-      if (normalized) localStorage.setItem(ACTIVE_USER_KEY, normalized);
-      else localStorage.removeItem(ACTIVE_USER_KEY);
-    } catch {}
-    updateNavCount();
-  }
 
   async function getSupabase() {
     if (!supabasePromise) {
@@ -378,22 +323,7 @@
     }
   });
 
-  const listStorage = {
-    activeOwner,
-    storageKey,
-    read,
-    write,
-    clear,
-    setActiveUser,
-    readGuest: () => read('guest'),
-    clearGuest: () => clear('guest')
-  };
-  window.SlevaoListStorage = listStorage;
-  window.SlevaoPublic = { readList: read, writeList: write, addItemFromOffer, getSupabase, toast, updateNavCount, listStorage };
-
-  window.addEventListener('storage', (event) => {
-    if (event.key === ACTIVE_USER_KEY || String(event.key || '').startsWith(LIST_KEY_PREFIX)) updateNavCount();
-  });
+  window.SlevaoPublic = { readList: read, writeList: write, addItemFromOffer, getSupabase, toast, updateNavCount };
 
   function init() {
     bottomNav();
