@@ -39,6 +39,7 @@ on:
       - 'assets/home-footer-redesign.js'
       - 'assets/admin-modern-ui.js'
       - 'supabase/functions/web-push/index.ts'
+      - 'supabase/functions/run-leaflet-pipeline-v2/index.ts'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -46,6 +47,7 @@ on:
       - 'tests/home-facets-request-dedupe.mjs'
       - 'tests/home-request-race-resilience.mjs'
       - 'tests/home-count-semantics.mjs'
+      - 'tests/generic-leaflet-discovery-clock.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -103,6 +105,8 @@ jobs:
         run: node tests/home-request-race-resilience.mjs
       - name: Homepage význam počtů nabídek
         run: node tests/home-count-semantics.mjs
+      - name: Generic discovery nesmí hladovět
+        run: node tests/generic-leaflet-discovery-clock.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
