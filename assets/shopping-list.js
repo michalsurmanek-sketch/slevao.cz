@@ -45,6 +45,10 @@
   let offersLoading = null;
   let lastOffersLoadedAt = 0;
   let offerBusinessDay = '';
+  const rowMutationQueues = new Map();
+  const rowMutationVersions = new Map();
+  const rowConfirmedStates = new Map();
+  const deletingRows = new Set();
 
   function readLocal() {
     try {
@@ -63,6 +67,63 @@
 
   function rowKey(row) {
     return row.product_id ? `p:${row.product_id}` : `c:${norm(row.custom_name || row.name)}`;
+  }
+
+  function mutationKey(row) {
+    return String(row?.local_id || row?.server_id || rowKey(row));
+  }
+
+  function nextMutationVersion(row) {
+    const key = mutationKey(row);
+    const version = Number(rowMutationVersions.get(key) || 0) + 1;
+    rowMutationVersions.set(key, version);
+    return { key, version };
+  }
+
+  function isLatestMutation(key, version) {
+    return Number(rowMutationVersions.get(key) || 0) === Number(version || 0);
+  }
+
+  function rememberConfirmedState(row, state) {
+    const key = mutationKey(row);
+    rowConfirmedStates.set(key, { ...state, server_id: row?.server_id || state?.server_id || null });
+  }
+
+  function ensureConfirmedState(row, fallback) {
+    if (!row?.server_id) return;
+    const key = mutationKey(row);
+    if (!rowConfirmedStates.has(key)) rememberConfirmedState(row, fallback);
+  }
+
+  function rollbackToConfirmed(row, key, version, fallback) {
+    if (!isLatestMutation(key, version)) return;
+    Object.assign(row, rowConfirmedStates.get(key) || fallback);
+    render();
+  }
+
+  function enqueueRowMutation(row, task) {
+    const key = mutationKey(row);
+    const previous = rowMutationQueues.get(key) || Promise.resolve();
+    const queued = previous.catch(() => {}).then(task);
+    rowMutationQueues.set(key, queued);
+    queued.then(
+      () => { if (rowMutationQueues.get(key) === queued) rowMutationQueues.delete(key); },
+      () => { if (rowMutationQueues.get(key) === queued) rowMutationQueues.delete(key); }
+    );
+    return queued;
+  }
+
+  async function waitForRowMutations(targetRows) {
+    const pending = [...new Set((targetRows || []).map((row) => rowMutationQueues.get(mutationKey(row))).filter(Boolean))];
+    if (pending.length) await Promise.allSettled(pending);
+  }
+
+  function clearMutationState(row) {
+    const key = mutationKey(row);
+    rowMutationQueues.delete(key);
+    rowMutationVersions.delete(key);
+    rowConfirmedStates.delete(key);
+    deletingRows.delete(key);
   }
 
   function productSignature(sourceRows = rows) {
@@ -272,21 +333,21 @@
     saveLocal();
   }
 
-  async function persistRow(row) {
+  async function persistRow(row, state = row) {
     if (sharedMode) {
-      await mutateShared('update', row);
+      await mutateShared('update', state);
       return;
     }
     saveLocal();
     if (!session || !listId) return;
     const payload = {
       shopping_list_id: listId,
-      product_id: row.product_id || null,
-      selected_offer_id: row.selected_offer_id || null,
-      custom_name: row.product_id ? null : (row.custom_name || row.name),
-      quantity: Number(row.quantity || 1),
-      unit: row.unit || 'ks',
-      is_completed: Boolean(row.completed)
+      product_id: state.product_id || null,
+      selected_offer_id: state.selected_offer_id || null,
+      custom_name: state.product_id ? null : (state.custom_name || state.name),
+      quantity: Number(state.quantity || 1),
+      unit: state.unit || 'ks',
+      is_completed: Boolean(state.completed)
     };
     if (row.server_id) {
       const { error } = await db.from('shopping_list_items')
@@ -501,14 +562,17 @@
     const readOnly = sharedMode && sharedPermission !== 'edit';
     $('listCount').textContent = `${active.length} položek`;
     $('listItems').innerHTML = rows.length
-      ? rows.map((row) => `
+      ? rows.map((row) => {
+        const disabled = readOnly || deletingRows.has(mutationKey(row));
+        return `
         <article class="sfListItem ${row.completed ? 'done' : ''}" data-id="${esc(row.local_id)}">
-          <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} ${readOnly ? 'disabled' : ''} aria-label="Označit jako koupené">
+          <input class="sfCheck" type="checkbox" data-complete ${row.completed ? 'checked' : ''} ${disabled ? 'disabled' : ''} aria-label="Označit jako koupené">
           <span class="sfItemThumb ${itemImage(row) ? 'has-image' : ''}" aria-hidden="true">${itemImage(row) ? `<img src="${esc(itemImage(row))}" alt="" loading="lazy">` : '<span>▤</span>'}</span>
           <div class="sfItemCopy"><div class="sfItemName">${esc(row.name || row.custom_name || 'Položka')}</div><div class="sfItemMeta">${esc([row.brand, row.quantity_text, row.store_name].filter(Boolean).join(' · ') || (row.product_id ? 'Produkt Slevao.cz' : (offersForItem(row).length ? 'Vlastní položka · nalezené ceny' : 'Vlastní položka · zatím nenalezeno')))}</div></div>
-          <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity ${readOnly ? 'disabled' : ''} aria-label="Množství">
-          <button class="sfIconButton" type="button" data-delete ${readOnly ? 'disabled' : ''} aria-label="Odstranit">×</button>
-        </article>`).join('')
+          <input class="sfInput" type="number" min="0.01" step="0.01" value="${esc(row.quantity || 1)}" data-quantity ${disabled ? 'disabled' : ''} aria-label="Množství">
+          <button class="sfIconButton" type="button" data-delete ${disabled ? 'disabled' : ''} aria-label="Odstranit">×</button>
+        </article>`;
+      }).join('')
       : '<div class="sfEmpty">Seznam je prázdný.</div>';
     renderResults();
     saveLocal();
@@ -531,26 +595,41 @@
     }
 
     const existing = rows.find((row) => !row.product_id && norm(row.custom_name || row.name) === norm(name) && !row.completed);
-    if (existing) existing.quantity = Number(existing.quantity || 1) + quantity;
-    else rows.push({
-      local_id: uid(),
-      key: `c:${norm(name)}`,
-      product_id: null,
-      selected_offer_id: null,
-      custom_name: name,
-      name,
-      quantity,
-      unit: 'ks',
-      completed: false,
-      added_at: new Date().toISOString()
-    });
+    const previous = existing ? { ...existing } : null;
+    if (existing) {
+      ensureConfirmedState(existing, previous);
+      existing.quantity = Number(existing.quantity || 1) + quantity;
+    } else {
+      rows.push({
+        local_id: uid(),
+        key: `c:${norm(name)}`,
+        product_id: null,
+        selected_offer_id: null,
+        custom_name: name,
+        name,
+        quantity,
+        unit: 'ks',
+        completed: false,
+        added_at: new Date().toISOString()
+      });
+    }
     $('customName').value = '';
     $('customQuantity').value = '1';
     const row = existing || rows.at(-1);
+    const desired = { ...row };
+    const { key, version } = nextMutationVersion(row);
     render();
     try {
-      await persistRow(row);
-      await fetchOffers();
+      await enqueueRowMutation(row, async () => {
+        try {
+          await persistRow(row, desired);
+          if (session) rememberConfirmedState(row, desired);
+        } catch (error) {
+          if (isLatestMutation(key, version)) rollbackToConfirmed(row, key, version, previous || desired);
+          throw error;
+        }
+      });
+      if (isLatestMutation(key, version)) await fetchOffers();
     } catch (error) {
       showMessage(error.message, true);
     }
@@ -607,36 +686,46 @@
   }
 
   async function clearCompleted() {
-    const completed = rows.filter((row) => row.completed);
+    let completed = rows.filter((row) => row.completed);
     if (!completed.length) return;
+    const targetKeys = new Set(completed.map(mutationKey));
+    targetKeys.forEach((key) => deletingRows.add(key));
+    render();
 
-    if (sharedMode) {
-      try {
-        for (const row of completed) await mutateShared('delete', row);
+    try {
+      await waitForRowMutations(completed);
+      completed = rows.filter((row) => targetKeys.has(mutationKey(row)) && row.completed);
+      if (!completed.length) return;
+
+      if (sharedMode) {
+        for (const row of completed) await enqueueRowMutation(row, () => deleteRow(row));
+        completed.forEach(clearMutationState);
         showMessage('Koupené položky byly odstraněny ze sdíleného seznamu.');
-      } catch (error) {
-        showMessage(error.message || 'Položky se nepodařilo odstranit.', true);
+        return;
       }
-      return;
-    }
 
-    if (session) {
-      const ids = completed.map((row) => row.server_id).filter(Boolean);
-      if (ids.length) {
-        const scopedListId = listId || await ensureRemoteList();
-        const { error } = await db.from('shopping_list_items')
-          .delete()
-          .eq('shopping_list_id', scopedListId)
-          .in('id', ids);
-        if (error) {
-          showMessage(error.message || 'Položky se nepodařilo odstranit.', true);
-          return;
+      if (session) {
+        const ids = completed.map((row) => row.server_id).filter(Boolean);
+        if (ids.length) {
+          const scopedListId = listId || await ensureRemoteList();
+          const { error } = await db.from('shopping_list_items')
+            .delete()
+            .eq('shopping_list_id', scopedListId)
+            .in('id', ids);
+          if (error) throw error;
         }
       }
+      const completedIds = new Set(completed.map((row) => row.local_id));
+      rows = rows.filter((row) => !completedIds.has(row.local_id));
+      completed.forEach(clearMutationState);
+      saveLocal();
+      render();
+    } catch (error) {
+      showMessage(error.message || 'Položky se nepodařilo odstranit.', true);
+    } finally {
+      targetKeys.forEach((key) => deletingRows.delete(key));
+      render();
     }
-    rows = rows.filter((row) => !row.completed);
-    saveLocal();
-    render();
   }
 
   async function init() {
@@ -694,21 +783,37 @@
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
+    const keyBeforeChange = mutationKey(row);
+    if (deletingRows.has(keyBeforeChange)) {
+      render();
+      return;
+    }
     const previous = { ...row };
+    ensureConfirmedState(row, previous);
     if (event.target.matches('[data-complete]')) row.completed = event.target.checked;
     if (event.target.matches('[data-quantity]')) row.quantity = Math.max(0.01, Number(event.target.value || 1));
     row.updated_at = new Date().toISOString();
+    const desired = { ...row };
+    const { key, version } = nextMutationVersion(row);
     render();
     try {
-      await persistRow(row);
-      if (!sharedMode) await fetchOffers();
+      await enqueueRowMutation(row, async () => {
+        try {
+          await persistRow(row, desired);
+          if (!sharedMode && session) rememberConfirmedState(row, desired);
+        } catch (error) {
+          if (isLatestMutation(key, version)) {
+            if (sharedMode) await loadSharedList({ silent: true });
+            else rollbackToConfirmed(row, key, version, previous);
+          }
+          throw error;
+        }
+      });
+      if (!sharedMode && isLatestMutation(key, version) && rows.some((item) => item.local_id === row.local_id)) {
+        await fetchOffers();
+      }
     } catch (error) {
       showMessage(error.message || 'Změnu se nepodařilo uložit.', true);
-      if (sharedMode) await loadSharedList({ silent: true });
-      else {
-        Object.assign(row, previous);
-        render();
-      }
     }
   });
 
@@ -718,16 +823,19 @@
     const article = event.target.closest('[data-id]');
     const row = rows.find((item) => item.local_id === article?.dataset.id);
     if (!row) return;
-    button.disabled = true;
+    const key = mutationKey(row);
+    if (deletingRows.has(key)) return;
+    deletingRows.add(key);
+    render();
     try {
-      await deleteRow(row);
-      if (!sharedMode) {
-        render();
-        await fetchOffers();
-      }
+      await enqueueRowMutation(row, () => deleteRow(row));
+      if (!sharedMode) await fetchOffers();
+      if (!rows.some((item) => item.local_id === row.local_id)) clearMutationState(row);
     } catch (error) {
-      if (button.isConnected) button.disabled = false;
       showMessage(error.message || 'Položku se nepodařilo odstranit.', true);
+    } finally {
+      deletingRows.delete(key);
+      render();
     }
   });
 
