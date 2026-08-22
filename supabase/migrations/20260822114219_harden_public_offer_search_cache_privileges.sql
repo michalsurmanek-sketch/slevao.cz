@@ -1,0 +1,17 @@
+-- Public feed RPCs only need read access to the private materialized cache.
+-- Remove unnecessary DML privileges inherited from the previous cache object
+-- and restore canonical index names after the v2 swap.
+
+revoke all on private.public_offer_search_cache from anon, authenticated, service_role;
+grant select on private.public_offer_search_cache to anon, authenticated, service_role;
+
+alter index private.public_offer_search_cache_v2_offer_id_uidx rename to public_offer_search_cache_offer_id_uidx;
+alter index private.public_offer_search_cache_v2_group_idx rename to public_offer_search_cache_group_idx;
+alter index private.public_offer_search_cache_v2_price_idx rename to public_offer_search_cache_price_idx;
+alter index private.public_offer_search_cache_v2_product_search_trgm_idx rename to public_offer_search_cache_product_search_trgm_idx;
+alter index private.public_offer_search_cache_v2_published_idx rename to public_offer_search_cache_published_idx;
+alter index private.public_offer_search_cache_v2_region_idx rename to public_offer_search_cache_region_idx;
+alter index private.public_offer_search_cache_v2_search_trgm_idx rename to public_offer_search_cache_search_trgm_idx;
+alter index private.public_offer_search_cache_v2_semantic_tags_gin_idx rename to public_offer_search_cache_semantic_tags_gin_idx;
+alter index private.public_offer_search_cache_v2_store_idx rename to public_offer_search_cache_store_idx;
+alter index private.public_offer_search_cache_v2_validity_idx rename to public_offer_search_cache_validity_idx;
