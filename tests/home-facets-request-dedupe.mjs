@@ -18,8 +18,10 @@ assert(!/localStorage|sessionStorage|setTimeout|setInterval/.test(source), 'Dedu
 
 assert(home.includes('return state.globalFacets;'), 'Global startup facets must be reusable by the main refresh path.');
 assert(home.includes('refreshFacets=true, scroll=false, facetsPromise=null'), 'Main refresh must accept an optional shared startup facets promise.');
-assert(home.includes('const facetsTask = refreshFacets ? (facetsPromise || fetchFacets()) : Promise.resolve(state.facets);'), 'Main refresh must reuse supplied facets instead of creating a duplicate request.');
-assert(home.includes('const globalFacetsPromise = loadGlobalFacets();'), 'Homepage startup must create one global facets promise.');
+assert(home.includes('Promise.resolve(facetsPromise || fetchFacets()).catch((error) => {'), 'Main refresh must reuse supplied facets while handling an auxiliary facets failure without discarding the offer page.');
+assert(home.includes("console.warn('Facety nabídek se nepodařilo načíst:', error);"), 'Facets fallback must stay observable in the console.');
+assert(home.includes('return state.facets;'), 'Facets fallback must preserve the last usable facets state.');
+assert(home.includes('const globalFacetsPromise = loadGlobalFacets().catch((error) => {'), 'Homepage startup must create one reusable, non-fatal global facets promise.');
 assert(home.includes('refreshCurrent({ facetsPromise: initialQuery ? null : globalFacetsPromise })'), 'Clean startup must reuse global facets while query startup keeps query-specific facets.');
 assert(!home.includes('Promise.all([loadGlobalFacets(), refreshCurrent()])'), 'Legacy app-level duplicate startup facets path must stay removed.');
 
@@ -87,4 +89,4 @@ assert.equal(underlyingCalls, 5, 'Non-facets RPCs must bypass the dedupe layer.'
 releases.shift()();
 await other;
 
-console.log('Homepage facets request dedupe and startup reuse OK');
+console.log('Homepage facets request dedupe, startup reuse and fallback OK');
