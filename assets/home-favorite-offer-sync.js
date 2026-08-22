@@ -35,6 +35,7 @@
     reconcileFavoriteKeys();
 
     if (!Storage.prototype.__slevaoFavoriteSyncPatched) {
+      const nativeGetItem = Storage.prototype.getItem;
       const nativeSetItem = Storage.prototype.setItem;
       const nativeRemoveItem = Storage.prototype.removeItem;
       Object.defineProperty(Storage.prototype, '__slevaoFavoriteSyncPatched', {
@@ -61,10 +62,6 @@
         const mirrorKey = key === HOME_FAVORITES_KEY ? STORE_FAVORITES_KEY : HOME_FAVORITES_KEY;
         nativeRemoveItem.call(this, mirrorKey);
       };
-
-      function nativeGetItem(key) {
-        return Storage.prototype.getItem.call(window.localStorage, key);
-      }
     }
 
     window.addEventListener('storage', (event) => {
