@@ -3,6 +3,9 @@ import { existsSync, readFileSync } from 'node:fs';
 
 const NAV_VERSION = '20260822-1';
 const NAV_SCRIPT = `assets/store-bottom-nav.js?v=${NAV_VERSION}`;
+const GENERIC_VERSION = '20260822-1';
+const GENERIC_BOOTSTRAP = `assets/store-generic-bootstrap.js?v=${GENERIC_VERSION}`;
+const GENERIC_FEED = `assets/store-feed.js?v=${GENERIC_VERSION}`;
 const generator = readFileSync(new URL('../scripts/generate-store-pages.mjs', import.meta.url), 'utf8');
 const migration = readFileSync(new URL('../supabase/migrations/20260730124500_expand_czech_store_catalog.sql', import.meta.url), 'utf8').split(')\ninsert into public.stores')[0];
 const homepage = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
@@ -28,6 +31,9 @@ for (const [slug] of stores) {
 }
 
 const genericPage = readFileSync(new URL('../obchod.html', import.meta.url), 'utf8');
+const genericBootstrap = readFileSync(new URL('../assets/store-generic-bootstrap.js', import.meta.url), 'utf8');
 assert.ok(genericPage.includes(NAV_SCRIPT), 'obchod.html musí používat stejnou aktuální store-bottom-nav verzi.');
+assert.ok(genericPage.includes(GENERIC_BOOTSTRAP), 'obchod.html musí načítat aktuální generický bootstrap.');
+assert.ok(genericBootstrap.includes(GENERIC_FEED), 'Generický bootstrap musí dynamicky načítat aktuální store-feed runtime.');
 
-console.log(`OK: ${stores.size} store stránek používá ${NAV_SCRIPT} a generátor zachovává existující HTML.`);
+console.log(`OK: ${stores.size} store stránek používá ${NAV_SCRIPT}; generický bootstrap a feed používají ${GENERIC_VERSION}.`);
