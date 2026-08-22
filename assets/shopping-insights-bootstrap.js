@@ -6,15 +6,18 @@
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
-  const LIST_URL = 'assets/shopping-list.js?v=20260822-2';
-  const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260821-1';
+  const RUNTIME_URLS = [
+    'assets/shopping-list.js?v=20260822-2',
+    'assets/shopping-insights.js?v=20260821-1',
+    'assets/shopping-route.js?v=20260815-4',
+    'assets/shopping-route-autostart.js?v=20260807-1'
+  ];
   const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
   const db = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY);
   let bootedUserId = null;
-  let listLoaded = false;
-  let insightLoaded = false;
+  let runtimesLoading = null;
   let reloadQueued = false;
 
   function installBudgetOwnerBridge() {
@@ -70,27 +73,26 @@
     window.SlevaoPublic?.updateNavCount?.();
   }
 
-  function loadList() {
-    if (listLoaded || document.querySelector('script[src*="shopping-list.js"]')) return;
-    listLoaded = true;
-    const script = document.createElement('script');
-    script.src = LIST_URL;
-    script.async = false;
-    document.head.appendChild(script);
-  }
-
-  function loadInsights() {
-    if (insightLoaded || document.querySelector('script[src*="shopping-insights.js"]')) return;
-    insightLoaded = true;
-    const script = document.createElement('script');
-    script.src = INSIGHTS_URL;
-    script.async = false;
-    document.head.appendChild(script);
+  function loadScript(url) {
+    const existing = document.querySelector(`script[src="${url}"]`);
+    if (existing) return Promise.resolve();
+    return new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = false;
+      script.onload = () => resolve();
+      script.onerror = () => reject(new Error(`Shopping runtime se nepodařilo načíst: ${url}`));
+      document.head.appendChild(script);
+    });
   }
 
   function loadShoppingRuntimes() {
-    loadList();
-    loadInsights();
+    if (runtimesLoading) return runtimesLoading;
+    runtimesLoading = RUNTIME_URLS.reduce(
+      (chain, url) => chain.then(() => loadScript(url)),
+      Promise.resolve()
+    );
+    return runtimesLoading;
   }
 
   function handleIdentityChange(nextUserId) {
@@ -103,7 +105,7 @@
   async function boot() {
     installBudgetOwnerBridge();
     if (!db) {
-      loadShoppingRuntimes();
+      setMarkerUserId(null);
       return;
     }
 
@@ -118,7 +120,7 @@
 
     setMarkerUserId(currentUserId);
     bootedUserId = currentUserId;
-    loadShoppingRuntimes();
+    await loadShoppingRuntimes();
   }
 
   let authSubscription = null;
@@ -153,6 +155,5 @@
   boot().catch((error) => {
     console.warn('slevao_shopping_boot_failed', error);
     setMarkerUserId(null);
-    loadShoppingRuntimes();
   });
 })();
