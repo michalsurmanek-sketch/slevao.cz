@@ -6,6 +6,9 @@ on:
     paths:
       - 'produkt.html'
       - 'obchod.html'
+      - 'assets/rpc-request-dedupe.js'
+      - 'assets/home-favorite-offer-sync.js'
+      - 'assets/home-product-favorites.js'
       - 'assets/public-features.js'
       - 'assets/public-nav-upgrade.js'
       - 'assets/shopping-list.js'
@@ -34,6 +37,7 @@ on:
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
+      - 'tests/favorite-offer-reconciliation.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
       - 'scripts/generate-product-sitemap.mjs'
@@ -51,6 +55,9 @@ jobs:
         uses: actions/checkout@v4
       - name: Zkontrolovat JavaScript a manifest
         run: |
+          node --check assets/rpc-request-dedupe.js
+          node --check assets/home-favorite-offer-sync.js
+          node --check assets/home-product-favorites.js
           node --check assets/public-features.js
           node --check assets/public-nav-upgrade.js
           node --check assets/shopping-list.js
@@ -76,6 +83,8 @@ jobs:
           node --check service-worker.js
           node --check scripts/generate-product-sitemap.mjs
           node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
+      - name: Homepage uložené a oblíbené produkty
+        run: node tests/favorite-offer-reconciliation.mjs
       - name: Regresní diagnostika detailu produktu
         run: node tests/product-detail-regression.mjs
       - name: Datová integrita store feedu

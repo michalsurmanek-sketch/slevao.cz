@@ -5,16 +5,20 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const bootstrap = readFileSync(new URL('assets/rpc-request-dedupe.js', root), 'utf8');
 const homeSync = readFileSync(new URL('assets/home-favorite-offer-sync.js', root), 'utf8');
+const homeProduct = readFileSync(new URL('assets/home-product-favorites.js', root), 'utf8');
+const personalization = readFileSync(new URL('assets/product-personalization.js', root), 'utf8');
 const storeRuntime = readFileSync(new URL('assets/store-bottom-nav.js', root), 'utf8');
 const index = readFileSync(new URL('index.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(bootstrap, { filename:'assets/rpc-request-dedupe.js' });
 new Script(homeSync, { filename:'assets/home-favorite-offer-sync.js' });
+new Script(homeProduct, { filename:'assets/home-product-favorites.js' });
+new Script(personalization, { filename:'assets/product-personalization.js' });
 new Script(storeRuntime, { filename:'assets/store-bottom-nav.js' });
 
 assert.doesNotMatch(bootstrap, /localStorage|sessionStorage|setTimeout|setInterval/, 'Facets dedupe bootstrap nesmí znovu převzít persistentní Storage logiku.');
-assert.match(bootstrap, /home-favorite-offer-sync\.js\?v=20260822-1/, 'Homepage bootstrap nenačítá oddělený favorite sync runtime.');
+assert.match(bootstrap, /home-favorite-offer-sync\.js\?v=20260822-2/, 'Homepage bootstrap nenačítá aktuální oddělený favorite sync runtime.');
 assert.match(bootstrap, /syncScript\.async = false;/, 'Favorite sync loader nemá stabilní ordered-script režim.');
 
 assert.match(homeSync, /const HOME_FAVORITES_KEY = 'slevao-saved';/, 'Homepage bridge nehlídá homepage favorites klíč.');
@@ -25,6 +29,20 @@ assert.match(homeSync, /Storage\.prototype\.setItem = function setItem/, 'Homepa
 assert.match(homeSync, /window\.addEventListener\('storage'/, 'Homepage nereaguje na změnu uložených nabídek v jiné kartě.');
 assert.match(homeSync, /initial\.homeChanged/, 'Pozdní favorite bootstrap neumí rozpoznat, že home-v2 načetl starý stav.');
 assert.match(homeSync, /location\.reload\(\)/, 'Po úvodní migraci homepage klíče chybí jednorázové obnovení home-v2 state.saved.');
+assert.match(homeSync, /@supabase\/supabase-js@2/, 'Homepage produktové oblíbené nemají zajištěný Supabase auth klient.');
+assert.match(homeSync, /product-personalization\.js\?v=20260821-4/, 'Homepage nenačítá sdílený účetní personalization runtime.');
+assert.match(homeSync, /home-product-favorites\.js\?v=20260822-1/, 'Homepage nenačítá bridge nabídka → produkt.');
+assert.match(homeSync, /document\.getElementById\('dealGrid'\)/, 'Produktové oblíbené se nesmí bootovat mimo homepage nabídky.');
+
+assert.match(homeProduct, /select: 'id,product_id'/, 'Homepage bridge musí mapovat offer.id na product_id.');
+assert.match(homeProduct, /status: 'eq\.published'/, 'Homepage bridge nesmí mapovat neveřejné/nepublikované nabídky.');
+assert.match(homeProduct, /const offerToProduct = new Map\(\)/, 'Homepage bridge musí cachovat mapování a neopakovat stejné dotazy.');
+assert.match(homeProduct, /data-favorite-product/, 'Homepage bridge musí vytvořit účetní favorite control.');
+assert.match(homeProduct, /card\.dataset\.productId = productId/, 'Homepage karta musí po bezpečném mapování nést product_id.');
+assert.match(homeProduct, /new MutationObserver\(queueRefresh\)/, 'Homepage bridge musí doplnit oblíbení i po filtrování nebo načtení dalších karet.');
+assert.doesNotMatch(homeProduct, /from\(['"]product_favorites['"]\)|\/product_favorites/, 'Homepage bridge nesmí duplikovat účetní zápisy; ty patří sdílenému personalization runtime.');
+assert.match(personalization, /from\('product_favorites'\)/, 'Sdílený personalization runtime musí ukládat produktové oblíbené do účtu.');
+assert.match(personalization, /data-favorite-product/, 'Sdílený personalization runtime musí obsluhovat homepage favorite control.');
 
 assert.match(storeRuntime, /function mergeFavoriteLists\(\.\.\.lists\)/, 'Store bridge nemá union helper.');
 assert.match(storeRuntime, /const merged = mergeFavoriteLists\(parseFavoriteList\(homeRaw\), parseFavoriteList\(storeRaw\)\);/, 'Store reconciliation nesjednocuje oba historické klíče.');
@@ -42,9 +60,11 @@ assert.doesNotMatch(storeListenerSource, /reconcileFavoriteKeys\(\)/, 'Store cro
 const rpcIndex = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
 const homeIndex = index.indexOf('assets/home-v2.js?v=20260821-1');
 assert.ok(rpcIndex >= 0 && homeIndex > rpcIndex, 'Homepage bootstrap musí startovat před home-v2.js.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-14';/, 'PWA shell nebyl po shopping auth gate posunutý.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-15';/, 'PWA shell nebyl po homepage product favorites posunutý.');
 assert.match(worker, /assets\/rpc-request-dedupe\.js\?v=20260819-1/, 'PWA shell necachuje homepage bootstrap.');
-assert.match(worker, /assets\/home-favorite-offer-sync\.js\?v=20260822-1/, 'PWA shell necachuje favorite sync runtime.');
+assert.match(worker, /assets\/home-favorite-offer-sync\.js\?v=20260822-2/, 'PWA shell necachuje aktuální favorite sync runtime.');
+assert.match(worker, /assets\/home-product-favorites\.js\?v=20260822-1/, 'PWA shell necachuje homepage product favorite bridge.');
+assert.match(worker, /assets\/product-personalization\.js\?v=20260821-4/, 'PWA shell necachuje sdílený účetní personalization runtime.');
 
 class StorageMock {
   constructor(initial = {}) { this.map = new Map(Object.entries(initial)); }
@@ -147,4 +167,4 @@ storeBridge.storageListener({
 assert.deepEqual(JSON.parse(storeBridge.localStorage.getItem(HOME)), ['A'], 'Store cross-tab listener neaplikoval vzdálené odebrání z homepage klíče.');
 assert.deepEqual(JSON.parse(storeBridge.localStorage.getItem(STORE)), ['A'], 'Store cross-tab listener unionem znovu oživil vzdáleně odebranou nabídku.');
 
-console.log('Favorite offer reconciliation OK');
+console.log('Favorite offer reconciliation and homepage product favorites OK');

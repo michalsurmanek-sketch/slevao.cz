@@ -4,6 +4,10 @@
   const HOME_FAVORITES_KEY = 'slevao-saved';
   const STORE_FAVORITES_KEY = 'slevao-favorite-offers-v1';
   const RELOAD_KEY = 'slevao-favorite-offer-sync-v2';
+  const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260804-2';
+  const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260821-4';
+  const HOME_PRODUCT_FAVORITES_URL = 'assets/home-product-favorites.js?v=20260822-1';
   let storageReloadPending = false;
 
   function parseFavoriteList(raw) {
@@ -38,6 +42,51 @@
     if (!document.getElementById('savedButton') || storageReloadPending) return;
     storageReloadPending = true;
     window.setTimeout(() => location.reload(), 0);
+  }
+
+  function appendScript(src, marker, onload) {
+    const existing = document.querySelector(`script[${marker}]`);
+    if (existing) {
+      if (onload) existing.addEventListener('load', onload, { once:true });
+      return existing;
+    }
+    const script = document.createElement('script');
+    script.src = src;
+    script.async = false;
+    script.setAttribute(marker, '1');
+    if (onload) script.addEventListener('load', onload, { once:true });
+    document.head.appendChild(script);
+    return script;
+  }
+
+  function loadProductFavoriteRuntime() {
+    if (typeof document === 'undefined' || !document.getElementById('dealGrid')) return;
+    if (!document.querySelector('link[data-slevao-product-personalization]')) {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = PERSONALIZATION_CSS_URL;
+      link.dataset.slevaoProductPersonalization = '1';
+      document.head.appendChild(link);
+    }
+
+    const loadBridge = () => {
+      if (window.SlevaoHomeProductFavorites) return;
+      appendScript(HOME_PRODUCT_FAVORITES_URL, 'data-slevao-home-product-favorites');
+    };
+    const loadPersonalization = () => {
+      if (window.SlevaoPersonalization) {
+        loadBridge();
+        return;
+      }
+      appendScript(PERSONALIZATION_JS_URL, 'data-slevao-product-personalization', loadBridge);
+    };
+
+    if (window.supabase?.createClient) {
+      loadPersonalization();
+      return;
+    }
+    const supabase = appendScript(SUPABASE_CLIENT_URL, 'data-slevao-supabase-client', loadPersonalization);
+    supabase.addEventListener('error', () => console.warn('slevao_home_product_favorites_supabase_failed'), { once:true });
   }
 
   try {
@@ -99,4 +148,5 @@
   }
 
   window.SlevaoFavoriteOfferSync = { parseFavoriteList, mergeFavoriteLists, reconcileFavoriteKeys };
+  loadProductFavoriteRuntime();
 })();
