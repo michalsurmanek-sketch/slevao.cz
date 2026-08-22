@@ -4,6 +4,7 @@
   const HOME_FAVORITES_KEY = 'slevao-saved';
   const STORE_FAVORITES_KEY = 'slevao-favorite-offers-v1';
   const FAVORITES_RELOAD_KEY = 'slevao-favorites-key-sync-v1';
+  let favoriteStorageReloadPending = false;
 
   function parseFavoriteList(raw) {
     if (raw === null) return null;
@@ -15,27 +16,30 @@
     }
   }
 
-  // store-feed.js historically used another localStorage key than the homepage.
-  // Treat the homepage key as canonical when it exists, migrate older store-only
-  // data forward and mirror future writes so favorites behave as one feature.
-  try {
+  function mergeFavoriteLists(...lists) {
+    const available = lists.filter(Array.isArray);
+    return available.length ? [...new Set(available.flat().map(String))] : null;
+  }
+
+  function reconcileFavoriteKeys() {
     const homeRaw = localStorage.getItem(HOME_FAVORITES_KEY);
     const storeRaw = localStorage.getItem(STORE_FAVORITES_KEY);
-    const homeFavorites = parseFavoriteList(homeRaw);
-    const storeFavorites = parseFavoriteList(storeRaw);
-    const canonical = homeFavorites !== null ? homeFavorites : storeFavorites;
-    let needsStoreReload = false;
+    const merged = mergeFavoriteLists(parseFavoriteList(homeRaw), parseFavoriteList(storeRaw));
+    if (merged === null) return { merged:null, storeChanged:false };
+    const normalized = JSON.stringify(merged);
+    const storeChanged = storeRaw !== normalized;
+    if (homeRaw !== normalized) localStorage.setItem(HOME_FAVORITES_KEY, normalized);
+    if (storeChanged) localStorage.setItem(STORE_FAVORITES_KEY, normalized);
+    return { merged, storeChanged };
+  }
 
-    if (canonical !== null) {
-      const normalized = JSON.stringify(canonical);
-      if (homeRaw !== normalized) localStorage.setItem(HOME_FAVORITES_KEY, normalized);
-      if (storeRaw !== normalized) {
-        localStorage.setItem(STORE_FAVORITES_KEY, normalized);
-        needsStoreReload = homeFavorites !== null;
-      }
-    }
+  // Homepage and store-feed historically used two keys for the same offer IDs.
+  // Reconcile by union so neither side can erase favorites saved only on the other.
+  try {
+    const initial = reconcileFavoriteKeys();
 
     if (!Storage.prototype.__slevaoFavoriteSyncPatched) {
+      const nativeGetItem = Storage.prototype.getItem;
       const nativeSetItem = Storage.prototype.setItem;
       const nativeRemoveItem = Storage.prototype.removeItem;
       Object.defineProperty(Storage.prototype, '__slevaoFavoriteSyncPatched', {
@@ -46,8 +50,12 @@
         nativeSetItem.call(this, key, value);
         if (this !== window.localStorage) return;
         if (key !== HOME_FAVORITES_KEY && key !== STORE_FAVORITES_KEY) return;
+        const parsed = parseFavoriteList(String(value));
+        if (parsed === null) return;
+        const normalized = JSON.stringify(parsed);
+        if (String(value) !== normalized) nativeSetItem.call(this, key, normalized);
         const mirrorKey = key === HOME_FAVORITES_KEY ? STORE_FAVORITES_KEY : HOME_FAVORITES_KEY;
-        if (this.getItem(mirrorKey) !== String(value)) nativeSetItem.call(this, mirrorKey, String(value));
+        if (nativeGetItem.call(this, mirrorKey) !== normalized) nativeSetItem.call(this, mirrorKey, normalized);
       };
       Storage.prototype.removeItem = function removeItem(key) {
         nativeRemoveItem.call(this, key);
@@ -58,12 +66,21 @@
       };
     }
 
-    if (needsStoreReload && !sessionStorage.getItem(FAVORITES_RELOAD_KEY)) {
+    if (initial.storeChanged && !sessionStorage.getItem(FAVORITES_RELOAD_KEY)) {
       sessionStorage.setItem(FAVORITES_RELOAD_KEY, '1');
       location.reload();
       return;
     }
     sessionStorage.removeItem(FAVORITES_RELOAD_KEY);
+
+    window.addEventListener('storage', (event) => {
+      if (event.storageArea && event.storageArea !== localStorage) return;
+      if (event.key !== HOME_FAVORITES_KEY && event.key !== STORE_FAVORITES_KEY) return;
+      reconcileFavoriteKeys();
+      if (favoriteStorageReloadPending) return;
+      favoriteStorageReloadPending = true;
+      window.setTimeout(() => location.reload(), 0);
+    });
   } catch {
     // localStorage/sessionStorage can be disabled; navigation must keep working.
   }
