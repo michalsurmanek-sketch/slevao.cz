@@ -76,7 +76,13 @@
     window.addEventListener('storage', (event) => {
       if (event.storageArea && event.storageArea !== localStorage) return;
       if (event.key !== HOME_FAVORITES_KEY && event.key !== STORE_FAVORITES_KEY) return;
-      reconcileFavoriteKeys();
+      if (event.newValue === null) {
+        localStorage.removeItem(event.key);
+      } else {
+        const parsed = parseFavoriteList(event.newValue);
+        if (parsed === null) return;
+        localStorage.setItem(event.key, JSON.stringify(parsed));
+      }
       if (favoriteStorageReloadPending) return;
       favoriteStorageReloadPending = true;
       window.setTimeout(() => location.reload(), 0);
