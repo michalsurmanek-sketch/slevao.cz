@@ -12,7 +12,7 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 
-const navVersion = '20260822-1';
+const navVersion = '20260822-2';
 const locationVersion = '20260821-1';
 
 assert.match(nav, /function loadLocationService\(\)/, 'Public nav negarantuje načtení location service.');

@@ -74,17 +74,17 @@
     style.href = 'assets/public-features.css?v=20260816-5';
     document.head.appendChild(style);
   }
+  if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
+    const navScript = document.createElement('script');
+    navScript.src = 'assets/public-nav-upgrade.js?v=20260822-2';
+    navScript.async = false;
+    document.head.appendChild(navScript);
+  }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
     script.src = 'assets/public-features.js?v=20260804-2';
-    script.defer = true;
+    script.async = false;
     document.head.appendChild(script);
-  }
-  if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
-    const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260804-3';
-    navScript.defer = true;
-    document.head.appendChild(navScript);
   }
 
   const config = window.SLEVAO_STORE || {};

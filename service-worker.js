@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260822-1';
+const CACHE_NAME = 'slevao-shell-20260822-2';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -12,7 +12,7 @@ const SHELL = [
   '/favicon.svg',
   '/assets/public-features.css?v=20260816-5',
   '/assets/public-features.js?v=20260811-3',
-  '/assets/public-nav-upgrade.js?v=20260822-1',
+  '/assets/public-nav-upgrade.js?v=20260822-2',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260810-1',
@@ -43,7 +43,7 @@ const SHELL = [
   '/assets/shopping-list.js?v=20260821-1',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights.js?v=20260821-1',
-  '/assets/account.js?v=20260821-3'
+  '/assets/account.js?v=20260822-1'
 ];
 
 self.addEventListener('install', (event) => {

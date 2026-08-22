@@ -4,6 +4,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
+  const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
   const $ = (id) => document.getElementById(id);
@@ -21,6 +22,18 @@
   function message(text, bad = false) {
     $('accountMessage').textContent = text;
     $('accountMessage').style.color = bad ? '#b32631' : '#0b7a58';
+  }
+
+  function setListOwner(userId) {
+    const normalized = String(userId || '').trim();
+    if (window.SlevaoListStorage?.setActiveUser) {
+      window.SlevaoListStorage.setActiveUser(normalized || null);
+      return;
+    }
+    try {
+      if (normalized) localStorage.setItem(ACTIVE_USER_KEY, normalized);
+      else localStorage.removeItem(ACTIVE_USER_KEY);
+    } catch {}
   }
 
   function seenNotificationIds() {
@@ -237,6 +250,7 @@
   async function applySession(nextSession) {
     session = nextSession || null;
     const userId = String(session?.user?.id || '');
+    setListOwner(userId || null);
     const changed = hydratedUserId !== userId;
     renderAuthShell(Boolean(userId));
 
@@ -397,6 +411,7 @@
   const { data:{ subscription:authSubscription } } = db.auth.onAuthStateChange((event, nextSession) => {
     if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
       session = nextSession || session;
+      setListOwner(session?.user?.id || null);
       if (event === 'USER_UPDATED' && session?.user?.email) $('accountEmail').textContent = session.user.email;
       return;
     }
