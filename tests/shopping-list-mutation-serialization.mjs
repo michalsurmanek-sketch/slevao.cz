@@ -4,6 +4,7 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-list.js', root), 'utf8');
+const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
@@ -30,9 +31,10 @@ assert.ok(
   'Hromadné mazání musí čekat na rozběhnuté mutace před server delete.'
 );
 
-const versionMatch = listHtml.match(/assets\/shopping-list\.js\?v=([0-9-]+)/);
-assert.ok(versionMatch, 'seznam.html nemá verzovaný shopping-list runtime.');
-assert.match(worker, new RegExp(`assets/shopping-list\\.js\\?v=${versionMatch[1]}`), 'PWA nemá stejnou shopping-list runtime verzi jako seznam.html.');
+const versionMatch = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/);
+assert.ok(versionMatch, 'Identity bootstrap nemá verzovaný shopping-list runtime.');
+assert.doesNotMatch(listHtml, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít identity bootstrap přímým shopping-list loaderem.');
+assert.match(worker, new RegExp(`assets/shopping-list\\.js\\?v=${versionMatch[1]}`), 'PWA nemá stejnou shopping-list runtime verzi jako identity bootstrap.');
 
 const helperStart = source.indexOf('  function mutationKey(row)');
 const helperEnd = source.indexOf('\n  function productSignature', helperStart);
