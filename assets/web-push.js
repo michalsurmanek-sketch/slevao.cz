@@ -4,7 +4,7 @@
   const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PUSH_URL = `${SUPABASE_URL}/functions/v1/web-push`;
-  const SW_URL = '/sw.js?v=20260819-1';
+  const SW_URL = '/service-worker.js';
   const db = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY);
   let subscribed = false;
   let syncing = false;
@@ -46,10 +46,17 @@
   async function registration(create = false) {
     if (!supported()) return null;
     let current = await navigator.serviceWorker.getRegistration('/');
-    if (!current && create) {
-      current = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
+    if (create) {
+      const expected = new URL(SW_URL, location.origin).href;
+      const currentScript = current?.active?.scriptURL
+        || current?.waiting?.scriptURL
+        || current?.installing?.scriptURL
+        || '';
+      if (!current || currentScript !== expected) {
+        current = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
+      }
+      await navigator.serviceWorker.ready;
     }
-    if (current && create) await navigator.serviceWorker.ready;
     return current;
   }
 
