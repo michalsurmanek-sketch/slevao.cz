@@ -51,6 +51,9 @@
   const formatLong = (value) => value
     ? new Intl.DateTimeFormat('cs-CZ', { day: 'numeric', month: 'numeric', year: 'numeric' }).format(new Date(`${value}T12:00:00`))
     : '';
+  const pragueDateKey = (value = new Date()) => new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+  }).format(value);
 
   let offers = [];
   let visible = 24;
@@ -441,7 +444,7 @@
         select: 'id,name,slug,logo_url,primary_color', slug: `eq.${config.slug}`, limit: '1',
       });
       if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');
-      const today = new Date().toISOString().slice(0, 10);
+      const today = pragueDateKey();
       const rows = await request('offers', {
         select: 'id,title,price,old_price,image_url,valid_from,valid_to,is_verified,metadata,products(name)',
         store_id: `eq.${stores[0].id}`,
