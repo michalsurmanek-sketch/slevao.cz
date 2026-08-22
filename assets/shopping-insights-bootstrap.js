@@ -6,10 +6,16 @@
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
+  const LIST_URL = 'assets/shopping-list.js?v=20260822-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260821-1';
+  const sharedParams = new URLSearchParams(location.search);
+  const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
   const db = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY);
   let bootedUserId = null;
+  let listLoaded = false;
   let insightLoaded = false;
+  let reloadQueued = false;
 
   function installBudgetOwnerBridge() {
     if (Storage.prototype.__slevaoShoppingBudgetOwnerBridge) return;
@@ -61,6 +67,16 @@
       if (normalized) localStorage.setItem(ACTIVE_USER_KEY, normalized);
       else localStorage.removeItem(ACTIVE_USER_KEY);
     } catch {}
+    window.SlevaoPublic?.updateNavCount?.();
+  }
+
+  function loadList() {
+    if (listLoaded || document.querySelector('script[src*="shopping-list.js"]')) return;
+    listLoaded = true;
+    const script = document.createElement('script');
+    script.src = LIST_URL;
+    script.async = false;
+    document.head.appendChild(script);
   }
 
   function loadInsights() {
@@ -72,38 +88,62 @@
     document.head.appendChild(script);
   }
 
+  function loadShoppingRuntimes() {
+    loadList();
+    loadInsights();
+  }
+
+  function handleIdentityChange(nextUserId) {
+    setMarkerUserId(nextUserId || null);
+    if (sharedMode || reloadQueued) return;
+    reloadQueued = true;
+    window.setTimeout(() => location.reload(), 0);
+  }
+
   async function boot() {
     installBudgetOwnerBridge();
     if (!db) {
-      loadInsights();
+      loadShoppingRuntimes();
       return;
     }
 
-    const { data, error } = await db.auth.getSession();
-    if (error) throw error;
-    const currentUserId = String(data?.session?.user?.id || '');
-    const previousMarker = markerUserId();
+    let currentUserId = '';
+    try {
+      const { data, error } = await db.auth.getSession();
+      if (error) throw error;
+      currentUserId = String(data?.session?.user?.id || '');
+    } catch {
+      currentUserId = '';
+    }
+
     setMarkerUserId(currentUserId);
     bootedUserId = currentUserId;
-
-    // shopping-list.js runs before this bootstrap. If the persisted owner marker
-    // was stale, reload once so every shopping consumer starts under the same owner.
-    if (previousMarker !== currentUserId) {
-      location.reload();
-      return;
-    }
-    loadInsights();
+    loadShoppingRuntimes();
   }
 
   let authSubscription = null;
   if (db?.auth?.onAuthStateChange) {
     const result = db.auth.onAuthStateChange((event, nextSession) => {
-      if (!['SIGNED_IN', 'SIGNED_OUT'].includes(event)) return;
-      const nextUserId = event === 'SIGNED_OUT' ? '' : String(nextSession?.user?.id || '');
-      if (bootedUserId === null || nextUserId === bootedUserId) return;
-      setMarkerUserId(nextUserId);
+      const nextUserId = String(nextSession?.user?.id || '');
+
+      if (event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED' || event === 'PASSWORD_RECOVERY') {
+        setMarkerUserId(nextUserId || bootedUserId || null);
+        return;
+      }
+      if (event === 'INITIAL_SESSION') return;
+      if (event !== 'SIGNED_IN' && event !== 'SIGNED_OUT') return;
+
+      if (bootedUserId === null) {
+        setMarkerUserId(nextUserId || null);
+        return;
+      }
+      if (nextUserId === bootedUserId) {
+        setMarkerUserId(nextUserId || null);
+        return;
+      }
+
       bootedUserId = nextUserId;
-      window.setTimeout(() => location.reload(), 0);
+      handleIdentityChange(nextUserId);
     });
     authSubscription = result?.data?.subscription || null;
   }
@@ -111,6 +151,8 @@
   window.addEventListener('pagehide', () => authSubscription?.unsubscribe?.(), { once:true });
 
   boot().catch((error) => {
-    console.warn('slevao_shopping_insights_boot_failed', error);
+    console.warn('slevao_shopping_boot_failed', error);
+    setMarkerUserId(null);
+    loadShoppingRuntimes();
   });
 })();
