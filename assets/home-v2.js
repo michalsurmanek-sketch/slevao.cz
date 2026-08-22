@@ -47,7 +47,7 @@
     query: initialQuery, store:'all', category:'all', region:'all', city:'all', minPrice:null, maxPrice:null,
     onlyImages:false, mode:initialQuery ? 'all' : 'recommended', sort:'recommended', savedOnly:false,
     saved:new Set(readJSON(SAVED_KEY, []).map(String)), storesExpanded:false, reportOffer:null,
-    requestVersion:0, suggestionsVersion:0, loading:false
+    requestVersion:0, suggestionsVersion:0, locationVersion:0, loading:false
   };
 
   function toast(message) {
@@ -170,9 +170,21 @@
   }
 
   async function loadLocationRows() {
-    if (state.region === 'all') { state.locationRows = []; return; }
-    const rows = await rpc('get_public_offer_location_facets', { p_region_code:state.region });
-    state.locationRows = Array.isArray(rows) ? rows : [];
+    const version = ++state.locationVersion;
+    const region = state.region;
+    state.locationRows = [];
+    if (region === 'all') return true;
+    try {
+      const rows = await rpc('get_public_offer_location_facets', { p_region_code:region });
+      if (version !== state.locationVersion || state.region !== region) return false;
+      state.locationRows = Array.isArray(rows) ? rows : [];
+      return true;
+    } catch (error) {
+      if (version !== state.locationVersion || state.region !== region) return false;
+      console.warn('Města pro vybraný kraj se nepodařilo načíst:', error);
+      state.locationRows = [];
+      return true;
+    }
   }
 
   function storeLogoCandidates(store) {
@@ -374,7 +386,12 @@
     setBusy(true);
     try {
       const offset = append ? state.offers.length : 0;
-      const facetsTask = refreshFacets ? (facetsPromise || fetchFacets()) : Promise.resolve(state.facets);
+      const facetsTask = refreshFacets
+        ? Promise.resolve(facetsPromise || fetchFacets()).catch((error) => {
+            console.warn('Facety nabídek se nepodařilo načíst:', error);
+            return state.facets;
+          })
+        : Promise.resolve(state.facets);
       const [page, facets] = await Promise.all([
         fetchPage(offset),
         facetsTask
@@ -398,6 +415,7 @@
   function resetFilters() {
     Object.assign(state, { query:'',store:'all',category:'all',region:'all',city:'all',minPrice:null,maxPrice:null,onlyImages:false,mode:'recommended',sort:'recommended',savedOnly:false });
     state.locationRows = [];
+    state.locationVersion += 1;
     if ($('q')) $('q').value = '';
     if ($('sideSearch')) $('sideSearch').value = '';
     if ($('minPrice')) $('minPrice').value = '';
@@ -413,7 +431,7 @@
     if (key === 'query') { state.query=''; if (state.mode === 'all') state.mode='recommended'; if ($('q')) $('q').value=''; if ($('sideSearch')) $('sideSearch').value=''; }
     if (key === 'store') state.store='all';
     if (key === 'category') { state.category='all'; if (state.mode === 'food') state.mode='all'; }
-    if (key === 'region') { state.region='all'; state.city='all'; state.locationRows=[]; }
+    if (key === 'region') { state.region='all'; state.city='all'; state.locationRows=[]; state.locationVersion += 1; }
     if (key === 'city') state.city='all';
     if (key === 'minPrice') { state.minPrice=null; if ($('minPrice')) $('minPrice').value=''; }
     if (key === 'maxPrice') { state.maxPrice=null; if ($('maxPrice')) $('maxPrice').value=''; }
@@ -553,7 +571,16 @@
     $('sortSelect')?.addEventListener('change', (event) => { state.sort=event.target.value; refreshCurrent({ refreshFacets:false }); });
     $('storeSelect')?.addEventListener('change', (event) => { state.store=event.target.value; refreshCurrent(); });
     $('categorySelect')?.addEventListener('change', (event) => { state.category=event.target.value; if (state.category!=='food' && state.mode==='food') state.mode='all'; refreshCurrent(); });
-    $('regionSelect')?.addEventListener('change', async (event) => { state.region=event.target.value; state.city='all'; await loadLocationRows(); renderCities(); await refreshCurrent(); });
+    $('regionSelect')?.addEventListener('change', async (event) => {
+      state.region=event.target.value;
+      state.city='all';
+      state.locationRows=[];
+      renderCities();
+      const applied = await loadLocationRows();
+      if (!applied) return;
+      renderCities();
+      await refreshCurrent();
+    });
     $('citySelect')?.addEventListener('change', (event) => { state.city=event.target.value; refreshCurrent(); });
     $('minPrice')?.addEventListener('input', (event) => { state.minPrice=event.target.value==='' ? null : Math.max(0,Number(event.target.value)); clearTimeout(sideTimer); sideTimer=window.setTimeout(() => refreshCurrent(),220); });
     $('maxPrice')?.addEventListener('input', (event) => { state.maxPrice=event.target.value==='' ? null : Math.max(0,Number(event.target.value)); clearTimeout(sideTimer); sideTimer=window.setTimeout(() => refreshCurrent(),220); });
@@ -589,7 +616,10 @@
     if ($('sideSearch')) $('sideSearch').value=state.query;
     renderRegions();
     try {
-      const globalFacetsPromise = loadGlobalFacets();
+      const globalFacetsPromise = loadGlobalFacets().catch((error) => {
+        console.warn('Globální facety se nepodařilo načíst:', error);
+        return state.globalFacets;
+      });
       await Promise.all([
         globalFacetsPromise,
         refreshCurrent({ facetsPromise: initialQuery ? null : globalFacetsPromise })
