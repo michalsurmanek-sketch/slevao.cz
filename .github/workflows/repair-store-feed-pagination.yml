@@ -1,0 +1,85 @@
+name: Jednorázová oprava stránkování store feedu
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-store-feed-pagination.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Připravit Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Opravit stránkování a aktivní obchody
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = 'assets/store-feed.js';
+          let source = fs.readFileSync(path, 'utf8');
+
+          const replaceOnce = (from, to, label) => {
+            if (source.includes(to)) return;
+            const count = source.split(from).length - 1;
+            if (count !== 1) throw new Error(`${label}: očekáván 1 výskyt, nalezeno ${count}`);
+            source = source.replace(from, to);
+          };
+
+          replaceOnce(
+            "  };\n\n  const unique =",
+            `  };\n\n  const requestAll = async (table, params, pageSize = 500) => {\n    const rows = [];\n    for (let offset = 0; offset < 25000; offset += pageSize) {\n      const batch = await request(table, {\n        ...params,\n        limit: String(pageSize),\n        offset: String(offset),\n      });\n      if (!Array.isArray(batch)) throw new Error('Databáze vrátila neplatnou dávku dat.');\n      rows.push(...batch);\n      if (batch.length < pageSize) return rows;\n    }\n    throw new Error('Počet nabídek překročil bezpečný limit stránkování.');\n  };\n\n  const unique =`,
+            'requestAll'
+          );
+
+          replaceOnce(
+            "select: 'id,name,slug,logo_url,primary_color', slug: `eq.${config.slug}`, limit: '1',",
+            "select: 'id,name,slug,logo_url,primary_color,is_active', slug: `eq.${config.slug}`, is_active: 'eq.true', limit: '1',",
+            'is_active filtr'
+          );
+
+          replaceOnce(
+            "if (!stores[0]) throw new Error('Obchod není v databázi aktivní.');",
+            "if (!stores[0]) throw new Error('Obchod není v databázi nebo není aktivní.');",
+            'chyba obchodu'
+          );
+
+          replaceOnce(
+            "const rows = await request('offers', {",
+            "const rows = await requestAll('offers', {",
+            'stránkovaný offers request'
+          );
+
+          replaceOnce(
+            "order: 'published_at.desc',",
+            "order: 'published_at.desc,id.asc',",
+            'deterministické řazení'
+          );
+
+          fs.writeFileSync(path, source);
+          NODE
+      - name: Ověřit JavaScript
+        run: node --check assets/store-feed.js
+      - name: Ověřit datové invarianty store feedu
+        run: node tests/store-feed-data-integrity.mjs
+      - name: Uložit opravu
+        run: |
+          if git diff --quiet -- assets/store-feed.js; then
+            echo "Store feed už je opravený."
+            exit 0
+          fi
+          git config user.name "slevao-bot"
+          git config user.email "actions@users.noreply.github.com"
+          git add assets/store-feed.js
+          git commit -m "fix: paginate complete store offer feeds"
+          git push
