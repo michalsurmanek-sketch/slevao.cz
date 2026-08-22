@@ -7,11 +7,13 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const list = read('assets/shopping-list.js');
 const insights = read('assets/shopping-insights.js');
+const insightsBootstrap = read('assets/shopping-insights-bootstrap.js');
 const html = read('seznam.html');
 const serviceWorker = read('service-worker.js');
 
 new Script(list, { filename:'assets/shopping-list.js' });
 new Script(insights, { filename:'assets/shopping-insights.js' });
+new Script(insightsBootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 new Script(serviceWorker, { filename:'service-worker.js' });
 
 for (const [name, source] of [['shopping-list', list], ['shopping-insights', insights]]) {
@@ -38,11 +40,15 @@ assert.match(insights, /let lastBusinessDay = '';/, 'Shopping insights musí sle
 assert.match(insights, /current === lastSignature && businessDay === lastBusinessDay/, 'Nezměněný seznam smí přeskočit přepočet jen ve stejný Prague den.');
 assert.match(insights, /lastBusinessDay = pragueDate\(\);/, 'Inicializace insights musí uložit den posledního úspěšného výpočtu.');
 
-for (const asset of ['shopping-list.js', 'shopping-insights.js']) {
-  const escaped = asset.replace('.', '\\.');
-  const version = html.match(new RegExp(`assets/${escaped}\\?v=([0-9-]+)`))?.[1] || '';
-  assert.ok(version, `seznam.html musí načítat verzovaný ${asset}.`);
-  assert.ok(serviceWorker.includes(`'/assets/${asset}?v=${version}'`), `PWA musí cacheovat stejnou verzi ${asset} jako seznam.html.`);
-}
+const listVersion = html.match(/assets\/shopping-list\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(listVersion, 'seznam.html musí načítat verzovaný shopping-list.js.');
+assert.ok(serviceWorker.includes(`'/assets/shopping-list.js?v=${listVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-list.js jako seznam.html.');
+
+const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping-insights bootstrap.');
+assert.ok(serviceWorker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-insights bootstrapu jako seznam.html.');
+const insightsVersion = insightsBootstrap.match(/const INSIGHTS_URL = 'assets\/shopping-insights\.js\?v=([0-9-]+)'/)?.[1] || '';
+assert.ok(insightsVersion, 'Bootstrap musí načítat verzovaný shopping-insights.js.');
+assert.ok(serviceWorker.includes(`'/assets/shopping-insights.js?v=${insightsVersion}'`), 'PWA musí cacheovat stejnou dynamickou shopping-insights.js verzi jako bootstrap.');
 
 console.log('Nákupní seznam: Prague/DST date window diagnostika prošla.');
