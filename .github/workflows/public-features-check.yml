@@ -4,11 +4,13 @@ on:
   push:
     branches: [main]
     paths:
+      - 'ucet.html'
       - 'produkt.html'
       - 'obchod.html'
       - 'assets/rpc-request-dedupe.js'
       - 'assets/home-favorite-offer-sync.js'
       - 'assets/home-product-favorites.js'
+      - 'assets/web-push.js'
       - 'assets/public-features.js'
       - 'assets/public-nav-upgrade.js'
       - 'assets/shopping-list.js'
@@ -34,10 +36,12 @@ on:
       - 'assets/store-bottom-nav.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/admin-modern-ui.js'
+      - 'supabase/functions/web-push/index.ts'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
       - 'tests/favorite-offer-reconciliation.mjs'
+      - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
       - 'scripts/generate-product-sitemap.mjs'
@@ -58,6 +62,7 @@ jobs:
           node --check assets/rpc-request-dedupe.js
           node --check assets/home-favorite-offer-sync.js
           node --check assets/home-product-favorites.js
+          node --check assets/web-push.js
           node --check assets/public-features.js
           node --check assets/public-nav-upgrade.js
           node --check assets/shopping-list.js
@@ -85,6 +90,8 @@ jobs:
           node -e "JSON.parse(require('fs').readFileSync('manifest.webmanifest','utf8')); console.log('Manifest je platný JSON.')"
       - name: Homepage uložené a oblíbené produkty
         run: node tests/favorite-offer-reconciliation.mjs
+      - name: Web Push aktivační kontrakt
+        run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
         run: node tests/product-detail-regression.mjs
       - name: Datová integrita store feedu
