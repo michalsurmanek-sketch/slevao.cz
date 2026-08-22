@@ -40,9 +40,10 @@ assert.match(insights, /let lastBusinessDay = '';/, 'Shopping insights musí sle
 assert.match(insights, /current === lastSignature && businessDay === lastBusinessDay/, 'Nezměněný seznam smí přeskočit přepočet jen ve stejný Prague den.');
 assert.match(insights, /lastBusinessDay = pragueDate\(\);/, 'Inicializace insights musí uložit den posledního úspěšného výpočtu.');
 
-const listVersion = html.match(/assets\/shopping-list\.js\?v=([0-9-]+)/)?.[1] || '';
-assert.ok(listVersion, 'seznam.html musí načítat verzovaný shopping-list.js.');
-assert.ok(serviceWorker.includes(`'/assets/shopping-list.js?v=${listVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-list.js jako seznam.html.');
+const listVersion = insightsBootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/)?.[1] || '';
+assert.ok(listVersion, 'Identity bootstrap musí načítat verzovaný shopping-list.js.');
+assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít auth owner gate přímým shopping-list loaderem.');
+assert.ok(serviceWorker.includes(`'/assets/shopping-list.js?v=${listVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-list.js jako identity bootstrap.');
 
 const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping-insights bootstrap.');

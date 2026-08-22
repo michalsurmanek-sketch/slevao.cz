@@ -4,10 +4,12 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-list.js', root), 'utf8');
+const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(source, { filename:'assets/shopping-list.js' });
+new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
 function section(start, end) {
   const from = source.indexOf(start);
@@ -48,8 +50,9 @@ assert.match(deleteHandler, /const button = event\.target\.closest\('\[data-dele
 assert.match(deleteHandler, /deletingRows\.add\(key\);[\s\S]*?await enqueueRowMutation\(row, \(\) => deleteRow\(row\)\);/, 'Delete nezamyká řádek a nečeká ve stejné item frontě.');
 assert.match(deleteHandler, /finally \{[\s\S]*?deletingRows\.delete\(key\);[\s\S]*?render\(\);/, 'Delete po dokončení neuvolní row lock a nepřekreslí UI.');
 
-const version = html.match(/assets\/shopping-list\.js\?v=([0-9-]+)/)?.[1] || '';
-assert.ok(version, 'seznam.html musí načítat verzovaný shopping-list.js.');
-assert.ok(worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'PWA musí cacheovat stejnou shopping-list.js verzi jako seznam.html.');
+const version = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/)?.[1] || '';
+assert.ok(version, 'Identity bootstrap musí načítat verzovaný shopping-list.js.');
+assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít auth gate přímým shopping-list loaderem.');
+assert.ok(worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'PWA musí cacheovat stejnou shopping-list.js verzi jako identity bootstrap.');
 
 console.log('Shopping list mutation consistency OK');
