@@ -1,4 +1,4 @@
-name: Synchronizace store stránek
+name: Kontrola store stránek
 
 on:
   workflow_dispatch:
@@ -10,7 +10,7 @@ on:
       - '.github/workflows/generate-store-pages.yml'
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: store-pages-main
@@ -28,18 +28,16 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-      - name: Bezpečně synchronizovat store stránky
+      - name: Ověřit generátor store stránek
         run: node scripts/generate-store-pages.mjs
       - name: Ověřit store stránky a generátor
         run: node tests/store-page-generator-guard.mjs
-      - name: Uložit pouze vygenerované změny
+      - name: Ověřit, že generátor nevyžaduje commit
         run: |
           if git diff --quiet -- '*.html' sitemap.xml; then
             echo "Store stránky jsou aktuální."
             exit 0
           fi
-          git config user.name "slevao-bot"
-          git config user.email "actions@users.noreply.github.com"
-          git add -- '*.html' sitemap.xml
-          git commit -m "chore: sync store page runtime versions"
-          git push
+          echo "Store stránky nejsou synchronizované. Spusť generátor lokálně a změny odešli přes běžný pull request."
+          git diff --check -- '*.html' sitemap.xml
+          git diff --exit-code -- '*.html' sitemap.xml
