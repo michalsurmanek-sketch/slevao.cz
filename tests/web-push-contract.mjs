@@ -5,6 +5,7 @@ const root = new URL('../', import.meta.url);
 const client = readFileSync(new URL('assets/web-push.js', root), 'utf8');
 const edge = readFileSync(new URL('supabase/functions/web-push/index.ts', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
+const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
 assert.match(account, /assets\/web-push\.js\?v=20260822-2/, 'Účet musí načítat aktuální web-push runtime.');
 
@@ -13,6 +14,14 @@ assert.match(client, /subscribed = result\?\.subscribed === true;/, 'Background 
 assert.match(client, /result\?\.subscribed !== true \|\| result\?\.test_sent !== true/, 'Explicitní aktivace musí vyžadovat serverové potvrzení i testovací push.');
 assert.match(client, /await removeSubscription\(sub\);/, 'Neúspěšná explicitní aktivace musí uklidit lokální i serverovou subscription.');
 assert.match(client, /result\?\.requires_test/, 'Klient musí umět nabídnout opětovné potvrzení mrtvé subscription.');
+assert.match(client, /event\.target\.closest\?\.\('#enableBrowserAlerts'\)/, 'Web Push runtime musí vlastnit kliknutí na aktivační tlačítko.');
+assert.match(client, /event\.stopImmediatePropagation\(\)/, 'Aktivace push musí zastavit případné staré click handlery.');
+assert.match(client, /enableFromUser\(\)/, 'Kliknutí musí vést přes plný serverově ověřený aktivační tok.');
+
+assert.doesNotMatch(accountRuntime, /function updateBrowserAlertButton\(/, 'Account runtime už nesmí samostatně odvozovat stav push jen z Notification.permission.');
+assert.doesNotMatch(accountRuntime, /\$\('enableBrowserAlerts'\)\?\.addEventListener/, 'Account runtime nesmí mít druhý click handler aktivačního tlačítka.');
+assert.doesNotMatch(accountRuntime, /Notification\.requestPermission\(\)/, 'Account runtime nesmí obcházet serverově ověřený Web Push aktivační tok.');
+assert.match(accountRuntime, /function deliverBrowserNotification\(row\)/, 'Foreground zobrazení už doručených DB notifikací musí zůstat zachované.');
 
 assert.match(edge, /const sendTest = body\?\.send_test === true;/, 'Edge Function musí rozlišovat explicitní test od background synchronizace.');
 assert.match(edge, /existing && existing\.is_active === false && !sendTest/, 'Background sync nesmí reaktivovat dříve deaktivovaný endpoint.');
