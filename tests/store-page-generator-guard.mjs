@@ -7,23 +7,26 @@ const FEED_VERSION = '20260822-2';
 const FEED_SCRIPT = `assets/store-feed.js?v=${FEED_VERSION}`;
 const GENERIC_VERSION = '20260822-2';
 const GENERIC_BOOTSTRAP = `assets/store-generic-bootstrap.js?v=${GENERIC_VERSION}`;
+const EXPECTED_STORE_COUNT = 73;
 const generator = readFileSync(new URL('../scripts/generate-store-pages.mjs', import.meta.url), 'utf8');
-const migration = readFileSync(new URL('../supabase/migrations/20260730124500_expand_czech_store_catalog.sql', import.meta.url), 'utf8').split(')\ninsert into public.stores')[0];
-const homepage = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
-const stores = new Map();
-for (const match of migration.matchAll(/\('([a-z0-9-]+)',\s*'([^']+)'/g)) stores.set(match[1], match[2]);
-const catalog = homepage.match(/const CATALOG=\[(.*?)\]\.map/s)?.[1] || '';
-for (const match of catalog.matchAll(/\['([^']+)','([^']+)'/g)) stores.set(match[1], match[2]);
+const canonicalCatalog = readFileSync(new URL('../supabase/migrations/20260801133000_complete_store_brand_logos.sql', import.meta.url), 'utf8');
+const stores = new Set();
+for (const match of canonicalCatalog.matchAll(/\('([a-z0-9-]+)'\s*,\s*'[^']+'\)/g)) stores.add(match[1]);
 
+assert.equal(stores.size, EXPECTED_STORE_COUNT, `Kanonický store katalog musí obsahovat ${EXPECTED_STORE_COUNT} obchodů.`);
+assert.match(generator, /20260801133000_complete_store_brand_logos\.sql/, 'Generátor musí používat stabilní kanonický 73-store katalog.');
+assert.doesNotMatch(generator, /const CATALOG=/, 'Generátor se nesmí znovu navázat na volatilní homepage CATALOG.');
+assert.doesNotMatch(generator, /homepage\.match\(/, 'Generátor nesmí odvozovat store katalog z homepage runtime kódu.');
 assert.match(generator, /existsSync\(pageUrl\)/, 'Generátor musí chránit existující store stránky před přepsáním.');
 assert.match(generator, /patchExistingStorePage\(pageUrl, slug\)/, 'Existující stránky se mají pouze bezpečně patchovat.');
 assert.ok(generator.includes(`const STORE_NAV_VERSION = '${NAV_VERSION}'`), 'Generátor musí používat aktuální cache-bust store navigace.');
 assert.ok(generator.includes(`const STORE_FEED_VERSION = '${FEED_VERSION}'`), 'Generátor musí používat aktuální cache-bust store feedu.');
+assert.ok(generator.includes(`const EXPECTED_STORE_COUNT = ${EXPECTED_STORE_COUNT}`), 'Generátor musí failnout při neúplném store katalogu.');
 assert.ok(generator.includes('id="leafletGrid"'), 'Šablona nového obchodu musí obsahovat letákovou sekci.');
 assert.ok(generator.includes('id="leafletViewer"'), 'Šablona nového obchodu musí obsahovat interní prohlížeč letáku.');
 assert.ok(generator.includes('assets/store-bottom-nav.css'), 'Šablona nového obchodu musí obsahovat mobilní/store navigaci.');
 
-for (const [slug] of stores) {
+for (const slug of stores) {
   const pageUrl = new URL(`../${slug}.html`, import.meta.url);
   assert.ok(existsSync(pageUrl), `Chybí store stránka ${slug}.html.`);
   const html = readFileSync(pageUrl, 'utf8');
