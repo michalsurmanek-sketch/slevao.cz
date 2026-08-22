@@ -63,16 +63,21 @@
 
   function deliverBrowserNotification(row) {
     if (!row?.id || seenNotificationIds().has(row.id)) return;
-    rememberNotification(row.id);
     if (!('Notification' in window) || Notification.permission !== 'granted') return;
     const target = row.product_id
       ? new URL(`produkt.html?id=${encodeURIComponent(row.product_id)}`, location.href).href
       : new URL('ucet.html', location.href).href;
-    const notice = new Notification(row.title || 'Slevao.cz našlo požadovanou cenu', {
-      body: row.message || 'Sledovaný produkt právě splnil nastavený cenový limit.',
-      icon: new URL('favicon.svg', location.href).href,
-      tag: `slevao-${row.id}`
-    });
+    let notice;
+    try {
+      notice = new Notification(row.title || 'Slevao.cz našlo požadovanou cenu', {
+        body: row.message || 'Sledovaný produkt právě splnil nastavený cenový limit.',
+        icon: new URL('favicon.svg', location.href).href,
+        tag: `slevao-${row.id}`
+      });
+    } catch {
+      return;
+    }
+    rememberNotification(row.id);
     notice.onclick = () => {
       window.focus();
       location.href = target;

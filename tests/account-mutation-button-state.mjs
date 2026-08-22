@@ -21,7 +21,7 @@ assert.match(account, /try \{[\s\S]*?db\.from\('notifications'\)[\s\S]*?\.eq\('i
 assert.match(account, /catch \(error\) \{\s*button\.disabled = false;[\s\S]*?Upozornění se nepodařilo označit jako přečtená/, 'Mark-all-read musí po chybě tlačítko odemknout a zobrazit chybu.');
 
 const htmlVersion = html.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
-assert.equal(htmlVersion, '20260822-2', 'ucet.html nemá aktuální account mutation-state runtime.');
+assert.equal(htmlVersion, '20260822-3', 'ucet.html nemá aktuální account notification-delivery runtime.');
 assert.ok(worker.includes(`'/assets/account.js?v=${htmlVersion}'`), 'PWA shell musí cacheovat stejnou account.js verzi jako ucet.html.');
 
 console.log('Account mutation button state OK');

@@ -79,7 +79,7 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   expect(response.status()).toBe(200);
   const source = await response.text();
 
-  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-12';");
+  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-13';");
   expect(source).toContain(`/${PUBLIC_FEATURES}`);
   for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
     expect(source, `PWA shell is missing ${path}`).toContain(`'${path}'`);
