@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - '.github/workflows/repair-home-product-favorite-entry.yml'
+  workflow_dispatch:
 
 permissions:
   contents: write
