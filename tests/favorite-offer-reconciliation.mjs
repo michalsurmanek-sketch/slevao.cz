@@ -31,6 +31,13 @@ assert.match(storeRuntime, /const merged = mergeFavoriteLists\(parseFavoriteList
 assert.doesNotMatch(storeRuntime, /homeFavorites !== null \? homeFavorites : storeFavorites/, 'Store runtime se vrátil ke ztrátovému homepage-wins chování.');
 assert.match(storeRuntime, /initial\.storeChanged/, 'Store feed neobnoví paměťový stav po úvodní opravě store klíče.');
 assert.match(storeRuntime, /window\.addEventListener\('storage'/, 'Store stránka nereaguje na cross-tab změnu favorites.');
+const storeListenerStart = storeRuntime.indexOf("window.addEventListener('storage'");
+const storeListenerEnd = storeRuntime.indexOf('\n    });', storeListenerStart);
+assert.ok(storeListenerStart >= 0 && storeListenerEnd > storeListenerStart, 'Store storage listener nejde ověřit.');
+const storeListenerSource = storeRuntime.slice(storeListenerStart, storeListenerEnd);
+assert.match(storeListenerSource, /event\.newValue === null/, 'Store cross-tab listener neumí přesné smazání.');
+assert.match(storeListenerSource, /parseFavoriteList\(event\.newValue\)/, 'Store cross-tab listener nepřebírá přesnou novou hodnotu.');
+assert.doesNotMatch(storeListenerSource, /reconcileFavoriteKeys\(\)/, 'Store cross-tab listener nesmí unionem znovu oživit vzdáleně smazanou nabídku.');
 
 const rpcIndex = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
 const homeIndex = index.indexOf('assets/home-v2.js?v=20260821-1');
@@ -71,6 +78,41 @@ function runBridge(initial = {}) {
   return localStorage;
 }
 
+function runStoreBridge(initial = {}) {
+  const prefixEnd = storeRuntime.indexOf("\n  if (!document.querySelector('link[href*=\"public-features.css\"]'))");
+  assert.ok(prefixEnd > 0, 'Store favorite bootstrap nejde izolovaně behaviorálně otestovat.');
+  const favoriteBootstrap = `${storeRuntime.slice(0, prefixEnd)}\n})();`;
+  class StoreStorageMock {
+    constructor(values = {}) { this.map = new Map(Object.entries(values)); }
+    getItem(key) { return this.map.has(String(key)) ? this.map.get(String(key)) : null; }
+    setItem(key, value) { this.map.set(String(key), String(value)); }
+    removeItem(key) { this.map.delete(String(key)); }
+  }
+  const localStorage = new StoreStorageMock(initial);
+  const sessionStorage = new StoreStorageMock();
+  let storageListener = null;
+  const window = {
+    localStorage,
+    addEventListener(type, callback) { if (type === 'storage') storageListener = callback; },
+    setTimeout(callback) { callback(); return 1; },
+  };
+  const context = {
+    Storage: StoreStorageMock,
+    localStorage,
+    sessionStorage,
+    window,
+    location: { reload() {} },
+    JSON,
+    Set,
+    Array,
+    String,
+    Object,
+  };
+  new Script(favoriteBootstrap, { filename:'store-favorite-bridge-test.js' }).runInNewContext(context);
+  assert.equal(typeof storageListener, 'function', 'Store bootstrap nezaregistroval storage listener.');
+  return { localStorage, storageListener };
+}
+
 const HOME = 'slevao-saved';
 const STORE = 'slevao-favorite-offers-v1';
 const storage = runBridge({
@@ -92,5 +134,17 @@ assert.deepEqual(JSON.parse(storage.getItem(STORE)), ['C', 'D'], 'Store zápis s
 storage.removeItem(HOME);
 assert.equal(storage.getItem(HOME), null, 'Homepage removeItem neodstranil homepage favorites.');
 assert.equal(storage.getItem(STORE), null, 'Homepage removeItem neodstranil zrcadlený store favorites klíč.');
+
+const storeBridge = runStoreBridge({
+  [HOME]: JSON.stringify(['A', 'B']),
+  [STORE]: JSON.stringify(['A', 'B']),
+});
+storeBridge.storageListener({
+  storageArea: storeBridge.localStorage,
+  key: HOME,
+  newValue: JSON.stringify(['A']),
+});
+assert.deepEqual(JSON.parse(storeBridge.localStorage.getItem(HOME)), ['A'], 'Store cross-tab listener neaplikoval vzdálené odebrání z homepage klíče.');
+assert.deepEqual(JSON.parse(storeBridge.localStorage.getItem(STORE)), ['A'], 'Store cross-tab listener unionem znovu oživil vzdáleně odebranou nabídku.');
 
 console.log('Favorite offer reconciliation OK');
