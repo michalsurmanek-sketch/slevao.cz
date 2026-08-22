@@ -42,11 +42,11 @@ const setOwnerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);');
 const loadRuntimesIndex = bootstrap.indexOf('    await loadShoppingRuntimes();', setOwnerIndex);
 assert.ok(setOwnerIndex >= 0 && loadRuntimesIndex > setOwnerIndex, 'Owner marker musí být nastaven před vložením shopping runtime skriptů.');
 
-assert.match(html, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'seznam.html nenačítá aktuální identity bootstrap.');
+assert.match(html, /assets\/shopping-insights-bootstrap\.js\?v=20260822-3/, 'seznam.html nenačítá aktuální identity bootstrap.');
 for (const directRuntime of ['shopping-list.js', 'shopping-insights.js', 'shopping-route.js', 'shopping-route-autostart.js']) {
   assert.doesNotMatch(html, new RegExp(`<script[^>]+src="assets\\/${directRuntime.replace('.', '\\.')}"`), `${directRuntime} nesmí obejít auth owner gate.`);
 }
-assert.match(worker, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'PWA necachuje aktuální identity bootstrap.');
+assert.match(worker, /assets\/shopping-insights-bootstrap\.js\?v=20260822-3/, 'PWA necachuje aktuální identity bootstrap.');
 for (const runtime of [
   'assets/shopping-list.js?v=20260822-2',
   'assets/shopping-insights.js?v=20260821-1',
@@ -55,7 +55,7 @@ for (const runtime of [
 ]) {
   assert.ok(worker.includes(runtime), `PWA necachuje auth-gated runtime ${runtime}.`);
 }
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-14';/, 'PWA shell nebyl po shopping auth gate posunutý.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-15';/, 'PWA shell nebyl po shopping auth gate posunutý.');
 
 const functionStart = bootstrap.indexOf('  function installBudgetOwnerBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
