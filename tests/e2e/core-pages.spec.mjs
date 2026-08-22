@@ -3,6 +3,12 @@ import { test, expect } from '@playwright/test';
 const BASE_URL = 'http://127.0.0.1:4173';
 const PUBLIC_FEATURES = 'assets/public-features.js?v=20260815-3';
 const PUBLIC_NAV = 'assets/public-nav-upgrade.js?v=20260822-2';
+const SHOPPING_RUNTIMES = [
+  'assets/shopping-list.js?v=20260822-2',
+  'assets/shopping-insights.js?v=20260821-1',
+  'assets/shopping-route.js?v=20260815-4',
+  'assets/shopping-route-autostart.js?v=20260807-1',
+];
 
 const CORE_PAGES = [
   { path:'/produkt.html', title:/Produkt/i, marker:'#productContent' },
@@ -59,7 +65,10 @@ async function openCorePage(page, entry, width) {
   await expect(page.locator(`script[src="${PUBLIC_NAV}"]`)).toHaveCount(1);
   if (entry.path === '/seznam.html') {
     await expect(page.locator('script[src="assets/shopping-insights-bootstrap.js?v=20260822-2"]')).toHaveCount(1);
-    await expect(page.locator('script[src="assets/shopping-list.js?v=20260822-2"]')).toHaveCount(1);
+    for (const source of SHOPPING_RUNTIMES) {
+      await expect(page.locator(`script[src="${source}"]`), `missing auth-gated runtime ${source}`).toHaveCount(1);
+    }
+    await expect(page.locator('#shoppingRoute')).toBeVisible();
   }
   await page.waitForTimeout(1_000);
   await expectNoHorizontalOverflow(page);
@@ -86,6 +95,9 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-14';");
   expect(source).toContain(`/${PUBLIC_FEATURES}`);
   expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-2');
+  for (const runtime of SHOPPING_RUNTIMES) {
+    expect(source, `PWA shell is missing ${runtime}`).toContain(`/${runtime}`);
+  }
   for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
     expect(source, `PWA shell is missing ${path}`).toContain(`'${path}'`);
   }
