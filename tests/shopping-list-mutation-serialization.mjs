@@ -31,7 +31,7 @@ assert.ok(
   'Hromadné mazání musí čekat na rozběhnuté mutace před server delete.'
 );
 
-const versionMatch = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/);
+const versionMatch = bootstrap.match(/'assets\/shopping-list\.js\?v=([0-9-]+)'/);
 assert.ok(versionMatch, 'Identity bootstrap nemá verzovaný shopping-list runtime.');
 assert.doesNotMatch(listHtml, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít identity bootstrap přímým shopping-list loaderem.');
 assert.match(worker, new RegExp(`assets/shopping-list\\.js\\?v=${versionMatch[1]}`), 'PWA nemá stejnou shopping-list runtime verzi jako identity bootstrap.');
