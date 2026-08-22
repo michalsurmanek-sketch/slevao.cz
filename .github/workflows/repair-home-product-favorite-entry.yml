@@ -1,0 +1,104 @@
+name: Guarded homepage product favorite repair
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/repair-home-product-favorite-entry.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Načíst repozitář
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Přidat účetní oblíbení produktu na homepage karty
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path, old, new):
+              file = Path(path)
+              text = file.read_text(encoding='utf-8')
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'{path}: očekáván přesně 1 výskyt, nalezeno {count}: {old!r}')
+              file.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          replace_once(
+              'assets/home-v2.js',
+              'const card = `<article class="dealCard"><div class="dealMedia">',
+              'const card = `<article class="dealCard"${offer.product_id ? ` data-product-id="${esc(offer.product_id)}"` : \'\'}><div class="dealMedia">',
+          )
+          replace_once(
+              'index.html',
+              'assets/home-v2.js?v=20260821-1',
+              'assets/home-v2.js?v=20260822-1',
+          )
+          replace_once(
+              'tests/home-facets-request-dedupe.mjs',
+              "assets/home-v2.js?v=20260821-1",
+              "assets/home-v2.js?v=20260822-1",
+          )
+          replace_once(
+              'tests/favorite-offer-reconciliation.mjs',
+              "const homeIndex = index.indexOf('assets/home-v2.js?v=20260821-1');",
+              "const homeIndex = index.indexOf('assets/home-v2.js?v=20260822-1');",
+          )
+          replace_once(
+              'tests/favorite-offer-reconciliation.mjs',
+              "const homeSync = readFileSync(new URL('assets/home-favorite-offer-sync.js', root), 'utf8');\nconst storeRuntime = readFileSync(new URL('assets/store-bottom-nav.js', root), 'utf8');",
+              "const homeSync = readFileSync(new URL('assets/home-favorite-offer-sync.js', root), 'utf8');\nconst homeV2 = readFileSync(new URL('assets/home-v2.js', root), 'utf8');\nconst storeRuntime = readFileSync(new URL('assets/store-bottom-nav.js', root), 'utf8');",
+          )
+          replace_once(
+              'tests/favorite-offer-reconciliation.mjs',
+              "new Script(homeSync, { filename:'assets/home-favorite-offer-sync.js' });\nnew Script(storeRuntime, { filename:'assets/store-bottom-nav.js' });",
+              "new Script(homeSync, { filename:'assets/home-favorite-offer-sync.js' });\nnew Script(homeV2, { filename:'assets/home-v2.js' });\nnew Script(storeRuntime, { filename:'assets/store-bottom-nav.js' });",
+          )
+          replace_once(
+              'tests/favorite-offer-reconciliation.mjs',
+              "assert.match(homeSync, /location\\.reload\\(\\)/, 'Po úvodní migraci homepage klíče chybí jednorázové obnovení home-v2 state.saved.');",
+              "assert.match(homeSync, /location\\.reload\\(\\)/, 'Po úvodní migraci homepage klíče chybí jednorázové obnovení home-v2 state.saved.');\nassert.ok(homeV2.includes('data-product-id=\\\"${esc(offer.product_id)}\\\"'), 'Homepage karta s product_id musí zpřístupnit produkt personalizačnímu runtime.');\nassert.ok(homeV2.includes('offer.product_id ? ` data-product-id='), 'Homepage nesmí přidávat prázdný product-id na nabídky bez produktu.');",
+          )
+
+          workflow = Path('.github/workflows/public-features-check.yml')
+          text = workflow.read_text(encoding='utf-8')
+          replacements = [
+              ("      - 'produkt.html'\n", "      - 'index.html'\n      - 'produkt.html'\n"),
+              ("      - 'assets/public-features.js'\n", "      - 'assets/home-v2.js'\n      - 'assets/public-features.js'\n"),
+              ("      - 'tests/product-detail-regression.mjs'\n", "      - 'tests/favorite-offer-reconciliation.mjs'\n      - 'tests/home-facets-request-dedupe.mjs'\n      - 'tests/product-detail-regression.mjs'\n"),
+              ("          node --check assets/public-features.js\n", "          node --check assets/home-v2.js\n          node --check assets/public-features.js\n"),
+              ("      - name: Regresní diagnostika detailu produktu\n        run: node tests/product-detail-regression.mjs\n", "      - name: Homepage uložené a oblíbené produkty\n        run: |\n          node tests/favorite-offer-reconciliation.mjs\n          node tests/home-facets-request-dedupe.mjs\n      - name: Regresní diagnostika detailu produktu\n        run: node tests/product-detail-regression.mjs\n"),
+          ]
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f'public-features-check.yml: očekáván 1 výskyt, nalezeno {count}: {old!r}')
+              text = text.replace(old, new, 1)
+          workflow.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Ověřit syntaxi a regresní testy
+        run: |
+          node --check assets/home-v2.js
+          node tests/favorite-offer-reconciliation.mjs
+          node tests/home-facets-request-dedupe.mjs
+          git diff --check
+
+      - name: Commitnout jen ověřenou opravu
+        run: |
+          if git diff --quiet; then
+            echo 'Žádná změna.'
+            exit 0
+          fi
+          git config user.name 'slevao-bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add assets/home-v2.js index.html tests/favorite-offer-reconciliation.mjs tests/home-facets-request-dedupe.mjs .github/workflows/public-features-check.yml
+          git commit -m 'fix: expose product favorites on homepage deals'
+          git push
