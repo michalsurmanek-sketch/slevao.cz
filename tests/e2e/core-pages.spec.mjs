@@ -57,6 +57,10 @@ async function openCorePage(page, entry, width) {
   await expect(page.locator(entry.marker).first()).toBeVisible();
   await expect(page.locator(`script[src="${PUBLIC_FEATURES}"]`)).toHaveCount(1);
   await expect(page.locator(`script[src="${PUBLIC_NAV}"]`)).toHaveCount(1);
+  if (entry.path === '/seznam.html') {
+    await expect(page.locator('script[src="assets/shopping-insights-bootstrap.js?v=20260822-2"]')).toHaveCount(1);
+    await expect(page.locator('script[src="assets/shopping-list.js?v=20260822-2"]')).toHaveCount(1);
+  }
   await page.waitForTimeout(1_000);
   await expectNoHorizontalOverflow(page);
   expect(runtime.failedResponses, `${entry.path} local HTTP failures`).toEqual([]);
@@ -79,8 +83,9 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   expect(response.status()).toBe(200);
   const source = await response.text();
 
-  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-13';");
+  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-14';");
   expect(source).toContain(`/${PUBLIC_FEATURES}`);
+  expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-2');
   for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
     expect(source, `PWA shell is missing ${path}`).toContain(`'${path}'`);
   }
