@@ -1,6 +1,14 @@
 (() => {
   'use strict';
 
+  if (typeof document !== 'undefined' && !document.querySelector('script[data-slevao-favorite-offer-sync]')) {
+    const syncScript = document.createElement('script');
+    syncScript.src = 'assets/home-favorite-offer-sync.js?v=20260822-1';
+    syncScript.async = false;
+    syncScript.dataset.slevaoFavoriteOfferSync = '1';
+    document.head.appendChild(syncScript);
+  }
+
   if (window.__slevaoFacetsFetchDedupe) return;
 
   const originalFetch = window.fetch.bind(window);
