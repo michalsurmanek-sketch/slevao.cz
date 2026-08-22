@@ -1,20 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url><loc>https://slevao.cz/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>
-  <url><loc>https://slevao.cz/kontakt.html</loc><changefreq>monthly</changefreq><priority>0.5</priority></url>
-  <url><loc>https://slevao.cz/ochrana-soukromi.html</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
-  <url><loc>https://slevao.cz/podminky.html</loc><changefreq>monthly</changefreq><priority>0.4</priority></url>
   <url><loc>https://slevao.cz/action.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/albert.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/alza.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/asko.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/auto-kelly.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/bauhaus.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/benu.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/billa.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/brnenka.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/ca.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/cba.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/coop.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/cropp.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/datart.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
@@ -23,43 +16,29 @@
   <url><loc>https://slevao.cz/dm.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/dr-max.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/enapo.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/eso-market.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/flop.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/globus.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/hm.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/hornbach.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/house.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/hruska.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/ikea.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/intersport.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/jednota.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/jip.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/jysk.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/kaufland.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/kik.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/konzum.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/kosik.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/kubik.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/lidl.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/makro.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/moebelix.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/mountfield.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/new-yorker.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/norma.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/obi.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/okay.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/penny.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/pepco.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/petcenter.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/pilulka.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/planeo.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/potraviny-muj-obchod.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/pramen-cz.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/pro-doma.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/ratio.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/reserved.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/rohlik.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/rosa-market.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/rossmann.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/sconto.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/sinsay.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
@@ -68,13 +47,9 @@
   <url><loc>https://slevao.cz/stavmat.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/super-zoo.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/takko.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/tamda.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/tedi.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/tempo.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/terno.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/tesco.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/teta.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
-  <url><loc>https://slevao.cz/trefa.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/xxxlutz.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://slevao.cz/zabka.html</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
 </urlset>
