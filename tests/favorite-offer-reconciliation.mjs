@@ -42,7 +42,7 @@ assert.doesNotMatch(storeListenerSource, /reconcileFavoriteKeys\(\)/, 'Store cro
 const rpcIndex = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
 const homeIndex = index.indexOf('assets/home-v2.js?v=20260821-1');
 assert.ok(rpcIndex >= 0 && homeIndex > rpcIndex, 'Homepage bootstrap musí startovat před home-v2.js.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-13';/, 'PWA shell nebyl po account notification bump posunutý.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260822-14';/, 'PWA shell nebyl po shopping auth gate posunutý.');
 assert.match(worker, /assets\/rpc-request-dedupe\.js\?v=20260819-1/, 'PWA shell necachuje homepage bootstrap.');
 assert.match(worker, /assets\/home-favorite-offer-sync\.js\?v=20260822-1/, 'PWA shell necachuje favorite sync runtime.');
 
