@@ -81,9 +81,6 @@ function isDirectPrivateOrLocalHost(hostname: string) {
     || host.endsWith('.lan')
     || host === 'metadata.google.internal'
   ) return true;
-
-  // Browser push services use public DNS names. Reject literal IPv6 addresses so
-  // loopback, link-local and unique-local targets cannot be registered directly.
   if (host.includes(':')) return true;
 
   const parts = host.split('.');
@@ -250,21 +247,45 @@ async function dispatch(notificationId: string) {
   return json({ ok: true, sent, gone, failed, subscriptions: subscriptions.length });
 }
 
+async function enforceSubscriptionCap(userId: string, now: string) {
+  const { data: activeRows, error: activeError } = await admin
+    .from('web_push_subscriptions')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('is_active', true)
+    .order('updated_at', { ascending: false })
+    .order('created_at', { ascending: false });
+  if (activeError) throw activeError;
+  const overflowIds = (activeRows || [])
+    .slice(MAX_ACTIVE_SUBSCRIPTIONS)
+    .map((row: any) => row.id)
+    .filter(Boolean);
+  if (!overflowIds.length) return;
+  const { error } = await admin.from('web_push_subscriptions')
+    .update({ is_active: false, updated_at: now, last_error: 'Deactivated by per-user subscription cap.' })
+    .in('id', overflowIds);
+  if (error) throw error;
+}
+
 async function subscribe(req: Request, body: any) {
   const user = await requireUser(req);
   if (!user) return json({ error: 'Unauthorized' }, 401);
   const subscription = cleanSubscription(body?.subscription);
+  const sendTest = body?.send_test === true;
   const now = new Date().toISOString();
   const userAgent = String(req.headers.get('user-agent') || '').slice(0, 500) || null;
 
   const { data: existing, error: existingError } = await admin
     .from('web_push_subscriptions')
-    .select('id,user_id')
+    .select('id,user_id,is_active,last_error')
     .eq('endpoint', subscription.endpoint)
     .maybeSingle();
   if (existingError) throw existingError;
   if (existing && String(existing.user_id) !== String(user.id)) {
     return json({ error: 'Push endpoint už je přiřazen jinému účtu.' }, 409);
+  }
+  if (existing && existing.is_active === false && !sendTest) {
+    return json({ ok: true, subscribed: false, requires_test: true });
   }
 
   const { data: saved, error } = await admin.from('web_push_subscriptions').upsert({
@@ -280,27 +301,7 @@ async function subscribe(req: Request, body: any) {
   }, { onConflict: 'endpoint' }).select('id').single();
   if (error) throw error;
 
-  const { data: activeRows, error: activeError } = await admin
-    .from('web_push_subscriptions')
-    .select('id')
-    .eq('user_id', user.id)
-    .eq('is_active', true)
-    .order('updated_at', { ascending: false })
-    .order('created_at', { ascending: false });
-  if (activeError) throw activeError;
-  const overflowIds = (activeRows || [])
-    .slice(MAX_ACTIVE_SUBSCRIPTIONS)
-    .map((row: any) => row.id)
-    .filter(Boolean);
-  if (overflowIds.length) {
-    const { error: capError } = await admin.from('web_push_subscriptions')
-      .update({ is_active: false, updated_at: now, last_error: 'Deactivated by per-user subscription cap.' })
-      .in('id', overflowIds);
-    if (capError) throw capError;
-  }
-
-  let testSent = false;
-  if (body?.send_test === true) {
+  if (sendTest) {
     await ensureVapidKeys();
     const testPayload = JSON.stringify({
       title: 'Oznámení SLEVAO jsou aktivní ✓',
@@ -318,10 +319,16 @@ async function subscribe(req: Request, body: any) {
       auth: subscription.auth,
       expiration_time: subscription.expirationTime,
     }, testPayload, null);
-    testSent = result.sent;
+    if (!result.sent) {
+      await admin.from('web_push_subscriptions')
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq('id', saved.id);
+      return json({ ok: true, subscribed: false, test_sent: false, requires_test: true });
+    }
   }
 
-  return json({ ok: true, subscribed: true, test_sent: testSent });
+  await enforceSubscriptionCap(user.id, new Date().toISOString());
+  return json({ ok: true, subscribed: true, test_sent: sendTest });
 }
 
 async function unsubscribe(req: Request, body: any) {
