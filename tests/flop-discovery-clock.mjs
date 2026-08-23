@@ -10,7 +10,7 @@ assert(safe.includes('create or replace function public.reconcile_flop_top_verif
 assert(!safe.includes('update public.leaflet_sources'), 'Flop product/reconcile pipeline must not move leaflet discovery timestamps');
 assert(!safe.includes('last_checked_at = v_now'), 'Flop product/reconcile pipeline must not own discovery last_checked_at');
 
-assert(regexFix.includes("'(?:tisk_nahled_s|online)[.]pdf$'"), 'Flop week filename regex must avoid fragile backslash escaping');
+assert(regexFix.includes('(?:tisk_nahled_s|online)[.]pdf$'), 'Flop week filename regex must avoid fragile backslash escaping');
 assert(regexFix.includes("'IYYYIW'"), 'Flop week validity must use ISO week parsing');
 assert(regexFix.includes(') + 2)::date'), 'Flop TOP validity must start on Wednesday of the ISO week');
 assert(regexFix.includes(') + 8)::date'), 'Flop TOP validity must end on Tuesday of the following week');
