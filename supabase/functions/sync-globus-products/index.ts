@@ -12,6 +12,8 @@ const MIN_PRODUCTS = 300;
 const MAX_PRODUCTS = 1000;
 const MAX_PAGES = 10;
 const MAX_REPORTED_GAP = 100;
+const MAX_VALIDITY_DAYS = 180;
+const INVALID_VALIDITY_SENTINEL_YEAR = 2100;
 const ADAPTER = 'globus-action-products-api-v1';
 const PARSER_VERSION = 'globus-action-products-api-v1';
 
@@ -51,6 +53,16 @@ function money(value: unknown): number | null {
 function sourceDate(value: unknown): string | null {
   const m = String(value ?? '').match(/^(\d{4}-\d{2}-\d{2})T/);
   return m?.[1] || null;
+}
+function safeValidityWindow(validFrom: string | null, validTo: string | null): boolean {
+  if (!validFrom || !validTo || validFrom > validTo) return false;
+  const endYear = Number(validTo.slice(0, 4));
+  if (!Number.isFinite(endYear) || endYear >= INVALID_VALIDITY_SENTINEL_YEAR) return false;
+  const startMs = Date.parse(`${validFrom}T00:00:00Z`);
+  const endMs = Date.parse(`${validTo}T00:00:00Z`);
+  if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return false;
+  const days = Math.floor((endMs - startMs) / 86400000);
+  return days <= MAX_VALIDITY_DAYS;
 }
 function firstEan(value: unknown): string | null {
   const values = Array.isArray(value) ? value : [value];
@@ -163,7 +175,7 @@ function normalizeProduct(product: any) {
   const brand = clean(product?.commonBrand?.name) || null;
   const quantity = quantityText(product);
 
-  if (!title || !normalizedTitle || !vanr || !price || !validFrom || !validTo || validFrom > validTo) return null;
+  if (!title || !normalizedTitle || !vanr || !price || !safeValidityWindow(validFrom, validTo)) return null;
 
   return {
     external_id: `${HOUSE_NUMBER}:${vanr}`,
@@ -211,6 +223,10 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const fetched = await fetchAllProducts();
+    const invalidValidityCount = fetched.products.filter((product) => {
+      const house = product?.productInHouse || {};
+      return !safeValidityWindow(sourceDate(house?.priceValidFrom), sourceDate(house?.priceValidTo));
+    }).length;
     const rows = fetched.products.map(normalizeProduct).filter(Boolean) as any[];
     if (rows.length < MIN_PRODUCTS) throw new Error(`Po validaci zůstalo jen ${rows.length} Globus produktů.`);
 
@@ -245,6 +261,8 @@ Deno.serve(async (req) => {
       reported_total_count: fetched.reportedTotal,
       accessible_product_count: fetched.products.length,
       validated_product_count: rows.length,
+      invalid_validity_count: invalidValidityCount,
+      max_validity_days: MAX_VALIDITY_DAYS,
       reported_gap: fetched.gap,
       pages_fetched: fetched.pagesFetched,
       validity_pair_count: validityPairs.size,
