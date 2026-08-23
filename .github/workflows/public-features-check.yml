@@ -60,6 +60,8 @@ on:
       - 'supabase/migrations/20260823123456_register_sportisimo_verified_sale_source.sql'
       - 'supabase/migrations/20260823130219_create_xxxlutz_verified_leaflets_pipeline.sql'
       - 'supabase/migrations/20260823130519_fix_xxxlutz_state_signature_column.sql'
+      - 'supabase/migrations/20260823141720_create_moebelix_verified_sale_categories_pipeline.sql'
+      - 'supabase/migrations/20260823141901_archive_and_reclaim_reused_pg_net_request_ids.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -81,6 +83,8 @@ on:
       - 'tests/pro-doma-assets-mirror.mjs'
       - 'tests/sportisimo-sale-frontpage.mjs'
       - 'tests/xxxlutz-verified-leaflets.mjs'
+      - 'tests/moebelix-sale-categories.mjs'
+      - 'tests/pg-net-request-id-reuse.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -166,6 +170,10 @@ jobs:
         run: node tests/sportisimo-sale-frontpage.mjs
       - name: XXXLutz ověřené letákové slevy
         run: node tests/xxxlutz-verified-leaflets.mjs
+      - name: Möbelix ověřené SALE kategorie
+        run: node tests/moebelix-sale-categories.mjs
+      - name: pg_net recyklace request ID
+        run: node tests/pg-net-request-id-reuse.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
