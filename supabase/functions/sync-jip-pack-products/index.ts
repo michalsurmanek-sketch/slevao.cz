@@ -1,2 +1,219 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const U=Deno.env.get('SUPABASE_URL')!,K=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,C=Deno.env.get('CRON_SECRET')||'';const db=createClient(U,K,{auth:{persistSession:false,autoRefreshToken:false}});const PARSER='jip-ocr-spatial-pack-v4';const H={'content-type':'application/json; charset=utf-8','access-control-allow-origin':'*'};const J=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:H});function ok(r:Request){return r.headers.get('authorization')===`Bearer ${K}`||Boolean(C&&r.headers.get('x-cron-secret')===C)}function today(){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const v=Object.fromEntries(p.map(x=>[x.type,x.value]));return `${v.year}-${v.month}-${v.day}`}async function parser(importId:string){const r=await fetch(`${U}/functions/v1/debug-jip-pack-parser`,{method:'POST',headers:{authorization:`Bearer ${K}`,apikey:K,'content-type':'application/json'},body:JSON.stringify({import_id:importId})});const t=await r.text();let x:any={};try{x=JSON.parse(t)}catch{}if(!r.ok||!x.ok)throw new Error(`JIP pack parser HTTP ${r.status}: ${t.slice(0,500)}`);return x}async function publish(importId:string){const r=await fetch(`${U}/functions/v1/publish-imports`,{method:'POST',headers:{authorization:`Bearer ${K}`,apikey:K,'content-type':'application/json'},body:JSON.stringify({import_id:importId})});const t=await r.text();let x:any={};try{x=JSON.parse(t)}catch{}if(!r.ok||!x.ok)throw new Error(`publish-imports HTTP ${r.status}: ${t.slice(0,700)}`);return x}Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:H});if(req.method!=='POST')return J({error:'method'},405);if(!ok(req))return J({error:'auth'},401);try{const b=await req.json().catch(()=>({}));const dry=b.dry_run===true;const {data:store,error:se}=await db.from('stores').select('id,name').eq('slug','jip').maybeSingle();if(se)throw se;if(!store)throw new Error('JIP store not found');const d=today();const {data:imports,error:ie}=await db.from('leaflet_imports').select('*').eq('store_id',store.id).eq('metadata->>adapter','jip-flip-pdf-v1').gt('detected_valid_to',d).order('detected_valid_from',{ascending:true}).order('created_at',{ascending:false}).limit(20);if(ie)throw ie;const source=(imports||[]).find((x:any)=>Array.isArray(x?.metadata?.page_image_urls)&&x.metadata.page_image_urls.length>=2);if(!source)return J({ok:true,published:false,reason:'No current JIP source with page images'});const parsed=await parser(source.id);const candidates=Array.isArray(parsed.candidates)?parsed.candidates:[];if(candidates.length<8||candidates.length>30)throw new Error(`Safety guard: expected 8-30 pack candidates, got ${candidates.length}`);const unsafe=candidates.filter((c:any)=>!c.title||!(Number(c.price)>0)||!c.quantity||Number(c.conf?.price||0)<90||Number(c.conf?.title||0)<82||Number(c.conf?.qty||0)<75||/(nabidka|neplati|dph|zdarma|kup |kupon)/i.test(String(c.title)));if(unsafe.length)throw new Error(`Safety guard: ${unsafe.length} unsafe candidates`);if(dry)return J({ok:true,dry_run:true,source_import_id:source.id,count:candidates.length,candidates});const hash=`jip-pack-safe-v4-${source.id}`;const {data:existing,error:ee}=await db.from('leaflet_imports').select('id,status').eq('source_hash',hash).maybeSingle();if(ee)throw ee;if(existing?.status==='published')return J({ok:true,reused:true,import_id:existing.id,source_import_id:source.id,count:candidates.length});let id=existing?.id||null;if(!id){const {data:created,error:ce}=await db.from('leaflet_imports').insert({source_id:source.source_id,store_id:store.id,source_document_url:source.source_document_url,source_hash:hash,status:'queued',coverage_scope:source.coverage_scope||'national',region_code:source.region_code||null,city_name:source.city_name||null,store_location_name:source.store_location_name||null,detected_valid_from:source.detected_valid_from,detected_valid_to:source.detected_valid_to,confidence:0.97,metadata:{parser:PARSER,deterministic:true,verified_pipeline:true,source_import_id:source.id,adapter:'jip-ocr-pack-v4',coverage_label:'JIP potraviny – dle omezení uvedených v letáku'}}).select('id').single();if(ce)throw ce;id=created.id}else{await db.from('leaflet_import_items').delete().eq('import_id',id)}const rows=candidates.map((c:any)=>({import_id:id,title:String(c.title).trim(),price:Number(c.price),quantity_text:String(c.quantity).trim(),source_page:Number(c.page),confidence:0.96,status:'approved',raw_data:{parser:PARSER,deterministic:true,manual_verified:false,spatial_pack:true,ocr_confidence:c.conf,spatial:c.raw}}));const {error:ins}=await db.from('leaflet_import_items').insert(rows);if(ins)throw ins;const {error:up}=await db.from('leaflet_imports').update({status:'review',product_count:rows.length,confidence:0.97,error_message:null,finished_at:new Date().toISOString()}).eq('id',id);if(up)throw up;const pub=await publish(id);const result=Array.isArray(pub.results)?pub.results[0]:null;if(result?.error)throw new Error(result.error);const accepted=Number(result?.published||0)+Number(result?.duplicates||0);if(accepted<8)throw new Error(`Safety guard: publisher accepted only ${accepted}/${rows.length}`);const {count:total,error:tc}=await db.from('offers').select('id',{count:'exact',head:true}).eq('store_id',store.id).eq('status','published').gte('valid_to',d);if(tc)throw tc;const totalPublished=total||0;await db.from('store_product_sync_state').upsert({store_id:store.id,last_run_at:new Date().toISOString(),last_success_at:new Date().toISOString(),last_offer_count:totalPublished,expected_offer_count:12,last_published_count:totalPublished,last_valid_from:source.detected_valid_from,last_valid_to:source.detected_valid_to,parser_version:PARSER,adapter_name:'sync-jip-pack-products',adapter_version:'v4',source_type:'official-ocr',source_category:'current-leaflet',last_error:null,last_parser_error:null,health_status:totalPublished>=10?'ok':'degraded',health_reason:`JIP: ${totalPublished} bezpečně publikovaných nabídek (unit-marker + pack parser v4).`,is_running:false,run_started_at:null,updated_at:new Date().toISOString(),last_import_id:id},{onConflict:'store_id'});return J({ok:true,published:true,import_id:id,source_import_id:source.id,candidate_count:rows.length,accepted,total_published:totalPublished,publish:pub});}catch(e){return J({ok:false,error:e instanceof Error?e.message:String(e)},500)}});
+
+const U = Deno.env.get('SUPABASE_URL')!;
+const K = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const C = Deno.env.get('CRON_SECRET') || '';
+const db = createClient(U, K, { auth: { persistSession: false, autoRefreshToken: false } });
+const PARSER = 'jip-ocr-spatial-pack-v4';
+const SOURCE_ADAPTER = 'jip-flip-pdf-v1';
+const SOURCE_PAGE_COUNT = 12;
+const H = { 'content-type': 'application/json; charset=utf-8', 'access-control-allow-origin': '*' };
+const J = (x: any, s = 200) => new Response(JSON.stringify(x), { status: s, headers: H });
+
+function ok(r: Request) {
+  return r.headers.get('authorization') === `Bearer ${K}` || Boolean(C && r.headers.get('x-cron-secret') === C);
+}
+function today() {
+  const p = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const v = Object.fromEntries(p.map((x) => [x.type, x.value]));
+  return `${v.year}-${v.month}-${v.day}`;
+}
+function isPackSource(x: any) {
+  const images = x?.metadata?.page_image_urls;
+  return Number(x?.metadata?.page_count) === SOURCE_PAGE_COUNT
+    && Array.isArray(images)
+    && images.length === SOURCE_PAGE_COUNT
+    && /\/MO-\d{1,2}-\d{1,2}-\d{4}\/$/i.test(String(x?.source_document_url || ''));
+}
+async function parser(importId: string) {
+  const r = await fetch(`${U}/functions/v1/debug-jip-pack-parser`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${K}`, apikey: K, 'content-type': 'application/json' },
+    body: JSON.stringify({ import_id: importId }),
+  });
+  const t = await r.text();
+  let x: any = {};
+  try { x = JSON.parse(t); } catch {}
+  if (!r.ok || !x.ok) throw new Error(`JIP pack parser HTTP ${r.status}: ${t.slice(0, 500)}`);
+  return x;
+}
+async function publish(importId: string) {
+  const r = await fetch(`${U}/functions/v1/publish-imports`, {
+    method: 'POST',
+    headers: { authorization: `Bearer ${K}`, apikey: K, 'content-type': 'application/json' },
+    body: JSON.stringify({ import_id: importId }),
+  });
+  const t = await r.text();
+  let x: any = {};
+  try { x = JSON.parse(t); } catch {}
+  if (!r.ok || !x.ok) throw new Error(`publish-imports HTTP ${r.status}: ${t.slice(0, 700)}`);
+  return x;
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: H });
+  if (req.method !== 'POST') return J({ error: 'method' }, 405);
+  if (!ok(req)) return J({ error: 'auth' }, 401);
+
+  try {
+    const b = await req.json().catch(() => ({}));
+    const dry = b.dry_run === true;
+    const { data: store, error: se } = await db.from('stores').select('id,name').eq('slug', 'jip').maybeSingle();
+    if (se) throw se;
+    if (!store) throw new Error('JIP store not found');
+
+    const d = today();
+    const { data: imports, error: ie } = await db.from('leaflet_imports')
+      .select('*')
+      .eq('store_id', store.id)
+      .eq('metadata->>adapter', SOURCE_ADAPTER)
+      .lte('detected_valid_from', d)
+      .gte('detected_valid_to', d)
+      .order('detected_valid_from', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (ie) throw ie;
+
+    const source = (imports || []).find(isPackSource);
+    if (!source) {
+      return J({
+        ok: true,
+        published: false,
+        waiting_source: true,
+        reason: 'No current 12-page JIP Maloobchod source with complete page images',
+        business_date: d,
+      });
+    }
+
+    const parsed = await parser(source.id);
+    const candidates = Array.isArray(parsed.candidates) ? parsed.candidates : [];
+    if (candidates.length < 8 || candidates.length > 30) {
+      throw new Error(`Safety guard: expected 8-30 pack candidates, got ${candidates.length}`);
+    }
+    const unsafe = candidates.filter((c: any) =>
+      !c.title || !(Number(c.price) > 0) || !c.quantity
+      || Number(c.conf?.price || 0) < 90
+      || Number(c.conf?.title || 0) < 82
+      || Number(c.conf?.qty || 0) < 75
+      || /(nabidka|neplati|dph|zdarma|kup |kupon)/i.test(String(c.title))
+    );
+    if (unsafe.length) throw new Error(`Safety guard: ${unsafe.length} unsafe candidates`);
+
+    if (dry) {
+      return J({
+        ok: true,
+        dry_run: true,
+        source_import_id: source.id,
+        source_document_url: source.source_document_url,
+        source_page_count: Number(source?.metadata?.page_count),
+        count: candidates.length,
+        candidates,
+      });
+    }
+
+    const hash = `jip-pack-safe-v4-${source.id}`;
+    const { data: existing, error: ee } = await db.from('leaflet_imports').select('id,status').eq('source_hash', hash).maybeSingle();
+    if (ee) throw ee;
+    if (existing?.status === 'published') {
+      return J({ ok: true, reused: true, import_id: existing.id, source_import_id: source.id, count: candidates.length });
+    }
+
+    let id = existing?.id || null;
+    if (!id) {
+      const { data: created, error: ce } = await db.from('leaflet_imports').insert({
+        source_id: source.source_id,
+        store_id: store.id,
+        source_document_url: source.source_document_url,
+        source_hash: hash,
+        status: 'queued',
+        coverage_scope: source.coverage_scope || 'national',
+        region_code: source.region_code || null,
+        city_name: source.city_name || null,
+        store_location_name: source.store_location_name || null,
+        detected_valid_from: source.detected_valid_from,
+        detected_valid_to: source.detected_valid_to,
+        confidence: 0.97,
+        metadata: {
+          parser: PARSER,
+          deterministic: true,
+          verified_pipeline: true,
+          source_import_id: source.id,
+          adapter: 'jip-ocr-pack-v4',
+          coverage_label: 'JIP potraviny – dle omezení uvedených v letáku',
+          source_contract: 'maloobchod-12-page-current',
+        },
+      }).select('id').single();
+      if (ce) throw ce;
+      id = created.id;
+    } else {
+      await db.from('leaflet_import_items').delete().eq('import_id', id);
+    }
+
+    const rows = candidates.map((c: any) => ({
+      import_id: id,
+      title: String(c.title).trim(),
+      price: Number(c.price),
+      quantity_text: String(c.quantity).trim(),
+      source_page: Number(c.page),
+      confidence: 0.96,
+      status: 'approved',
+      raw_data: { parser: PARSER, deterministic: true, manual_verified: false, spatial_pack: true, ocr_confidence: c.conf, spatial: c.raw },
+    }));
+    const { error: ins } = await db.from('leaflet_import_items').insert(rows);
+    if (ins) throw ins;
+    const { error: up } = await db.from('leaflet_imports').update({
+      status: 'review', product_count: rows.length, confidence: 0.97, error_message: null, finished_at: new Date().toISOString(),
+    }).eq('id', id);
+    if (up) throw up;
+
+    const pub = await publish(id);
+    const result = Array.isArray(pub.results) ? pub.results[0] : null;
+    if (result?.error) throw new Error(result.error);
+    const accepted = Number(result?.published || 0) + Number(result?.duplicates || 0);
+    if (accepted < 8) throw new Error(`Safety guard: publisher accepted only ${accepted}/${rows.length}`);
+
+    const { count: total, error: tc } = await db.from('offers').select('id', { count: 'exact', head: true })
+      .eq('store_id', store.id).eq('status', 'published').gte('valid_to', d);
+    if (tc) throw tc;
+    const totalPublished = total || 0;
+
+    await db.from('store_product_sync_state').upsert({
+      store_id: store.id,
+      last_run_at: new Date().toISOString(),
+      last_success_at: new Date().toISOString(),
+      last_offer_count: totalPublished,
+      expected_offer_count: 12,
+      last_published_count: totalPublished,
+      last_valid_from: source.detected_valid_from,
+      last_valid_to: source.detected_valid_to,
+      parser_version: PARSER,
+      adapter_name: 'sync-jip-pack-products',
+      adapter_version: 'v4',
+      source_type: 'official-ocr',
+      source_category: 'current-leaflet',
+      last_error: null,
+      last_parser_error: null,
+      health_status: totalPublished >= 10 ? 'ok' : 'degraded',
+      health_reason: `JIP: ${totalPublished} bezpečně publikovaných nabídek (unit-marker + pack parser v4).`,
+      is_running: false,
+      run_started_at: null,
+      updated_at: new Date().toISOString(),
+      last_import_id: id,
+    }, { onConflict: 'store_id' });
+
+    return J({
+      ok: true,
+      published: true,
+      import_id: id,
+      source_import_id: source.id,
+      candidate_count: rows.length,
+      accepted,
+      total_published: totalPublished,
+      publish: pub,
+    });
+  } catch (e) {
+    return J({ ok: false, error: e instanceof Error ? e.message : String(e) }, 500);
+  }
+});
