@@ -16,7 +16,7 @@ const FETCH_HEADERS = {
   accept: 'text/html,application/json,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
-const MIN_SAFE = 80;
+const MIN_SAFE = 50;
 const MAX_SAFE = 900;
 const PARSER = 'albert-publitas-text-v4';
 const CODE_REV = 'strong-identity-20260812-4';
