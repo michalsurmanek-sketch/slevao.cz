@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const LANDING = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
-const ADAPTER = 'tesco-apollo-pdf-v2';
+const ADAPTER = 'tesco-apollo-pdf-v3';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const CORS = {
@@ -33,6 +33,7 @@ type PriceCandidate = {
   source: string;
   context: string;
   context_normalized: string;
+  label_context: string;
 };
 type Hotspot = {
   position_id: number;
@@ -173,19 +174,20 @@ function extractApollo(viewerHtml: string) {
   return { config: pageProps.config || {}, state, leaflet, pages, pageImages, positions, products };
 }
 
-function localContext(tokens: PdfToken[], x: number, y: number) {
-  const nearby = tokens
-    .filter((token) => Math.abs(token.x - x) <= 115 && Math.abs(token.y - y) <= 95)
+function contextAround(tokens: PdfToken[], x: number, y: number, xRadius: number, yRadius: number) {
+  return clean(tokens
+    .filter((token) => Math.abs(token.x - x) <= xRadius && Math.abs(token.y - y) <= yRadius)
     .sort((a, b) => Math.abs(b.y - a.y) > 4 ? b.y - a.y : a.x - b.x)
-    .map((token) => token.text);
-  const text = clean(nearby.join(' '));
-  return { text: text.slice(0, 1200), normalized: normalized(text) };
+    .map((token) => token.text)
+    .join(' '));
 }
 
-function classifyPrice(contextNormalized: string): 'public' | 'clubcard' | 'unknown' {
-  if (contextNormalized.includes('clubcard cena') || contextNormalized.includes('s clubcard')) return 'clubcard';
-  if (contextNormalized.includes('cena pro vsechny')) return 'public';
-  return 'unknown';
+function classifyPrice(labelContext: string): 'public' | 'clubcard' | 'unknown' {
+  const label = normalized(labelContext);
+  const publicAt = label.lastIndexOf('cena pro vsechny');
+  const clubAt = Math.max(label.lastIndexOf('clubcard cena'), label.lastIndexOf('s clubcard'));
+  if (publicAt < 0 && clubAt < 0) return 'unknown';
+  return clubAt > publicAt ? 'clubcard' : 'public';
 }
 
 function priceCandidates(tokens: PdfToken[]): PriceCandidate[] {
@@ -211,17 +213,19 @@ function priceCandidates(tokens: PdfToken[]): PriceCandidate[] {
       .filter((row) => Math.abs(row.token.x - integer.x) <= 34)
       .filter((row) => row.token.y >= integer.y + 10 && row.token.y <= integer.y + 58)
       .sort((a, b) => Math.abs(a.token.y - integer.y) - Math.abs(b.token.y - integer.y))[0];
-    const context = localContext(tokens, integer.x, integer.y);
+    const context = contextAround(tokens, integer.x, integer.y, 115, 95).slice(0, 1200);
+    const labelContext = contextAround(tokens, integer.x, integer.y, 72, 48).slice(0, 600);
 
     candidates.push({
       price,
       old_price: old?.value || null,
       x: Math.round(integer.x * 10) / 10,
       y: Math.round(integer.y * 10) / 10,
-      kind: classifyPrice(context.normalized),
+      kind: classifyPrice(labelContext),
       source: `${integer.text}+${cents.text}`,
-      context: context.text,
-      context_normalized: context.normalized,
+      context,
+      context_normalized: normalized(context),
+      label_context: labelContext,
     });
   }
 
@@ -296,7 +300,7 @@ function hungarian(cost: number[][]) {
     do {
       used[j0] = true;
       const i0 = p[j0];
-      let delta = Number.POSITIVE_INFINITY;
+      let delta = Number.POSITIVE_INFINITY);
       let j1 = 0;
       for (let j = 1; j <= m; j++) {
         if (used[j]) continue;
@@ -336,7 +340,14 @@ function hungarian(cost: number[][]) {
 }
 
 function assignHotspots(hotspots: Hotspot[], candidates: PriceCandidate[]) {
-  if (!hotspots.length) return [];
+  if (!hotspots.length) return { sparse: false, rows: [] as any[] };
+  if (candidates.length < Math.ceil(hotspots.length * 0.55)) {
+    return {
+      sparse: true,
+      rows: hotspots.map((hotspot) => ({ ...hotspot, assigned: false, confidence: 'none', rejection_reason: 'sparse_or_special_page', candidate: null })),
+    };
+  }
+
   const realCandidateCount = candidates.length;
   const workingCandidates: Array<PriceCandidate | null> = [...candidates];
   while (workingCandidates.length < hotspots.length) workingCandidates.push(null);
@@ -346,40 +357,43 @@ function assignHotspots(hotspots: Hotspot[], candidates: PriceCandidate[]) {
   }));
   const assignment = hungarian(cost);
 
-  return hotspots.map((hotspot, index) => {
-    const candidateIndex = assignment[index];
-    const candidate = candidateIndex >= 0 && candidateIndex < realCandidateCount ? candidates[candidateIndex] : null;
-    if (!candidate) {
-      return { ...hotspot, assigned: false, confidence: 'none', candidate: null };
-    }
-    const metrics = pairCost(hotspot, candidate);
-    const confidence = metrics.semantic_count >= 2 || metrics.spatial <= 75
-      ? 'high'
-      : metrics.semantic_count >= 1 || metrics.spatial <= 125
-        ? 'medium'
-        : metrics.spatial <= 175 ? 'low' : 'reject';
-    return {
-      ...hotspot,
-      assigned: confidence !== 'reject',
-      confidence,
-      assignment_cost: Math.round(metrics.cost * 10) / 10,
-      spatial_distance: Math.round(metrics.spatial * 10) / 10,
-      semantic_count: metrics.semantic_count,
-      semantic_words: metrics.semantic_words,
-      candidate_index: candidateIndex,
-      candidate: {
-        price: candidate.price,
-        old_price: candidate.old_price,
-        kind: candidate.kind,
-        x: candidate.x,
-        y: candidate.y,
-        context: candidate.context.slice(0, 500),
-      },
-    };
-  });
+  return {
+    sparse: false,
+    rows: hotspots.map((hotspot, index) => {
+      const candidateIndex = assignment[index];
+      const candidate = candidateIndex >= 0 && candidateIndex < realCandidateCount ? candidates[candidateIndex] : null;
+      if (!candidate) return { ...hotspot, assigned: false, confidence: 'none', rejection_reason: 'no_candidate', candidate: null };
+      const metrics = pairCost(hotspot, candidate);
+      const confidence = metrics.semantic_count >= 2 || metrics.spatial <= 75
+        ? 'high'
+        : metrics.semantic_count >= 1 || metrics.spatial <= 125
+          ? 'medium'
+          : metrics.spatial <= 175 ? 'low' : 'reject';
+      return {
+        ...hotspot,
+        assigned: confidence !== 'reject',
+        confidence,
+        rejection_reason: confidence === 'reject' ? 'distance' : null,
+        assignment_cost: Math.round(metrics.cost * 10) / 10,
+        spatial_distance: Math.round(metrics.spatial * 10) / 10,
+        semantic_count: metrics.semantic_count,
+        semantic_words: metrics.semantic_words,
+        candidate_index: candidateIndex,
+        candidate: {
+          price: candidate.price,
+          old_price: candidate.old_price,
+          kind: candidate.kind,
+          x: candidate.x,
+          y: candidate.y,
+          context: candidate.context.slice(0, 500),
+          label_context: candidate.label_context.slice(0, 300),
+        },
+      };
+    }),
+  };
 }
 
-async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePages: number) {
+async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, startPage: number, probePages: number, details: boolean) {
   const response = await fetch(pdfUrl, {
     headers: { ...BROWSER_HEADERS, accept: 'application/pdf,*/*;q=0.8', referer: viewerUrl },
     redirect: 'follow',
@@ -393,7 +407,8 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
   }
 
   const doc = await pdfjs.getDocument({ data: bytes, disableWorker: true, useSystemFonts: true }).promise;
-  const limit = Math.min(doc.numPages, Math.max(1, Math.min(8, probePages)));
+  const firstPage = Math.max(1, Math.min(doc.numPages, startPage));
+  const lastPage = Math.min(doc.numPages, firstPage + Math.max(1, Math.min(12, probePages)) - 1);
   const pages: any[] = [];
   const acceptedDistances: number[] = [];
   let totalHotspots = 0;
@@ -404,8 +419,9 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
   let totalLow = 0;
   let totalRejected = 0;
   let totalSemantic = 0;
+  let sparsePages = 0;
 
-  for (let pageNo = 1; pageNo <= limit; pageNo++) {
+  for (let pageNo = firstPage; pageNo <= lastPage; pageNo++) {
     const page = await doc.getPage(pageNo);
     const content: any = await page.getTextContent();
     const tokens: PdfToken[] = (content.items || [])
@@ -422,7 +438,9 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
     const candidates = priceCandidates(tokens);
     const apolloPage = apollo.pages.find((row: any) => Number(row.page) === pageNo);
     const hotspots = apolloPage ? pageHotspots(apollo, apolloPage, width, height) : [];
-    const assignments = assignHotspots(hotspots, candidates);
+    const assigned = assignHotspots(hotspots, candidates);
+    const assignments = assigned.rows;
+    if (assigned.sparse) sparsePages++;
 
     totalHotspots += hotspots.length;
     totalCandidates += candidates.length;
@@ -437,32 +455,37 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
       totalSemantic += Number(row.semantic_count || 0);
     }
 
-    pages.push({
+    const pageSummary: any = {
       page: pageNo,
-      width: Math.round(width * 10) / 10,
-      height: Math.round(height * 10) / 10,
       token_count: tokens.length,
       hotspot_count: hotspots.length,
       candidate_price_count: candidates.length,
       public_candidate_count: candidates.filter((row) => row.kind === 'public').length,
       clubcard_candidate_count: candidates.filter((row) => row.kind === 'clubcard').length,
+      unknown_candidate_count: candidates.filter((row) => row.kind === 'unknown').length,
       assigned_count: assignments.filter((row) => row.assigned).length,
       high_count: assignments.filter((row) => row.confidence === 'high').length,
       medium_count: assignments.filter((row) => row.confidence === 'medium').length,
       low_count: assignments.filter((row) => row.confidence === 'low').length,
       rejected_count: assignments.filter((row) => !row.assigned).length,
-      assignments: assignments.slice(0, 60),
-      unmatched_price_candidates: candidates
-        .map((candidate, index) => ({ candidate, index }))
+      sparse_or_special: assigned.sparse,
+    };
+    if (details) {
+      pageSummary.assignments = assignments.slice(0, 70);
+      pageSummary.unmatched_price_candidates = candidates
+        .map((candidate, index) => ({ candidate: { ...candidate, context: candidate.context.slice(0, 500) }, index }))
         .filter(({ index }) => !assignments.some((row) => row.candidate_index === index))
-        .slice(0, 30),
-    });
+        .slice(0, 30);
+    }
+    pages.push(pageSummary);
   }
 
   return {
     pdf_bytes: bytes.length,
     pdf_pages: doc.numPages,
-    probed_pages: limit,
+    start_page: firstPage,
+    end_page: lastPage,
+    probed_pages: lastPage - firstPage + 1,
     probe_hotspots: totalHotspots,
     probe_price_candidates: totalCandidates,
     probe_assigned: totalAssigned,
@@ -471,6 +494,7 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
     probe_low: totalLow,
     probe_rejected: totalRejected,
     probe_semantic_hits: totalSemantic,
+    sparse_or_special_pages: sparsePages,
     median_accepted_spatial_distance: median(acceptedDistances),
     pages,
   };
@@ -492,7 +516,14 @@ Deno.serve(async (req) => {
       throw new Error(`Tesco Apollo má neúplné stránky: ${apollo.pages.length}/${apollo.pageImages.length}.`);
     }
 
-    const probe = await probePdf(pdfUrl, viewerUrl, apollo, Number(body.probe_pages || 3));
+    const probe = await probePdf(
+      pdfUrl,
+      viewerUrl,
+      apollo,
+      Number(body.start_page || 1),
+      Number(body.probe_pages || 3),
+      body.details === true,
+    );
     return json({
       ok: true,
       dry_run: true,
