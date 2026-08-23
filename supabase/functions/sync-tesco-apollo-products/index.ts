@@ -5,7 +5,7 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const LANDING = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 const PARSER_URL = `${SUPABASE_URL}/functions/v1/probe-tesco-layout-v14`;
-const ADAPTER = 'tesco-apollo-pdf-v15-safe-public';
+const ADAPTER = 'tesco-apollo-pdf-v16-semantic-public';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36',
@@ -60,7 +60,7 @@ async function currentLeaflet() {
   const pageCount = (leaflet.pages || []).map(ref).filter(Boolean).length;
   if (!validFrom || !validTo || validFrom > validTo) throw new Error('Tesco leták nemá platnou dobu akce.');
   if (!/^https:\/\/digitalcontent\.api\.tesco\.com\//i.test(pdfUrl)) throw new Error('Tesco Apollo nevrátilo oficiální PDF URL.');
-  if (pageCount < 20 || pageCount > 39) throw new Error(`Tesco leták má ${pageCount} stran; v15 bezpečně podporuje 20–39.`);
+  if (pageCount < 20 || pageCount > 39) throw new Error(`Tesco leták má ${pageCount} stran; v16 bezpečně podporuje 20–39.`);
   return {
     viewer,
     leafletId: Number(leaflet.id),
@@ -99,11 +99,8 @@ async function runParser(pageCount: number) {
 function safeEvidence(row: any) {
   const semantic = Array.isArray(row?.semantic_words) ? row.semantic_words.length : 0;
   const layout = Number(row?.layout_score ?? 9999);
-  const spatial = Number(row?.spatial ?? 9999);
-  const mathUnique = row?.math?.unique === true;
   return (semantic >= 2 && layout <= 190)
-    || (semantic === 1 && layout <= 100)
-    || (mathUnique && spatial <= 150);
+    || (semantic === 1 && layout <= 175);
 }
 
 function quantityText(row: any) {
@@ -117,9 +114,9 @@ function quantityText(row: any) {
 function confidence(row: any) {
   const semantic = Array.isArray(row?.semantic_words) ? row.semantic_words.length : 0;
   const mathUnique = row?.math?.unique === true;
-  if (mathUnique && semantic >= 1) return 0.995;
-  if (mathUnique) return 0.99;
-  if (semantic >= 2) return 0.985;
+  if (mathUnique && semantic >= 2) return 0.995;
+  if (semantic >= 2) return 0.99;
+  if (mathUnique && semantic === 1) return 0.985;
   return 0.97;
 }
 
@@ -194,7 +191,7 @@ Deno.serve(async (req) => {
     if (before.fingerprint !== after.fingerprint) throw new Error('Tesco leták se během běhu změnil; snapshot nebyl publikován.');
 
     const rows = await structuredRows(parsed.rows, before);
-    if (rows.length < 20 || rows.length > 80) throw new Error(`Tesco v15 bezpečný snapshot má ${rows.length} produktů; povolený rozsah je 20–80.`);
+    if (rows.length < 20 || rows.length > 50) throw new Error(`Tesco v16 bezpečný snapshot má ${rows.length} produktů; povolený rozsah je 20–50.`);
     const rowSignature = rows.map((r) => `${r.external_id}:${r.price}:${r.old_price ?? ''}`).join('|');
     const signature = await sha(`${ADAPTER}|${before.fingerprint}|${rowSignature}`);
 
@@ -209,7 +206,7 @@ Deno.serve(async (req) => {
       parser_row_count: Number(parsed.row_count) || parsed.rows.length,
       safe_row_count: rows.length,
       signature,
-      sample: rows.slice(0, 40).map((r) => ({
+      sample: rows.slice(0, 50).map((r) => ({
         title: r.title,
         price: r.price,
         old_price: r.old_price,
@@ -227,7 +224,7 @@ Deno.serve(async (req) => {
       p_signature: signature,
       p_rows: rows,
       p_min_products: 20,
-      p_max_products: 80,
+      p_max_products: 50,
       p_source_document_url: before.pdfUrl,
       p_parser_version: ADAPTER,
     });
