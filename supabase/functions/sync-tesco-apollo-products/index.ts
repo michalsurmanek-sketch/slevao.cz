@@ -1,12 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import * as pdfjs from 'npm:pdfjs-dist@4.10.38/legacy/build/pdf.mjs';
 
-const URL = Deno.env.get('SUPABASE_URL')!;
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const LANDING = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
 const ADAPTER = 'tesco-apollo-pdf-v1';
-const db = createClient(URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const CORS = {
   'access-control-allow-origin': '*',
