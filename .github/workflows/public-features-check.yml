@@ -54,6 +54,7 @@ on:
       - 'supabase/migrations/20260823105642_persist_stavmat_dedicated_pipeline_contract.sql'
       - 'supabase/migrations/20260823110259_make_planeo_dedicated_waiting_source.sql'
       - 'supabase/migrations/20260823110613_preserve_product_sync_operational_health_states.sql'
+      - 'supabase/migrations/20260823115640_fix_pro_doma_index_terminal_state.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -71,6 +72,7 @@ on:
       - 'tests/stavmat-dedicated-pipeline.mjs'
       - 'tests/planeo-waiting-source.mjs'
       - 'tests/product-sync-health-semantics.mjs'
+      - 'tests/pro-doma-index-terminal-state.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -148,6 +150,8 @@ jobs:
         run: node tests/planeo-waiting-source.mjs
       - name: Semantika product sync health
         run: node tests/product-sync-health-semantics.mjs
+      - name: PRO-DOMA ukončení chybového index runu
+        run: node tests/pro-doma-index-terminal-state.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
