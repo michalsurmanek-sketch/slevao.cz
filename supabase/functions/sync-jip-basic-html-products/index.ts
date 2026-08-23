@@ -3,11 +3,12 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
-const ADAPTER = 'jip-basic-html-column-v1';
+const ADAPTER = 'jip-basic-html-column-v2-vat';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'content-type': 'application/json; charset=utf-8' };
 
 type Cell = { row:number; start:number; end:number; center:number; text:string };
+type Point = { row:number; center:number; value:number; cell:Cell };
 type Candidate = { title:string; price:number; quantity_text:string; source_page:number; confidence:number; raw_data:Record<string, unknown> };
 
 const json = (body:unknown, status=200) => new Response(JSON.stringify(body), { status, headers: HEADERS });
@@ -54,7 +55,7 @@ function cells(text:string):Cell[] {
 function prices(cell:Cell) {
   if (/bez\s*dph/i.test(cell.text)) return [] as Array<{value:number; center:number}>;
   const out:Array<{value:number; center:number}> = [];
-  for (const m of cell.text.matchAll(/\b(\d{1,4})[,.](\d{2})\b/g)) {
+  for (const m of cell.text.matchAll(/\b(\d{1,4}),(\d{2})\b/g)) {
     const value = Number(m[1]) + Number(m[2]) / 100;
     if (value < 2 || value > 5000) continue;
     const idx = m.index ?? 0;
@@ -62,65 +63,102 @@ function prices(cell:Cell) {
   }
   return out;
 }
+function preTax(cell:Cell) {
+  const out:Array<{value:number;center:number}> = [];
+  const re = /bez\s*dph\s*(\d{1,4})(?:\s+(\d{2}))?(?:\s*\/\s*(?:kg|l|100\s*g))?/gi;
+  for (const m of cell.text.matchAll(re)) {
+    const whole = Number(m[1]);
+    if (!Number.isFinite(whole) || whole <= 0) continue;
+    const value = whole + (m[2] ? Number(m[2]) / 100 : 0);
+    const idx = (m.index ?? 0) + m[0].lastIndexOf(m[1]);
+    out.push({ value:Math.round(value*100)/100, center:cell.start + idx + m[1].length/2 });
+  }
+  return out;
+}
 function quantity(cell:Cell) {
-  const n = norm(cell.text);
-  if (/\/100\s*g\b/.test(n)) return { text:'100 g', center:cell.center };
-  if (/\/(?:kg)\b/.test(n)) return { text:'1 kg', center:cell.center };
-  if (/\/l\b/.test(n)) return { text:'1 l', center:cell.center };
+  if (/\d+(?:[,.]\d+)?\s*-\s*\d+(?:[,.]\d+)?\s*(?:kg|g|ml|l)\b/i.test(cell.text)) return null;
   let m = cell.text.match(/\b(\d{1,2})\s*[x×]\s*(\d+(?:[,.]\d+)?)\s*(kg|g|ml|l)\b/i);
   if (m) return { text:`${m[1]} x ${m[2]} ${m[3]}`, center:cell.start + (m.index ?? 0) + m[0].length / 2 };
-  m = cell.text.match(/\b(?:cca\s*)?(\d+(?:[,.]\d+)?)\s*(kg|g|ml|l)\b/i);
+  m = cell.text.match(/\b(?:bal\.\s*)?(?:cca\s*)?(\d+(?:[,.]\d+)?)\s*(kg|g|ml|l)\b/i);
   if (m) return { text:`${m[1]} ${m[2]}`, center:cell.start + (m.index ?? 0) + m[0].length / 2 };
   return null;
 }
 function isNoise(v:string) {
   const n = norm(v);
   if (letters(v) < 5 || v.length < 5 || v.length > 90) return true;
-  if (/^(bez dph|cena s dph|cena|str\.?\s*\d+|jip potraviny|www\.|po-ne|po-pa)/i.test(n)) return true;
+  if (/^(bez dph|cena s dph|cena|str\.?\s*\d+|jip potraviny|www\.|po-ne|po-pa|pultovy prodej)/i.test(n)) return true;
   if (/(nabidka (ne)?plati pro|plati pro pobocku|svoboda nad upou|ceske budejovice|nachod|most|susice|nemandicka|upska|delnicka)/i.test(n)) return true;
   if (/(pri koupi|kup\s+\d+|zdarma|kupon|karta|aplikac|cena od|do vyprodani)/i.test(n)) return true;
-  if (/^(ruzne druhy|natur|original|classic|mix|baleni|kus|platy|platky)$/i.test(n)) return true;
-  if (/\b\d{1,4}[,.]\d{2}\b/.test(v)) return true;
+  if (/^(ruzne druhy|natur|original|classic|mix|baleni|kus|platy|platky|ochucena|perlivá|neperlivá)$/i.test(n)) return true;
+  if (/\b\d{1,4},\d{2}\b/.test(v)) return true;
   if (/\b\d+(?:[,.]\d+)?\s*(kg|g|ml|l)\b/i.test(v)) return true;
   return false;
 }
+function sanitizeTitle(v:string) {
+  return clean(v)
+    .replace(/\brůzné druhy\b/gi, ' ')
+    .replace(/(?:\s+\d{1,3})+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
 function titleFor(anchor:{row:number; center:number}, all:Cell[]) {
   const local = all
-    .filter(c => c.row >= anchor.row - 5 && c.row <= anchor.row + 1 && Math.abs(c.center - anchor.center) <= 13 && !isNoise(c.text))
+    .filter(c => c.row >= anchor.row - 5 && c.row <= anchor.row && Math.abs(c.center - anchor.center) <= 9 && !isNoise(c.text))
     .sort((a,b) => b.row - a.row || Math.abs(a.center-anchor.center)-Math.abs(b.center-anchor.center));
-  if (!local.length) return null;
-  const chosen:Cell[] = [];
-  for (const c of local) {
-    if (chosen.some(x => Math.abs(x.row - c.row) <= 1 && Math.abs(x.center-c.center) > 10)) continue;
-    chosen.push(c);
-    if (chosen.length >= 3) break;
-  }
-  chosen.sort((a,b)=>a.row-b.row);
-  const title = clean(chosen.map(c=>c.text).join(' '));
+  const core = local[0];
+  if (!core) return null;
+  const chosen = local
+    .filter(c => c.row >= core.row - 2 && c.row <= core.row && Math.abs(c.center-core.center) <= 6)
+    .sort((a,b)=>a.row-b.row)
+    .slice(-3);
+  const title = sanitizeTitle(chosen.map(c=>c.text).join(' '));
   return isNoise(title) ? null : title;
+}
+function vatEvidence(price:number, row:number, center:number, points:Point[]) {
+  const candidates = points
+    .filter(v => Math.abs(v.row-row) <= 5 && Math.abs(v.center-center) <= 11)
+    .map(v => {
+      const p12 = Math.round(v.value * 1.12 * 100) / 100;
+      const p21 = Math.round(v.value * 1.21 * 100) / 100;
+      const d12 = Math.abs(p12-price), d21=Math.abs(p21-price);
+      const rate = d12 <= d21 ? 12 : 21;
+      return {...v, rate, expected:rate===12?p12:p21, delta:Math.min(d12,d21), distance:Math.abs(v.row-row)*7+Math.abs(v.center-center)};
+    })
+    .filter(v => v.delta <= 0.06)
+    .sort((a,b)=>a.delta-b.delta || a.distance-b.distance);
+  return candidates[0] || null;
 }
 function parsePage(page:number, text:string):Candidate[] {
   const all = cells(text);
-  const pricePoints = all.flatMap(c => prices(c).map(p => ({...p,row:c.row,cell:c})));
+  const pricePoints:Point[] = all.flatMap(c => prices(c).map(p => ({...p,row:c.row,cell:c})));
+  const vatPoints:Point[] = all.flatMap(c => preTax(c).map(p => ({...p,row:c.row,cell:c})));
   const quantityPoints = all.map(c => ({cell:c,q:quantity(c)})).filter((x):x is {cell:Cell;q:{text:string;center:number}} => Boolean(x.q));
   const out:Candidate[] = [];
   for (const {cell,q} of quantityPoints) {
     const nearby = pricePoints
-      .filter(p => Math.abs(p.row-cell.row) <= 5 && Math.abs(p.center-q.center) <= 13)
+      .filter(p => Math.abs(p.row-cell.row) <= 4 && Math.abs(p.center-q.center) <= 9)
       .sort((a,b) => (Math.abs(a.row-cell.row)*7 + Math.abs(a.center-q.center)) - (Math.abs(b.row-cell.row)*7 + Math.abs(b.center-q.center)));
     const price = nearby[0];
     if (!price) continue;
+    const vat = vatEvidence(price.value,price.row,price.center,vatPoints);
+    if (!vat) continue;
     const title = titleFor({row:cell.row,center:q.center}, all) || titleFor({row:price.row,center:price.center}, all);
     if (!title) continue;
-    const windowText = norm(all.filter(c => c.row >= Math.min(cell.row,price.row)-4 && c.row <= Math.max(cell.row,price.row)+3 && Math.abs(c.center-q.center)<=14).map(c=>c.text).join(' '));
+    const windowText = norm(all.filter(c => c.row >= Math.min(cell.row,price.row)-3 && c.row <= Math.max(cell.row,price.row)+2 && Math.abs(c.center-q.center)<=11).map(c=>c.text).join(' '));
     if (/(nabidka (ne)?plati pro|plati pro pobocku|pri koupi|zdarma|kupon|cena od)/i.test(windowText)) continue;
     out.push({
       title,
       price:price.value,
       quantity_text:q.text,
       source_page:page,
-      confidence:0.98,
-      raw_data:{ parser:ADAPTER, deterministic:true, html_column:true, quantity_cell:cell.text, price_cell:price.cell.text, quantity_center:Math.round(q.center*10)/10, price_center:Math.round(price.center*10)/10, row_distance:Math.abs(price.row-cell.row) }
+      confidence:0.99,
+      raw_data:{
+        parser:ADAPTER, deterministic:true, html_column:true, vat_verified:true,
+        quantity_cell:cell.text, price_cell:price.cell.text, pretax_cell:vat.cell.text,
+        pretax_price:vat.value, vat_rate:vat.rate, vat_expected_price:vat.expected, vat_delta:Math.round(vat.delta*100)/100,
+        quantity_center:Math.round(q.center*10)/10, price_center:Math.round(price.center*10)/10,
+        row_distance:Math.abs(price.row-cell.row)
+      }
     });
   }
   const seen = new Set<string>();
@@ -132,7 +170,7 @@ function parsePage(page:number, text:string):Candidate[] {
   });
 }
 async function fetchPage(base:string, page:number) {
-  const url = `${base.replace(/\/?$/, '/') }files/basic-html/page${page}.html`;
+  const url = `${base.replace(/\/?$/, '/')}files/basic-html/page${page}.html`;
   const r = await fetch(url, { headers:{'user-agent':'Mozilla/5.0','accept':'text/html,*/*'}, redirect:'follow', signal:AbortSignal.timeout(20000) });
   if (!r.ok) throw new Error(`JIP basic HTML strana ${page}: HTTP ${r.status}`);
   return { page, url, text:codeText(await r.text()) };
