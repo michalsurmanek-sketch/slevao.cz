@@ -44,8 +44,11 @@ on:
       - 'supabase/functions/sync-rossmann-source/index.ts'
       - 'supabase/functions/sync-flop-pdf-products/index.ts'
       - 'supabase/functions/sync-globus-products/index.ts'
+      - 'supabase/functions/probe-tesco-layout-v14/index.ts'
+      - 'supabase/functions/sync-tesco-apollo-products/index.ts'
       - 'supabase/migrations/20260823074348_publish_globus_olomouc_scoped_snapshot.sql'
       - 'supabase/migrations/20260823074708_schedule_globus_full_products_sync.sql'
+      - 'supabase/migrations/20260823095208_schedule_safe_tesco_apollo_product_sync.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -59,6 +62,7 @@ on:
       - 'tests/flop-discovery-clock.mjs'
       - 'tests/flop-pdf-spatial-parser.mjs'
       - 'tests/globus-full-products-contract.mjs'
+      - 'tests/tesco-apollo-pdf-safe-products.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -128,6 +132,8 @@ jobs:
         run: node tests/flop-pdf-spatial-parser.mjs
       - name: Globus plný API produktový feed
         run: node tests/globus-full-products-contract.mjs
+      - name: Tesco bezpečný Apollo/PDF produktový feed
+        run: node tests/tesco-apollo-pdf-safe-products.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
