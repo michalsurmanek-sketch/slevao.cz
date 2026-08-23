@@ -48,6 +48,7 @@ on:
       - 'tests/home-request-race-resilience.mjs'
       - 'tests/home-count-semantics.mjs'
       - 'tests/generic-leaflet-discovery-clock.mjs'
+      - 'tests/leaflet-automation-ownership.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -107,6 +108,8 @@ jobs:
         run: node tests/home-count-semantics.mjs
       - name: Generic discovery nesmí hladovět
         run: node tests/generic-leaflet-discovery-clock.mjs
+      - name: Vlastnictví automatizace letáků
+        run: node tests/leaflet-automation-ownership.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
