@@ -9,6 +9,11 @@ assert(edge.includes('const HOUSE_NUMBER = 4008;'), 'Globus must use the verifie
 assert(edge.includes('const PAGE_SIZE = 100;'), 'Globus must use the verified 100-item API page size');
 assert(edge.includes('const MIN_PRODUCTS = 300;'), 'Globus full feed must fail closed below the completeness floor');
 assert(edge.includes('const MAX_REPORTED_GAP = 100;'), 'Globus reported/accessibility gap guard is missing');
+assert(edge.includes('const MAX_VALIDITY_DAYS = 180;'), 'Globus must reject implausibly long action-price validity windows');
+assert(edge.includes('const INVALID_VALIDITY_SENTINEL_YEAR = 2100;'), 'Globus must define a hard guard against far-future sentinel validity');
+assert(edge.includes('endYear >= INVALID_VALIDITY_SENTINEL_YEAR'), 'Globus must reject sentinel years such as 9999');
+assert(edge.includes('return days <= MAX_VALIDITY_DAYS;'), 'Globus action validity must remain bounded');
+assert(edge.includes('invalid_validity_count: invalidValidityCount'), 'Globus diagnostics must report rejected validity windows');
 assert(edge.includes("payload?.paginationShowMore === true"), 'Globus pagination must terminate from the official pagination flag');
 assert(edge.includes("const price = money(house?.actualPrice);"), 'Globus public price must come from actualPrice');
 assert(edge.includes("member_program: bonusPrice && price && bonusPrice < price ? 'Můj Globus' : null"), 'Member-only price must stay explicitly marked as Můj Globus metadata');
