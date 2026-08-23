@@ -45,6 +45,8 @@ on:
       - 'supabase/functions/sync-flop-pdf-products/index.ts'
       - 'supabase/functions/sync-globus-products/index.ts'
       - 'supabase/functions/sync-jip-pack-products/index.ts'
+      - 'supabase/functions/sync-kik-source/index.ts'
+      - 'supabase/functions/sync-kik-products/index.ts'
       - 'supabase/functions/probe-tesco-layout-v14/index.ts'
       - 'supabase/functions/sync-tesco-apollo-products/index.ts'
       - 'supabase/functions/sync-planeo-products/index.ts'
@@ -63,6 +65,7 @@ on:
       - 'supabase/migrations/20260823130519_fix_xxxlutz_state_signature_column.sql'
       - 'supabase/migrations/20260823141720_create_moebelix_verified_sale_categories_pipeline.sql'
       - 'supabase/migrations/20260823141901_archive_and_reclaim_reused_pg_net_request_ids.sql'
+      - 'supabase/migrations/20260823192124_restore_kik_official_publitas_pipeline.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -77,6 +80,7 @@ on:
       - 'tests/flop-pdf-spatial-parser.mjs'
       - 'tests/globus-full-products-contract.mjs'
       - 'tests/jip-pack-source-contract.mjs'
+      - 'tests/kik-official-publitas.mjs'
       - 'tests/tesco-apollo-pdf-safe-products.mjs'
       - 'tests/stavmat-dedicated-pipeline.mjs'
       - 'tests/planeo-waiting-source.mjs'
@@ -157,6 +161,8 @@ jobs:
         run: node tests/globus-full-products-contract.mjs
       - name: JIP 12stránkový pack zdroj
         run: node tests/jip-pack-source-contract.mjs
+      - name: KiK oficiální Publitas pipeline
+        run: node tests/kik-official-publitas.mjs
       - name: Tesco bezpečný Apollo/PDF produktový feed
         run: node tests/tesco-apollo-pdf-safe-products.mjs
       - name: STAVMAT dedikovaná produktová pipeline
