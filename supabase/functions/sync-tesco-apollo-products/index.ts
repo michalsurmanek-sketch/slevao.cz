@@ -5,7 +5,7 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const LANDING = 'https://www.itesco.cz/akcni-nabidky/letaky-a-katalogy';
-const ADAPTER = 'tesco-apollo-pdf-v1';
+const ADAPTER = 'tesco-apollo-pdf-v2';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 
 const CORS = {
@@ -18,9 +18,32 @@ const BROWSER_HEADERS = {
   accept: 'text/html,application/xhtml+xml,application/json,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
+const STOP_WORDS = new Set([
+  'tesco','vybrane','vybrany','druhy','druh','produkt','produkty','cena','balene','baleny','balena',
+  'volny','prodej','clubcard','vice','kus','kusy','gram','kilogram','baleni','akcni','nabidka','nabidky',
+]);
 
 type PdfToken = { text: string; x: number; y: number; width: number; height: number };
-type PriceCandidate = { price: number; old_price: number | null; x: number; y: number; kind: string; source: string };
+type PriceCandidate = {
+  price: number;
+  old_price: number | null;
+  x: number;
+  y: number;
+  kind: 'public' | 'clubcard' | 'unknown';
+  source: string;
+  context: string;
+  context_normalized: string;
+};
+type Hotspot = {
+  position_id: number;
+  x_percent: number;
+  y_percent: number;
+  pdf_x: number;
+  pdf_y: number;
+  product_refs: string[];
+  product_names: string[];
+  keywords: string[];
+};
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
@@ -31,6 +54,15 @@ function allowed(req: Request) {
 }
 function clean(value: unknown) {
   return String(value ?? '').replace(/\s+/g, ' ').trim();
+}
+function normalized(value: unknown) {
+  return clean(value)
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('cs')
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
 }
 function absolute(path: string) {
   return new URL(path.replace(/&amp;/g, '&'), LANDING).toString();
@@ -64,7 +96,24 @@ function median(values: number[]) {
   if (!values.length) return null;
   const sorted = [...values].sort((a, b) => a - b);
   const middle = Math.floor(sorted.length / 2);
-  return sorted.length % 2 ? sorted[middle] : Math.round(((sorted[middle - 1] + sorted[middle]) / 2) * 10) / 10;
+  return sorted.length % 2
+    ? Math.round(sorted[middle] * 10) / 10
+    : Math.round(((sorted[middle - 1] + sorted[middle]) / 2) * 10) / 10;
+}
+function keywords(names: string[]) {
+  const out = new Set<string>();
+  for (const name of names) {
+    for (const word of normalized(name).split(' ')) {
+      if (word.length < 4 || STOP_WORDS.has(word) || /^\d+$/.test(word)) continue;
+      out.add(word);
+    }
+  }
+  return [...out];
+}
+function semanticHits(hotspot: Hotspot, candidate: PriceCandidate) {
+  const contextWords = new Set(candidate.context_normalized.split(' ').filter(Boolean));
+  const matched = hotspot.keywords.filter((word) => contextWords.has(word));
+  return { count: matched.length, words: matched };
 }
 
 async function fetchText(url: string) {
@@ -124,14 +173,18 @@ function extractApollo(viewerHtml: string) {
   return { config: pageProps.config || {}, state, leaflet, pages, pageImages, positions, products };
 }
 
-function classifyPrice(tokens: PdfToken[], x: number, y: number) {
+function localContext(tokens: PdfToken[], x: number, y: number) {
   const nearby = tokens
-    .filter((token) => Math.abs(token.x - x) <= 90 && Math.abs(token.y - y) <= 100)
-    .map((token) => token.text)
-    .join(' ')
-    .toLocaleLowerCase('cs');
-  if (nearby.includes('clubcard')) return 'clubcard';
-  if (nearby.includes('cena pro všechny')) return 'public';
+    .filter((token) => Math.abs(token.x - x) <= 115 && Math.abs(token.y - y) <= 95)
+    .sort((a, b) => Math.abs(b.y - a.y) > 4 ? b.y - a.y : a.x - b.x)
+    .map((token) => token.text);
+  const text = clean(nearby.join(' '));
+  return { text: text.slice(0, 1200), normalized: normalized(text) };
+}
+
+function classifyPrice(contextNormalized: string): 'public' | 'clubcard' | 'unknown' {
+  if (contextNormalized.includes('clubcard cena') || contextNormalized.includes('s clubcard')) return 'clubcard';
+  if (contextNormalized.includes('cena pro vsechny')) return 'public';
   return 'unknown';
 }
 
@@ -155,17 +208,20 @@ function priceCandidates(tokens: PdfToken[]): PriceCandidate[] {
     const price = Math.round((whole + Number(cents.text) / 100) * 100) / 100;
     const old = decimalTokens
       .filter((row) => row.value > price)
-      .filter((row) => Math.abs(row.token.x - integer.x) <= 32)
-      .filter((row) => row.token.y >= integer.y + 10 && row.token.y <= integer.y + 55)
+      .filter((row) => Math.abs(row.token.x - integer.x) <= 34)
+      .filter((row) => row.token.y >= integer.y + 10 && row.token.y <= integer.y + 58)
       .sort((a, b) => Math.abs(a.token.y - integer.y) - Math.abs(b.token.y - integer.y))[0];
+    const context = localContext(tokens, integer.x, integer.y);
 
     candidates.push({
       price,
       old_price: old?.value || null,
       x: Math.round(integer.x * 10) / 10,
       y: Math.round(integer.y * 10) / 10,
-      kind: classifyPrice(tokens, integer.x, integer.y),
+      kind: classifyPrice(context.normalized),
       source: `${integer.text}+${cents.text}`,
+      context: context.text,
+      context_normalized: context.normalized,
     });
   }
 
@@ -178,16 +234,9 @@ function priceCandidates(tokens: PdfToken[]): PriceCandidate[] {
   });
 }
 
-function nearestPrice(candidates: PriceCandidate[], x: number, y: number) {
-  const ranked = candidates
-    .map((candidate) => ({ ...candidate, distance: Math.round(distance(x, y, candidate.x, candidate.y) * 10) / 10 }))
-    .sort((a, b) => a.distance - b.distance);
-  return ranked[0] || null;
-}
-
-function pageHotspots(apollo: any, pageRow: any, width: number, height: number, candidates: PriceCandidate[]) {
+function pageHotspots(apollo: any, pageRow: any, width: number, height: number): Hotspot[] {
   const positionRefs = (pageRow.positions || []).map(refId).filter(Boolean);
-  const rows: any[] = [];
+  const rows: Hotspot[] = [];
   for (const positionRef of positionRefs) {
     const position = apollo.state[positionRef];
     if (!position || !Array.isArray(position.products) || !position.products.length) continue;
@@ -195,32 +244,139 @@ function pageHotspots(apollo: any, pageRow: any, width: number, height: number, 
     const yPercent = Number(position.calculatedPositionY);
     if (!Number.isFinite(xPercent) || !Number.isFinite(yPercent)) continue;
 
-    const productNames = position.products
-      .map(refId)
-      .filter(Boolean)
+    const productRefs = position.products.map(refId).filter(Boolean);
+    const productNames = productRefs
       .map((ref: string) => clean(apollo.state[ref]?.promoOfferName || apollo.state[ref]?.product?.productName))
       .filter(Boolean);
     if (!productNames.length) continue;
 
-    const pdfX = width * xPercent / 100;
-    const pdfYFromTop = height - (height * yPercent / 100);
-    const pdfYDirect = height * yPercent / 100;
-    const nearestTop = nearestPrice(candidates, pdfX, pdfYFromTop);
-    const nearestDirect = nearestPrice(candidates, pdfX, pdfYDirect);
-
     rows.push({
-      position_id: position.id,
+      position_id: Number(position.id),
       x_percent: Math.round(xPercent * 100) / 100,
       y_percent: Math.round(yPercent * 100) / 100,
-      product_names: productNames.slice(0, 4),
-      pdf_x: Math.round(pdfX * 10) / 10,
-      pdf_y_from_top: Math.round(pdfYFromTop * 10) / 10,
-      pdf_y_direct: Math.round(pdfYDirect * 10) / 10,
-      nearest_top: nearestTop,
-      nearest_direct: nearestDirect,
+      pdf_x: width * xPercent / 100,
+      pdf_y: height - (height * yPercent / 100),
+      product_refs: productRefs,
+      product_names: productNames,
+      keywords: keywords(productNames),
     });
   }
   return rows;
+}
+
+function pairCost(hotspot: Hotspot, candidate: PriceCandidate) {
+  const dx = hotspot.pdf_x - candidate.x;
+  const dy = hotspot.pdf_y - candidate.y;
+  const spatial = Math.sqrt((dx * 0.9) ** 2 + dy ** 2);
+  const semantic = semanticHits(hotspot, candidate);
+  const semanticBonus = Math.min(130, semantic.count * 65);
+  return {
+    cost: Math.max(0, spatial - semanticBonus),
+    spatial,
+    semantic_count: semantic.count,
+    semantic_words: semantic.words,
+  };
+}
+
+function hungarian(cost: number[][]) {
+  const n = cost.length;
+  const m = cost[0]?.length || 0;
+  if (!n || !m) return [] as number[];
+  if (n > m) throw new Error(`Hungarian vyžaduje n<=m, dostal ${n}>${m}.`);
+  const u = Array(n + 1).fill(0);
+  const v = Array(m + 1).fill(0);
+  const p = Array(m + 1).fill(0);
+  const way = Array(m + 1).fill(0);
+
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = Array(m + 1).fill(Number.POSITIVE_INFINITY);
+    const used = Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = Number.POSITIVE_INFINITY;
+      let j1 = 0;
+      for (let j = 1; j <= m; j++) {
+        if (used[j]) continue;
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) {
+          minv[j] = cur;
+          way[j] = j0;
+        }
+        if (minv[j] < delta) {
+          delta = minv[j];
+          j1 = j;
+        }
+      }
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0 !== 0);
+  }
+
+  const assignment = Array(n).fill(-1);
+  for (let j = 1; j <= m; j++) {
+    if (p[j] > 0 && p[j] <= n) assignment[p[j] - 1] = j - 1;
+  }
+  return assignment;
+}
+
+function assignHotspots(hotspots: Hotspot[], candidates: PriceCandidate[]) {
+  if (!hotspots.length) return [];
+  const realCandidateCount = candidates.length;
+  const workingCandidates: Array<PriceCandidate | null> = [...candidates];
+  while (workingCandidates.length < hotspots.length) workingCandidates.push(null);
+  const cost = hotspots.map((hotspot) => workingCandidates.map((candidate) => {
+    if (!candidate) return 320;
+    return pairCost(hotspot, candidate).cost;
+  }));
+  const assignment = hungarian(cost);
+
+  return hotspots.map((hotspot, index) => {
+    const candidateIndex = assignment[index];
+    const candidate = candidateIndex >= 0 && candidateIndex < realCandidateCount ? candidates[candidateIndex] : null;
+    if (!candidate) {
+      return { ...hotspot, assigned: false, confidence: 'none', candidate: null };
+    }
+    const metrics = pairCost(hotspot, candidate);
+    const confidence = metrics.semantic_count >= 2 || metrics.spatial <= 75
+      ? 'high'
+      : metrics.semantic_count >= 1 || metrics.spatial <= 125
+        ? 'medium'
+        : metrics.spatial <= 175 ? 'low' : 'reject';
+    return {
+      ...hotspot,
+      assigned: confidence !== 'reject',
+      confidence,
+      assignment_cost: Math.round(metrics.cost * 10) / 10,
+      spatial_distance: Math.round(metrics.spatial * 10) / 10,
+      semantic_count: metrics.semantic_count,
+      semantic_words: metrics.semantic_words,
+      candidate_index: candidateIndex,
+      candidate: {
+        price: candidate.price,
+        old_price: candidate.old_price,
+        kind: candidate.kind,
+        x: candidate.x,
+        y: candidate.y,
+        context: candidate.context.slice(0, 500),
+      },
+    };
+  });
 }
 
 async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePages: number) {
@@ -237,10 +393,17 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
   }
 
   const doc = await pdfjs.getDocument({ data: bytes, disableWorker: true, useSystemFonts: true }).promise;
-  const limit = Math.min(doc.numPages, Math.max(1, Math.min(6, probePages)));
+  const limit = Math.min(doc.numPages, Math.max(1, Math.min(8, probePages)));
   const pages: any[] = [];
-  const topDistances: number[] = [];
-  const directDistances: number[] = [];
+  const acceptedDistances: number[] = [];
+  let totalHotspots = 0;
+  let totalCandidates = 0;
+  let totalAssigned = 0;
+  let totalHigh = 0;
+  let totalMedium = 0;
+  let totalLow = 0;
+  let totalRejected = 0;
+  let totalSemantic = 0;
 
   for (let pageNo = 1; pageNo <= limit; pageNo++) {
     const page = await doc.getPage(pageNo);
@@ -258,10 +421,20 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
     const height = Number(page.view?.[3] || 0);
     const candidates = priceCandidates(tokens);
     const apolloPage = apollo.pages.find((row: any) => Number(row.page) === pageNo);
-    const hotspots = apolloPage ? pageHotspots(apollo, apolloPage, width, height, candidates) : [];
-    for (const hotspot of hotspots) {
-      if (hotspot.nearest_top?.distance !== undefined) topDistances.push(Number(hotspot.nearest_top.distance));
-      if (hotspot.nearest_direct?.distance !== undefined) directDistances.push(Number(hotspot.nearest_direct.distance));
+    const hotspots = apolloPage ? pageHotspots(apollo, apolloPage, width, height) : [];
+    const assignments = assignHotspots(hotspots, candidates);
+
+    totalHotspots += hotspots.length;
+    totalCandidates += candidates.length;
+    for (const row of assignments) {
+      if (row.assigned) {
+        totalAssigned++;
+        acceptedDistances.push(Number(row.spatial_distance || 0));
+      } else totalRejected++;
+      if (row.confidence === 'high') totalHigh++;
+      if (row.confidence === 'medium') totalMedium++;
+      if (row.confidence === 'low') totalLow++;
+      totalSemantic += Number(row.semantic_count || 0);
     }
 
     pages.push({
@@ -269,12 +442,20 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
       width: Math.round(width * 10) / 10,
       height: Math.round(height * 10) / 10,
       token_count: tokens.length,
+      hotspot_count: hotspots.length,
       candidate_price_count: candidates.length,
       public_candidate_count: candidates.filter((row) => row.kind === 'public').length,
       clubcard_candidate_count: candidates.filter((row) => row.kind === 'clubcard').length,
-      hotspot_count: hotspots.length,
-      price_candidates: candidates.slice(0, 80),
-      hotspot_samples: hotspots.slice(0, 50),
+      assigned_count: assignments.filter((row) => row.assigned).length,
+      high_count: assignments.filter((row) => row.confidence === 'high').length,
+      medium_count: assignments.filter((row) => row.confidence === 'medium').length,
+      low_count: assignments.filter((row) => row.confidence === 'low').length,
+      rejected_count: assignments.filter((row) => !row.assigned).length,
+      assignments: assignments.slice(0, 60),
+      unmatched_price_candidates: candidates
+        .map((candidate, index) => ({ candidate, index }))
+        .filter(({ index }) => !assignments.some((row) => row.candidate_index === index))
+        .slice(0, 30),
     });
   }
 
@@ -282,8 +463,15 @@ async function probePdf(pdfUrl: string, viewerUrl: string, apollo: any, probePag
     pdf_bytes: bytes.length,
     pdf_pages: doc.numPages,
     probed_pages: limit,
-    median_hotspot_distance_y_from_top: median(topDistances),
-    median_hotspot_distance_y_direct: median(directDistances),
+    probe_hotspots: totalHotspots,
+    probe_price_candidates: totalCandidates,
+    probe_assigned: totalAssigned,
+    probe_high: totalHigh,
+    probe_medium: totalMedium,
+    probe_low: totalLow,
+    probe_rejected: totalRejected,
+    probe_semantic_hits: totalSemantic,
+    median_accepted_spatial_distance: median(acceptedDistances),
     pages,
   };
 }
