@@ -58,6 +58,8 @@ on:
       - 'supabase/migrations/20260823120416_switch_pro_doma_index_to_official_assets_mirror.sql'
       - 'supabase/migrations/20260823123112_create_sportisimo_verified_sale_frontpage_pipeline.sql'
       - 'supabase/migrations/20260823123456_register_sportisimo_verified_sale_source.sql'
+      - 'supabase/migrations/20260823130219_create_xxxlutz_verified_leaflets_pipeline.sql'
+      - 'supabase/migrations/20260823130519_fix_xxxlutz_state_signature_column.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -78,6 +80,7 @@ on:
       - 'tests/pro-doma-index-terminal-state.mjs'
       - 'tests/pro-doma-assets-mirror.mjs'
       - 'tests/sportisimo-sale-frontpage.mjs'
+      - 'tests/xxxlutz-verified-leaflets.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -161,6 +164,8 @@ jobs:
         run: node tests/pro-doma-assets-mirror.mjs
       - name: Sportisimo ověřený výprodej
         run: node tests/sportisimo-sale-frontpage.mjs
+      - name: XXXLutz ověřené letákové slevy
+        run: node tests/xxxlutz-verified-leaflets.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
