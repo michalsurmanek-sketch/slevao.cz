@@ -43,6 +43,9 @@ on:
       - 'supabase/functions/sync-dm-source/index.ts'
       - 'supabase/functions/sync-rossmann-source/index.ts'
       - 'supabase/functions/sync-flop-pdf-products/index.ts'
+      - 'supabase/functions/sync-globus-products/index.ts'
+      - 'supabase/migrations/20260823074348_publish_globus_olomouc_scoped_snapshot.sql'
+      - 'supabase/migrations/20260823074708_schedule_globus_full_products_sync.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -55,6 +58,7 @@ on:
       - 'tests/continuous-source-autopublish.mjs'
       - 'tests/flop-discovery-clock.mjs'
       - 'tests/flop-pdf-spatial-parser.mjs'
+      - 'tests/globus-full-products-contract.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -122,6 +126,8 @@ jobs:
         run: node tests/flop-discovery-clock.mjs
       - name: FLOP prostorový PDF parser
         run: node tests/flop-pdf-spatial-parser.mjs
+      - name: Globus plný API produktový feed
+        run: node tests/globus-full-products-contract.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
