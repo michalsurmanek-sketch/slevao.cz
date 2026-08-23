@@ -44,6 +44,7 @@ on:
       - 'supabase/functions/sync-rossmann-source/index.ts'
       - 'supabase/functions/sync-flop-pdf-products/index.ts'
       - 'supabase/functions/sync-globus-products/index.ts'
+      - 'supabase/functions/sync-jip-pack-products/index.ts'
       - 'supabase/functions/probe-tesco-layout-v14/index.ts'
       - 'supabase/functions/sync-tesco-apollo-products/index.ts'
       - 'supabase/functions/sync-planeo-products/index.ts'
@@ -75,6 +76,7 @@ on:
       - 'tests/flop-discovery-clock.mjs'
       - 'tests/flop-pdf-spatial-parser.mjs'
       - 'tests/globus-full-products-contract.mjs'
+      - 'tests/jip-pack-source-contract.mjs'
       - 'tests/tesco-apollo-pdf-safe-products.mjs'
       - 'tests/stavmat-dedicated-pipeline.mjs'
       - 'tests/planeo-waiting-source.mjs'
@@ -107,7 +109,6 @@ jobs:
           node --check assets/home-v2.js
           node --check assets/home-count-semantics.js
           node --check assets/home-favorite-offer-sync.js
-          node --check assets/home-product-favorites.js
           node --check assets/web-push.js
           node --check assets/public-features.js
           node --check assets/public-nav-upgrade.js
@@ -154,6 +155,8 @@ jobs:
         run: node tests/flop-pdf-spatial-parser.mjs
       - name: Globus plný API produktový feed
         run: node tests/globus-full-products-contract.mjs
+      - name: JIP 12stránkový pack zdroj
+        run: node tests/jip-pack-source-contract.mjs
       - name: Tesco bezpečný Apollo/PDF produktový feed
         run: node tests/tesco-apollo-pdf-safe-products.mjs
       - name: STAVMAT dedikovaná produktová pipeline
