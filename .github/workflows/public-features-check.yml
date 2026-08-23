@@ -42,6 +42,7 @@ on:
       - 'supabase/functions/run-leaflet-pipeline-v2/index.ts'
       - 'supabase/functions/sync-dm-source/index.ts'
       - 'supabase/functions/sync-rossmann-source/index.ts'
+      - 'supabase/functions/sync-flop-pdf-products/index.ts'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -52,6 +53,8 @@ on:
       - 'tests/generic-leaflet-discovery-clock.mjs'
       - 'tests/leaflet-automation-ownership.mjs'
       - 'tests/continuous-source-autopublish.mjs'
+      - 'tests/flop-discovery-clock.mjs'
+      - 'tests/flop-pdf-spatial-parser.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -115,6 +118,10 @@ jobs:
         run: node tests/leaflet-automation-ownership.mjs
       - name: Průběžné zdroje musí publikovat snapshot
         run: node tests/continuous-source-autopublish.mjs
+      - name: FLOP produktový sync nesmí posouvat discovery clock
+        run: node tests/flop-discovery-clock.mjs
+      - name: FLOP prostorový PDF parser
+        run: node tests/flop-pdf-spatial-parser.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
