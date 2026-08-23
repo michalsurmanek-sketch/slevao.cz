@@ -23,8 +23,14 @@ function normalize(value: string) { return value.normalize('NFD').replace(/[\u03
 function iso(year: number, month: number, day: number) { return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`; }
 function parseDates(text: string) {
   const match = text.match(/Akce platí od\s+(\d{1,2})\.\s*(\d{1,2})\.\s*do\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{4})/i);
-  if (!match) throw new Error('Platnost výprodeje nebyla nalezena.');
+  if (!match) return null;
   return { from: iso(Number(match[5]), Number(match[2]), Number(match[1])), to: iso(Number(match[5]), Number(match[4]), Number(match[3])) };
+}
+function hasNoCurrentCampaign(html: string, text: string) {
+  const normalized = normalize(text);
+  return normalized.includes('zadne produkty k zobrazeni')
+    || normalized.includes('az se to spusti budte pripraveni')
+    || /id="product-filter-top">\s*<\/div>/i.test(html);
 }
 async function sha256(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
@@ -72,30 +78,87 @@ function parseProducts(html: string, dates: { from: string; to: string }) {
   return unique;
 }
 
+async function updateSource(storeId: string, patch: Record<string, unknown>) {
+  const now = new Date().toISOString();
+  await db.from('leaflet_sources').update({
+    source_url: SOURCE,
+    source_type: 'html',
+    is_active: true,
+    auto_publish: false,
+    adapter_key: ADAPTER,
+    extraction_strategy: 'structured_html',
+    last_checked_at: now,
+    ...patch,
+  }).eq('store_id', storeId).eq('is_active', true);
+}
+async function markWaiting(storeId: string, reason: string) {
+  const now = new Date().toISOString();
+  await updateSource(storeId, { last_error: null });
+  await db.from('store_product_sync_state').update({
+    health_status: 'waiting_source',
+    health_reason: reason,
+    last_error: null,
+    last_parser_error: null,
+    last_run_at: now,
+    is_running: false,
+    run_started_at: null,
+    updated_at: now,
+  }).eq('store_id', storeId);
+}
+async function markFailure(storeId: string, message: string) {
+  const now = new Date().toISOString();
+  await updateSource(storeId, { last_error: message });
+  await db.from('store_product_sync_state').update({
+    health_status: 'error',
+    health_reason: message,
+    last_error: message,
+    last_parser_error: message,
+    last_run_at: now,
+    is_running: false,
+    run_started_at: null,
+    updated_at: now,
+  }).eq('store_id', storeId);
+}
+
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: HEADERS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
+
+  let store: { id: string; name: string } | null = null;
   try {
     const body = await request.json().catch(() => ({}));
+    const { data, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'planeo').single();
+    if (storeError || !data) throw storeError || new Error('PLANEO nebylo nalezeno.');
+    store = data;
+
     const response = await fetch(SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!response.ok) throw new Error(`PLANEO HTTP ${response.status}`);
     const html = await response.text();
-    const dates = parseDates(decode(html));
+    const text = decode(html);
+    const dates = parseDates(text);
     const today = new Date().toISOString().slice(0, 10);
-    if (today < dates.from || today > dates.to) throw new Error(`PLANEO akce není aktuální: ${dates.from} až ${dates.to}.`);
+
+    if (!dates && hasNoCurrentCampaign(html, text)) {
+      const reason = 'PLANEO: oficiální stránka aktuálně neobsahuje aktivní výprodejovou kampaň ani produkty.';
+      await markWaiting(store.id, reason);
+      return json({ ok: true, waiting_source: true, reason: 'no_current_campaign', source: SOURCE });
+    }
+    if (!dates) throw new Error('Platnost výprodeje nebyla nalezena a stránka není jednoznačně prázdná.');
+    if (today < dates.from) {
+      const reason = `PLANEO: další kampaň začíná ${dates.from}; čekáme na její začátek.`;
+      await markWaiting(store.id, reason);
+      return json({ ok: true, waiting_source: true, reason: 'future_campaign', dates, source: SOURCE });
+    }
+    if (today > dates.to) {
+      const reason = `PLANEO: poslední kampaň skončila ${dates.to}; čekáme na novou.`;
+      await markWaiting(store.id, reason);
+      return json({ ok: true, waiting_source: true, reason: 'expired_campaign', dates, source: SOURCE });
+    }
+
     const rows = parseProducts(html, dates);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price}`).join('\n'));
-
-    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'planeo').single();
-    if (storeError || !store) throw storeError || new Error('PLANEO nebylo nalezeno.');
-    const { data: existingSource } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).limit(1).maybeSingle();
-    if (existingSource) {
-      await db.from('leaflet_sources').update({ source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, last_checked_at: new Date().toISOString(), last_error: null, adapter_key: ADAPTER, extraction_strategy: 'structured_html' }).eq('id', existingSource.id);
-    } else {
-      const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'PLANEO oficiální výprodej', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_html' });
-      if (error) throw error;
-    }
+    await updateSource(store.id, { last_error: null });
 
     if (body.dry_run === true) return json({ ok: true, dry_run: true, dates, publishable: rows.length, signature, candidates: rows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
@@ -103,8 +166,11 @@ Deno.serve(async (request) => {
       p_min_products: 25, p_max_products: 25, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
     });
     if (publishError) throw publishError;
+    await updateSource(store.id, { last_success_at: new Date().toISOString(), last_error: null, last_strategy_used: 'official_structured_products', last_strategy_success_at: new Date().toISOString() });
     return json({ ok: true, store: store.name, published: rows.length, signature, result });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error), code: 'PLANEO_PRODUCTS_SYNC_FAILED' }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    if (store?.id) await markFailure(store.id, message);
+    return json({ error: message, code: 'PLANEO_PRODUCTS_SYNC_FAILED' }, 500);
   }
 });
