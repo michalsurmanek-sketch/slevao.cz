@@ -20,12 +20,14 @@ assert.match(products, /sha256\(`\$\{publicationId\}\|\$\{row\.article_id\}\|\$\
 assert.doesNotMatch(products, /function addDays\(/);
 assert.doesNotMatch(products, /validity_estimated_to_next_cycle/);
 
-assert.match(migration, /adapter_key = 'kik-publitas-v2'/);
+assert.match(migration, /check_interval_minutes = case when source_url = 'https:\/\/www\.kik\.cz\/tvuj-online-letak' then 15/);
+assert.match(migration, /adapter_key = case when source_url = 'https:\/\/www\.kik\.cz\/tvuj-online-letak' then 'kik-publitas-v2'/);
 assert.match(migration, /'slevao-kik-source'/);
 assert.match(migration, /'8,23,38,53 \* \* \* \*'/);
 assert.match(migration, /'slevao-kik-products'/);
 assert.match(migration, /'11,26,41,56 \* \* \* \*'/);
-assert.match(migration, /private\.invoke_edge_function\('sync-kik-source'/);
-assert.match(migration, /private\.invoke_edge_function\('sync-kik-products'/);
+assert.match(migration, /\$cron\$select private\.invoke_edge_function\('sync-kik-source'/);
+assert.match(migration, /\$cron\$select private\.invoke_edge_function\('sync-kik-products'/);
+assert.doesNotMatch(migration, /\$\$select private\.invoke_edge_function/);
 
 console.log('KiK official Publitas contract is protected.');
