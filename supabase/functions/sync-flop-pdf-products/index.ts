@@ -88,11 +88,19 @@ function combineLargePrices(tokens: Token[], quantity: Token, expected: number) 
 }
 function titleFor(tokens: Token[], quantity: Token, priceY: number) {
   const upper = Math.min(priceY - 3, quantity.y + 55);
-  const parts = tokens.filter((t) =>
+  const eligible = tokens.filter((t) =>
     t.y >= quantity.y + 2 && t.y <= upper &&
-    t.x >= quantity.x - 20 && t.x <= quantity.x + 115 &&
+    Math.abs(t.x - quantity.x) <= 45 &&
     t.height >= 6 && t.height <= 14 &&
     !badTitle(t.text)
+  );
+  const seed = [...eligible].sort((a,b) =>
+    Math.abs(a.x - quantity.x) - Math.abs(b.x - quantity.x) ||
+    a.y - b.y
+  )[0];
+  if (!seed) return '';
+  const parts = eligible.filter((t) =>
+    Math.abs(t.x - seed.x) <= 28 && Math.abs(t.x - quantity.x) <= 42
   ).sort((a,b) => b.y-a.y || a.x-b.x).slice(0, 3);
   const title = clean(parts.map((t) => t.text).join(' '));
   return badTitle(title) ? '' : title;
@@ -131,7 +139,7 @@ function parsePage(page: Page): Candidate[] {
       source_page:page.page,
       confidence:0.99,
       raw_data:{
-        parser:'flop-pdf-spatial-unit-price-v2',
+        parser:'flop-pdf-spatial-unit-price-v3',
         deterministic:true,
         verification:'printed_unit_price_math',
         unit_price:unitToken.parsed.value,
@@ -219,10 +227,10 @@ Deno.serve(async (req) => {
     if (!validity) throw new Error('Flop validity cannot be derived');
     if (body.dry_run !== false) return json({
       ok:true,dry_run:true,source_import_id:src.id,source_document_url:src.source_document_url,
-      parser:'flop-pdf-spatial-unit-price-v2',candidate_count:candidates.length,validity,candidates:candidates.slice(0,100),
+      parser:'flop-pdf-spatial-unit-price-v3',candidate_count:candidates.length,validity,candidates:candidates.slice(0,100),
     });
     if (candidates.length < 25) throw new Error(`Flop spatial parser found only ${candidates.length} deterministic products; publication stopped`);
-    const hash = `flop-pdf-spatial-safe-v2-${src.id}`;
+    const hash = `flop-pdf-spatial-safe-v3-${src.id}`;
     const { data:old,error:oe } = await db.from('leaflet_imports').select('id,status').eq('source_hash',hash).maybeSingle();
     if (oe) throw oe;
     if (old?.status === 'published') return json({ok:true,reused:true,import_id:old.id,candidate_count:candidates.length,validity});
@@ -232,7 +240,7 @@ Deno.serve(async (req) => {
         source_id:src.source_id,store_id:src.store_id,source_document_url:src.source_document_url,
         source_hash:hash,status:'queued',coverage_scope:'store',store_location_name:'FLOP TOP',
         detected_valid_from:validity.from,detected_valid_to:validity.to,confidence:0.99,
-        metadata:{parser:'flop-pdf-spatial-unit-price-v2',adapter:'flop-pdf-spatial-unit-price-v2',deterministic:true,verified_pipeline:true,source_import_id:src.id,partial_coverage:true},
+        metadata:{parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,verified_pipeline:true,source_import_id:src.id,partial_coverage:true},
       }).select('id').single();
       if (created.error) throw created.error;
       id = created.data.id;
@@ -246,10 +254,9 @@ Deno.serve(async (req) => {
     const upd = await db.from('leaflet_imports').update({status:'review',product_count:candidates.length,confidence:0.99,error_message:null,finished_at:new Date().toISOString()}).eq('id',id);
     if (upd.error) throw upd.error;
     const result = await publish(id);
-    const today = new Date().toISOString().slice(0,10);
     await db.from('offers').update({status:'expired',updated_at:new Date().toISOString()})
       .eq('store_id',src.store_id).eq('status','published').eq('store_location_name','FLOP TOP')
-      .or(`valid_to.lt.${today},source_url.neq.${src.source_document_url}`);
+      .lt('valid_to',validity.from);
     return json({ok:true,dry_run:false,import_id:id,source_import_id:src.id,candidate_count:candidates.length,validity,publish:result});
   } catch (e) {
     return json({ok:false,error:e instanceof Error ? e.message : String(e)},500);
