@@ -53,6 +53,7 @@ on:
       - 'supabase/migrations/20260823105446_make_stavmat_dedicated_and_archive_generic_reviews.sql'
       - 'supabase/migrations/20260823105642_persist_stavmat_dedicated_pipeline_contract.sql'
       - 'supabase/migrations/20260823110259_make_planeo_dedicated_waiting_source.sql'
+      - 'supabase/migrations/20260823110613_preserve_product_sync_operational_health_states.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
@@ -69,6 +70,7 @@ on:
       - 'tests/tesco-apollo-pdf-safe-products.mjs'
       - 'tests/stavmat-dedicated-pipeline.mjs'
       - 'tests/planeo-waiting-source.mjs'
+      - 'tests/product-sync-health-semantics.mjs'
       - 'tests/web-push-contract.mjs'
       - 'tests/product-detail-regression.mjs'
       - 'tests/store-feed-data-integrity.mjs'
@@ -144,6 +146,8 @@ jobs:
         run: node tests/stavmat-dedicated-pipeline.mjs
       - name: PLANEO waiting-source produktová pipeline
         run: node tests/planeo-waiting-source.mjs
+      - name: Semantika product sync health
+        run: node tests/product-sync-health-semantics.mjs
       - name: Web Push aktivační kontrakt
         run: node tests/web-push-contract.mjs
       - name: Regresní diagnostika detailu produktu
