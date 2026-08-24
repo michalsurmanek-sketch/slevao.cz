@@ -63,6 +63,8 @@ on:
       - 'supabase/migrations/20260823123456_register_sportisimo_verified_sale_source.sql'
       - 'supabase/migrations/20260823130219_create_xxxlutz_verified_leaflets_pipeline.sql'
       - 'supabase/migrations/20260823130519_fix_xxxlutz_state_signature_column.sql'
+      - 'supabase/migrations/20260824080827_retry_transient_xxxlutz_leaflets_fetch.sql'
+      - 'supabase/migrations/20260824082713_align_xxxlutz_guard_with_current_discount_cards.sql'
       - 'supabase/migrations/20260823141720_create_moebelix_verified_sale_categories_pipeline.sql'
       - 'supabase/migrations/20260823141901_archive_and_reclaim_reused_pg_net_request_ids.sql'
       - 'supabase/migrations/20260823192124_restore_kik_official_publitas_pipeline.sql'
