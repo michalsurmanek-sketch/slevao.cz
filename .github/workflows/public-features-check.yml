@@ -60,6 +60,7 @@ on:
       - 'supabase/migrations/20260823110613_preserve_product_sync_operational_health_states.sql'
       - 'supabase/migrations/20260823115640_fix_pro_doma_index_terminal_state.sql'
       - 'supabase/migrations/20260823120416_switch_pro_doma_index_to_official_assets_mirror.sql'
+      - 'supabase/migrations/20260824152925_retry_transient_pro_doma_fetches.sql'
       - 'supabase/migrations/20260823123112_create_sportisimo_verified_sale_frontpage_pipeline.sql'
       - 'supabase/migrations/20260823123456_register_sportisimo_verified_sale_source.sql'
       - 'supabase/migrations/20260823130219_create_xxxlutz_verified_leaflets_pipeline.sql'
@@ -93,6 +94,7 @@ on:
       - 'tests/product-sync-health-semantics.mjs'
       - 'tests/pro-doma-index-terminal-state.mjs'
       - 'tests/pro-doma-assets-mirror.mjs'
+      - 'tests/pro-doma-transient-retry.mjs'
       - 'tests/sportisimo-sale-frontpage.mjs'
       - 'tests/xxxlutz-verified-leaflets.mjs'
       - 'tests/moebelix-sale-categories.mjs'
@@ -183,6 +185,8 @@ jobs:
         run: node tests/pro-doma-index-terminal-state.mjs
       - name: PRO-DOMA oficiální assets mirror
         run: node tests/pro-doma-assets-mirror.mjs
+      - name: PRO-DOMA transient retry
+        run: node tests/pro-doma-transient-retry.mjs
       - name: Sportisimo ověřený výprodej
         run: node tests/sportisimo-sale-frontpage.mjs
       - name: XXXLutz ověřené letákové slevy
