@@ -66,6 +66,7 @@ on:
       - 'supabase/migrations/20260823141720_create_moebelix_verified_sale_categories_pipeline.sql'
       - 'supabase/migrations/20260823141901_archive_and_reclaim_reused_pg_net_request_ids.sql'
       - 'supabase/migrations/20260823192124_restore_kik_official_publitas_pipeline.sql'
+      - 'supabase/migrations/20260823204527_retry_transient_moebelix_sale_categories.sql'
       - 'service-worker.js'
       - 'manifest.webmanifest'
       - 'offline.html'
