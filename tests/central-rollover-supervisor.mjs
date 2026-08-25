@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 
-const path = 'supabase/migrations/20260825222000_central_rollover_supervisor.sql';
+const path = 'supabase/migrations/20260825202002_central_rollover_supervisor.sql';
 assert.ok(fs.existsSync(path), 'central rollover migration is missing');
 const sql = fs.readFileSync(path, 'utf8');
 
