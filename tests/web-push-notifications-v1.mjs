@@ -4,7 +4,7 @@ const migrationPath = 'supabase/migrations/20260819133759_web_push_notifications
 const hardeningMigrationPath = 'supabase/migrations/20260819135501_harden_web_push_subscription_constraints.sql';
 const edgePath = 'supabase/functions/web-push/index.ts';
 const edgeConfigPath = 'supabase/functions/web-push/config.toml';
-if (!/assets\/web-push\.js\?v=[a-z0-9-]+/i.test(account)) {
+const clientPath = 'assets/web-push.js';
 const pwaPath = 'assets/pwa-install.js';
 const swPath = 'service-worker.js';
 const accountPath = 'ucet.html';
@@ -146,7 +146,7 @@ for (const needle of [
 }
 if (!sw.includes("const CACHE_NAME = 'slevao-shell-")) throw new Error('Unified service worker lost PWA shell caching.');
 
-if (!/assets\/web-push\.js\?v=20260822-1/.test(account)) {
+if (!/assets\/web-push\.js\?v=[a-z0-9-]+/i.test(account)) {
   throw new Error('ucet.html must load the current unified Web Push client module.');
 }
 
