@@ -15,7 +15,9 @@ new Script(homepageRuntime, { filename: 'assets/home-v2.js' });
 assert.match(homepage, /<script src="assets\/home-all-stores\.js\?v=[a-z0-9-]+" defer><\/script>/i, 'Homepage přímo nenačítá aktuální seznam obchodů.');
 assert.match(allStores, /public_store_feed_health/, 'Veřejný seznam obchodů nepoužívá autoritativní feed-health vrstvu.');
 assert.match(allStores, /is_active:\s*'eq\.true'/, 'Veřejný seznam nenačítá aktivní obchody.');
-assert.match(allStores, /feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score/, 'Homepage nenačítá stav a kvalitu feedu obchodů.');\nassert.match(allStores, /select:\\s*'store_id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score'/, 'Veřejný seznam musí používat skutečný sloupec store_id z feed-health view.');\nassert.doesNotMatch(allStores, /store_id:id/, 'Veřejný seznam nesmí požadovat neexistující sloupec id z feed-health view.');
+assert.match(allStores, /feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score/, 'Homepage nenačítá stav a kvalitu feedu obchodů.');
+assert.match(allStores, /select:\\s*'store_id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score'/, 'Veřejný seznam musí používat skutečný sloupec store_id z feed-health view.');
+assert.doesNotMatch(allStores, /store_id:id/, 'Veřejný seznam nesmí požadovat neexistující sloupec id z feed-health view.');
 assert.match(allStores, /function feedStateLabel\(/, 'Homepage neumí vysvětlit obchod bez živého produktového feedu.');
 for (const label of ['Jen aktuální leták','Zdroj se obnovuje','Dočasně bez nabídek','Zatím bez nabídek']) {
   assert(allStores.includes(label), `Homepage postrádá stav obchodu: ${label}`);
