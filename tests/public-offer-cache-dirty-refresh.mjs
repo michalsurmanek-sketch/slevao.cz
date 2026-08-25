@@ -28,4 +28,26 @@ assert.match(sql, /if not p_force and v_start_version <= v_last_refreshed_versio
 assert.match(sql, /after insert or update or delete or truncate on public\.offers[\s\S]*for each statement/);
 assert.match(sql, /after insert or update or delete or truncate on public\.products[\s\S]*for each statement/);
 
-console.log('public offer cache dirty refresh regression checks passed');
+const pennyPath = 'supabase/migrations/20260825211752_penny_no_change_fast_path.sql';
+assert.ok(fs.existsSync(pennyPath), 'Penny no-change fast-path migration is missing');
+const pennySql = fs.readFileSync(pennyPath, 'utf8');
+
+for (const token of [
+  'private.penny_structured_html_matches_published_set',
+  "coalesce(o.metadata->>'source_signature','')=p_signature",
+  "o.old_price is not distinct from p.old_price",
+  "li.status='published'",
+  'li.product_count=v_count',
+  'li.detected_valid_from=v_from',
+  'li.detected_valid_to=v_to',
+  "'no_changes',true",
+  "health_status='ok'",
+  'revoke all on function private.penny_structured_html_matches_published_set'
+]) {
+  assert.ok(pennySql.includes(token), `missing Penny no-change guard: ${token}`);
+}
+
+assert.match(pennySql, /private\.penny_structured_html_matches_published_set\([\s\S]*?\) then[\s\S]*?return jsonb_build_object\([\s\S]*?'no_changes',true/);
+assert.ok(pennySql.indexOf('penny_structured_html_matches_published_set') < pennySql.indexOf("if v_existing_import is null then"), 'Penny fast path must execute before destructive republish branch');
+
+console.log('public offer cache and Penny idempotence regression checks passed');
