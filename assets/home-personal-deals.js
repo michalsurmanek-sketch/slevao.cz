@@ -3,10 +3,8 @@
 
   if (!/\/(?:index\.html)?$/i.test(location.pathname)) return;
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const FAVORITES_KEY = 'slevao-favorite-products-v1';
-  const db = window.supabase?.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase?.getClient?.();
   if (!db) return;
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
