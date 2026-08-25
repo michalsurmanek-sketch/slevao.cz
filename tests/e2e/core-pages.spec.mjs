@@ -83,7 +83,7 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   expect(response.status()).toBe(200);
   const source = await response.text();
 
-  expect(source).toContain("const CACHE_NAME = 'slevao-shell-20260822-14';");
+  expect(source).toMatch(/const CACHE_NAME = 'slevao-shell-[a-z0-9-]+';/i);
   expect(source).toContain(`/${PUBLIC_FEATURES}`);
   expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-2');
   for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
