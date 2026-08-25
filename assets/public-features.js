@@ -9,7 +9,7 @@
   let toastTimer = 0;
   let activeReportOfferId = null;
 
-  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const read = () => { try { const rows = JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); return Array.isArray(rows) ? rows : []; } catch { return []; } };
   const write = (rows) => { try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch {} updateNavCount(); };
