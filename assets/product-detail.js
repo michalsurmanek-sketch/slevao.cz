@@ -1,21 +1,19 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   const $ = (id) => document.getElementById(id);
   const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const money = (v) => Number(v || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const date = (v) => v ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${String(v).slice(0,10)}T12:00:00`)) : '–';
 
-  if (!window.supabase?.createClient) {
+  if (!window.SlevaoSupabase?.getClient) {
     const root = $('productContent');
     if (root) root.innerHTML = '<div class="sfCard sfPanel"><h1>Produkt se nepodařilo načíst</h1><p class="sfMuted">Datové připojení se nenačetlo. Obnov stránku.</p><a class="sfButton primary" href="index.html">Zpět na nabídky</a></div>';
     return;
   }
 
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase.getClient();
 
   function pragueDate(value = new Date()) {
     return new Intl.DateTimeFormat('en-CA', {
