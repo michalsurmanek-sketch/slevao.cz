@@ -9,7 +9,9 @@
   const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260804-2';
   const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260821-4';
   const HOME_PRODUCT_FAVORITES_URL = 'assets/home-product-favorites.js?v=20260822-1';
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   let storageReloadPending = false;
+  let liveReconcilePending = false;
 
   function parseFavoriteList(raw) {
     if (raw === null) return null;
@@ -43,6 +45,64 @@
     if (!document.getElementById('savedButton') || storageReloadPending) return;
     storageReloadPending = true;
     window.setTimeout(() => location.reload(), 0);
+  }
+
+  async function reconcileLiveFavoriteOffers() {
+    if (liveReconcilePending) return;
+    const stored = parseFavoriteList(localStorage.getItem(HOME_FAVORITES_KEY)) || [];
+    if (!stored.length) return;
+
+    const validIds = stored.filter((id) => UUID_RE.test(id));
+    const applyCleaned = (cleaned) => {
+      const changed = cleaned.length !== stored.length || cleaned.some((id, index) => id !== stored[index]);
+      if (!changed) return false;
+      localStorage.setItem(HOME_FAVORITES_KEY, JSON.stringify(cleaned));
+      const badge = document.getElementById('savedCount');
+      if (badge) badge.textContent = String(cleaned.length);
+      scheduleHomepageReload();
+      return true;
+    };
+
+    if (!validIds.length) {
+      applyCleaned([]);
+      return;
+    }
+
+    liveReconcilePending = true;
+    try {
+      const client = await Promise.resolve(window.SlevaoSupabase?.getClient?.());
+      if (!client?.rpc) return;
+
+      const liveIds = new Set();
+      for (let offset = 0; offset < validIds.length; offset += 100) {
+        const chunk = validIds.slice(offset, offset + 100);
+        const { data, error } = await client.rpc('get_public_saved_offer_page', {
+          p_offer_ids: chunk,
+          p_limit: 100,
+          p_offset: 0,
+          p_store_slug: null,
+          p_min_price: null,
+          p_max_price: null,
+          p_only_images: false,
+          p_query: null,
+          p_filter_group: null,
+          p_region_code: null,
+          p_city_name: null,
+          p_sort: 'recommended',
+        });
+        if (error) throw error;
+        for (const row of Array.isArray(data) ? data : []) {
+          const id = String(row?.offer?.id || '').trim();
+          if (id) liveIds.add(id);
+        }
+      }
+
+      applyCleaned(validIds.filter((id) => liveIds.has(id)));
+    } catch (error) {
+      console.warn('slevao_live_favorite_reconcile_failed', error);
+    } finally {
+      liveReconcilePending = false;
+    }
   }
 
   function appendScript(src, marker, onload) {
@@ -81,16 +141,20 @@
       }
       appendScript(PERSONALIZATION_JS_URL, 'data-slevao-product-personalization', loadBridge);
     };
+    const reconcileAndLoadPersonalization = () => {
+      reconcileLiveFavoriteOffers();
+      loadPersonalization();
+    };
 
     const loadSharedClient = () => {
       if (window.SlevaoSupabase?.getClient) {
-        loadPersonalization();
+        reconcileAndLoadPersonalization();
         return;
       }
       const shared = appendScript(
         SHARED_SUPABASE_CLIENT_URL,
         'data-slevao-shared-supabase-client',
-        loadPersonalization,
+        reconcileAndLoadPersonalization,
       );
       shared.addEventListener('error', () => console.warn('slevao_home_shared_supabase_failed'), { once:true });
     };
@@ -161,6 +225,11 @@
     // Saved offers remain optional when browser Storage is unavailable.
   }
 
-  window.SlevaoFavoriteOfferSync = { parseFavoriteList, mergeFavoriteLists, reconcileFavoriteKeys };
+  window.SlevaoFavoriteOfferSync = {
+    parseFavoriteList,
+    mergeFavoriteLists,
+    reconcileFavoriteKeys,
+    reconcileLiveFavoriteOffers,
+  };
   loadProductFavoriteRuntime();
 })();
