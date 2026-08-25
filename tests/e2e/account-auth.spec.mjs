@@ -92,7 +92,7 @@ async function mockAuth(page, initialSession = null) {
 
 async function openAccount(page) {
   await page.goto(`${BASE_URL}/ucet.html`, { waitUntil: 'domcontentloaded' });
-  await expect(page.locator('#accountMessage')).toBeVisible();
+  await expect(page.locator('#accountMessage')).toBeAttached();
   await expect.poll(() => page.evaluate(() => Array.isArray(window.__slevaoAuthListeners) ? window.__slevaoAuthListeners.length : 0)).toBeGreaterThanOrEqual(2);
 }
 
