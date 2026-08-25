@@ -1,12 +1,10 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase.getClient();
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
