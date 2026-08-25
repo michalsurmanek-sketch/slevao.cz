@@ -76,7 +76,7 @@ for (const needle of [
   'if (isDirectPrivateOrLocalHost(url.hostname))',
   'if (url.username || url.password)',
   "if (url.port && url.port !== '443')",
-  ".select('id,user_id')",
+  ".select('id,user_id,is_active,last_error')",
   'Push endpoint už je přiřazen jinému účtu.',
   '.slice(MAX_ACTIVE_SUBSCRIPTIONS)',
   "last_error: 'Deactivated by per-user subscription cap.'",
