@@ -1,0 +1,29 @@
+name: Rollover supervisor
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'supabase/migrations/**central_rollover_supervisor.sql'
+      - 'tests/central-rollover-supervisor.mjs'
+      - '.github/workflows/central-rollover-supervisor.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/**central_rollover_supervisor.sql'
+      - 'tests/central-rollover-supervisor.mjs'
+      - '.github/workflows/central-rollover-supervisor.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node tests/central-rollover-supervisor.mjs
