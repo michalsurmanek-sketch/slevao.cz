@@ -1,8 +1,6 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
@@ -11,7 +9,7 @@
   const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
-  const db = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase?.getClient?.();
   let bootedUserId = null;
   let listLoaded = false;
   let insightLoaded = false;
