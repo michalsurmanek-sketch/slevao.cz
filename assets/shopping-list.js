@@ -1,12 +1,10 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
   const SHARED_POLL_MS = 30000;
   const OFFER_REFRESH_MS = 5 * 60 * 1000;
-  const db = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase.getClient();
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
