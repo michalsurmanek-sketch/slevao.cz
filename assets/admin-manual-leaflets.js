@@ -152,9 +152,13 @@
 
   async function checkBackendHealth({ quiet = false } = {}) {
     try {
+      const token = await currentAccessToken();
       const response = await fetch(`${SUPABASE_URL}/functions/v1/${UPLOAD_FUNCTION}?health=1&t=${Date.now()}`, {
         method: 'GET',
-        headers: { apikey: SUPABASE_KEY },
+        headers: {
+          apikey: SUPABASE_KEY,
+          authorization: `Bearer ${token}`,
+        },
         cache: 'no-store',
       });
       const payload = await responsePayload(response);
