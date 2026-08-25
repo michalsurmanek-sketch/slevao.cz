@@ -52,6 +52,7 @@ begin
     'coverage_scope', v_row.coverage_scope,
     'city_name', v_row.city_name,
     'page_count', jsonb_array_length(v_pages),
+    'page_image_urls', v_pages,
     'target_date', case when v_row.detected_valid_from > v_today then v_tomorrow else v_today end,
     'ocr_complete_pages', (
       select count(*)
