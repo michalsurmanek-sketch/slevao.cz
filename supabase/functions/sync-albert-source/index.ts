@@ -80,10 +80,46 @@ async function fetchHtml(url: string, timeoutMs = 25_000) {
   }
 }
 
+function pragueYear() {
+  return Number(new Intl.DateTimeFormat('en', { timeZone: 'Europe/Prague', year: 'numeric' }).format(new Date()));
+}
+
 function parseCzechDate(value?: string | null) {
-  const match = String(value || '').match(/^(\d{1,2})\.(\d{1,2})\.(20\d{2})$/);
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
   if (!match) throw new Error(`Albert vrátil neplatné datum: ${value || 'prázdné'}`);
-  return `${match[3]}-${match[2].padStart(2, '0')}-${match[1].padStart(2, '0')}`;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const currentYear = pragueYear();
+  let year = Number(match[3]);
+
+  // Albert 25. 8. 2026 zveřejnil příští supermarketový leták se zjevným
+  // upstream překlepem „26.08.2926 – 01.09.2026“. Opravujeme pouze velmi
+  // úzký tvar 29YY -> 20YY, a jen pokud opravený rok leží v aktuálním
+  // provozním okně. Jiné nesmyslné roky dál fail-closed odmítáme.
+  if (year < currentYear - 1 || year > currentYear + 2) {
+    const repairedYear = Number(`20${match[3].slice(-2)}`);
+    const safeAlbertCenturyTypo = match[3].startsWith('29')
+      && repairedYear >= currentYear - 1
+      && repairedYear <= currentYear + 2;
+    if (!safeAlbertCenturyTypo) throw new Error(`Albert vrátil neplatné datum: ${raw}`);
+    console.warn('sync-albert-source: opraven zjevný překlep roku v Albert datech', { raw, repairedYear });
+    year = repairedYear;
+  }
+
+  const date = new Date(Date.UTC(year, month - 1, day));
+  if (
+    !Number.isInteger(day) || !Number.isInteger(month)
+    || day < 1 || month < 1 || month > 12
+    || date.getUTCFullYear() !== year
+    || date.getUTCMonth() !== month - 1
+    || date.getUTCDate() !== day
+  ) {
+    throw new Error(`Albert vrátil neplatné datum: ${raw}`);
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 function safePdfUrl(value?: string | null) {
@@ -182,6 +218,7 @@ async function loadCurrentLeaflets(): Promise<CurrentLeaflet[]> {
     const validFrom = parseCzechDate(leaflet.validityStartDateFormatted);
     const validTo = parseCzechDate(leaflet.validityEndDateFormatted);
     if (validTo < today) continue;
+    if (validFrom > validTo) throw new Error(`Albert vrátil obrácenou platnost letáku ${leaflet.id}: ${validFrom} > ${validTo}`);
 
     leaflets.push({
       id: leaflet.id,
