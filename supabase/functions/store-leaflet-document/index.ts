@@ -60,12 +60,35 @@ function isTetaViewerUrl(value: string): boolean {
   }
 }
 
+function isTetaListingUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const path = url.pathname.replace(/\/+$/, '') || '/';
+    return url.protocol === 'https:'
+      && (host === 'tetadrogerie.cz' || host === 'www.tetadrogerie.cz')
+      && ['/akce', '/akce/letak', '/letak'].includes(path);
+  } catch {
+    return false;
+  }
+}
+
 function globusPdfFromHtml(html: string): string | null {
   const source = normalizedEscapes(html);
   const candidates = source.match(/https:\/\/gapi\.globus\.cz\/OnlineAsset\/3\/asset\?assetID=[0-9a-f-]{36}(?:&[^\s"'<>]*)?/gi) || [];
   for (const candidate of candidates) {
     const cleaned = candidate.replace(/[),.;]+$/, '');
     if (isGlobusPdfUrl(cleaned)) return new URL(cleaned).toString();
+  }
+  return null;
+}
+
+function tetaViewerFromHtml(html: string): string | null {
+  const source = normalizedEscapes(html);
+  const candidates = source.match(/https:\/\/letak\.tetadrogerie\.cz\/[a-z0-9-]+\/?/gi) || [];
+  for (const candidate of candidates) {
+    const cleaned = candidate.replace(/[),.;]+$/, '');
+    if (isTetaViewerUrl(cleaned)) return new URL(cleaned).toString();
   }
   return null;
 }
@@ -146,8 +169,26 @@ async function resolveGlobusPdf(sourcePageUrl: string): Promise<{ pdfUrl: string
   return { pdfUrl, referer: pageResponse.url };
 }
 
-async function resolveTetaPdf(viewerUrl: string): Promise<{ pdfUrl: string; referer: string }> {
-  if (!isTetaViewerUrl(viewerUrl)) throw new Error('Teta má nepovolený zdroj letáku.');
+async function resolveTetaViewer(sourceUrl: string): Promise<string> {
+  if (isTetaViewerUrl(sourceUrl)) return new URL(sourceUrl).toString();
+  if (!isTetaListingUrl(sourceUrl)) throw new Error('Teta má nepovolený zdroj letáku.');
+
+  const listingUrl = 'https://www.tetadrogerie.cz/akce/letak';
+  const listingResponse = await fetch(listingUrl, {
+    headers: {
+      ...BROWSER_HEADERS,
+      accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
+    },
+    redirect: 'follow',
+  });
+  if (!listingResponse.ok) throw new Error(`Seznam letáků Teta vrátil HTTP ${listingResponse.status}.`);
+  const viewerUrl = tetaViewerFromHtml(await listingResponse.text());
+  if (!viewerUrl) throw new Error('Teta na stránce aktuálních letáků nevrátila prohlížeč letáku.');
+  return viewerUrl;
+}
+
+async function resolveTetaPdf(sourceUrl: string): Promise<{ pdfUrl: string; referer: string }> {
+  const viewerUrl = await resolveTetaViewer(sourceUrl);
   const pageResponse = await fetch(viewerUrl, {
     headers: {
       ...BROWSER_HEADERS,
