@@ -39,13 +39,19 @@ async function fetchText(url: string) {
 
 async function currentViewerUrl() {
   const landing = await fetchText(`${LANDING}?_slevao=${Date.now()}`);
-  const match = landing.text.match(/href=["']([^"']*\/hypermarkety\/tesco-letak-\d{4}-\d{2}-\d{2}\/1)["']/i);
-  if (!match) throw new Error('Tesco landing neobsahuje aktuální hypermarketový viewer.');
-  return new URL(match[1].replace(/&amp;/g, '&'), LANDING).toString();
+  const today = todayPrague();
+  const candidates = [...landing.text.matchAll(/href=["']([^"']*\/hypermarkety\/tesco-letak-(\d{4}-\d{2}-\d{2})\/1)["']/gi)]
+    .map((match) => ({
+      start: match[2],
+      url: new URL(match[1].replace(/&amp;/g, '&'), LANDING).toString(),
+    }))
+    .filter((item) => item.start <= today)
+    .sort((a, b) => b.start.localeCompare(a.start));
+  if (!candidates.length) throw new Error(`Tesco landing neobsahuje HM viewer platný nejpozději ${today}.`);
+  return candidates[0].url;
 }
 
-async function currentLeaflet() {
-  const viewer = await currentViewerUrl();
+async function leafletFromViewer(viewer: string) {
   const html = await fetchText(viewer);
   const pageProps = nextData(html.text)?.props?.pageProps || {};
   const state = pageProps.__APOLLO_STATE__ || {};
@@ -73,16 +79,25 @@ async function currentLeaflet() {
   };
 }
 
+async function currentLeaflet() {
+  return await leafletFromViewer(await currentViewerUrl());
+}
+
 async function sha(value: string) {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function runParser(pageCount: number) {
+async function runParser(leaflet: Awaited<ReturnType<typeof currentLeaflet>>) {
   const response = await fetch(PARSER_URL, {
     method: 'POST',
     headers: { authorization: `Bearer ${SERVICE}`, 'content-type': 'application/json' },
-    body: JSON.stringify({ start_page: 1, probe_pages: pageCount }),
+    body: JSON.stringify({
+      start_page: 1,
+      probe_pages: leaflet.pageCount,
+      viewer_url: leaflet.viewer,
+      expected_pdf_url: leaflet.pdfUrl,
+    }),
     signal: AbortSignal.timeout(120000),
   });
   const text = await response.text();
@@ -91,8 +106,11 @@ async function runParser(pageCount: number) {
   if (!response.ok || !payload?.ok || payload?.adapter !== 'tesco-layout-v14-semantic-math') {
     throw new Error(`Tesco v14 parser HTTP ${response.status}: ${text.slice(0, 800)}`);
   }
+  if (payload.viewer_url !== leaflet.viewer || payload.pdf_url !== leaflet.pdfUrl) {
+    throw new Error('Tesco v14 parser nepotvrdil stejný viewer/PDF snapshot.');
+  }
   if (!Array.isArray(payload.rows) || !Array.isArray(payload.pages)) throw new Error('Tesco v14 parser vrátil neúplný payload.');
-  if (payload.pages.length !== pageCount) throw new Error(`Tesco v14 parser zpracoval ${payload.pages.length}/${pageCount} stran.`);
+  if (payload.pages.length !== leaflet.pageCount) throw new Error(`Tesco v14 parser zpracoval ${payload.pages.length}/${leaflet.pageCount} stran.`);
   return payload;
 }
 
@@ -200,8 +218,8 @@ Deno.serve(async (req) => {
     const today = todayPrague();
     if (today < before.validFrom || today > before.validTo) throw new Error(`Tesco HM leták ${before.validFrom}–${before.validTo} dnes neplatí.`);
 
-    const parsed = await runParser(before.pageCount);
-    const after = await currentLeaflet();
+    const parsed = await runParser(before);
+    const after = await leafletFromViewer(before.viewer);
     if (before.fingerprint !== after.fingerprint) throw new Error('Tesco leták se během běhu změnil; snapshot nebyl publikován.');
 
     const rows = await structuredRows(parsed.rows, before);
@@ -213,7 +231,10 @@ Deno.serve(async (req) => {
       ok: true,
       dry_run: dryRun,
       adapter: ADAPTER,
+      snapshot_pinned: true,
       leaflet_id: before.leafletId,
+      viewer_url: before.viewer,
+      pdf_url: before.pdfUrl,
       valid_from: before.validFrom,
       valid_to: before.validTo,
       page_count: before.pageCount,
