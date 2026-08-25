@@ -38,12 +38,23 @@ async function callParser(body: Record<string, unknown>) {
 
 async function updateHealth(storeId:string, candidateCount:number|null, importId:string|null) {
   const today = pragueToday();
+  let targetDate = today;
+  if (importId) {
+    const { data:targetImport, error:targetError } = await db.from('leaflet_imports')
+      .select('detected_valid_from,detected_valid_to')
+      .eq('id',importId)
+      .maybeSingle();
+    if (targetError) throw targetError;
+    const targetFrom = String(targetImport?.detected_valid_from || '');
+    if (/^\d{4}-\d{2}-\d{2}$/.test(targetFrom) && targetFrom > today) targetDate = targetFrom;
+  }
+
   const { count, error:countError } = await db.from('offers')
     .select('id', { count:'exact', head:true })
     .eq('store_id',storeId)
     .eq('status','published')
-    .lte('valid_from',today)
-    .gte('valid_to',today);
+    .lte('valid_from',targetDate)
+    .gte('valid_to',targetDate);
   if (countError) throw countError;
   const published = count || 0;
 
@@ -51,8 +62,8 @@ async function updateHealth(storeId:string, candidateCount:number|null, importId
     .select('valid_from,valid_to')
     .eq('store_id',storeId)
     .eq('status','published')
-    .lte('valid_from',today)
-    .gte('valid_to',today)
+    .lte('valid_from',targetDate)
+    .gte('valid_to',targetDate)
     .order('valid_from',{ascending:true})
     .limit(100);
   if (validityError) throw validityError;
@@ -82,16 +93,16 @@ async function updateHealth(storeId:string, candidateCount:number|null, importId
     last_product_candidates:expected,
     health_status:complete ? 'ok' : 'degraded',
     health_reason:complete
-      ? `Terno: bezpečně publikováno všech ${published}/${expected} matematicky ověřených OCR nabídek.`
-      : `Terno: bezpečně publikováno ${published}/${expected} matematicky ověřených OCR nabídek; část bezpečných kandidátů se nepodařilo zveřejnit.`,
+      ? `Terno: pro ${targetDate} bezpečně publikováno všech ${published}/${expected} matematicky ověřených OCR nabídek.`
+      : `Terno: pro ${targetDate} bezpečně publikováno ${published}/${expected} matematicky ověřených OCR nabídek; část bezpečných kandidátů se nepodařilo zveřejnit.`,
     is_running:false,
     run_started_at:null,
     updated_at:now,
     last_import_id:importId,
-    metadata:{ conservative_parser:true, split_price_support:true, candidate_publication_complete:complete, wrapper_version:'v4.2' },
+    metadata:{ conservative_parser:true, split_price_support:true, candidate_publication_complete:complete, target_date:targetDate, wrapper_version:'v4.3' },
   }, { onConflict:'store_id' });
   if (error) throw error;
-  return { published, expected, valid_from:validFrom, valid_to:validTo };
+  return { published, expected, target_date:targetDate, valid_from:validFrom, valid_to:validTo };
 }
 
 Deno.serve(async (req) => {
