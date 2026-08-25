@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const sql = fs.readFileSync('supabase/migrations/20260825223200_sportisimo_transient_fetch_retry.sql', 'utf8');
+const sql = fs.readFileSync('supabase/migrations/20260825203106_sportisimo_transient_fetch_retry.sql', 'utf8');
 
 assert.match(sql, /retry_count',0/);
 assert.match(sql, /v_retry < 2/);
