@@ -5,6 +5,7 @@
   const STORE_FAVORITES_KEY = 'slevao-favorite-offers-v1';
   const RELOAD_KEY = 'slevao-favorite-offer-sync-v2';
   const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  const SHARED_SUPABASE_CLIENT_URL = 'assets/supabase-client.js?v=20260825-1';
   const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260804-2';
   const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260821-4';
   const HOME_PRODUCT_FAVORITES_URL = 'assets/home-product-favorites.js?v=20260822-1';
@@ -81,11 +82,24 @@
       appendScript(PERSONALIZATION_JS_URL, 'data-slevao-product-personalization', loadBridge);
     };
 
+    const loadSharedClient = () => {
+      if (window.SlevaoSupabase?.getClient) {
+        loadPersonalization();
+        return;
+      }
+      const shared = appendScript(
+        SHARED_SUPABASE_CLIENT_URL,
+        'data-slevao-shared-supabase-client',
+        loadPersonalization,
+      );
+      shared.addEventListener('error', () => console.warn('slevao_home_shared_supabase_failed'), { once:true });
+    };
+
     if (window.supabase?.createClient) {
-      loadPersonalization();
+      loadSharedClient();
       return;
     }
-    const supabase = appendScript(SUPABASE_CLIENT_URL, 'data-slevao-supabase-client', loadPersonalization);
+    const supabase = appendScript(SUPABASE_CLIENT_URL, 'data-slevao-supabase-client', loadSharedClient);
     supabase.addEventListener('error', () => console.warn('slevao_home_product_favorites_supabase_failed'), { once:true });
   }
 
