@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '23 */6 * * *'
   workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/terno-ocr-trigger.txt'
   pull_request:
     branches:
       - main
