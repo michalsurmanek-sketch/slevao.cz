@@ -66,7 +66,9 @@ for (const pattern of [
 ]) assert.doesNotMatch(homeJs, pattern, `Homepage znovu zavádí zakázanou klientskou datovou logiku ${pattern}.`);
 assert.match(homeJs, /encodeURIComponent\(store\.slug\).*\.html/, 'Karta obchodu musí odkazovat na jeho vlastní stránku.');
 assert.match(homeJs, /penny:'assets\/logos\/penny\.svg\?v=4'/, 'Homepage musí používat lokální logo PENNY.');
-assert.doesNotMatch(homeJs, /this\\.remove\\(\\);this\\.parentElement\\.insertAdjacentHTML/, 'Fallback obrázku nesmí přistupovat k parentElement po odstranění obrázku.');\nassert.match(homeJs, /this\\.replaceWith\\(Object\\.assign\\(document\\.createElement\\('span'\\)/, 'Karta produktu nemá bezpečný fallback chybějící fotografie.');\nassert.doesNotMatch(searchSuggest, /DecompressionStream|\.home-v2-parts|MutationObserver|setInterval/, 'Pomocný skript obsahuje starý zavaděč nebo nekonečnou DOM smyčku.');
+assert.doesNotMatch(homeJs, /this\\.remove\\(\\);this\\.parentElement\\.insertAdjacentHTML/, 'Fallback obrázku nesmí přistupovat k parentElement po odstranění obrázku.');
+assert.match(homeJs, /this\\.replaceWith\\(Object\\.assign\\(document\\.createElement\\('span'\\)/, 'Karta produktu nemá bezpečný fallback chybějící fotografie.');
+assert.doesNotMatch(searchSuggest, /DecompressionStream|\.home-v2-parts|MutationObserver|setInterval/, 'Pomocný skript obsahuje starý zavaděč nebo nekonečnou DOM smyčku.');
 
 const storePageFiles = readdirSync(root)
   .filter((path) => path.endsWith('.html') && read(path).includes('window.SLEVAO_STORE'))
