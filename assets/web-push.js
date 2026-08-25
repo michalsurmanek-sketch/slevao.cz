@@ -1,11 +1,10 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const { url: SUPABASE_URL, key: SUPABASE_KEY } = window.SlevaoSupabase;
   const PUSH_URL = `${SUPABASE_URL}/functions/v1/web-push`;
   const SW_URL = '/service-worker.js';
-  const db = window.supabase?.createClient?.(SUPABASE_URL, SUPABASE_KEY);
+  const db = window.SlevaoSupabase.getClient();
   let subscribed = false;
   let syncing = false;
 
