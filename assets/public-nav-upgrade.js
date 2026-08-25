@@ -195,13 +195,13 @@
     let attempts = 0;
     const attach = () => {
       if (document.querySelector('script[src*="home-personal-deals.js"]')) return;
-      if (!window.supabase && attempts++ < 80) {
+      if ((!window.supabase || !window.SlevaoSupabase?.getClient) && attempts++ < 80) {
         window.setTimeout(attach, 100);
         return;
       }
-      if (!window.supabase) return;
+      if (!window.supabase || !window.SlevaoSupabase?.getClient) return;
       const script = document.createElement('script');
-      script.src = 'assets/home-personal-deals.js?v=20260804-1';
+      script.src = 'assets/home-personal-deals.js?v=20260825-1';
       script.defer = true;
       document.head.appendChild(script);
     };
