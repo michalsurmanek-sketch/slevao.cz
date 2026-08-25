@@ -145,6 +145,7 @@ function createBootstrapScenario({ shared = false } = {}) {
   const window = {
     localStorage: storage,
     supabase:{ createClient() { return { auth }; } },
+    SlevaoSupabase:{ getClient() { return { auth }; } },
     SlevaoPublic:{ updateNavCount() {} },
     setTimeout(callback) { callback(); return 1; },
     addEventListener(type, callback) { if (type === 'pagehide') pagehide = callback; },
