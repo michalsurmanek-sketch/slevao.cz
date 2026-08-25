@@ -103,12 +103,26 @@ function safeEvidence(row: any) {
     || (semantic === 1 && layout <= 175);
 }
 
+function repairSplitQuantity(value: unknown) {
+  return clean(value).replace(/\b(\d{1,4})\s+(\d)\s*(kg|g|l|ml|ks)\b/gi, '$1$2$3');
+}
+
+function usableQuantity(value: unknown) {
+  const repaired = repairSplitQuantity(value);
+  const match = repaired.match(/\b(\d+(?:[,.]\d+)?)\s*(kg|g|l|ml|ks)\b/i);
+  if (!match) return null;
+  const amount = Number(match[1].replace(',', '.'));
+  return Number.isFinite(amount) && amount > 0 ? match[0] : null;
+}
+
 function quantityText(row: any) {
-  const fromMath = clean(row?.math?.quantity?.source);
+  const fromMath = usableQuantity(row?.math?.quantity?.source);
   if (fromMath) return fromMath;
-  const productName = clean(row?.product_name);
-  const matches = [...productName.matchAll(/\b\d+(?:[,.]\d+)?\s*(?:kg|g|l|ml|ks)\b/gi)];
-  return matches.length ? matches[matches.length - 1][0] : null;
+  const productName = repairSplitQuantity(row?.product_name);
+  const matches = [...productName.matchAll(/\b\d+(?:[,.]\d+)?\s*(?:kg|g|l|ml|ks)\b/gi)]
+    .map((match) => usableQuantity(match[0]))
+    .filter(Boolean) as string[];
+  return matches.length ? matches[matches.length - 1] : null;
 }
 
 function confidence(row: any) {
