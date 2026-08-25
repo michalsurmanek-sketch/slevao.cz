@@ -6,15 +6,24 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 const upload = read('supabase/functions/manual-leaflet-upload-v2/index.ts');
 const uploadConfig = read('supabase/functions/manual-leaflet-upload-v2/config.toml');
+const adminUpload = read('assets/admin-manual-leaflets.js');
 const processor = read('supabase/functions/process-manual-leaflet-v2/index.ts');
 const processorConfig = read('supabase/functions/process-manual-leaflet-v2/config.toml');
 const runner = read('supabase/functions/run-manual-leaflet-import/index.ts');
 const runnerConfig = read('supabase/functions/run-manual-leaflet-import/config.toml');
 const workflow = read('.github/workflows/deploy-manual-leaflet-upload.yml');
 
-assert.match(uploadConfig, /verify_jwt\s*=\s*false/, 'Upload musí zachovat custom-auth kvůli health probe.');
+assert.match(uploadConfig, /verify_jwt\s*=\s*false/, 'Upload musí zachovat custom-auth kvůli vlastní admin/editor kontrole.');
 assert.match(upload, /authenticatedUser\(request, db\)/, 'Upload musí ověřovat admin/editor session uvnitř funkce.');
 assert.match(upload, /searchParams\.get\('health'\)/, 'Upload musí zachovat health endpoint.');
+assert.match(upload, /searchParams\.get\('health'\)[\s\S]*?await authenticatedUser\(request, db\);[\s\S]*?await processorHealth\(\);/,
+  'Health endpoint musí před kontrolou procesoru ověřit admin/editor session.');
+const healthBranch = upload.match(/if \(request\.method === 'GET'[\s\S]*?\n  \}\n\n  if \(request\.method !== 'POST'\)/)?.[0] || '';
+assert.ok(healthBranch, 'Health větev musí zůstat dohledatelná v upload funkci.');
+assert.doesNotMatch(healthBranch, /ensureBucket\(/,
+  'Health GET nesmí vytvářet ani měnit Storage bucket pod service-role.');
+assert.match(adminUpload, /async function checkBackendHealth[\s\S]*?const token = await currentAccessToken\(\);[\s\S]*?authorization: `Bearer \$\{token\}`/,
+  'Admin frontend musí na health posílat aktuální uživatelský Bearer token.');
 
 assert.match(processorConfig, /verify_jwt\s*=\s*true/, 'Procesor ručních letáků musí být za JWT gateway.');
 assert.match(processor, /authorization === `Bearer \$\{SERVICE_ROLE_KEY\}`/, 'Procesor musí přijímat interní service-role Bearer.');
