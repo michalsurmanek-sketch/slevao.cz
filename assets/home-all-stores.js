@@ -65,7 +65,7 @@
 
   async function loadStores() {
     const query = new URLSearchParams({
-      select: 'store_id:id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score',
+      select: 'store_id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score',
       is_active: 'eq.true',
     });
     const response = await fetch(`${SUPABASE_URL}/rest/v1/public_store_feed_health?${query}`, {
