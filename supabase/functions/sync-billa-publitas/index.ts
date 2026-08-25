@@ -104,6 +104,14 @@ async function sha256(value:string){
   const d=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value));
   return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,'0')).join('');
 }
+async function findExisting(hash:string,pdfUrl:string){
+  const byHash=await db.from('leaflet_imports').select('id,status,metadata,source_hash').eq('source_hash',hash).maybeSingle();
+  if(byHash.error) throw byHash.error;
+  if(byHash.data) return byHash.data;
+  const byUrl=await db.from('leaflet_imports').select('id,status,metadata,source_hash').eq('source_document_url',pdfUrl).eq('store_id',(await db.from('stores').select('id').eq('slug','billa').single()).data?.id).order('created_at',{ascending:false}).limit(1).maybeSingle();
+  if(byUrl.error) throw byUrl.error;
+  return byUrl.data || null;
+}
 
 Deno.serve(async req=>{
   if(req.method==='OPTIONS') return new Response('ok',{headers:CORS});
@@ -131,8 +139,15 @@ Deno.serve(async req=>{
     const existing:any[]=[];
     for(const p of publications){
       const hash=`billa-official-publitas-v2-${await sha256(p.pdfUrl)}`;
-      const {data:old,error:oldError}=await db.from('leaflet_imports').select('id,status,metadata').eq('source_hash',hash).maybeSingle();
-      if(oldError) throw oldError;
+      let old:any=null;
+      const byHash=await db.from('leaflet_imports').select('id,status,metadata,source_hash').eq('source_hash',hash).maybeSingle();
+      if(byHash.error) throw byHash.error;
+      old=byHash.data;
+      if(!old){
+        const byUrl=await db.from('leaflet_imports').select('id,status,metadata,source_hash').eq('store_id',store.id).eq('source_document_url',p.pdfUrl).order('created_at',{ascending:false}).limit(1).maybeSingle();
+        if(byUrl.error) throw byUrl.error;
+        old=byUrl.data;
+      }
       const metadata={
         ...(old?.metadata||{}),adapter:'store:billa',official_publication:true,
         publitas_publication_id:p.publicationId,publitas_slug:p.slug,title:p.title,
@@ -144,7 +159,7 @@ Deno.serve(async req=>{
           page_count:p.pageCount||null,metadata,updated_at:now,
         }).eq('id',old.id);
         if(error) throw error;
-        existing.push({id:old.id,status:old.status,slug:p.slug,valid_from:p.validFrom,valid_to:p.validTo});
+        existing.push({id:old.id,status:old.status,source_hash:old.source_hash,slug:p.slug,valid_from:p.validFrom,valid_to:p.validTo});
       }else{
         const {data:row,error}=await db.from('leaflet_imports').insert({
           source_id:source.id,store_id:store.id,source_document_url:p.pdfUrl,source_hash:hash,status:'queued',
