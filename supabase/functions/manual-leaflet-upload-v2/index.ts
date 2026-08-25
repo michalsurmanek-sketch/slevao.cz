@@ -24,6 +24,13 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error || 'Neznámá chyba.');
 }
 
+function authErrorStatus(error: unknown): number {
+  const message = errorMessage(error);
+  if (/Nedostatečné oprávnění/i.test(message)) return 403;
+  if (/Přihlášení vypršelo/i.test(message)) return 401;
+  return 503;
+}
+
 function validUuid(value: unknown, label: string): string {
   const id = String(value || '').trim();
   if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id)) {
@@ -217,11 +224,11 @@ Deno.serve(async (request) => {
 
   if (request.method === 'GET' && new URL(request.url).searchParams.get('health') === '1') {
     try {
-      await ensureBucket(db);
+      await authenticatedUser(request, db);
       await processorHealth();
-      return json({ ok: true, upload: 'ready', processor: 'ready', bucket: BUCKET, processor_name: PROCESSOR });
+      return json({ ok: true, upload: 'ready', processor: 'ready' });
     } catch (error) {
-      return json({ ok: false, error: errorMessage(error) }, 503);
+      return json({ ok: false, error: errorMessage(error) }, authErrorStatus(error));
     }
   }
 
