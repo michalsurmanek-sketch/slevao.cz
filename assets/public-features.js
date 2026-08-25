@@ -1,8 +1,8 @@
 (() => {
   'use strict';
 
-  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
+  const SUPABASE_URL = window.SlevaoSupabase?.url || 'https://uhampjdqjxmbhaptgitn.supabase.co';
+  const SUPABASE_KEY = window.SlevaoSupabase?.key || 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   let supabasePromise = null;
@@ -17,7 +17,14 @@
 
   async function getSupabase() {
     if (!supabasePromise) {
-      supabasePromise = import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_KEY));
+      if (window.SlevaoSupabase?.getClient) {
+        supabasePromise = Promise.resolve(window.SlevaoSupabase.getClient());
+      } else if (window.supabase?.createClient) {
+        supabasePromise = Promise.resolve(window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY));
+      } else {
+        supabasePromise = import('https://esm.sh/@supabase/supabase-js@2')
+          .then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_KEY));
+      }
     }
     return supabasePromise;
   }
