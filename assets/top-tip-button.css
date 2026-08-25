@@ -202,6 +202,12 @@
   }
 }
 
+/* První vykreslení mobilu: stará HTML navigace se nesmí ukázat před novou JS navigací. */
+@media(max-width:720px){
+  html body nav.mobileNav{display:none!important}
+  .slevaoBottomNav{display:none}
+}
+
 /* Mobilní spodní navigace: účet používá stejný obrys panáčka jako horní tlačítko Můj účet. */
 @media(max-width:720px){
   .slevaoBottomNav a[href$="ucet.html"]>span{
