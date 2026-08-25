@@ -1,12 +1,10 @@
 (() => {
   'use strict';
 
-  const URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
-  const KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const LIST_KEY = 'slevao-shopping-list-v1';
   const HISTORY_KEY = 'slevao-shopping-history-v1';
   const BUDGET_KEY = 'slevao-shopping-budget-v1';
-  const db = window.supabase?.createClient(URL, KEY);
+  const db = window.SlevaoSupabase?.getClient?.();
   if (!db || !document.querySelector('.sfListLayout')) return;
 
   const $ = (id) => document.getElementById(id);
