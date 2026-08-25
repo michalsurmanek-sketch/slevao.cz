@@ -65,6 +65,15 @@ function iso(day: string, month: string, year: string) {
   return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 }
 
+function pragueDate(offsetDays = 0) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  const date = new Date(Date.UTC(Number(values.year), Number(values.month) - 1, Number(values.day) + offsetDays));
+  return date.toISOString().slice(0, 10);
+}
+
 function parseRange(value: string) {
   const normalized = clean(value);
   const match = normalized.match(/(\d{1,2})\.(\d{1,2})\.?\s*[–—-]\s*(\d{1,2})\.(\d{1,2})\.(\d{4})/);
@@ -137,7 +146,8 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
 
   const checkedAt = new Date().toISOString();
-  const today = checkedAt.slice(0, 10);
+  const today = pragueDate();
+  const tomorrow = pragueDate(1);
   try {
     const { data: store, error: storeError } = await db.from('stores')
       .select('id,name')
@@ -176,8 +186,8 @@ Deno.serve(async (request) => {
 
     const page = await fetch(SOURCE_URL, { headers: BROWSER_HEADERS, redirect: 'follow' });
     if (!page.ok) throw new Error(`Oficiální stránka Terno vrátila HTTP ${page.status}.`);
-    const flyers = parseFlyers(await page.text()).filter((flyer) => flyer.validFrom <= today && flyer.validTo >= today);
-    if (!flyers.length) throw new Error('Na oficiální stránce Terno nebyl nalezen žádný právě platný PDF leták.');
+    const flyers = parseFlyers(await page.text()).filter((flyer) => flyer.validFrom <= tomorrow && flyer.validTo >= today);
+    if (!flyers.length) throw new Error('Na oficiální stránce Terno nebyl nalezen žádný PDF leták platný dnes ani zítra.');
 
     const created: Array<{ id: string; title: string; pdf: string }> = [];
     const existing: Array<{ id: string; title: string; status: string; page_images: number }> = [];
@@ -262,6 +272,7 @@ Deno.serve(async (request) => {
       ok: true,
       store: store.name,
       source_id: sourceId,
+      discovery_window: { today, tomorrow },
       current_flyers: flyers.map((flyer) => ({
         title: flyer.title,
         validFrom: flyer.validFrom,
