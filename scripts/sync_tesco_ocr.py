@@ -15,8 +15,8 @@ SOURCE_ADAPTER = "tesco-apollo-page-images-v1"
 EXPECTED_PAGES = 32
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
 
-worker.ENGINE = "tesseract-cli-ces-tesco-v1"
-worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.1"
+worker.ENGINE = "tesseract-cli-ces-tesco-v2"
+worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.2"
 worker.MAX_PAGES = 0
 _api = worker.api
 _target = None
