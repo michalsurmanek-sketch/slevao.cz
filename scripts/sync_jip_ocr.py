@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
-"""JIP OCR worker reusing the proven Terno Tesseract implementation.\nRuns only against current official JIP page images.\n"""
+"""JIP OCR worker reusing the proven Terno Tesseract implementation.
+Runs only against the current official 12-page JIP Maloobchod source used by
+sync-jip-pack-products and becomes a no-op once that import is OCR-complete.
+"""
 import json
 import os
+import re
 import urllib.parse
 import urllib.request
+from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import sync_terno_ocr as worker
 
@@ -11,9 +17,18 @@ worker.ENGINE = "tesseract-cli-ces-jip-v1"
 worker.SUPABASE_USER_AGENT = "slevao-github-actions-jip-ocr/1.0"
 
 _original_api = worker.api
+_target_cache = None
+
+
+def prague_today() -> str:
+    return datetime.now(ZoneInfo("Europe/Prague")).date().isoformat()
 
 
 def jip_target():
+    global _target_cache
+    if _target_cache is not None:
+        return _target_cache
+
     stores = _original_api(
         "GET",
         "/rest/v1/stores?"
@@ -22,35 +37,55 @@ def jip_target():
     if not stores:
         raise RuntimeError("JIP store not found")
 
-    today = __import__("datetime").date.today().isoformat()
+    today = prague_today()
     params = {
         "store_id": f"eq.{stores[0]['id']}",
+        "detected_valid_from": f"lte.{today}",
         "detected_valid_to": f"gte.{today}",
         "status": "eq.published",
-        "select": "id,metadata,detected_valid_from,detected_valid_to",
-        "order": "detected_valid_to.asc,created_at.desc",
+        "select": "id,source_document_url,metadata,detected_valid_from,detected_valid_to,created_at",
+        "order": "detected_valid_from.desc,created_at.desc",
         "limit": "20",
     }
     imports = _original_api("GET", "/rest/v1/leaflet_imports?" + urllib.parse.urlencode(params)) or []
-    candidates = [
-        row for row in imports
-        if isinstance((row.get("metadata") or {}).get("page_image_urls"), list)
-        and (row.get("metadata") or {}).get("ocr_required") is True
-    ]
-    preferred = next(
-        (row for row in candidates if "Akční leták JIP potraviny" in str((row.get("metadata") or {}).get("title", ""))),
-        candidates[0] if candidates else None,
-    )
+
+    candidates = []
+    for row in imports:
+        metadata = row.get("metadata") or {}
+        page_urls = metadata.get("page_image_urls")
+        source_url = str(row.get("source_document_url") or "")
+        if metadata.get("ocr_required") is not True:
+            continue
+        if metadata.get("ocr_complete") is True:
+            continue
+        if not isinstance(page_urls, list) or len(page_urls) != 12:
+            continue
+        if int(metadata.get("page_count") or 0) != 12:
+            continue
+        if not re.search(r"/MO-\d{1,2}-\d{1,2}-\d{4}/$", source_url, re.I):
+            continue
+        candidates.append(row)
+
+    preferred = candidates[0] if candidates else None
     if not preferred:
-        raise RuntimeError("No current JIP import with official page images")
+        _target_cache = {
+            "ok": False,
+            "reason": "no_pending_current_jip_maloobchod_ocr",
+            "business_date": today,
+        }
+        return _target_cache
+
     metadata = preferred.get("metadata") or {}
-    return {
+    _target_cache = {
         "ok": True,
         "import_id": preferred["id"],
         "page_image_urls": metadata["page_image_urls"],
         "valid_from": preferred.get("detected_valid_from"),
         "valid_to": preferred.get("detected_valid_to"),
+        "business_date": today,
+        "source_document_url": preferred.get("source_document_url"),
     }
+    return _target_cache
 
 
 def api(method, path, body=None, extra_headers=None):
@@ -85,5 +120,9 @@ worker.api = api
 worker.download = direct_download
 
 if __name__ == "__main__":
-    print(json.dumps({"worker": "jip", "engine": worker.ENGINE}), flush=True)
+    target = jip_target()
+    if not target.get("ok"):
+        print(json.dumps({"ok": True, "worker": "jip", "engine": worker.ENGINE, "skipped": True, **target}, ensure_ascii=False), flush=True)
+        raise SystemExit(0)
+    print(json.dumps({"worker": "jip", "engine": worker.ENGINE, "target": target["import_id"], "business_date": target["business_date"]}, ensure_ascii=False), flush=True)
     worker.main()
