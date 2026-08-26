@@ -25,6 +25,39 @@
   const READ_RPC_PREFIX = '/rest/v1/rpc/get_public_';
   const GRACE_MS = 1000;
   const RETRY_DELAY_MS = 180;
+  const ALLOWED_MODES = new Set(['all','recommended','food','ending','under50','under100','discount','new']);
+  let facetModeHint = new URLSearchParams(location.search).get('q')?.trim() ? 'all' : 'recommended';
+  let globalFacetsPassed = false;
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('click', (event) => {
+      const quick = event.target.closest('#quickTabs [data-mode]');
+      if (quick?.dataset.mode && ALLOWED_MODES.has(quick.dataset.mode)) facetModeHint = quick.dataset.mode;
+
+      if (event.target.closest('#resetFilters,[data-clear="all"]')) facetModeHint = 'recommended';
+      if (event.target.closest('[data-clear="query"]') && facetModeHint === 'all') facetModeHint = 'recommended';
+
+      if (event.target.closest('#searchButton')) {
+        facetModeHint = document.getElementById('q')?.value.trim() ? 'all' : 'recommended';
+      }
+
+      const category = event.target.closest('#categoryChips [data-category]');
+      if (category && facetModeHint === 'food' && category.dataset.category !== 'food') facetModeHint = 'all';
+      if (event.target.closest('#clearCategory') && facetModeHint === 'food') facetModeHint = 'all';
+    }, true);
+
+    document.addEventListener('input', (event) => {
+      if (event.target?.id === 'sideSearch') facetModeHint = event.target.value.trim() ? 'all' : 'recommended';
+    }, true);
+
+    document.addEventListener('keydown', (event) => {
+      if (event.target?.id === 'q' && event.key === 'Enter') facetModeHint = event.target.value.trim() ? 'all' : 'recommended';
+    }, true);
+
+    document.addEventListener('change', (event) => {
+      if (event.target?.id === 'categorySelect' && facetModeHint === 'food' && event.target.value !== 'food') facetModeHint = 'all';
+    }, true);
+  }
 
   function cleanupExpired(now) {
     for (const [key, entry] of entries) {
@@ -45,15 +78,49 @@
     });
   }
 
+  function contextualFacetBody(body) {
+    let payload;
+    try { payload = JSON.parse(body); } catch { return body; }
+    if (!payload || payload.p_mode !== 'all') return body;
+    if (String(payload.p_query || '').trim()) return body;
+
+    const isGlobalShape = payload.p_store_slug == null
+      && payload.p_min_price == null
+      && payload.p_max_price == null
+      && payload.p_only_images === false
+      && payload.p_filter_group == null
+      && payload.p_region_code == null
+      && payload.p_city_name == null;
+
+    if (!globalFacetsPassed && isGlobalShape) {
+      globalFacetsPassed = true;
+      return body;
+    }
+
+    if (!ALLOWED_MODES.has(facetModeHint) || facetModeHint === 'all') return body;
+    payload.p_mode = facetModeHint;
+    return JSON.stringify(payload);
+  }
+
   window.fetch = function slevaoFetch(input, init) {
     const isRequest = typeof Request !== 'undefined' && input instanceof Request;
     const url = typeof input === 'string' ? input : (isRequest ? input.url : '');
     const method = String(init?.method || (isRequest ? input.method : 'GET')).toUpperCase();
-    const body = typeof init?.body === 'string' ? init.body : '';
+    let body = typeof init?.body === 'string' ? init.body : '';
+    let effectiveInit = init;
+
+    if (url.includes(FACETS_RPC) && method === 'POST' && body) {
+      const rewrittenBody = contextualFacetBody(body);
+      if (rewrittenBody !== body) {
+        body = rewrittenBody;
+        effectiveInit = { ...(init || {}), body };
+      }
+    }
+
     const requestMeta = { url, method, isRequest };
 
     if (!url.includes(FACETS_RPC) || method !== 'POST' || !body) {
-      return fetchWithReadRetry(input, init, requestMeta);
+      return fetchWithReadRetry(input, effectiveInit, requestMeta);
     }
 
     const now = Date.now();
@@ -66,7 +133,7 @@
     if (existing) entries.delete(key);
 
     const entry = { settledAt: 0, promise: null };
-    entry.promise = fetchWithReadRetry(input, init, requestMeta).then(
+    entry.promise = fetchWithReadRetry(input, effectiveInit, requestMeta).then(
       (response) => {
         entry.settledAt = Date.now();
         return response.clone();
@@ -82,4 +149,5 @@
   };
 
   window.__slevaoFacetsFetchDedupe = true;
+  window.__slevaoFacetModeFix = true;
 })();
