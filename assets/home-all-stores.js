@@ -60,20 +60,47 @@
     if (store.feed_status === 'temporarily-empty') return 'Dočasně bez nabídek';
     if (store.feed_status === 'source-blocked') return 'Nabídky teď nejsou dostupné';
     if (store.feed_status === 'not-applicable') return 'Bez online nabídky';
-    return 'Zatím bez nabídek';
+    return store.feed_status ? 'Zatím bez nabídek' : '';
   }
 
-  async function loadStores() {
-    const query = new URLSearchParams({
-      select: 'store_id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score',
-      is_active: 'eq.true',
-    });
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/public_store_feed_health?${query}`, {
+  async function fetchJson(url) {
+    const response = await fetch(url, {
       headers: { apikey: SUPABASE_KEY },
       cache: 'no-store',
     });
-    if (!response.ok) throw new Error(`Stav obchodů vrátil HTTP ${response.status}.`);
-    stores = sortStores((await response.json()).filter((store) => store?.slug && store?.name));
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function loadStores() {
+    const healthQuery = new URLSearchParams({
+      select: 'store_id,name,slug,logo_url,primary_color,is_active,feed_status,current_offer_count,current_leaflet_count,image_coverage_pct,health_score',
+      is_active: 'eq.true',
+    });
+
+    let rows = [];
+    try {
+      rows = await fetchJson(`${SUPABASE_URL}/rest/v1/public_store_feed_health?${healthQuery}`);
+    } catch (error) {
+      console.warn('Stav obchodů je dočasně nedostupný, používám základní seznam obchodů:', error);
+      const fallbackQuery = new URLSearchParams({
+        select: 'id,name,slug,logo_url,primary_color,is_active',
+        is_active: 'eq.true',
+        order: 'name.asc',
+      });
+      rows = (await fetchJson(`${SUPABASE_URL}/rest/v1/stores?${fallbackQuery}`)).map((store) => ({
+        ...store,
+        store_id: store.id,
+        feed_status: null,
+        current_offer_count: null,
+        current_leaflet_count: null,
+        image_coverage_pct: null,
+        health_score: null,
+      }));
+    }
+
+    stores = sortStores(rows.filter((store) => store?.slug && store?.name));
     lastStoresRefreshAt = Date.now();
     publishStoreDirectory();
   }
