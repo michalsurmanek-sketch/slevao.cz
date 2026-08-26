@@ -54,6 +54,7 @@
       .priceRangeHint[hidden]{display:none!important}
       .pricePresets button.active{border-color:#159e94;background:#e7faf7;color:#08776f;box-shadow:0 0 0 2px rgba(21,158,148,.08)}
       .filterPanel input[aria-invalid="true"]{border-color:#d92d20!important;box-shadow:0 0 0 3px rgba(217,45,32,.08)!important}
+      .dealsSection.slSavedMode .quickTabs{display:none!important}
       @media(max-width:800px){
         body.slFilterOpen{overflow:hidden!important}
         .slFilterBackdrop{position:fixed;inset:0;z-index:109;background:rgba(13,30,28,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
@@ -164,6 +165,63 @@
     syncPriceUi();
   }
 
+  function initSavedModeUi() {
+    const button = document.getElementById('savedButton');
+    const deals = document.getElementById('dealsSection');
+    if (!button || !deals) return;
+    const sync = () => deals.classList.toggle('slSavedMode', button.getAttribute('aria-pressed') === 'true');
+    new MutationObserver(sync).observe(button, { attributes:true, attributeFilter:['aria-pressed','class'] });
+    sync();
+  }
+
+  function initQuickTabAria() {
+    const tabs = document.getElementById('quickTabs');
+    if (!tabs) return;
+    const sync = () => {
+      tabs.querySelectorAll('[data-mode]').forEach((button) => {
+        const active = button.classList.contains('active');
+        button.setAttribute('aria-selected', String(active));
+        button.tabIndex = active ? 0 : -1;
+      });
+    };
+    new MutationObserver(sync).observe(tabs, { subtree:true, attributes:true, attributeFilter:['class'] });
+    sync();
+  }
+
+  function alignInitialRecommendedFacets() {
+    if (new URLSearchParams(location.search).get('q')?.trim()) return;
+    let userInteracted = false;
+    let aligned = false;
+    const markInteraction = (event) => {
+      if (event.isTrusted && event.target.closest?.('#quickTabs,#filterPanel,#categoryChips,#storeGrid,#savedButton')) userInteracted = true;
+    };
+    document.addEventListener('click', markInteraction, true);
+    document.addEventListener('input', markInteraction, true);
+    document.addEventListener('change', markInteraction, true);
+
+    const result = document.getElementById('resultText');
+    if (!result) return;
+    const tryAlign = () => {
+      if (aligned || userInteracted) return;
+      const ready = /zobrazeno|žádná odpovídající nabídka/i.test(result.textContent || '');
+      if (!ready) return;
+      const untouched = document.getElementById('storeSelect')?.value === 'all'
+        && document.getElementById('categorySelect')?.value === 'all'
+        && !document.getElementById('sideSearch')?.value.trim()
+        && !document.getElementById('minPrice')?.value
+        && !document.getElementById('maxPrice')?.value
+        && document.getElementById('onlyImages')?.checked === false
+        && document.getElementById('savedButton')?.getAttribute('aria-pressed') !== 'true'
+        && document.querySelector('#quickTabs [data-mode="recommended"]')?.classList.contains('active');
+      if (!untouched) return;
+      aligned = true;
+      window.__slevaoInitialFacetAligned = true;
+      document.getElementById('storeSelect')?.dispatchEvent(new Event('change', { bubbles:true }));
+    };
+    new MutationObserver(() => requestAnimationFrame(tryAlign)).observe(result, { childList:true, subtree:true, characterData:true });
+    tryAlign();
+  }
+
   function ensurePanel() {
     const quickTabs = document.getElementById('quickTabs');
     if (!quickTabs) return null;
@@ -207,13 +265,13 @@
     if (title && title.textContent !== config.title) title.textContent = config.title;
     if (subtitle && subtitle.textContent !== 'Vyber druh nebo formu. Výsledky řadíme podle ceny, úspory a platnosti.') subtitle.textContent = 'Vyber druh nebo formu. Výsledky řadíme podle ceny, úspory a platnosti.';
     panel.innerHTML = `
-      <div class="slSemanticMeta"><span>${config.icon} ${config.label}</span><i></i><span>${selectedLabel}</span><i></i><strong>${countLabel(count)}</strong></div>
+      <div class="slSemanticMeta" aria-live="polite"><span>${config.icon} ${config.label}</span><i></i><span>${selectedLabel}</span><i></i><strong>${countLabel(count)}</strong></div>
       <div class="slSemanticRow slSemanticTypes" role="group" aria-label="Druh ${config.label.toLowerCase()}">
-        ${config.types.map(([value,label]) => `<button type="button" data-semantic-query="${value}" class="${query === fold(value) ? 'active' : ''}">${label}</button>`).join('')}
+        ${config.types.map(([value,label]) => `<button type="button" data-semantic-query="${value}" aria-pressed="${query === fold(value)}" class="${query === fold(value) ? 'active' : ''}">${label}</button>`).join('')}
       </div>
       <div class="slSemanticBottom">
         <div class="slSemanticRow slSemanticForms" role="group" aria-label="Forma produktu">
-          ${config.forms.map(([value,label,icon]) => `<button type="button" data-semantic-query="${value}" class="${query === fold(value) ? 'active' : ''}"><span aria-hidden="true">${icon}</span>${label}</button>`).join('')}
+          ${config.forms.map(([value,label,icon]) => `<button type="button" data-semantic-query="${value}" aria-pressed="${query === fold(value)}" class="${query === fold(value) ? 'active' : ''}"><span aria-hidden="true">${icon}</span>${label}</button>`).join('')}
         </div>
         <div class="slSemanticInfo"><span aria-hidden="true">♧</span>${config.info}</div>
       </div>`;
@@ -223,6 +281,9 @@
   function init() {
     ensurePanel();
     initFilterUx();
+    initSavedModeUi();
+    initQuickTabAria();
+    alignInitialRecommendedFacets();
     search()?.addEventListener('input', () => requestAnimationFrame(render));
     document.getElementById('q')?.addEventListener('change', () => requestAnimationFrame(render));
     const observed = document.getElementById('resultText');
