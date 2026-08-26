@@ -74,6 +74,105 @@ async function sha(value: string) {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
+async function tescoStoreId() {
+  const { data, error } = await db.from('stores').select('id').eq('slug', 'tesco').single();
+  if (error || !data?.id) throw error || new Error('Tesco store nebyl nalezen.');
+  return String(data.id);
+}
+
+async function reusableSnapshot(storeId: string, leaflet: Awaited<ReturnType<typeof currentLeaflet>>) {
+  const { data: state, error: stateError } = await db.from('store_product_sync_state')
+    .select('store_id,last_source_signature,last_offer_count,metadata,last_valid_from,last_valid_to,is_running,parser_version,last_import_id,last_published_count,health_status')
+    .eq('store_id', storeId)
+    .maybeSingle();
+  if (stateError) throw stateError;
+  if (!state) return null;
+
+  const metadata = state.metadata && typeof state.metadata === 'object' && !Array.isArray(state.metadata) ? state.metadata : {};
+  const expectedCount = Number(state.last_published_count ?? state.last_offer_count ?? 0);
+  if (metadata.tesco_leaflet_fingerprint !== leaflet.fingerprint) return null;
+  if (state.parser_version !== ADAPTER || state.health_status !== 'ok' || state.is_running === true) return null;
+  if (clean(state.last_valid_from) !== leaflet.validFrom || clean(state.last_valid_to) !== leaflet.validTo) return null;
+  if (!Number.isFinite(expectedCount) || expectedCount < 20 || expectedCount > 50) return null;
+  if (!state.last_import_id || !state.last_source_signature) return null;
+
+  const { data: lastImport, error: importError } = await db.from('leaflet_imports')
+    .select('id,status,source_document_url,detected_valid_from,detected_valid_to,metadata')
+    .eq('id', state.last_import_id)
+    .maybeSingle();
+  if (importError) throw importError;
+  if (!lastImport || lastImport.status !== 'published' || clean(lastImport.source_document_url) !== leaflet.pdfUrl) return null;
+  if (clean(lastImport.detected_valid_from) !== leaflet.validFrom || clean(lastImport.detected_valid_to) !== leaflet.validTo) return null;
+  const importMetadata = lastImport.metadata && typeof lastImport.metadata === 'object' && !Array.isArray(lastImport.metadata) ? lastImport.metadata : {};
+  if (importMetadata.adapter !== ADAPTER || importMetadata.parser_version !== ADAPTER || clean(importMetadata.source_signature) !== clean(state.last_source_signature)) return null;
+
+  const { count: itemCount, error: itemError } = await db.from('leaflet_import_items')
+    .select('id', { head: true, count: 'exact' })
+    .eq('import_id', lastImport.id);
+  if (itemError) throw itemError;
+  if (Number(itemCount) !== expectedCount) return null;
+
+  const { count: offerCount, error: offerError } = await db.from('offers')
+    .select('id', { head: true, count: 'exact' })
+    .eq('store_id', storeId)
+    .eq('status', 'published')
+    .eq('is_verified', true)
+    .eq('valid_from', leaflet.validFrom)
+    .eq('valid_to', leaflet.validTo)
+    .contains('metadata', { parser: ADAPTER });
+  if (offerError) throw offerError;
+  if (Number(offerCount) !== expectedCount) return null;
+
+  return { state, metadata, expectedCount, itemCount: Number(itemCount), offerCount: Number(offerCount) };
+}
+
+async function touchReusableSnapshot(storeId: string, metadata: Record<string, unknown>, leaflet: Awaited<ReturnType<typeof currentLeaflet>>, count: number) {
+  const checkedAt = new Date().toISOString();
+  const nextMetadata = {
+    ...metadata,
+    tesco_leaflet_fingerprint: leaflet.fingerprint,
+    tesco_leaflet_id: leaflet.leafletId,
+    tesco_pdf_url: leaflet.pdfUrl,
+    tesco_viewer_url: leaflet.viewer,
+    tesco_page_count: leaflet.pageCount,
+    tesco_valid_from: leaflet.validFrom,
+    tesco_valid_to: leaflet.validTo,
+    tesco_checked_at: checkedAt,
+    tesco_fast_path_at: checkedAt,
+  };
+  const { error } = await db.from('store_product_sync_state').update({
+    last_run_at: checkedAt,
+    last_success_at: checkedAt,
+    last_error: null,
+    health_status: 'ok',
+    health_reason: `Tesco HM leták ${leaflet.validFrom}–${leaflet.validTo} se nezměnil; zachováno ${count} ověřených nabídek.`,
+    metadata: nextMetadata,
+  }).eq('store_id', storeId);
+  if (error) throw error;
+}
+
+async function persistLeafletFingerprint(storeId: string, leaflet: Awaited<ReturnType<typeof currentLeaflet>>) {
+  const { data: state, error: readError } = await db.from('store_product_sync_state').select('metadata').eq('store_id', storeId).maybeSingle();
+  if (readError) throw readError;
+  const metadata = state?.metadata && typeof state.metadata === 'object' && !Array.isArray(state.metadata) ? state.metadata : {};
+  const checkedAt = new Date().toISOString();
+  const { error } = await db.from('store_product_sync_state').update({
+    metadata: {
+      ...metadata,
+      tesco_leaflet_fingerprint: leaflet.fingerprint,
+      tesco_leaflet_id: leaflet.leafletId,
+      tesco_pdf_url: leaflet.pdfUrl,
+      tesco_viewer_url: leaflet.viewer,
+      tesco_page_count: leaflet.pageCount,
+      tesco_valid_from: leaflet.validFrom,
+      tesco_valid_to: leaflet.validTo,
+      tesco_checked_at: checkedAt,
+      tesco_full_parse_at: checkedAt,
+    },
+  }).eq('store_id', storeId);
+  if (error) throw error;
+}
+
 async function runParser(leaflet: Awaited<ReturnType<typeof currentLeaflet>>) {
   const response = await fetch(PARSER_URL, {
     method: 'POST', headers: { authorization: `Bearer ${SERVICE}`, 'content-type': 'application/json' },
@@ -117,16 +216,79 @@ Deno.serve(async (req) => {
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!allowed(req)) return json({ error: 'Unauthorized' }, 401);
   try {
-    const body = await req.json().catch(() => ({})); const dryRun = body.dry_run !== false; const before = await currentLeaflet(); const today = todayPrague();
+    const body = await req.json().catch(() => ({}));
+    const dryRun = body.dry_run !== false;
+    const before = await currentLeaflet();
+    const today = todayPrague();
     if (today < before.validFrom || today > before.validTo) throw new Error(`Tesco HM leták ${before.validFrom}–${before.validTo} dnes neplatí.`);
-    const parsed = await runParser(before); const after = await leafletFromViewer(before.viewer); if (before.fingerprint !== after.fingerprint) throw new Error('Tesco leták se během běhu změnil; snapshot nebyl publikován.');
-    const rows = await structuredRows(parsed.rows, before); if (rows.length < 20 || rows.length > 50) throw new Error(`Tesco v16 bezpečný snapshot má ${rows.length} produktů; povolený rozsah je 20–50.`);
-    const rowSignature = rows.map((r) => `${r.external_id}:${r.price}:${r.old_price ?? ''}`).join('|'); const signature = await sha(`${ADAPTER}|${before.fingerprint}|${rowSignature}`);
-    const summary = { ok: true, dry_run: dryRun, adapter: ADAPTER, snapshot_pinned: true, leaflet_id: before.leafletId, viewer_url: before.viewer, pdf_url: before.pdfUrl, valid_from: before.validFrom, valid_to: before.validTo,
-      page_count: before.pageCount, parser_row_count: Number(parsed.row_count) || parsed.rows.length, safe_row_count: rows.length, signature,
-      sample: rows.slice(0, 50).map((r) => ({ title: r.title, price: r.price, old_price: r.old_price, source_page: r.source_page, quantity_text: r.quantity_text, confidence: r.confidence, evidence: r.metadata.evidence })) };
+
+    const storeId = await tescoStoreId();
+    const reusable = await reusableSnapshot(storeId, before);
+    if (reusable) {
+      const after = await leafletFromViewer(before.viewer);
+      if (before.fingerprint !== after.fingerprint) throw new Error('Tesco leták se během fast-path kontroly změnil; nic nebylo publikováno.');
+      if (!dryRun) await touchReusableSnapshot(storeId, reusable.metadata, before, reusable.expectedCount);
+      return json({
+        ok: true,
+        dry_run: dryRun,
+        adapter: ADAPTER,
+        snapshot_pinned: true,
+        no_change: true,
+        parser_skipped: true,
+        leaflet_id: before.leafletId,
+        viewer_url: before.viewer,
+        pdf_url: before.pdfUrl,
+        valid_from: before.validFrom,
+        valid_to: before.validTo,
+        page_count: before.pageCount,
+        safe_row_count: reusable.expectedCount,
+        import_item_count: reusable.itemCount,
+        published_offer_count: reusable.offerCount,
+        signature: clean(reusable.state.last_source_signature),
+      });
+    }
+
+    const parsed = await runParser(before);
+    const after = await leafletFromViewer(before.viewer);
+    if (before.fingerprint !== after.fingerprint) throw new Error('Tesco leták se během běhu změnil; snapshot nebyl publikován.');
+    const rows = await structuredRows(parsed.rows, before);
+    if (rows.length < 20 || rows.length > 50) throw new Error(`Tesco v16 bezpečný snapshot má ${rows.length} produktů; povolený rozsah je 20–50.`);
+    const rowSignature = rows.map((r) => `${r.external_id}:${r.price}:${r.old_price ?? ''}`).join('|');
+    const signature = await sha(`${ADAPTER}|${before.fingerprint}|${rowSignature}`);
+    const summary = {
+      ok: true,
+      dry_run: dryRun,
+      adapter: ADAPTER,
+      snapshot_pinned: true,
+      no_change: false,
+      parser_skipped: false,
+      leaflet_id: before.leafletId,
+      viewer_url: before.viewer,
+      pdf_url: before.pdfUrl,
+      valid_from: before.validFrom,
+      valid_to: before.validTo,
+      page_count: before.pageCount,
+      parser_row_count: Number(parsed.row_count) || parsed.rows.length,
+      safe_row_count: rows.length,
+      signature,
+      sample: rows.slice(0, 50).map((r) => ({ title: r.title, price: r.price, old_price: r.old_price, source_page: r.source_page, quantity_text: r.quantity_text, confidence: r.confidence, evidence: r.metadata.evidence })),
+    };
     if (dryRun) return json(summary);
-    const { data, error } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'tesco', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 20, p_max_products: 50, p_source_document_url: before.pdfUrl, p_parser_version: ADAPTER });
-    if (error) throw error; return json({ ...summary, dry_run: false, publish: data });
-  } catch (error) { return json({ ok: false, adapter: ADAPTER, error: error instanceof Error ? error.message : String(error) }, 500); }
+
+    const { data, error } = await db.rpc('publish_structured_store_offers', {
+      p_store_slug: 'tesco',
+      p_adapter: ADAPTER,
+      p_signature: signature,
+      p_rows: rows,
+      p_min_products: 20,
+      p_max_products: 50,
+      p_source_document_url: before.pdfUrl,
+      p_parser_version: ADAPTER,
+    });
+    if (error) throw error;
+    await persistLeafletFingerprint(storeId, before);
+    return json({ ...summary, dry_run: false, publish: data, fingerprint_seeded: true });
+  } catch (error) {
+    return json({ ok: false, adapter: ADAPTER, error: error instanceof Error ? error.message : String(error) }, 500);
+  }
 });
