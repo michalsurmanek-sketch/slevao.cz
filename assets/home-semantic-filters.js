@@ -1,6 +1,8 @@
 (() => {
   'use strict';
 
+  const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
+  const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
   const CONFIG = {
     pivo: { label:'Pivo', title:'Pivo v akci', info:'Zobrazujeme jen pivo a pivní nápoje podle zvoleného filtru', icon:'🍺', types:[['pivo','Vše'],['lezak','Ležáky'],['vycepni pivo','Výčepní'],['nealkoholicke pivo','Nealkoholické'],['radler','Radlery']], forms:[['pivo','Všechna','♧'],['pivo plech','Plechovky','▣'],['pivo lahev','Lahve','◒'],['multipack pivo','Multipacky','▱']] },
@@ -18,6 +20,11 @@
     ALIASES.set(base, base);
     [...config.types, ...config.forms].forEach(([query]) => ALIASES.set(fold(query), base));
   });
+
+  let semanticCountRequestVersion = 0;
+  let semanticCountFingerprint = '';
+  let semanticCountCache = new Map();
+  let semanticCountTimer = 0;
 
   const search = () => document.getElementById('sideSearch');
   const currentQuery = () => fold(search()?.value || document.getElementById('q')?.value || '');
@@ -44,6 +51,125 @@
     return `${count} nabídek`;
   }
 
+  function nullableSelect(id) {
+    const value = document.getElementById(id)?.value || '';
+    return !value || value === 'all' ? null : value;
+  }
+
+  function nullableNumber(id) {
+    const value = document.getElementById(id)?.value ?? '';
+    if (value === '') return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? Math.max(0,number) : null;
+  }
+
+  function semanticCountContext(base, config) {
+    const queries = [...new Set([...config.types, ...config.forms].map(([query]) => query))];
+    const payload = {
+      p_queries:queries,
+      p_include_upcoming:true,
+      p_store_slug:nullableSelect('storeSelect'),
+      p_min_price:nullableNumber('minPrice'),
+      p_max_price:nullableNumber('maxPrice'),
+      p_only_images:Boolean(document.getElementById('onlyImages')?.checked),
+      p_filter_group:nullableSelect('categorySelect'),
+      p_region_code:nullableSelect('regionSelect'),
+      p_city_name:nullableSelect('citySelect')
+    };
+    return { payload, fingerprint:JSON.stringify([base,payload]) };
+  }
+
+  function semanticLabelMap(config) {
+    return new Map([...config.types, ...config.forms].map(([query,label]) => [query,label]));
+  }
+
+  function clearSemanticCountUi() {
+    document.querySelectorAll('#slSemanticPanel [data-semantic-query]').forEach((button) => {
+      button.querySelector('.slSemanticCount')?.remove();
+      button.disabled = false;
+      button.classList.remove('is-empty');
+      button.removeAttribute('title');
+    });
+  }
+
+  function applySemanticCounts(base, config, counts) {
+    const panel = document.getElementById('slSemanticPanel');
+    if (!panel || panel.dataset.semanticBase !== base) return;
+    const labels = semanticLabelMap(config);
+    panel.querySelectorAll('[data-semantic-query]').forEach((button) => {
+      const query = button.dataset.semanticQuery || '';
+      const count = counts.get(query);
+      if (!Number.isFinite(count)) return;
+      let badge = button.querySelector('.slSemanticCount');
+      if (!badge) {
+        badge = document.createElement('small');
+        badge.className = 'slSemanticCount';
+        badge.setAttribute('aria-hidden','true');
+        button.appendChild(badge);
+      }
+      badge.textContent = Number(count).toLocaleString('cs-CZ');
+      const active = button.classList.contains('active');
+      const empty = count === 0;
+      button.disabled = empty && !active;
+      button.classList.toggle('is-empty', empty);
+      button.setAttribute('aria-label', `${labels.get(query) || query}: ${countLabel(count)}`);
+      if (empty && !active) button.title = 'Momentálně bez odpovídajících nabídek';
+      else button.removeAttribute('title');
+    });
+  }
+
+  function resetSemanticCountState() {
+    semanticCountRequestVersion += 1;
+    window.clearTimeout(semanticCountTimer);
+    semanticCountFingerprint = '';
+    semanticCountCache = new Map();
+    clearSemanticCountUi();
+  }
+
+  function scheduleSemanticCounts(base, config) {
+    if (document.getElementById('savedButton')?.getAttribute('aria-pressed') === 'true') {
+      resetSemanticCountState();
+      return;
+    }
+
+    const { payload, fingerprint } = semanticCountContext(base, config);
+    if (fingerprint === semanticCountFingerprint && semanticCountCache.size) {
+      applySemanticCounts(base, config, semanticCountCache);
+      return;
+    }
+
+    semanticCountFingerprint = fingerprint;
+    semanticCountCache = new Map();
+    const version = ++semanticCountRequestVersion;
+    window.clearTimeout(semanticCountTimer);
+    semanticCountTimer = window.setTimeout(async () => {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), 8000);
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/get_public_semantic_filter_counts`, {
+          method:'POST',
+          headers:{ apikey:SUPABASE_KEY, 'content-type':'application/json', accept:'application/json' },
+          body:JSON.stringify(payload),
+          cache:'no-store',
+          signal:controller.signal
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const rows = await response.json();
+        if (version !== semanticCountRequestVersion) return;
+        const current = semanticCountContext(base, config);
+        if (current.fingerprint !== fingerprint) return;
+        const panel = document.getElementById('slSemanticPanel');
+        if (!panel || panel.dataset.semanticBase !== base) return;
+        semanticCountCache = new Map((Array.isArray(rows) ? rows : []).map((row) => [String(row.query || ''), Number(row.total_count || 0)]));
+        applySemanticCounts(base, config, semanticCountCache);
+      } catch (error) {
+        if (error?.name !== 'AbortError') console.warn('Počty podfiltrů se nepodařilo načíst:', error);
+      } finally {
+        window.clearTimeout(timer);
+      }
+    }, 70);
+  }
+
   function ensureFilterUxStyles() {
     if (document.getElementById('slFilterUxStyles')) return;
     const style = document.createElement('style');
@@ -55,6 +181,11 @@
       .pricePresets button.active{border-color:#159e94;background:#e7faf7;color:#08776f;box-shadow:0 0 0 2px rgba(21,158,148,.08)}
       .filterPanel input[aria-invalid="true"]{border-color:#d92d20!important;box-shadow:0 0 0 3px rgba(217,45,32,.08)!important}
       .dealsSection.slSavedMode .quickTabs{display:none!important}
+      .slSemanticCount{display:inline-grid;place-items:center;min-width:22px;height:19px;margin-left:3px;padding:0 5px;border-radius:999px;background:#eef4f3;color:#657371;font-size:9.5px;font-weight:850;line-height:1}
+      .slSemanticRow button.active .slSemanticCount{background:rgba(255,255,255,.2);color:inherit}
+      .slSemanticForms button.active .slSemanticCount{background:#d9f3ef;color:#08776f}
+      .slSemanticRow button:disabled{cursor:not-allowed;opacity:.48;transform:none!important;box-shadow:none!important}
+      .slSemanticRow button:disabled .slSemanticCount{background:#f1f3f3;color:#8c9695}
       @media(max-width:800px){
         body.slFilterOpen{overflow:hidden!important}
         .slFilterBackdrop{position:fixed;inset:0;z-index:109;background:rgba(13,30,28,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
@@ -169,7 +300,11 @@
     const button = document.getElementById('savedButton');
     const deals = document.getElementById('dealsSection');
     if (!button || !deals) return;
-    const sync = () => deals.classList.toggle('slSavedMode', button.getAttribute('aria-pressed') === 'true');
+    const sync = () => {
+      const saved = button.getAttribute('aria-pressed') === 'true';
+      deals.classList.toggle('slSavedMode', saved);
+      if (saved) resetSemanticCountState();
+    };
     new MutationObserver(sync).observe(button, { attributes:true, attributeFilter:['aria-pressed','class'] });
     sync();
   }
@@ -234,7 +369,7 @@
       quickTabs.parentNode.insertBefore(panel, quickTabs);
       panel.addEventListener('click', (event) => {
         const button = event.target.closest('[data-semantic-query]');
-        if (button) selectQuery(button.dataset.semanticQuery || '');
+        if (button && !button.disabled) selectQuery(button.dataset.semanticQuery || '');
       });
     }
     return panel;
@@ -250,6 +385,7 @@
       deals.classList.remove('slSemanticActive');
       panel.dataset.semanticBase = '';
       panel.hidden = true;
+      resetSemanticCountState();
       document.dispatchEvent(new CustomEvent('slevao:semantic-filter', { detail:{ base:'' } }));
       return;
     }
@@ -275,6 +411,7 @@
         </div>
         <div class="slSemanticInfo"><span aria-hidden="true">♧</span>${config.info}</div>
       </div>`;
+    scheduleSemanticCounts(base, config);
     document.dispatchEvent(new CustomEvent('slevao:semantic-filter', { detail:{ base } }));
   }
 
