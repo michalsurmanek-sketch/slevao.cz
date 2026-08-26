@@ -3,6 +3,7 @@
 import datetime
 import json
 import os
+import urllib.error
 import urllib.parse
 import urllib.request
 from zoneinfo import ZoneInfo
@@ -15,7 +16,7 @@ EXPECTED_PAGES = 32
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
 
 worker.ENGINE = "tesseract-cli-ces-tesco-v1"
-worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.0"
+worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.1"
 worker.MAX_PAGES = 0
 _api = worker.api
 _target = None
@@ -38,6 +39,26 @@ def request(url: str):
     )
 
 
+def source_sync():
+    url = f"{worker.SUPABASE_URL}/functions/v1/sync-tesco-ocr-source"
+    headers = worker.server_headers()
+    headers.update({
+        "Authorization": f"Bearer {worker.SERVICE_ROLE_KEY}",
+        "Content-Type": "application/json",
+    })
+    req = urllib.request.Request(url, data=b"{}", headers=headers, method="POST")
+    try:
+        with urllib.request.urlopen(req, timeout=90) as response:
+            raw = response.read().decode("utf-8", "replace")
+            payload = json.loads(raw) if raw else {}
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:2000]
+        raise RuntimeError(f"Tesco OCR source sync HTTP {exc.code}: {detail}") from exc
+    if not isinstance(payload, dict) or not payload.get("ok") or not payload.get("import_id"):
+        raise RuntimeError(f"Tesco OCR source sync failed: {payload}")
+    return payload
+
+
 def validate_page_url(url: str, page_number: int):
     parsed = urllib.parse.urlparse(url)
     if parsed.scheme != "https" or parsed.hostname != "digitalcontent.api.tesco.com":
@@ -47,10 +68,7 @@ def validate_page_url(url: str, page_number: int):
 
 
 def ensure_target():
-    synced = _api("POST", "/functions/v1/sync-tesco-ocr-source", {})
-    if not isinstance(synced, dict) or not synced.get("ok") or not synced.get("import_id"):
-        raise RuntimeError(f"Tesco OCR source sync failed: {synced}")
-
+    synced = source_sync()
     import_id = str(synced["import_id"])
     params = urllib.parse.urlencode({
         "id": f"eq.{import_id}",
@@ -105,7 +123,8 @@ def api(method, path, body=None, extra_headers=None):
 
 
 def direct_download(image_url: str, destination: str):
-    validate_page_url(image_url, int(os.path.basename(destination).split("-")[-1].split(".")[0]))
+    page_number = int(os.path.basename(destination).split("-")[-1].split(".")[0])
+    validate_page_url(image_url, page_number)
     with urllib.request.urlopen(request(image_url), timeout=90) as response, open(destination, "wb") as output:
         content_type = (response.headers.get("content-type") or "").lower()
         if response.status != 200 or not content_type.startswith("image/"):
