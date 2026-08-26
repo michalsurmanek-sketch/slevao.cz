@@ -6,6 +6,7 @@ sync-jip-pack-products and becomes a no-op once that import is OCR-complete.
 import json
 import os
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import datetime
@@ -108,22 +109,43 @@ def direct_download(image_url: str, destination: str):
     parsed = urllib.parse.urlparse(image_url)
     if parsed.scheme != "https" or parsed.hostname != "www.jip-potraviny.cz":
         raise RuntimeError("Disallowed JIP image URL")
-    request = urllib.request.Request(
-        image_url,
-        headers={
-            "User-Agent": worker.SUPABASE_USER_AGENT,
-            "Accept": "image/jpeg,image/png,image/webp,*/*",
-        },
-    )
-    with urllib.request.urlopen(request, timeout=90) as response, open(destination, "wb") as output:
-        content_type = (response.headers.get("content-type") or "").lower()
-        if not content_type.startswith("image/"):
-            raise RuntimeError(f"JIP page is not an image: {content_type}")
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
+
+    last_error = None
+    for attempt in range(1, 5):
+        request = urllib.request.Request(
+            image_url,
+            headers={
+                "User-Agent": worker.SUPABASE_USER_AGENT,
+                "Accept": "image/jpeg,image/png,image/webp,*/*",
+                "Cache-Control": "no-cache",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response, open(destination, "wb") as output:
+                content_type = (response.headers.get("content-type") or "").lower()
+                if not content_type.startswith("image/"):
+                    raise RuntimeError(f"JIP page is not an image: {content_type}")
+                while True:
+                    chunk = response.read(1024 * 1024)
+                    if not chunk:
+                        break
+                    output.write(chunk)
+            if os.path.getsize(destination) <= 0:
+                raise RuntimeError("JIP page download returned an empty file")
+            return
+        except (TimeoutError, urllib.error.URLError, urllib.error.HTTPError, RuntimeError) as exc:
+            last_error = exc
+            try:
+                os.remove(destination)
+            except FileNotFoundError:
+                pass
+            if attempt >= 4:
                 break
-            output.write(chunk)
+            delay = min(15, attempt * 4)
+            print(f"JIP image retry {attempt}/4 after {type(exc).__name__}: {exc}; sleep {delay}s", flush=True)
+            worker.time.sleep(delay)
+
+    raise RuntimeError(f"JIP image download failed after 4 attempts: {last_error}")
 
 
 worker.api = api
