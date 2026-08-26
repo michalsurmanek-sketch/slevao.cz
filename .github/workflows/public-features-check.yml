@@ -44,6 +44,7 @@ on:
       - 'supabase/functions/sync-rossmann-source/index.ts'
       - 'supabase/functions/sync-flop-pdf-products/index.ts'
       - 'supabase/functions/sync-globus-products/index.ts'
+      - 'supabase/functions/debug-jip-main-price-v5/**'
       - 'supabase/functions/sync-jip-pack-products/index.ts'
       - 'supabase/functions/sync-jip-html-consensus-products/index.ts'
       - 'supabase/functions/sync-kik-source/index.ts'
