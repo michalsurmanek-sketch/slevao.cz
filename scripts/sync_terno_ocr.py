@@ -93,7 +93,9 @@ def file_sha256(path: str):
 
 
 def parse_tsv(tsv: str):
-    reader = csv.DictReader(io.StringIO(tsv), delimiter="\t")
+    # Tesseract's text column may itself contain quote characters. Treat them as
+    # ordinary OCR data; CSV quote folding can otherwise merge many TSV rows.
+    reader = csv.DictReader(io.StringIO(tsv), delimiter="\t", quoting=csv.QUOTE_NONE)
     words = []
     line_words = defaultdict(list)
     confidences = []
