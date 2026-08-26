@@ -11,7 +11,7 @@ const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 
 // Tyto obchody mají vlastní synchronizátory spuštěné z run-leaflet-import.
 // Generický průzkum by u nich vytvářel duplicitní nebo nesouvisející importy.
-const SPECIALIZED_SOURCE_SLUGS = new Set(['coop', 'hruska']);
+const SPECIALIZED_SOURCE_SLUGS = new Set(['coop', 'hruska', 'tesco']);
 
 const BROWSER_HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0.0.0 Safari/537.36',
