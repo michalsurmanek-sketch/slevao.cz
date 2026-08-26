@@ -32,6 +32,7 @@
 
   function countFromToolbar() {
     const text = document.getElementById('resultText')?.textContent || '';
+    if (/žádná odpovídající nabídka/i.test(text)) return 0;
     const match = text.match(/z\s+(\d[\d\s]*)\s+nab/i) || text.match(/(\d[\d\s]*)\s+nab/i);
     return match ? Number(match[1].replace(/\s/g,'')) : null;
   }
