@@ -16,7 +16,7 @@ EXPECTED_PAGES = 32
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
 
 worker.ENGINE = "tesseract-cli-ces-tesco-v2"
-worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.2"
+worker.SUPABASE_USER_AGENT = "slevao-github-actions-tesco-ocr/2.3"
 worker.MAX_PAGES = 0
 _api = worker.api
 _target = None
@@ -123,17 +123,44 @@ def api(method, path, body=None, extra_headers=None):
 
 
 def direct_download(image_url: str, destination: str):
+    from PIL import Image, ImageOps
+
     page_number = int(os.path.basename(destination).split("-")[-1].split(".")[0])
     validate_page_url(image_url, page_number)
-    with urllib.request.urlopen(request(image_url), timeout=90) as response, open(destination, "wb") as output:
-        content_type = (response.headers.get("content-type") or "").lower()
-        if response.status != 200 or not content_type.startswith("image/"):
-            raise RuntimeError(f"Tesco page is not an image: HTTP {response.status}, {content_type}")
-        while True:
-            chunk = response.read(1024 * 1024)
-            if not chunk:
-                break
-            output.write(chunk)
+    raw_path = f"{destination}.download"
+    normalized_path = f"{destination}.normalized.jpg"
+    try:
+        with urllib.request.urlopen(request(image_url), timeout=90) as response, open(raw_path, "wb") as output:
+            content_type = (response.headers.get("content-type") or "").lower()
+            if response.status != 200 or not content_type.startswith("image/"):
+                raise RuntimeError(f"Tesco page is not an image: HTTP {response.status}, {content_type}")
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                output.write(chunk)
+
+        with Image.open(raw_path) as source:
+            source.load()
+            image = ImageOps.exif_transpose(source)
+            width, height = image.size
+            if width < 500 or height < 700 or width > 10000 or height > 10000:
+                raise RuntimeError(f"Tesco page {page_number} has unsafe dimensions {width}x{height}")
+            if width * height > 50_000_000:
+                raise RuntimeError(f"Tesco page {page_number} is too large: {width}x{height}")
+            rgb = image.convert("RGB")
+            rgb.save(normalized_path, format="JPEG", quality=95, optimize=False, progressive=False)
+
+        if os.path.getsize(normalized_path) < 50_000:
+            raise RuntimeError(f"Tesco page {page_number} normalized image is unexpectedly small")
+        os.replace(normalized_path, destination)
+    finally:
+        for path in (raw_path, normalized_path):
+            try:
+                if os.path.exists(path):
+                    os.remove(path)
+            except OSError:
+                pass
 
 
 worker.api = api
