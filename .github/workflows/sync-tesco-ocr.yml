@@ -42,13 +42,14 @@ jobs:
       - name: Ověřit Python syntax
         run: python3 -m py_compile scripts/sync_tesco_ocr.py scripts/sync_terno_ocr.py
 
-      - name: Nainstalovat český Tesseract
+      - name: Nainstalovat český Tesseract a dekodér obrázků
         shell: bash
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng python3-pil
           tesseract --version | head -1
           tesseract --list-langs | grep -E '^(ces|eng)$'
+          python3 -c "from PIL import Image; print('Pillow', Image.__version__)"
 
       - name: Načíst kanonický Apollo zdroj, provést OCR a uložit souřadnice
         run: python3 scripts/sync_tesco_ocr.py
