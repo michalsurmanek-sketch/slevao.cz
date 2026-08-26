@@ -13,8 +13,18 @@ from zoneinfo import ZoneInfo
 
 import sync_terno_ocr as worker
 
-worker.ENGINE = "tesseract-cli-ces-jip-v1"
-worker.SUPABASE_USER_AGENT = "slevao-github-actions-jip-ocr/1.0"
+# Tesseract TSV is a raw tab-separated format; OCR text can legitimately be a
+# quote character. csv.DictReader's default quote handling would otherwise
+# merge many subsequent TSV rows into one corrupted word after an unmatched ".
+_original_dict_reader = worker.csv.DictReader
+
+def _tsv_dict_reader_no_quotes(*args, **kwargs):
+    kwargs.setdefault("quoting", worker.csv.QUOTE_NONE)
+    return _original_dict_reader(*args, **kwargs)
+
+worker.csv.DictReader = _tsv_dict_reader_no_quotes
+worker.ENGINE = "tesseract-cli-ces-jip-v2"
+worker.SUPABASE_USER_AGENT = "slevao-github-actions-jip-ocr/2.0"
 
 _original_api = worker.api
 _target_cache = None
@@ -56,7 +66,7 @@ def jip_target():
         source_url = str(row.get("source_document_url") or "")
         if metadata.get("ocr_required") is not True:
             continue
-        if metadata.get("ocr_complete") is True:
+        if metadata.get("ocr_complete") is True and metadata.get("ocr_engine") == worker.ENGINE:
             continue
         if not isinstance(page_urls, list) or len(page_urls) != 12:
             continue
