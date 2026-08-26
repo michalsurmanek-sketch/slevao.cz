@@ -4,6 +4,8 @@ import fs from 'node:fs';
 const source = fs.readFileSync('supabase/functions/sync-kik-source/index.ts', 'utf8');
 const products = fs.readFileSync('supabase/functions/sync-kik-products/index.ts', 'utf8');
 const migration = fs.readFileSync('supabase/migrations/20260823192124_restore_kik_official_publitas_pipeline.sql', 'utf8');
+const churnGuard = fs.readFileSync('supabase/migrations/20260825212241_kik_ignore_technical_signature_churn.sql', 'utf8');
+const canonicalGuard = fs.readFileSync('supabase/migrations/20260825212534_kik_content_guard_canonical_title.sql', 'utf8');
 
 assert.match(source, /const VIEWER_ROOT='https:\/\/letaki\.kik\.cz\/'/);
 assert.match(source, /const ADAPTER='kik-publitas-v2'/);
@@ -30,4 +32,21 @@ assert.match(migration, /\$cron\$select private\.invoke_edge_function\('sync-kik
 assert.match(migration, /\$cron\$select private\.invoke_edge_function\('sync-kik-products'/);
 assert.doesNotMatch(migration, /\$\$select private\.invoke_edge_function/);
 
-console.log('KiK official Publitas contract is protected.');
+assert.match(churnGuard, /p_store_slug='kik' and p_adapter='kik-publitas-text-v3'/);
+assert.match(churnGuard, /private\.kik_structured_rows_match_published_set\(p_rows,v_store_id,p_adapter,v_input_count\)/);
+assert.match(churnGuard, /'no_changes',true/);
+assert.match(churnGuard, /'technical_signature_ignored',true/);
+assert.match(churnGuard, /revoke all on function private\.kik_structured_rows_match_published_set/);
+assert.doesNotMatch(churnGuard, /p_store_slug='[^']+' and p_adapter='(?!kik-publitas-text-v3)/);
+
+assert.match(canonicalGuard, /public\.normalize_product_name\(trim\(coalesce\(x->>'title',''\)\)\)/);
+assert.match(canonicalGuard, /o\.external_id=e\.external_id/);
+assert.match(canonicalGuard, /o\.title=e\.title/);
+assert.match(canonicalGuard, /o\.normalized_title=e\.normalized_title/);
+assert.match(canonicalGuard, /o\.price=e\.price/);
+assert.match(canonicalGuard, /o\.valid_from=e\.valid_from/);
+assert.match(canonicalGuard, /o\.valid_to=e\.valid_to/);
+assert.match(canonicalGuard, /o\.source_url IS NOT DISTINCT FROM e\.source_url/i);
+assert.match(canonicalGuard, /o\.confidence_score=e\.confidence/);
+
+console.log('KiK official Publitas and idempotence contracts are protected.');
