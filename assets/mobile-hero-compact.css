@@ -1,0 +1,106 @@
+/* Slevao.cz – kompaktní mobilní hero bez zásahu do desktopu nebo datové logiky. */
+@media(max-width:800px){
+  html body .hero{
+    padding-top:8px!important;
+  }
+
+  html body .hero .container{
+    padding-inline:10px!important;
+  }
+
+  html body .heroCard{
+    padding:14px 14px 14px!important;
+    background:#f5fbfa!important;
+  }
+
+  html body .heroCopy{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) 116px!important;
+    grid-template-areas:
+      "eyebrow artwork"
+      "title artwork"
+      "subtitle artwork"
+      "stats stats"!important;
+    column-gap:12px!important;
+    align-items:start!important;
+  }
+
+  html body .heroCopy>.eyebrow{
+    grid-area:eyebrow!important;
+    width:max-content!important;
+    max-width:100%!important;
+    min-height:28px!important;
+    margin:0 0 7px!important;
+    padding:0 10px!important;
+    font-size:10px!important;
+    line-height:28px!important;
+  }
+
+  html body .heroCopy>h1{
+    grid-area:title!important;
+    margin:0!important;
+    font-size:clamp(29px,8.6vw,36px)!important;
+    line-height:.98!important;
+    letter-spacing:-1.25px!important;
+  }
+
+  html body .heroCopy>p{
+    grid-area:subtitle!important;
+    margin:8px 0 0!important;
+    font-size:13px!important;
+    line-height:1.35!important;
+  }
+
+  html body .heroCopy::after{
+    content:""!important;
+    display:block!important;
+    grid-area:artwork!important;
+    align-self:center!important;
+    justify-self:end!important;
+    width:116px!important;
+    height:145px!important;
+    margin:0!important;
+    border-radius:16px!important;
+    background:#eef8f6 url('/assets/hero-mobile-combined.webp?v=20260815-1') center/contain no-repeat!important;
+    -webkit-mask:none!important;
+    mask:none!important;
+    opacity:1!important;
+    transform:none!important;
+    pointer-events:none!important;
+  }
+
+  html body .heroCard .heroStats{
+    grid-area:stats!important;
+    width:100%!important;
+    margin:10px 0 0!important;
+  }
+
+  html body .heroCard .heroStats>span{
+    min-height:52px!important;
+  }
+
+  html body .heroNearbyPanel.is-nearby-collapsed{
+    margin-top:10px!important;
+  }
+}
+
+@media(max-width:360px){
+  html body .heroCard{
+    padding-inline:12px!important;
+  }
+
+  html body .heroCopy{
+    grid-template-columns:minmax(0,1fr) 102px!important;
+    column-gap:9px!important;
+  }
+
+  html body .heroCopy>h1{
+    font-size:clamp(27px,8.8vw,32px)!important;
+  }
+
+  html body .heroCopy::after{
+    width:102px!important;
+    height:128px!important;
+    border-radius:14px!important;
+  }
+}
