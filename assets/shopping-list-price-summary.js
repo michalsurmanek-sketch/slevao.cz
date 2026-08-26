@@ -21,23 +21,36 @@
     return map;
   }
 
+  function quantityOf(article) {
+    const value = Number(article.querySelector('[data-quantity]')?.value || 1);
+    return Number.isFinite(value) && value > 0 ? value : 1;
+  }
+
   function renderPrices() {
     const prices = absolutePriceMap();
     let total = 0;
     let pricedCount = 0;
     const articles = [...list.querySelectorAll('.sfListItem:not(.done)')];
+
     articles.forEach((article) => {
       article.querySelector('.sfItemPrice')?.remove();
       const name = article.querySelector('.sfItemName')?.textContent || '';
       const subtotal = prices.get(normalize(name));
-      if (!(subtotal > 0)) return;
-      total += subtotal;
-      pricedCount += 1;
+      const qty = quantityOf(article);
       const price = document.createElement('div');
       price.className = 'sfItemPrice';
-      price.textContent = money(subtotal);
-      const remove = article.querySelector('[data-delete]');
-      article.insertBefore(price, remove || null);
+
+      if (subtotal > 0) {
+        total += subtotal;
+        pricedCount += 1;
+        const unit = qty > 1 ? subtotal / qty : 0;
+        price.innerHTML = `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ks</small>` : ''}`;
+      } else {
+        price.classList.add('missing');
+        price.innerHTML = '<strong>Cena<br>nenalezena</strong>';
+      }
+
+      article.appendChild(price);
     });
 
     let summary = document.getElementById('listPriceSummary');
@@ -47,12 +60,15 @@
       summary.className = 'listPriceSummary';
       list.insertAdjacentElement('afterend', summary);
     }
-    if (!pricedCount) {
+
+    if (!articles.length) {
       summary.hidden = true;
       return;
     }
+
     summary.hidden = false;
-    summary.innerHTML = `<span><b>Celkem</b><small>${pricedCount === articles.length ? ` za ${articles.length} položek` : ` · cena nalezena u ${pricedCount} z ${articles.length}`}</small></span><strong>${money(total)}</strong>`;
+    const complete = pricedCount === articles.length;
+    summary.innerHTML = `<span><b>Celkem</b><small>${complete ? `za ${articles.length} ${articles.length === 1 ? 'položku' : 'položky'}` : `cena nalezena u ${pricedCount} z ${articles.length}`}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
   }
 
   let queued = false;
@@ -61,7 +77,9 @@
     queued = true;
     requestAnimationFrame(() => { queued = false; renderPrices(); });
   };
-  new MutationObserver(schedule).observe(list, { childList: true, subtree: true });
+
+  new MutationObserver(schedule).observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
   new MutationObserver(schedule).observe(optimizer, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
+  list.addEventListener('change', schedule);
   schedule();
 })();
