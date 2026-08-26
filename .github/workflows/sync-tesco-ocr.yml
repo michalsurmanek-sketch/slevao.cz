@@ -19,7 +19,7 @@ permissions:
 
 concurrency:
   group: tesco-ocr-apollo-fallback
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   ocr:
@@ -42,13 +42,14 @@ jobs:
       - name: Ověřit Python syntax
         run: python3 -m py_compile scripts/sync_tesco_ocr.py scripts/sync_terno_ocr.py
 
-      - name: Nainstalovat český Tesseract a dekodér obrázků
+      - name: Nainstalovat český Tesseract, dekodér obrázků a PDF renderer
         shell: bash
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng python3-pil
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng python3-pil poppler-utils
           tesseract --version | head -1
           tesseract --list-langs | grep -E '^(ces|eng)$'
+          pdftoppm -v 2>&1 | head -1
           python3 -c "from PIL import Image; print('Pillow', Image.__version__)"
 
       - name: Načíst kanonický Apollo zdroj, provést OCR a uložit souřadnice
