@@ -1,18 +1,25 @@
-name: JIP OCR (legacy manual fallback)
+name: JIP OCR and verified publication
 
 on:
   workflow_dispatch:
+  push:
+    branches: ['main']
+    paths:
+      - 'scripts/sync_jip_ocr.py'
+      - '.github/workflows/sync-jip-ocr.yml'
+  schedule:
+    - cron: '13,43 * * * *'
 
 permissions:
   contents: read
 
 concurrency:
-  group: jip-ocr-legacy-fallback
+  group: jip-ocr-current-maloobchod
   cancel-in-progress: false
 
 jobs:
   ocr:
-    name: Ruční OCR záloha JIP letáku
+    name: OCR a bezpečná publikace JIP Maloobchod
     runs-on: ubuntu-latest
     timeout-minutes: 55
     env:
@@ -36,5 +43,24 @@ jobs:
           tesseract --version | head -1
           tesseract --list-langs | grep -E '^(ces|eng)$'
 
-      - name: OCR a uložení souřadnic do Supabase
+      - name: OCR aktuálního 12stránkového Maloobchod letáku
         run: python3 scripts/sync_jip_ocr.py
+
+      - name: Publikovat pouze bezpečně ověřené JIP kandidáty
+        shell: bash
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST "$SUPABASE_URL/functions/v1/sync-jip-pack-products" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data '{"dry_run":false}' \
+            | tee /tmp/jip-pack-result.json
+          python3 - <<'PY'
+          import json
+          with open('/tmp/jip-pack-result.json', encoding='utf-8') as f:
+              result = json.load(f)
+          if not result.get('ok'):
+              raise SystemExit(f"JIP pack publication failed: {result}")
+          print(json.dumps(result, ensure_ascii=False))
+          PY
