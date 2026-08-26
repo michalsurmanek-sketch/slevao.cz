@@ -1,4 +1,4 @@
-/* Slevao.cz – kompaktní mobilní hero bez zásahu do desktopu nebo datové logiky. */
+/* Slevao.cz – mobilní hero: obrázek přes celé pozadí karty. */
 @media(max-width:800px){
   html body .hero{
     padding-top:8px!important;
@@ -10,23 +10,21 @@
 
   html body .heroCard{
     padding:14px 14px 14px!important;
-    background:#f5fbfa!important;
+    background-image:
+      linear-gradient(90deg,rgba(245,251,250,.96) 0%,rgba(245,251,250,.90) 42%,rgba(245,251,250,.58) 68%,rgba(245,251,250,.20) 100%),
+      url('/assets/hero-mobile-combined.webp?v=20260815-1')!important;
+    background-size:cover!important;
+    background-position:center center!important;
+    background-repeat:no-repeat!important;
   }
 
   html body .heroCopy{
-    display:grid!important;
-    grid-template-columns:minmax(0,1fr) 116px!important;
-    grid-template-areas:
-      "eyebrow artwork"
-      "title artwork"
-      "subtitle artwork"
-      "stats stats"!important;
-    column-gap:12px!important;
-    align-items:start!important;
+    display:block!important;
+    position:relative!important;
+    z-index:1!important;
   }
 
   html body .heroCopy>.eyebrow{
-    grid-area:eyebrow!important;
     width:max-content!important;
     max-width:100%!important;
     min-height:28px!important;
@@ -37,7 +35,7 @@
   }
 
   html body .heroCopy>h1{
-    grid-area:title!important;
+    max-width:72%!important;
     margin:0!important;
     font-size:clamp(29px,8.6vw,36px)!important;
     line-height:.98!important;
@@ -45,32 +43,18 @@
   }
 
   html body .heroCopy>p{
-    grid-area:subtitle!important;
+    max-width:58%!important;
     margin:8px 0 0!important;
     font-size:13px!important;
     line-height:1.35!important;
   }
 
   html body .heroCopy::after{
-    content:""!important;
-    display:block!important;
-    grid-area:artwork!important;
-    align-self:center!important;
-    justify-self:end!important;
-    width:116px!important;
-    height:145px!important;
-    margin:0!important;
-    border-radius:16px!important;
-    background:#eef8f6 url('/assets/hero-mobile-combined.webp?v=20260815-1') center/contain no-repeat!important;
-    -webkit-mask:none!important;
-    mask:none!important;
-    opacity:1!important;
-    transform:none!important;
-    pointer-events:none!important;
+    display:none!important;
+    content:none!important;
   }
 
   html body .heroCard .heroStats{
-    grid-area:stats!important;
     width:100%!important;
     margin:10px 0 0!important;
   }
@@ -87,20 +71,15 @@
 @media(max-width:360px){
   html body .heroCard{
     padding-inline:12px!important;
-  }
-
-  html body .heroCopy{
-    grid-template-columns:minmax(0,1fr) 102px!important;
-    column-gap:9px!important;
+    background-position:56% center!important;
   }
 
   html body .heroCopy>h1{
+    max-width:76%!important;
     font-size:clamp(27px,8.8vw,32px)!important;
   }
 
-  html body .heroCopy::after{
-    width:102px!important;
-    height:128px!important;
-    border-radius:14px!important;
+  html body .heroCopy>p{
+    max-width:64%!important;
   }
 }
