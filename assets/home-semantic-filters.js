@@ -44,6 +44,126 @@
     return `${count} nabídek`;
   }
 
+  function ensureFilterUxStyles() {
+    if (document.getElementById('slFilterUxStyles')) return;
+    const style = document.createElement('style');
+    style.id = 'slFilterUxStyles';
+    style.textContent = `
+      .slFilterBackdrop{display:none}
+      .priceRangeHint{margin:7px 0 0;color:#b42318;font-size:11px;font-weight:750;line-height:1.35}
+      .priceRangeHint[hidden]{display:none!important}
+      .pricePresets button.active{border-color:#159e94;background:#e7faf7;color:#08776f;box-shadow:0 0 0 2px rgba(21,158,148,.08)}
+      .filterPanel input[aria-invalid="true"]{border-color:#d92d20!important;box-shadow:0 0 0 3px rgba(217,45,32,.08)!important}
+      @media(max-width:800px){
+        body.slFilterOpen{overflow:hidden!important}
+        .slFilterBackdrop{position:fixed;inset:0;z-index:109;background:rgba(13,30,28,.42);backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px)}
+        .slFilterBackdrop:not([hidden]){display:block}
+        #filterPanel{box-shadow:0 -18px 60px rgba(13,30,28,.22)}
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function initFilterUx() {
+    const filterPanel = document.getElementById('filterPanel');
+    const filterToggle = document.getElementById('filterToggle');
+    const filterClose = document.getElementById('filterClose');
+    if (!filterPanel || !filterToggle) return;
+
+    ensureFilterUxStyles();
+    filterToggle.setAttribute('aria-controls','filterPanel');
+    filterClose?.setAttribute('aria-label','Zavřít filtry');
+
+    let backdrop = document.getElementById('slFilterBackdrop');
+    if (!backdrop) {
+      backdrop = document.createElement('div');
+      backdrop.id = 'slFilterBackdrop';
+      backdrop.className = 'slFilterBackdrop';
+      backdrop.hidden = true;
+      backdrop.setAttribute('aria-hidden','true');
+      document.body.appendChild(backdrop);
+    }
+
+    const mobile = window.matchMedia('(max-width:800px)');
+    const syncSheet = () => {
+      const isMobile = mobile.matches;
+      const open = isMobile && filterPanel.classList.contains('open');
+      filterToggle.setAttribute('aria-expanded', String(open));
+      document.body.classList.toggle('slFilterOpen', open);
+      backdrop.hidden = !open;
+
+      if (isMobile) {
+        filterPanel.setAttribute('aria-hidden', String(!open));
+        if ('inert' in filterPanel) filterPanel.inert = !open;
+      } else {
+        filterPanel.removeAttribute('aria-hidden');
+        if ('inert' in filterPanel) filterPanel.inert = false;
+        backdrop.hidden = true;
+        document.body.classList.remove('slFilterOpen');
+      }
+    };
+
+    const closeSheet = ({ restoreFocus = true } = {}) => {
+      filterPanel.classList.remove('open');
+      syncSheet();
+      if (restoreFocus && mobile.matches) filterToggle.focus({ preventScroll:true });
+    };
+
+    new MutationObserver(syncSheet).observe(filterPanel, { attributes:true, attributeFilter:['class'] });
+    filterToggle.addEventListener('click', () => requestAnimationFrame(syncSheet));
+    filterClose?.addEventListener('click', () => requestAnimationFrame(syncSheet));
+    backdrop.addEventListener('click', () => closeSheet());
+    document.getElementById('resetFilters')?.addEventListener('click', () => {
+      if (mobile.matches) requestAnimationFrame(() => closeSheet());
+    });
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && mobile.matches && filterPanel.classList.contains('open')) {
+        event.preventDefault();
+        closeSheet();
+      }
+    });
+    mobile.addEventListener?.('change', syncSheet);
+    syncSheet();
+
+    const minPrice = document.getElementById('minPrice');
+    const maxPrice = document.getElementById('maxPrice');
+    const priceFields = document.querySelector('.priceFields');
+    const priceButtons = [...document.querySelectorAll('.pricePresets [data-max-price]')];
+    if (!minPrice || !maxPrice || !priceFields) return;
+
+    let hint = document.getElementById('priceRangeHint');
+    if (!hint) {
+      hint = document.createElement('div');
+      hint.id = 'priceRangeHint';
+      hint.className = 'priceRangeHint';
+      hint.textContent = 'Cena od je vyšší než cena do.';
+      hint.hidden = true;
+      hint.setAttribute('role','status');
+      priceFields.insertAdjacentElement('afterend', hint);
+    }
+
+    const syncPriceUi = () => {
+      const min = minPrice.value === '' ? null : Number(minPrice.value);
+      const max = maxPrice.value === '' ? null : Number(maxPrice.value);
+      const invalid = Number.isFinite(min) && Number.isFinite(max) && min > max;
+      minPrice.setAttribute('aria-invalid', String(invalid));
+      maxPrice.setAttribute('aria-invalid', String(invalid));
+      hint.hidden = !invalid;
+
+      priceButtons.forEach((button) => {
+        const active = !invalid && max !== null && Number(button.dataset.maxPrice) === max;
+        button.classList.toggle('active', active);
+        button.setAttribute('aria-pressed', String(active));
+      });
+    };
+
+    minPrice.addEventListener('input', syncPriceUi);
+    maxPrice.addEventListener('input', syncPriceUi);
+    priceButtons.forEach((button) => button.addEventListener('click', () => requestAnimationFrame(syncPriceUi)));
+    document.getElementById('resetFilters')?.addEventListener('click', () => requestAnimationFrame(syncPriceUi));
+    syncPriceUi();
+  }
+
   function ensurePanel() {
     const quickTabs = document.getElementById('quickTabs');
     if (!quickTabs) return null;
@@ -102,6 +222,7 @@
 
   function init() {
     ensurePanel();
+    initFilterUx();
     search()?.addEventListener('input', () => requestAnimationFrame(render));
     document.getElementById('q')?.addEventListener('change', () => requestAnimationFrame(render));
     const observed = document.getElementById('resultText');
