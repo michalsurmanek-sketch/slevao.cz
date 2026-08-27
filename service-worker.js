@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260827-4';
+const CACHE_NAME = 'slevao-shell-20260827-5';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -11,7 +11,7 @@ const SHELL = [
   '/manifest.webmanifest',
   '/favicon.svg',
   '/assets/rpc-request-dedupe.js?v=20260826-3',
-  '/assets/home-favorite-offer-sync.js?v=20260822-2',
+  '/assets/home-favorite-offer-sync.js?v=20260827-1',
   '/assets/home-product-favorites.js?v=20260822-1',
   '/assets/public-features.css?v=20260816-5',
   '/assets/public-features.js?v=20260815-3',
