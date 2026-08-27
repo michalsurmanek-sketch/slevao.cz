@@ -37,84 +37,6 @@
     return data;
   }
 
-  async function ensureRemoteList(db, userId) {
-    const { data: existing, error } = await db.from('shopping_lists')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_archived', false)
-      .order('created_at', { ascending:true })
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    if (existing?.id) return existing.id;
-
-    const { data, error: createError } = await db.from('shopping_lists')
-      .insert({ user_id:userId, name:'Můj nákup' })
-      .select('id')
-      .single();
-    if (createError) throw createError;
-    return data.id;
-  }
-
-  async function findRemoteItem(db, listId, offer) {
-    const base = () => db.from('shopping_list_items')
-      .select('id,quantity,is_completed')
-      .eq('shopping_list_id', listId)
-      .order('is_completed', { ascending:true })
-      .order('created_at', { ascending:true })
-      .limit(1);
-
-    if (offer.product_id) {
-      const { data, error } = await base().eq('product_id', offer.product_id).maybeSingle();
-      if (error) throw error;
-      return data || null;
-    }
-
-    const byOffer = await base().eq('selected_offer_id', offer.id).maybeSingle();
-    if (byOffer.error) throw byOffer.error;
-    if (byOffer.data) return byOffer.data;
-
-    const customName = String(offer.title || '').trim();
-    if (!customName) return null;
-    const byName = await base().is('product_id', null).eq('custom_name', customName).maybeSingle();
-    if (byName.error) throw byName.error;
-    return byName.data || null;
-  }
-
-  async function addRemoteItem(db, listId, offer) {
-    const existing = await findRemoteItem(db, listId, offer);
-    const nextQuantity = existing
-      ? (existing.is_completed ? 1 : Math.max(0.01, Number(existing.quantity || 1)) + 1)
-      : 1;
-    const payload = {
-      shopping_list_id:listId,
-      product_id:offer.product_id || null,
-      selected_offer_id:offer.id,
-      custom_name:offer.product_id ? null : String(offer.title || 'Produkt'),
-      quantity:nextQuantity,
-      unit:'ks',
-      is_completed:false
-    };
-
-    if (existing?.id) {
-      const { data, error } = await db.from('shopping_list_items')
-        .update(payload)
-        .eq('id', existing.id)
-        .eq('shopping_list_id', listId)
-        .select('id,quantity,is_completed')
-        .single();
-      if (error) throw error;
-      return data;
-    }
-
-    const { data, error } = await db.from('shopping_list_items')
-      .insert(payload)
-      .select('id,quantity,is_completed')
-      .single();
-    if (error) throw error;
-    return data;
-  }
-
   function alignLocalRow(api, offer, remoteRow) {
     api.addItemFromOffer(offer);
     const rows = api.readList?.() || [];
@@ -127,8 +49,12 @@
     active.quantity = Math.max(0.01, Number(remoteRow?.quantity || active.quantity || 1));
     active.completed = false;
     active.is_completed = false;
-    active.selected_offer_id = offer.id;
-    active.updated_at = new Date().toISOString();
+    active.selected_offer_id = remoteRow?.selected_offer_id || null;
+    if (!offer.product_id && remoteRow?.custom_name) {
+      active.custom_name = remoteRow.custom_name;
+      active.name = remoteRow.custom_name;
+    }
+    active.updated_at = remoteRow?.updated_at || new Date().toISOString();
 
     const normalized = rows.filter((row) => row === active || row?.key !== key);
     api.writeList?.(normalized);
@@ -162,8 +88,15 @@
       return;
     }
 
-    const listId = await ensureRemoteList(db, session.user.id);
-    const remoteRow = await addRemoteItem(db, listId, offer);
+    const { data: sync, error: syncError } = await db.rpc('increment_own_shopping_list_offer', {
+      p_offer_id: offerId
+    });
+    if (syncError) throw syncError;
+    const remoteRow = sync?.item || null;
+    if (!remoteRow?.id) {
+      throw new Error('Synchronizace nákupního seznamu nepotvrdila přidanou položku.');
+    }
+
     alignLocalRow(api, offer, remoteRow);
     feedback(button, 'Produkt byl přidán a synchronizován s účtem.');
   }
