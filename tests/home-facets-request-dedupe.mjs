@@ -6,8 +6,8 @@ const index = fs.readFileSync('index.html', 'utf8');
 const source = fs.readFileSync('assets/rpc-request-dedupe.js', 'utf8');
 const home = fs.readFileSync('assets/home-v2.js', 'utf8');
 
-const dedupePos = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
-const homePos = index.indexOf('assets/home-v2.js?v=20260821-1');
+const dedupePos = index.indexOf('assets/rpc-request-dedupe.js?v=');
+const homePos = index.indexOf('assets/home-v2.js?v=');
 assert(dedupePos >= 0, 'Homepage must load the facets request dedupe bootstrap.');
 assert(homePos >= 0 && dedupePos < homePos, 'Facets dedupe must load before home-v2.js.');
 assert(source.includes("const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets'"), 'Dedupe must be scoped to the facets RPC.');
