@@ -90,8 +90,6 @@ jobs:
               report = json.load(f)
           if not report.get('ok'):
               raise SystemExit(f"JIP consensus failed: {report}")
-          # Staged candidates never auto-promote. A nonzero safe_incremental_count
-          # will only mean "ready for explicit review" in a future parser version.
           if report.get('safe_incremental_count', 0) != 0:
               raise SystemExit(f"Unexpected automatic JIP incremental candidates: {report}")
           print(json.dumps({
@@ -102,6 +100,75 @@ jobs:
               'v3_only_count': report.get('v3_only_count'),
               'production_engine_unchanged': True,
           }, ensure_ascii=False))
+          PY
+
+      - name: Třetí OCR probe ceny RAJČE na straně 4
+        shell: bash
+        run: |
+          python3 - <<'PY' > /tmp/jip-pdf-url.txt
+          import json
+          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
+              result = json.load(f)
+          source = str(result.get('source_document_url') or '').rstrip('/')
+          if not source.startswith('https://www.jip-potraviny.cz/wp-content/uploads/file/MO-'):
+              raise SystemExit(f'Unexpected JIP source URL: {source}')
+          print(source + '/files/downloads/MO.pdf')
+          PY
+          PDF_URL="$(cat /tmp/jip-pdf-url.txt)"
+          curl --fail-with-body --silent --show-error \
+            -A 'slevao-jip-third-ocr-probe/1.0' "$PDF_URL" -o /tmp/jip-mo.pdf
+          pdftoppm -jpeg -f 4 -l 4 -singlefile -scale-to-x 3200 -scale-to-y -1 \
+            /tmp/jip-mo.pdf /tmp/jip-p4-3200
+
+          for PSM in 11 12 6; do
+            tesseract /tmp/jip-p4-3200.jpg /tmp/jip-p4-psm${PSM} \
+              -l ces+eng --psm "$PSM" tsv 2>/dev/null
+          done
+
+          python3 - <<'PY'
+          import csv
+          import json
+          import re
+          from pathlib import Path
+
+          reports = []
+          for psm in (11, 12, 6):
+              path = Path(f'/tmp/jip-p4-psm{psm}.tsv')
+              rows = []
+              with path.open(encoding='utf-8', errors='replace', newline='') as f:
+                  for row in csv.DictReader(f, delimiter='\t', quoting=csv.QUOTE_NONE):
+                      text = (row.get('text') or '').strip()
+                      if not text:
+                          continue
+                      try:
+                          item = {
+                              'text': text,
+                              'x': int(row.get('left') or 0),
+                              'y': int(row.get('top') or 0),
+                              'w': int(row.get('width') or 0),
+                              'h': int(row.get('height') or 0),
+                              'conf': float(row.get('conf') or -1),
+                          }
+                      except ValueError:
+                          continue
+                      rows.append(item)
+
+              anchors = [r for r in rows if re.search(r'raj', r['text'], re.I)]
+              evidence = []
+              for anchor in anchors:
+                  ax = anchor['x'] + anchor['w'] / 2
+                  nearby = []
+                  for r in rows:
+                      rx = r['x'] + r['w'] / 2
+                      dy = r['y'] - anchor['y']
+                      if abs(rx - ax) <= 650 and -420 <= dy <= 160:
+                          if re.search(r'(\d|raj|soud|500|kg|g$)', r['text'], re.I):
+                              nearby.append(r)
+                  nearby.sort(key=lambda r: (r['y'], r['x']))
+                  evidence.append({'anchor': anchor, 'nearby': nearby})
+              reports.append({'psm': psm, 'anchors': len(anchors), 'evidence': evidence})
+
+          print(json.dumps({'ok': True, 'page': 4, 'render_width': 3200, 'reports': reports}, ensure_ascii=False))
           PY
 
       - name: Publikovat pouze bezpečně ověřené JIP kandidáty
