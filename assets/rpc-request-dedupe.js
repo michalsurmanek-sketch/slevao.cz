@@ -1,6 +1,16 @@
 (() => {
   'use strict';
 
+  function markHeroMetricsPending() {
+    if (typeof document === 'undefined') return;
+    for (const id of ['offerCount', 'storeCount']) {
+      const value = document.getElementById(id);
+      if (value && value.textContent.trim() === '0') value.textContent = '…';
+    }
+  }
+
+  markHeroMetricsPending();
+
   if (typeof document !== 'undefined' && !document.querySelector('script[data-slevao-favorite-offer-sync]')) {
     const syncScript = document.createElement('script');
     syncScript.src = 'assets/home-favorite-offer-sync.js?v=20260822-2';
