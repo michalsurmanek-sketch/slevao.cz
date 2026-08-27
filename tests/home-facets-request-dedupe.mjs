@@ -13,8 +13,21 @@ assert(homePos >= 0 && dedupePos < homePos, 'Facets dedupe must load before home
 assert(source.includes("const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets'"), 'Dedupe must be scoped to the facets RPC.');
 assert(source.includes('const GRACE_MS = 1000'), 'Facets dedupe must use the short one-second startup grace window.');
 assert(source.includes('response.clone()'), 'Deduped callers must receive independent Response clones.');
-assert(source.includes('cleanupExpired(now)'), 'Expired response entries must be cleaned without timers.');
-assert(!/localStorage|sessionStorage|setTimeout|setInterval/.test(source), 'Dedupe must not become persistent storage or timer-driven cache.');
+assert(source.includes('cleanupExpired(now)'), 'Expired response entries must be cleaned opportunistically.');
+assert(!/localStorage|sessionStorage|setInterval/.test(source), 'Dedupe bootstrap must not use persistent storage or an interval-driven cache.');
+
+const cleanupStart = source.indexOf('  function cleanupExpired(now)');
+const cleanupEnd = source.indexOf('\n  function fetchWithReadRetry', cleanupStart);
+assert(cleanupStart >= 0 && cleanupEnd > cleanupStart, 'Dedupe cleanup section is missing.');
+const cleanupSource = source.slice(cleanupStart, cleanupEnd);
+assert(!/setTimeout|setInterval/.test(cleanupSource), 'Facets cache expiry itself must stay timer-free.');
+
+const retryStart = source.indexOf('  function fetchWithReadRetry');
+const retryEnd = source.indexOf('\n  function contextualFacetBody', retryStart);
+assert(retryStart >= 0 && retryEnd > retryStart, 'Safe read retry section is missing.');
+const retrySource = source.slice(retryStart, retryEnd);
+assert.match(retrySource, /window\.setTimeout\(resolve, RETRY_DELAY_MS\)/, 'Transient read retry must keep its bounded one-shot backoff.');
+assert.equal((source.match(/setTimeout/g) || []).length, 1, 'The only timeout in this bootstrap must be the bounded transient read retry.');
 
 assert(home.includes('return state.globalFacets;'), 'Global startup facets must be reusable by the main refresh path.');
 assert(home.includes('refreshFacets=true, scroll=false, facetsPromise=null'), 'Main refresh must accept an optional shared startup facets promise.');
@@ -45,10 +58,16 @@ const originalFetch = (url, init) => {
 };
 
 const context = {
-  window: { fetch: originalFetch },
+  window: {
+    fetch: originalFetch,
+    setTimeout: (callback) => { callback(); return 1; },
+  },
   Request: undefined,
   Map,
+  Set,
   Date: FakeDate,
+  URLSearchParams,
+  location: { search: '' },
 };
 context.window.window = context.window;
 vm.createContext(context);
