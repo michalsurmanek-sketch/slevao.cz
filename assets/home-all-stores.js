@@ -87,7 +87,6 @@
       const fallbackQuery = new URLSearchParams({
         select: 'id,name,slug,logo_url,primary_color,is_active',
         is_active: 'eq.true',
-        order: 'name.asc',
       });
       rows = (await fetchJson(`${SUPABASE_URL}/rest/v1/stores?${fallbackQuery}`)).map((store) => ({
         ...store,
