@@ -87,23 +87,28 @@ assert.match(personalization, /event === 'TOKEN_REFRESHED' \|\| event === 'USER_
 assert.match(personalization, /authWork = authWork\.catch\(\(\) => \{\}\)\.then\(\(\) => hydrateSession\(nextSession\)\)/, 'Auth hydratace musí být serializovaná, aby se souběžné eventy nepřekrývaly.');
 assert.match(personalization, /authSubscription\?\.unsubscribe\?\.\(\)/, 'Auth subscription se musí při pagehide odhlásit.');
 
-assert.doesNotMatch(personalization, /function syncLocalFavorites\(/, 'Anonymní device favorites se nesmí automaticky nahrávat do libovolného přihlášeného účtu.');
-assert.match(personalization, /favoriteIds = new Set\(\(data \|\| \[\]\)\.map\(\(row\) => String\(row\.product_id\)\)\.filter\(Boolean\)\);/, 'Přihlášené favorites musí být nahrazeny čistým serverovým setem aktuálního účtu.');
+assert.match(personalization, /async function claimAnonymousFavorites\(userId\)/, 'Guest oblíbené musí mít explicitní claim cestu po přihlášení.');
+assert.match(personalization, /claimAnonymousFavorites\(userId\)[\s\S]*localStorage\.removeItem\(FAVORITES_KEY\)/, 'Guest oblíbené se smějí smazat lokálně až po úspěšném serverovém claimu.');
+assert.match(personalization, /db\.from\('product_favorites'\)\.upsert\([\s\S]*onConflict:'user_id,product_id'/, 'Claim guest oblíbených musí být idempotentní přes serverový unikátní klíč.');
+assert.match(personalization, /favoriteIds = new Set\(\(data \|\| \[\]\)\.map\(\(row\) => String\(row\.product_id\)\)\.filter\(Boolean\)\);/, 'Přihlášené favorites musí nejdřív vycházet z čistého serverového setu aktuálního účtu.');
 assert.match(personalization, /if \(!userId\) \{[\s\S]*favoriteIds = readFavoriteIds\(\);/, 'Po odhlášení se musí obnovit pouze anonymní device favorites.');
-assert.match(personalization, /favoriteIds = new Set\(\);[\s\S]*await loadServerFavorites\(\);/, 'Při přihlášení se device favorites nesmí míchat do serverových favorites.');
+assert.match(personalization, /favoriteIds = new Set\(\);[\s\S]*await loadServerFavorites\(\);[\s\S]*await claimAnonymousFavorites\(userId\);/, 'Při přihlášení se guest favorites musí claimnout až po načtení existujících serverových favorites.');
 assert.match(personalization, /const userId = String\(session\?\.user\?\.id \|\| ''\);[\s\S]*if \(!userId\) saveAnonymousFavoriteIds\(\);/, 'Do localStorage se smějí zapisovat favorites pouze bez přihlášeného user ID.');
 const serverFavoriteLoader = personalization.match(/async function loadServerFavorites\(\)[\s\S]*?\n  \}/)?.[0] || '';
 assert.ok(serverFavoriteLoader, 'Chybí serverový loader favorites.');
 assert.doesNotMatch(serverFavoriteLoader, /localStorage|saveAnonymousFavoriteIds/, 'Serverové favorites se nesmí persistovat do anonymního device storage.');
 
-assert.doesNotMatch(personalization, /function syncRecentRows\(/, 'Anonymní historie se nesmí automaticky nahrávat do přihlášeného účtu.');
+assert.match(personalization, /async function claimAnonymousRecentViews\(\)/, 'Guest historie musí mít explicitní claim cestu po přihlášení.');
+assert.match(personalization, /db\.rpc\('claim_recent_product_views', \{ p_rows:payload \}\)/, 'Guest historie se musí claimovat atomickým serverovým RPC.');
+assert.match(personalization, /db\.rpc\('record_recent_product_view', \{ p_product_id:productId \}\)/, 'Přihlášené zobrazení produktu musí být serverově atomické.');
+assert.match(personalization, /claimAnonymousRecentViews\(\)[\s\S]*localStorage\.removeItem\(RECENT_KEY\)/, 'Guest historie se smějí smazat lokálně až po úspěšném serverovém claimu.');
 assert.match(personalization, /const pendingRecentViews = new Set\(\);/, 'View vzniklý před INITIAL_SESSION musí mít bezpečnou čekací frontu.');
 assert.match(personalization, /if \(hydratedUserId === null\) \{[\s\S]*pendingRecentViews\.add\(productId\);[\s\S]*return;/, 'View se před rozlišením auth stavu nesmí zapsat do žádného storage.');
-assert.match(personalization, /if \(!userId\) \{[\s\S]*saveAnonymousRecentRows\(\);[\s\S]*return;[\s\S]*\}[\s\S]*db\.from\('recently_viewed_products'\)/, 'Recent view musí mít oddělenou anonymní a serverovou větev.');
+assert.match(personalization, /if \(!userId\) \{[\s\S]*saveAnonymousRecentRows\(\);[\s\S]*return;[\s\S]*\}[\s\S]*db\.rpc\('record_recent_product_view'/, 'Recent view musí mít oddělenou anonymní a atomickou serverovou větev.');
 assert.match(personalization, /return \[\.\.\.new Set\(\(data \|\| \[\]\)\.map\(\(row\) => String\(row\.product_id\)\)\.filter\(Boolean\)\)\]\.slice\(0, 20\);/, 'Přihlášený recent dashboard musí používat pouze serverové recent IDs.');
 assert.match(personalization, /if \(userId\) \{[\s\S]*delete\(\)\.eq\('user_id', userId\);[\s\S]*\} else \{[\s\S]*saveAnonymousRecentRows\(\);/, 'Vymazání historie musí mazat pouze aktivní účet nebo pouze anonymní device historii.');
 assert.match(personalization, /hydratedUserId = '';[\s\S]*await flushPendingRecentViews\(\);/, 'Anonymní INITIAL_SESSION musí čekající view zapsat až po potvrzení signed-out stavu.');
-assert.match(personalization, /await loadServerFavorites\(\);[\s\S]*hydratedUserId = userId;[\s\S]*await flushPendingRecentViews\(\);/, 'Přihlášený INITIAL_SESSION musí čekající view zapsat až do konkrétního user účtu.');
+assert.match(personalization, /await loadServerFavorites\(\);[\s\S]*await claimAnonymousFavorites\(userId\);[\s\S]*await claimAnonymousRecentViews\(\);[\s\S]*hydratedUserId = userId;[\s\S]*await flushPendingRecentViews\(\);/, 'Přihlášený INITIAL_SESSION musí claimnout guest personalizaci před zapsáním čekajícího view do konkrétního účtu.');
 
 assert.match(detail, /dataset\.loaded = '1'/, 'Detail neoznamuje dokončení renderu nabídek.');
 assert.match(detail, /slevao:product-offers-rendered/, 'Detail nevysílá událost po načtení nabídek.');
@@ -131,8 +136,11 @@ assert.match(safety, /\.select\('id', \{ count:'exact', head:true \}\)/, 'Ochran
 assert.match(safety, /image\.closest\('#productImage'\)/, 'Chybí fallback při chybě produktové fotografie.');
 assert.match(safety, /timeZone:'Europe\/Prague'/, 'Ochranná vrstva nepoužívá české datum nabídek.');
 
-assert.match(identityGuard, /ean \|\| \(product\?\.is_verified === true && brand && quantity\)/, 'Přesná identita není dostatečně konzervativní.');
+assert.match(identityGuard, /if \(ean \|\| verifiedCommodity\) return 'exact';/, 'Přesná identita smí vzniknout jen ze silného identifikátoru.');
+assert.match(identityGuard, /if \(product\?\.is_verified === true && brand && quantity\) return 'verified_group';/, 'Ověřená značka a balení bez EAN musí zůstat jen ověřenou skupinou.');
+assert.match(identityGuard, /return 'comparable';/, 'Slabší identita musí skončit ve srovnatelném režimu.');
 assert.match(identityGuard, /apply\('comparable'\)/, 'Při chybě identity se musí zvolit bezpečnější srovnatelný režim.');
+assert.match(identityGuard, /Ověřené seskupení bez EAN:/, 'Verified-group režim uživateli nevysvětluje chybějící EAN garanci.');
 assert.match(identityGuard, /Srovnatelný produkt:/, 'Srovnatelný režim uživateli nevysvětluje omezení.');
 assert.match(identityGuard, /slevao:product-identity-ready/, 'Identity guard nevysílá dokončovací událost.');
 assert.match(identityCss, /\.sfIdentityNotice/, 'Srovnatelný režim nemá vlastní vizuální upozornění.');
