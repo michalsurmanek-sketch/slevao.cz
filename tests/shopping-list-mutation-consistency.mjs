@@ -19,6 +19,10 @@ function section(start, end) {
   return source.slice(from, to);
 }
 
+const merge = section('  async function mergeRemote()', '\n  async function persistRow(row, state = row)');
+assert.match(merge, /\.select\('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at'\)/, 'Remote merge musí načíst celý synchronizovaný stav položky.');
+assert.match(merge, /if \(local\) \{[\s\S]*?local\.server_id = item\.id;[\s\S]*?local\.selected_offer_id = item\.selected_offer_id \|\| null;[\s\S]*?local\.quantity = Number\(item\.quantity \|\| local\.quantity \|\| 1\);[\s\S]*?local\.unit = item\.unit \|\| 'ks';[\s\S]*?local\.completed = Boolean\(item\.is_completed\);[\s\S]*?local\.updated_at = item\.updated_at \|\| local\.updated_at \|\| null;/, 'Existující lokální položka musí převzít serverový selected_offer_id, množství, jednotku, completed a updated_at.');
+
 const persist = section('  async function persistRow(row, state = row)', '\n  async function deleteRow(row)');
 assert.match(persist, /\.update\(payload\)[\s\S]*?\.eq\('id', row\.server_id\)[\s\S]*?\.eq\('shopping_list_id', listId\)/, 'Update položky není omezený na aktuální shopping_list_id.');
 assert.match(persist, /quantity:\s*Number\(state\.quantity \|\| 1\)/, 'Update nepoužívá snapshot množství konkrétní mutace.');
@@ -54,5 +58,10 @@ const version = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=
 assert.ok(version, 'Identity bootstrap musí načítat verzovaný shopping-list.js.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít auth gate přímým shopping-list loaderem.');
 assert.ok(worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'PWA musí cacheovat stejnou shopping-list.js verzi jako identity bootstrap.');
+
+const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
+assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping bootstrap.');
+assert.ok(worker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'PWA musí cacheovat stejnou bootstrap verzi jako seznam.html.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260827-1';/, 'PWA shell musí být po shopping-list runtime změně obnovený.');
 
 console.log('Shopping list mutation consistency OK');
