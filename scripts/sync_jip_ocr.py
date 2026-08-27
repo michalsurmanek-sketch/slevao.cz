@@ -4,16 +4,17 @@
 JIP's FlipBuilder viewer exposes 1284x1800 mobile JPEGs, but it also exposes the
 original official MO.pdf. The stylized large prices lose decimal punctuation on
 mobile-image OCR (for example 23°° / 69°90), so this worker renders the official
-PDF at 250 DPI before running the same deterministic Tesseract pipeline.
+PDF at a fixed 1800 px page width before running the same deterministic
+Tesseract pipeline.
 
-The PDF OCR uses a new engine id and therefore writes separate OCR rows. The
-currently published v2 parser remains untouched until the v3 candidate set is
-explicitly compared and approved.
+Each PDF page is rendered on demand instead of rendering all 12 pages up front.
+This keeps peak memory bounded and lets verified OCR rows be persisted
+progressively. The PDF OCR uses a new engine id, so the currently published v2
+parser remains untouched until the v3 candidate set is explicitly compared.
 """
 import json
 import os
 import re
-import shutil
 import subprocess
 import tempfile
 import urllib.error
@@ -36,13 +37,13 @@ def _tsv_dict_reader_no_quotes(*args, **kwargs):
 
 
 worker.csv.DictReader = _tsv_dict_reader_no_quotes
-worker.ENGINE = "tesseract-cli-ces-jip-v3-pdf250"
-worker.SUPABASE_USER_AGENT = "slevao-github-actions-jip-ocr/3.0"
+worker.ENGINE = "tesseract-cli-ces-jip-v3-pdf1800"
+worker.SUPABASE_USER_AGENT = "slevao-github-actions-jip-ocr/3.1"
 
 _original_api = worker.api
 _target_cache = None
-_pdf_cache = None
 _pdf_cache_temp = None
+_pdf_cache_path = None
 
 
 def prague_today() -> str:
@@ -160,10 +161,10 @@ def _download_pdf(pdf_url: str, destination: str):
     raise RuntimeError(f"JIP PDF download failed after 4 attempts: {last_error}")
 
 
-def _render_pdf_pages(image_url: str):
-    global _pdf_cache, _pdf_cache_temp
-    if _pdf_cache is not None:
-        return _pdf_cache
+def _ensure_pdf(image_url: str):
+    global _pdf_cache_temp, _pdf_cache_path
+    if _pdf_cache_path is not None:
+        return _pdf_cache_path
 
     parsed = urllib.parse.urlparse(image_url)
     if parsed.scheme != "https" or parsed.hostname != "www.jip-potraviny.cz":
@@ -173,49 +174,12 @@ def _render_pdf_pages(image_url: str):
         raise RuntimeError(f"Unexpected JIP page image path: {image_url}")
 
     pdf_url = match.group(1) + "downloads/MO.pdf"
-    _pdf_cache_temp = tempfile.TemporaryDirectory(prefix="jip-pdf250-")
-    temp_dir = _pdf_cache_temp.name
-    pdf_path = os.path.join(temp_dir, "MO.pdf")
-    output_prefix = os.path.join(temp_dir, "page")
-
+    _pdf_cache_temp = tempfile.TemporaryDirectory(prefix="jip-pdf1800-")
+    _pdf_cache_path = os.path.join(_pdf_cache_temp.name, "MO.pdf")
     print(f"JIP PDF source {pdf_url}", flush=True)
-    _download_pdf(pdf_url, pdf_path)
-    completed = subprocess.run(
-        [
-            "pdftoppm",
-            "-jpeg",
-            "-r",
-            "250",
-            "-f",
-            "1",
-            "-l",
-            "12",
-            pdf_path,
-            output_prefix,
-        ],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        timeout=240,
-        check=False,
-    )
-    if completed.returncode != 0:
-        raise RuntimeError(f"pdftoppm failed: {completed.stderr[-1500:]}")
-
-    pages = []
-    for name in os.listdir(temp_dir):
-        m = re.match(r"^page-(\d+)\.jpg$", name)
-        if m:
-            pages.append((int(m.group(1)), os.path.join(temp_dir, name)))
-    pages.sort(key=lambda item: item[0])
-    if len(pages) != 12 or [n for n, _ in pages] != list(range(1, 13)):
-        raise RuntimeError(f"JIP PDF render expected pages 1-12, got {[n for n, _ in pages]}")
-    if any(os.path.getsize(path) < 50_000 for _, path in pages):
-        raise RuntimeError("JIP PDF render produced an implausibly small page")
-
-    _pdf_cache = [path for _, path in pages]
-    print(f"JIP PDF rendered at 250 DPI: {len(_pdf_cache)} pages", flush=True)
-    return _pdf_cache
+    _download_pdf(pdf_url, _pdf_cache_path)
+    print(f"JIP PDF downloaded: {os.path.getsize(_pdf_cache_path)} bytes", flush=True)
+    return _pdf_cache_path
 
 
 def direct_download(image_url: str, destination: str):
@@ -229,10 +193,38 @@ def direct_download(image_url: str, destination: str):
     if page_number < 1 or page_number > 12:
         raise RuntimeError(f"Unexpected JIP page number: {page_number}")
 
-    pages = _render_pdf_pages(image_url)
-    shutil.copyfile(pages[page_number - 1], destination)
-    if os.path.getsize(destination) <= 0:
-        raise RuntimeError("JIP rendered page copy is empty")
+    pdf_path = _ensure_pdf(image_url)
+    output_prefix = destination[:-4] if destination.lower().endswith(".jpg") else destination
+    completed = subprocess.run(
+        [
+            "pdftoppm",
+            "-jpeg",
+            "-f",
+            str(page_number),
+            "-l",
+            str(page_number),
+            "-singlefile",
+            "-scale-to-x",
+            "1800",
+            "-scale-to-y",
+            "-1",
+            pdf_path,
+            output_prefix,
+        ],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        timeout=120,
+        check=False,
+    )
+    rendered = output_prefix + ".jpg"
+    if completed.returncode != 0:
+        raise RuntimeError(f"pdftoppm page {page_number} failed: {completed.stderr[-1500:]}")
+    if not os.path.exists(rendered) or os.path.getsize(rendered) < 50_000:
+        raise RuntimeError(f"JIP PDF page {page_number} render is missing or implausibly small")
+    if rendered != destination:
+        os.replace(rendered, destination)
+    print(f"JIP PDF page {page_number} rendered: {os.path.getsize(destination)} bytes", flush=True)
 
 
 worker.api = api
@@ -243,5 +235,5 @@ if __name__ == "__main__":
     if not target.get("ok"):
         print(json.dumps({"ok": True, "worker": "jip", "engine": worker.ENGINE, "skipped": True, **target}, ensure_ascii=False), flush=True)
         raise SystemExit(0)
-    print(json.dumps({"worker": "jip", "engine": worker.ENGINE, "target": target["import_id"], "business_date": target["business_date"], "source": "official_pdf_250dpi"}, ensure_ascii=False), flush=True)
+    print(json.dumps({"worker": "jip", "engine": worker.ENGINE, "target": target["import_id"], "business_date": target["business_date"], "source": "official_pdf_width_1800"}, ensure_ascii=False), flush=True)
     worker.main()
