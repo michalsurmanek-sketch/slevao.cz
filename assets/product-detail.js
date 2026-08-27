@@ -3,7 +3,7 @@
 
   const PENDING_ALERT_KEY = 'slevao-pending-price-alert';
   const $ = (id) => document.getElementById(id);
-  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
   const money = (v) => Number(v || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const date = (v) => v ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${String(v).slice(0,10)}T12:00:00`)) : '–';
 
@@ -105,9 +105,23 @@
     return { label:'Méně výhodná nabídka', className:'warn' };
   }
 
-  function chartSvg() {
-    const rows = history.slice().sort((a,b) => new Date(a.recorded_at) - new Date(b.recorded_at));
-    if (rows.length < 2) return '<div class="sfEmpty">Historie zatím neobsahuje dostatek měření pro graf.</div>';
+  function dailyMinimumHistory() {
+    const byDay = new Map();
+    for (const row of history || []) {
+      const price = Number(row?.price);
+      const recordedAt = String(row?.recorded_at || '');
+      if (!(price > 0) || !recordedAt) continue;
+      const day = pragueDate(new Date(recordedAt));
+      const existing = byDay.get(day);
+      if (!existing || price < Number(existing.price)) {
+        byDay.set(day, { ...row, price, recorded_at:day });
+      }
+    }
+    return [...byDay.values()].sort((a,b) => String(a.recorded_at).localeCompare(String(b.recorded_at)));
+  }
+
+  function chartSvg(rows = dailyMinimumHistory()) {
+    if (rows.length < 2) return '<div class="sfEmpty">Historie zatím neobsahuje dostatek denních minim pro graf.</div>';
     const width = 860, height = 250, pad = 34;
     const prices = rows.map((row) => Number(row.price)).filter(Number.isFinite);
     const min = Math.min(...prices), max = Math.max(...prices), span = Math.max(1, max - min);
@@ -116,7 +130,7 @@
       y: height - pad - ((Number(row.price) - min) / span) * (height - pad * 2), row
     }));
     const path = points.map((point, index) => `${index ? 'L' : 'M'} ${point.x.toFixed(1)} ${point.y.toFixed(1)}`).join(' ');
-    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Vývoj ceny produktu"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height-pad}" stroke="#dbe8e5"/><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#dbe8e5"/><path d="${path}" fill="none" stroke="#0b776f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points.map((point) => `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#12b8a6"><title>${money(point.row.price)} Kč · ${date(point.row.recorded_at)}</title></circle>`).join('')}<text x="6" y="${pad+4}" font-size="13" fill="#667774">${money(max)} Kč</text><text x="6" y="${height-pad+4}" font-size="13" fill="#667774">${money(min)} Kč</text><text x="${pad}" y="${height-7}" font-size="12" fill="#667774">${date(rows[0].recorded_at)}</text><text x="${width-pad}" y="${height-7}" text-anchor="end" font-size="12" fill="#667774">${date(rows.at(-1).recorded_at)}</text></svg>`;
+    return `<svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Vývoj nejnižší zaznamenané ceny produktu po dnech"><line x1="${pad}" y1="${pad}" x2="${pad}" y2="${height-pad}" stroke="#dbe8e5"/><line x1="${pad}" y1="${height-pad}" x2="${width-pad}" y2="${height-pad}" stroke="#dbe8e5"/><path d="${path}" fill="none" stroke="#0b776f" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>${points.map((point) => { const store = point.row?.stores?.name ? ` · ${point.row.stores.name}` : ''; return `<circle cx="${point.x}" cy="${point.y}" r="4" fill="#12b8a6"><title>${money(point.row.price)} Kč · ${date(point.row.recorded_at)}${esc(store)}</title></circle>`; }).join('')}<text x="6" y="${pad+4}" font-size="13" fill="#667774">${money(max)} Kč</text><text x="6" y="${height-pad+4}" font-size="13" fill="#667774">${money(min)} Kč</text><text x="${pad}" y="${height-7}" font-size="12" fill="#667774">${date(rows[0].recorded_at)}</text><text x="${width-pad}" y="${height-7}" text-anchor="end" font-size="12" fill="#667774">${date(rows.at(-1).recorded_at)}</text></svg>`;
   }
 
   function offerHtml(offer, isBest, today) {
@@ -170,11 +184,12 @@
   }
 
   function renderHistory() {
+    const dailyRows = dailyMinimumHistory();
     $('stat30').textContent = statWindow(30) == null ? '–' : `${money(statWindow(30))} Kč`;
     $('stat90').textContent = statWindow(90) == null ? '–' : `${money(statWindow(90))} Kč`;
     $('statTypical').textContent = typicalPrice() == null ? '–' : `${money(typicalPrice())} Kč`;
-    $('priceChart').innerHTML = chartSvg();
-    $('historyInfo').textContent = history.length ? `${history.length} cenových záznamů · poslední kontrola ${date(history.at(-1)?.recorded_at)}` : 'Historie cen zatím není dostupná.';
+    $('priceChart').innerHTML = chartSvg(dailyRows);
+    $('historyInfo').textContent = history.length ? `${history.length} cenových záznamů · graf zobrazuje nejnižší zaznamenanou cenu za den · poslední kontrola ${date(history.at(-1)?.recorded_at)}` : 'Historie cen zatím není dostupná.';
   }
 
   function openModal(title, eyebrow = 'Slevao.cz') {
