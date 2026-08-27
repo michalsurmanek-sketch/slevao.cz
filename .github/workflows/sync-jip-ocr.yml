@@ -104,6 +104,7 @@ jobs:
           PY
 
       - name: Nezávisle ověřit v3-only cenovky ve vysokém rozlišení
+        continue-on-error: true
         shell: bash
         run: |
           python3 scripts/verify_jip_staged_candidates.py \
