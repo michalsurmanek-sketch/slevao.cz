@@ -10,6 +10,9 @@
     '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+  const shortDate = (value) => value
+    ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric' }).format(new Date(`${String(value).slice(0, 10)}T12:00:00`))
+    : '–';
 
   function pragueDate(value = new Date()) {
     return new Intl.DateTimeFormat('en-CA', {
@@ -277,17 +280,21 @@
 
   function personalCard(product, mode = 'favorite', today = pragueDate()) {
     const offer = bestOffer(product.id, today);
+    const upcoming = Boolean(offer && String(offer.valid_from || '') > today);
     const image = product.image_url
       ? `<img src="${esc(product.image_url)}" alt="${esc(product.name)}" loading="lazy">`
       : '<span class="sfNoImage" aria-hidden="true">%</span>';
     const price = offer ? `${money(offer.price)} Kč` : 'Bez aktuální akce';
-    const store = offer?.stores?.name || 'Sleduj další letáky';
+    const storeName = offer?.stores?.name || 'Obchod';
+    const priceContext = offer
+      ? (upcoming ? `Od ${shortDate(offer.valid_from)} · ${storeName}` : `Platí dnes · ${storeName}`)
+      : 'Sleduj další letáky';
     return `<article class="sfPersonalProduct" data-product-id="${esc(product.id)}">
       <a class="sfPersonalProductImage" href="produkt.html?id=${encodeURIComponent(product.id)}">${image}</a>
       <div class="sfPersonalProductBody">
         <h3><a href="produkt.html?id=${encodeURIComponent(product.id)}">${esc(product.name)}</a></h3>
         <p>${esc([product.brand, product.quantity_text].filter(Boolean).join(' · ') || 'Sjednocený produkt')}</p>
-        <strong>${price}</strong><small>${esc(store)}</small>
+        <strong>${price}</strong><small>${esc(priceContext)}</small>
         <div class="sfPersonalProductActions">
           <a class="sfButton primary sfProductDetailButton" href="produkt.html?id=${encodeURIComponent(product.id)}"><span class="sfProductActionIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"></circle><path d="m16 16 4 4"></path></svg></span><span>Detail produktu</span></a>
           ${offer ? `<button class="sfButton sfProductListButton" type="button" data-personal-add="${esc(offer.id)}"><span class="sfProductActionIcon" aria-hidden="true">＋</span><span>Do seznamu</span></button>` : ''}
