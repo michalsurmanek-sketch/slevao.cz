@@ -100,7 +100,6 @@
     }
 
     localStorage.setItem(LIST_KEY, JSON.stringify(rows));
-    sessionStorage.setItem('slevao-guest-claim-reconciled-v1', String(Date.now()));
     location.reload();
   }
 
