@@ -251,10 +251,15 @@
   }
 
   function createAlert(offer) {
+    const today = pragueDate();
+    const upcoming = isUpcoming(offer, today);
     const storeName = offerStoreLabel(offer);
     const suggested = Math.max(1, Math.floor(Number(offer.price || 0) * .9));
     const { body, close } = openModal('Hlídat cenu produktu', 'Cenový hlídač');
-    body.innerHTML = `<p><strong>${esc(product.name)}</strong></p><p class="sfMuted">Aktuální cena této nabídky: ${money(offer.price)} Kč · ${esc(storeName)}</p><label>Upozorni mě při ceně nejvýše<input id="sfDetailTargetPrice" type="number" min="0.01" step="0.1" inputmode="decimal" value="${suggested}"></label><label><span><input id="sfDetailOnlyStore" type="checkbox" style="width:auto;margin-right:8px">Pouze v tomto obchodě</span></label><div class="sfModalActions"><button class="sfButton" type="button" data-cancel>Zrušit</button><button class="sfButton primary" type="button" data-save>Zapnout hlídač</button></div>`;
+    const priceContext = upcoming
+      ? `Nadcházející cena od ${date(offer.valid_from)}: ${money(offer.price)} Kč · ${storeName}`
+      : `Aktuální cena této nabídky: ${money(offer.price)} Kč · ${storeName}`;
+    body.innerHTML = `<p><strong>${esc(product.name)}</strong></p><p class="sfMuted">${esc(priceContext)}</p><label>Upozorni mě při ceně nejvýše<input id="sfDetailTargetPrice" type="number" min="0.01" step="0.1" inputmode="decimal" value="${suggested}"></label><label><span><input id="sfDetailOnlyStore" type="checkbox" style="width:auto;margin-right:8px">Pouze v tomto obchodě</span></label><div class="sfModalActions"><button class="sfButton" type="button" data-cancel>Zrušit</button><button class="sfButton primary" type="button" data-save>Zapnout hlídač</button></div>`;
     body.querySelector('[data-cancel]').addEventListener('click', close);
     body.querySelector('[data-save]').addEventListener('click', async (event) => {
       const button = event.currentTarget;
