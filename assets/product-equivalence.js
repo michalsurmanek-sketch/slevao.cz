@@ -89,6 +89,12 @@
     return sameQuantity(currentQuantity, otherQuantity);
   }
 
+  function exactEquivalence(current, other) {
+    const currentEan = String(current?.ean || '').trim();
+    const otherEan = String(other?.ean || '').trim();
+    return Boolean(currentEan && otherEan && currentEan === otherEan);
+  }
+
   async function equivalenceLinks(db) {
     const { data, error } = await db.from('product_equivalences')
       .select('product_id_a,product_id_b,match_method,confidence,evidence')
@@ -125,7 +131,7 @@
     const queryIds = current ? ids : [productId, ...ids];
     if (!queryIds.length) return current ? [current] : [];
     const { data, error } = await db.from('products')
-      .select('id,name,brand,quantity_text,image_url,is_verified,is_active')
+      .select('id,name,brand,quantity_text,image_url,ean,is_verified,is_active,metadata')
       .in('id', queryIds)
       .limit(60);
     if (error) throw error;
@@ -172,10 +178,13 @@
     });
   }
 
-  function evidenceLabel(link) {
+  function evidenceLabel(link, exact) {
     const confidence = Math.round(Number(link?.confidence || 0) * 100);
+    if (exact) return `EAN shoda · ${confidence} %`;
     const method = String(link?.match_method || '');
-    const prefix = method.includes('curated') || method.includes('manual') ? 'ověřeno' : 'evidenčně ověřeno';
+    const prefix = method.includes('curated') || method.includes('manual')
+      ? 'ručně ověřená skupina'
+      : 'ověřená skupina';
     return `${prefix} · ${confidence} %`;
   }
 
@@ -206,6 +215,7 @@
 
     const blocks = [];
     const allSafeOffers = [];
+    const evidenceModes = [];
     for (const row of safeProducts) {
       const rows = bestOffersPerStore(offers.filter((offer) => String(offer.product_id) === String(row.id)), today);
       if (!rows.length) continue;
@@ -213,10 +223,12 @@
       const link = links.find((item) =>
         String(item.product_id_a) === String(row.id) || String(item.product_id_b) === String(row.id)
       );
+      const exact = exactEquivalence(current, row);
+      evidenceModes.push(exact ? 'exact' : 'verified_group');
       blocks.push(`<article class="sfEqProduct">
         <div class="sfEqProductTop">
           <div><b>${esc(row.name)}</b><small>${esc([row.brand, row.quantity_text].filter(Boolean).join(' · '))}</small></div>
-          <span class="sfEqEvidence">${esc(evidenceLabel(link))}</span>
+          <span class="sfEqEvidence">${esc(evidenceLabel(link, exact))}</span>
         </div>
         <div class="sfEqOffers">${rows.map((offer) => offerHtml(offer, today)).join('')}</div>
       </article>`);
@@ -226,16 +238,19 @@
     const sourceSection = document.getElementById('offers')?.closest('.sfSection');
     if (!sourceSection || document.getElementById('productEquivalence')) return;
     const uniqueStores = new Set(allSafeOffers.map((row) => String(row.store_id || '')).filter(Boolean)).size;
+    const allExact = evidenceModes.length > 0 && evidenceModes.every((mode) => mode === 'exact');
     const section = document.createElement('section');
     section.id = 'productEquivalence';
     section.className = 'sfSection sfEqSection';
     section.innerHTML = `<div class="sfEqPanel">
       <div class="sfEqHead">
-        <div><span class="sfEqBadge">Ověřená identita produktu</span><h2>Další ověřené ceny stejného výrobku</h2><p>Tyto nabídky pocházejí z jiných master záznamů, které byly ověřeny jako stejný výrobek. Nemícháme je do cenové historie výše, aby zůstal původ dat jednoznačný.</p></div>
+        <div><span class="sfEqBadge">${allExact ? 'Shodné EAN' : 'Ověřená produktová skupina'}</span><h2>${allExact ? 'Další ověřené ceny stejného výrobku' : 'Další ceny z ručně ověřené skupiny'}</h2><p>${allExact
+          ? 'Tyto nabídky pocházejí z jiných master záznamů se shodným EAN. Nemícháme je do cenové historie výše, aby zůstal původ dat jednoznačný.'
+          : 'Tyto vazby byly ručně nebo evidenčně ověřeny podle produktu, značky a balení, ale bez shodného EAN je neoznačujeme jako garantovaně stejné SKU. Do cenové historie výše je nemícháme.'}</p></div>
         <div class="sfEqCount"><strong>${uniqueStores}</strong><span>${uniqueStores === 1 ? 'obchod' : uniqueStores < 5 ? 'obchody' : 'obchodů'}</span></div>
       </div>
       <div class="sfEqProducts">${blocks.join('')}</div>
-      <p class="sfEqNote">Zobrazují se pouze aktivní vazby s jistotou alespoň 99 %, ověřené produkty a shodná značka i balení. Nejde o pouhou podobnost názvu.</p>
+      <p class="sfEqNote">Zobrazují se pouze aktivní vazby s jistotou alespoň 99 %, ověřené produkty a shodná značka i balení. Přesné SKU tvrdíme pouze při shodném EAN.</p>
     </div>`;
     sourceSection.after(section);
   }
