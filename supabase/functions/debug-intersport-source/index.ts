@@ -1,9 +1,18 @@
 const SOURCE_URL = 'https://www.intersport.cz/akce/';
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
   accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
+
+function authorized(req: Request) {
+  return Boolean(
+    (SERVICE_ROLE && req.headers.get('authorization') === `Bearer ${SERVICE_ROLE}`)
+    || (CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET)
+  );
+}
 
 function compact(value: string) {
   return value
@@ -34,10 +43,7 @@ async function fetchPage(url: string) {
 }
 
 function decodePath(value: string) {
-  return value
-    .replace(/\\u002f/gi, '/')
-    .replace(/\\\//g, '/')
-    .replace(/&amp;/gi, '&');
+  return value.replace(/\\u002f/gi, '/').replace(/\\\//g, '/').replace(/&amp;/gi, '&');
 }
 
 function absolute(value: string, base: string) {
@@ -53,7 +59,8 @@ function campaignPaths(html: string) {
   )];
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (!authorized(req)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const listing = await fetchPage(SOURCE_URL);
   const campaignUrls = campaignPaths(listing.html)
     .map((path) => absolute(path, listing.url))
