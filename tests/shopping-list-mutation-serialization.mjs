@@ -18,7 +18,7 @@ for (const needle of [
   'await enqueueRowMutation(row, () => deleteRow(row))',
   'await waitForRowMutations(completed);',
   'deletingRows.has(mutationKey(row))',
-  'rememberConfirmedState(row, desired)',
+  'rememberConfirmedState(row, { ...row })',
   'rollbackToConfirmed(row, key, version, previous)',
 ]) {
   assert.ok(source.includes(needle), `Chybí serializační guard nákupního seznamu: ${needle}`);
@@ -26,6 +26,7 @@ for (const needle of [
 
 assert.match(source, /quantity:\s*Number\(state\.quantity \|\| 1\)/, 'Persist nepoužívá snapshot množství zachycený při akci.');
 assert.match(source, /is_completed:\s*Boolean\(state\.completed\)/, 'Persist nepoužívá snapshot stavu koupeno zachycený při akci.');
+assert.match(source, /await persistRow\(row, desired\);[\s\S]*?rememberConfirmedState\(row, \{ \.\.\.row \}\)/, 'Potvrzený snapshot musí po persistu vycházet ze serverem adoptovaného stavu řádku.');
 assert.ok(
   source.indexOf('await waitForRowMutations(completed);') < source.indexOf(".delete()\n            .eq('shopping_list_id', scopedListId)"),
   'Hromadné mazání musí čekat na rozběhnuté mutace před server delete.'
