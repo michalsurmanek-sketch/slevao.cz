@@ -28,6 +28,33 @@ assert.match(sql, /if not p_force and v_start_version <= v_last_refreshed_versio
 assert.match(sql, /after insert or update or delete or truncate on public\.offers[\s\S]*for each statement/);
 assert.match(sql, /after insert or update or delete or truncate on public\.products[\s\S]*for each statement/);
 
+const hotspotFixPath = 'supabase/migrations/20260827142500_remove_public_offer_cache_dirty_lock_hotspot.sql';
+assert.ok(fs.existsSync(hotspotFixPath), 'public offer cache dirty lock-hotspot migration is missing');
+const hotspotFixSql = fs.readFileSync(hotspotFixPath, 'utf8');
+
+for (const token of [
+  'private.public_offer_search_cache_dirty_transactions',
+  'pg_current_xact_id()::text',
+  'on conflict (transaction_id) do update',
+  'select coalesce(array_agg(transaction_id order by transaction_id)',
+  'delete from private.public_offer_search_cache_dirty_transactions',
+  "'processed_transactions'",
+  "'pending_transactions'",
+  "'dirty_remaining', v_pending_count > 0",
+  'revoke all on table private.public_offer_search_cache_dirty_transactions from public, anon, authenticated'
+]) {
+  assert.ok(hotspotFixSql.includes(token), `missing lock-hotspot guard: ${token}`);
+}
+
+const markerStart = hotspotFixSql.indexOf('create or replace function private.mark_public_offer_search_cache_dirty()');
+const markerEnd = hotspotFixSql.indexOf('revoke all on function private.mark_public_offer_search_cache_dirty()', markerStart);
+assert.ok(markerStart >= 0 && markerEnd > markerStart, 'dirty marker function body is missing');
+const markerSql = hotspotFixSql.slice(markerStart, markerEnd);
+assert.doesNotMatch(markerSql, /public_offer_search_cache_refresh_state/, 'dirty marker must not row-lock the singleton refresh-state row');
+assert.doesNotMatch(markerSql, /change_version\s*=\s*change_version\s*\+\s*1/, 'dirty marker must not increment the singleton state row');
+assert.match(markerSql, /insert into private\.public_offer_search_cache_dirty_transactions/);
+assert.doesNotMatch(hotspotFixSql, /set\s+lock_timeout/i, 'cache lock-hotspot fix must remove contention instead of hiding it with a longer lock timeout');
+
 const pennyPath = 'supabase/migrations/20260825211752_penny_no_change_fast_path.sql';
 assert.ok(fs.existsSync(pennyPath), 'Penny no-change fast-path migration is missing');
 const pennySql = fs.readFileSync(pennyPath, 'utf8');
