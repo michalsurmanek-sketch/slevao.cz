@@ -306,8 +306,11 @@
       const local = localMap.get(key);
       if (local) {
         local.server_id = item.id;
+        local.selected_offer_id = item.selected_offer_id || null;
         local.quantity = Number(item.quantity || local.quantity || 1);
+        local.unit = item.unit || 'ks';
         local.completed = Boolean(item.is_completed);
+        local.updated_at = item.updated_at || local.updated_at || null;
       } else {
         rows.push({
           local_id: uid(),
