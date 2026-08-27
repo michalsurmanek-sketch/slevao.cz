@@ -6,6 +6,7 @@ on:
     branches: ['main']
     paths:
       - 'scripts/sync_jip_ocr.py'
+      - 'scripts/compare_jip_ocr_engines.py'
       - '.github/workflows/sync-jip-ocr.yml'
   schedule:
     - cron: '13,43 * * * *'
@@ -47,7 +48,7 @@ jobs:
       - name: OCR aktuálního 12stránkového Maloobchod letáku
         run: python3 scripts/sync_jip_ocr.py
 
-      - name: Porovnat staged PDF OCR v3 s produkčním v2
+      - name: Consensus kontrola staged PDF OCR v3 proti produkčnímu v2
         shell: bash
         run: |
           curl --fail-with-body --silent --show-error \
@@ -78,123 +79,28 @@ jobs:
             --data-binary @/tmp/jip-v3-request.json \
             > /tmp/jip-v3.json
 
+          python3 scripts/compare_jip_ocr_engines.py \
+            --v2 /tmp/jip-v2.json \
+            --v3 /tmp/jip-v3.json \
+            --output /tmp/jip-consensus.json
+
           python3 - <<'PY'
           import json
-          import re
-
-          def clean(value):
-              return re.sub(r'\s+', ' ', str(value or '')).strip()
-
-          def ambiguous_brand_only(candidate):
-              title = clean(candidate.get('title'))
-              raw = candidate.get('raw') or {}
-              lines = [clean(x) for x in (raw.get('title_lines') or []) if clean(x)]
-              if len(lines) != 1:
-                  return False
-              words = title.rstrip('.!').split()
-              if len(words) < 2:
-                  return False
-              return all(word[:1].isupper() and word[1:].islower() for word in words if word)
-
-          def safe(candidate):
-              title = clean(candidate.get('title'))
-              quantity = clean(candidate.get('quantity'))
-              try:
-                  price = float(candidate.get('price'))
-              except (TypeError, ValueError):
-                  return False
-              raw_price = clean((candidate.get('raw') or {}).get('price_line'))
-              conf = candidate.get('conf') or {}
-              if candidate.get('price_mode') != 'direct-decimal':
-                  return False
-              if not re.search(r'\d{1,4}[,.]\d{2}', raw_price):
-                  return False
-              if len(title) < 5 or not quantity or price < 2 or price > 5000:
-                  return False
-              if float(conf.get('price') or 0) < 60 or float(conf.get('title') or 0) < 80 or float(conf.get('qty') or 0) < 65:
-                  return False
-              if re.search(r'(nabidka|neplati|dph|zdarma|kup |kupon|aplikac|sleva)', title, re.I):
-                  return False
-              if ambiguous_brand_only(candidate):
-                  return False
-              return True
-
-          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
-              v2 = json.load(f)
-          with open('/tmp/jip-v3.json', encoding='utf-8') as f:
-              v3 = json.load(f)
-          if not v3.get('ok'):
-              raise SystemExit(f"JIP v3 parser failed: {v3}")
-
-          all_v3 = v3.get('candidates') or []
-          safe_v3 = [c for c in all_v3 if safe(c)]
-          report = {
-              'ok': True,
-              'source_import_id': v2.get('source_import_id'),
-              'v2': {
-                  'engine': v2.get('engine'),
-                  'parsed_count': v2.get('parsed_count'),
-                  'safe_count': v2.get('safe_count'),
-                  'candidates': v2.get('candidates') or [],
-              },
-              'v3': {
-                  'engine': v3.get('engine'),
-                  'parsed_count': len(all_v3),
-                  'safe_count': len(safe_v3),
-                  'candidates': [
-                      {
-                          'title': c.get('title'),
-                          'price': c.get('price'),
-                          'quantity': c.get('quantity'),
-                          'page': c.get('page'),
-                          'conf': c.get('conf'),
-                          'price_line': (c.get('raw') or {}).get('price_line'),
-                      }
-                      for c in safe_v3
-                  ],
-              },
-              'production_engine_unchanged': True,
-          }
-          print(json.dumps(report, ensure_ascii=False))
-          PY
-
-      - name: Prověřit textovou vrstvu oficiálního PDF
-        shell: bash
-        run: |
-          python3 - <<'PY' > /tmp/jip-pdf-url.txt
-          import json
-          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
-              result = json.load(f)
-          source = str(result.get('source_document_url') or '').rstrip('/')
-          if not source.startswith('https://www.jip-potraviny.cz/wp-content/uploads/file/MO-'):
-              raise SystemExit(f'Unexpected JIP source URL: {source}')
-          print(source + '/files/downloads/MO.pdf')
-          PY
-          PDF_URL="$(cat /tmp/jip-pdf-url.txt)"
-          curl --fail-with-body --silent --show-error \
-            -A 'slevao-github-actions-jip-pdf-text/1.0' \
-            "$PDF_URL" -o /tmp/jip-mo.pdf
-          test "$(stat -c%s /tmp/jip-mo.pdf)" -gt 100000
-          pdftotext -layout /tmp/jip-mo.pdf /tmp/jip-pdf.txt
-          python3 - <<'PY'
-          import json
-          import re
-          from pathlib import Path
-
-          text = Path('/tmp/jip-pdf.txt').read_text(encoding='utf-8', errors='replace')
-          compact = re.sub(r'[ \t]+', ' ', text)
-          probes = ['Lipánek', 'smetanový', 'Nesquik', 'RAJČE', 'CUKETA']
-          snippets = {}
-          lower = compact.lower()
-          for probe in probes:
-              i = lower.find(probe.lower())
-              if i >= 0:
-                  snippets[probe] = compact[max(0, i - 220):i + 420].replace('\n', ' | ')
+          with open('/tmp/jip-consensus.json', encoding='utf-8') as f:
+              report = json.load(f)
+          if not report.get('ok'):
+              raise SystemExit(f"JIP consensus failed: {report}")
+          # Staged candidates never auto-promote. A nonzero safe_incremental_count
+          # will only mean "ready for explicit review" in a future parser version.
+          if report.get('safe_incremental_count', 0) != 0:
+              raise SystemExit(f"Unexpected automatic JIP incremental candidates: {report}")
           print(json.dumps({
-              'pdf_text_chars': len(text),
-              'pdf_text_pages': text.count('\f'),
-              'probe_hits': list(snippets),
-              'snippets': snippets,
+              'recommendation': report.get('recommendation'),
+              'exact_consensus_count': report.get('exact_consensus_count'),
+              'unit_price_shadow_count': report.get('unit_price_shadow_count'),
+              'price_conflict_count': report.get('price_conflict_count'),
+              'v3_only_count': report.get('v3_only_count'),
+              'production_engine_unchanged': True,
           }, ensure_ascii=False))
           PY
 
@@ -214,5 +120,7 @@ jobs:
               result = json.load(f)
           if not result.get('ok'):
               raise SystemExit(f"JIP pack publication failed: {result}")
+          if result.get('engine') != 'tesseract-cli-ces-jip-v2':
+              raise SystemExit(f"Unexpected production JIP OCR engine: {result}")
           print(json.dumps(result, ensure_ascii=False))
           PY
