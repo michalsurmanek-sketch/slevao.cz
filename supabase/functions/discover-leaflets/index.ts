@@ -614,7 +614,8 @@ Deno.serve(async (request) => {
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
   const dueSources = (sources || []).filter((source: any) =>
-    !SPECIALIZED_SOURCE_SLUGS.has(String(source.stores?.slug || ''))
+    String(source.automation_mode || '').toLocaleLowerCase('cs') === 'automatic'
+      && !SPECIALIZED_SOURCE_SLUGS.has(String(source.stores?.slug || ''))
       && (!requestedStore || String(source.stores?.slug || '') === requestedStore)
       && (force || isDue(source))
   );
