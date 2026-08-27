@@ -7,7 +7,7 @@
   const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   const SHARED_SUPABASE_CLIENT_URL = 'assets/supabase-client.js?v=20260825-1';
   const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260804-2';
-  const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260821-4';
+  const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260827-3';
   const HOME_PRODUCT_FAVORITES_URL = 'assets/home-product-favorites.js?v=20260822-1';
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   let storageReloadPending = false;
