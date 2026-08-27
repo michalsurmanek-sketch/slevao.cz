@@ -10,6 +10,8 @@ const dedupePos = index.indexOf('assets/rpc-request-dedupe.js?v=');
 const homePos = index.indexOf('assets/home-v2.js?v=');
 assert(dedupePos >= 0, 'Homepage must load the facets request dedupe bootstrap.');
 assert(homePos >= 0 && dedupePos < homePos, 'Facets dedupe must load before home-v2.js.');
+assert(source.includes('function markHeroMetricsPending()'), 'Homepage bootstrap must hide transient zero hero metrics while authoritative facets load.');
+assert(source.includes("if (value && value.textContent.trim() === '0') value.textContent = '…';"), 'Transient hero metric zeroes must become a neutral pending marker, not a false 0/0 state.');
 assert(source.includes("const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets'"), 'Dedupe must be scoped to the facets RPC.');
 assert(source.includes('const GRACE_MS = 1000'), 'Facets dedupe must use the short one-second startup grace window.');
 assert(source.includes('response.clone()'), 'Deduped callers must receive independent Response clones.');
