@@ -4,6 +4,7 @@
   const LIST_KEY = 'slevao-shopping-list-v1';
   const SHARED_POLL_MS = 30000;
   const OFFER_REFRESH_MS = 5 * 60 * 1000;
+  const REMOTE_ITEM_FIELDS = 'id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at';
   const db = window.SlevaoSupabase.getClient();
   const $ = (id) => document.getElementById(id);
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -243,9 +244,9 @@
     }
   }
 
-  async function ensureRemoteList() {
+  async function findRemoteList() {
     if (!session) return null;
-    const { data: existing, error } = await db.from('shopping_lists')
+    const { data, error } = await db.from('shopping_lists')
       .select('id,name')
       .eq('user_id', session.user.id)
       .eq('is_archived', false)
@@ -253,20 +254,66 @@
       .limit(1)
       .maybeSingle();
     if (error) throw error;
-    if (existing) return existing.id;
+    return data || null;
+  }
+
+  async function ensureRemoteList() {
+    if (!session) return null;
+    const existing = await findRemoteList();
+    if (existing?.id) return existing.id;
+
     const { data, error: createError } = await db.from('shopping_lists')
       .insert({ user_id: session.user.id, name: 'Můj nákup' })
       .select('id')
       .single();
-    if (createError) throw createError;
-    return data.id;
+    if (!createError && data?.id) return data.id;
+    if (createError?.code !== '23505') throw createError;
+
+    const concurrent = await findRemoteList();
+    if (concurrent?.id) return concurrent.id;
+    throw createError;
+  }
+
+  async function findConcurrentRemoteItem(row) {
+    let query = db.from('shopping_list_items')
+      .select(REMOTE_ITEM_FIELDS)
+      .eq('shopping_list_id', listId);
+
+    if (row.product_id) {
+      query = query.eq('product_id', row.product_id);
+    } else {
+      const customName = String(row.custom_name || row.name || '').trim();
+      if (!customName) return null;
+      query = query.is('product_id', null).ilike('custom_name', customName);
+    }
+
+    const { data, error } = await query
+      .order('created_at', { ascending:true })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data || null;
+  }
+
+  function adoptRemoteState(row, remote) {
+    if (!row || !remote?.id) return;
+    row.server_id = remote.id;
+    row.selected_offer_id = remote.selected_offer_id || null;
+    row.quantity = Number(remote.quantity || row.quantity || 1);
+    row.unit = remote.unit || row.unit || 'ks';
+    row.completed = Boolean(remote.is_completed);
+    row.updated_at = remote.updated_at || row.updated_at || null;
+    if (!row.product_id && remote.custom_name) {
+      row.custom_name = remote.custom_name;
+      row.name = remote.custom_name;
+    }
   }
 
   async function mergeRemote() {
     if (!session || sharedMode) return;
     listId = await ensureRemoteList();
     const { data: remote, error } = await db.from('shopping_list_items')
-      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at')
+      .select(REMOTE_ITEM_FIELDS)
       .eq('shopping_list_id', listId)
       .order('created_at');
     if (error) throw error;
@@ -275,8 +322,8 @@
     const remoteMap = new Map((remote || []).map((row) => [rowKey(row), row]));
     const missingRemote = rows.filter((row) => !remoteMap.has(rowKey(row)));
 
-    if (missingRemote.length) {
-      const payload = missingRemote.map((row) => ({
+    for (const row of missingRemote) {
+      const payload = {
         shopping_list_id: listId,
         product_id: row.product_id || null,
         selected_offer_id: row.selected_offer_id || null,
@@ -284,12 +331,21 @@
         quantity: Number(row.quantity || 1),
         unit: row.unit || 'ks',
         is_completed: Boolean(row.completed)
-      }));
+      };
       const { data: inserted, error: insertError } = await db.from('shopping_list_items')
         .insert(payload)
-        .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at');
-      if (insertError) throw insertError;
-      (inserted || []).forEach((item) => remoteMap.set(rowKey(item), item));
+        .select(REMOTE_ITEM_FIELDS)
+        .single();
+
+      if (!insertError && inserted) {
+        remoteMap.set(rowKey(inserted), inserted);
+        continue;
+      }
+      if (insertError?.code !== '23505') throw insertError;
+
+      const concurrent = await findConcurrentRemoteItem(row);
+      if (!concurrent) throw insertError;
+      remoteMap.set(rowKey(concurrent), concurrent);
     }
 
     const productIds = [...new Set([...remoteMap.values()].map((row) => row.product_id).filter(Boolean))];
@@ -305,12 +361,7 @@
       const product = productMap.get(item.product_id);
       const local = localMap.get(key);
       if (local) {
-        local.server_id = item.id;
-        local.selected_offer_id = item.selected_offer_id || null;
-        local.quantity = Number(item.quantity || local.quantity || 1);
-        local.unit = item.unit || 'ks';
-        local.completed = Boolean(item.is_completed);
-        local.updated_at = item.updated_at || local.updated_at || null;
+        adoptRemoteState(local, item);
       } else {
         rows.push({
           local_id: uid(),
@@ -356,12 +407,24 @@
         .eq('id', row.server_id)
         .eq('shopping_list_id', listId);
       if (error) throw error;
-    } else {
-      const { data, error } = await db.from('shopping_list_items').insert(payload).select('id').single();
-      if (error) throw error;
-      row.server_id = data.id;
-      saveLocal();
+      return;
     }
+
+    const { data, error } = await db.from('shopping_list_items')
+      .insert(payload)
+      .select(REMOTE_ITEM_FIELDS)
+      .single();
+    if (!error && data?.id) {
+      adoptRemoteState(row, data);
+      saveLocal();
+      return;
+    }
+    if (error?.code !== '23505') throw error;
+
+    const concurrent = await findConcurrentRemoteItem(state);
+    if (!concurrent) throw error;
+    adoptRemoteState(row, concurrent);
+    saveLocal();
   }
 
   async function deleteRow(row) {
@@ -624,7 +687,7 @@
       await enqueueRowMutation(row, async () => {
         try {
           await persistRow(row, desired);
-          if (session) rememberConfirmedState(row, desired);
+          if (session) rememberConfirmedState(row, { ...row });
         } catch (error) {
           if (isLatestMutation(key, version)) rollbackToConfirmed(row, key, version, previous || desired);
           throw error;
@@ -801,7 +864,7 @@
       await enqueueRowMutation(row, async () => {
         try {
           await persistRow(row, desired);
-          if (!sharedMode && session) rememberConfirmedState(row, desired);
+          if (!sharedMode && session) rememberConfirmedState(row, { ...row });
         } catch (error) {
           if (isLatestMutation(key, version)) {
             if (sharedMode) await loadSharedList({ silent: true });
