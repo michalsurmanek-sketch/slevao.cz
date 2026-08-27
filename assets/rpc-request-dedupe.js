@@ -27,35 +27,58 @@
   const RETRY_DELAY_MS = 180;
   const ALLOWED_MODES = new Set(['all','recommended','food','ending','under50','under100','discount','new']);
   let facetModeHint = new URLSearchParams(location.search).get('q')?.trim() ? 'all' : 'recommended';
+  let facetContextEngaged = false;
   let globalFacetsPassed = false;
+
+  function setFacetModeHint(mode) {
+    facetContextEngaged = true;
+    if (ALLOWED_MODES.has(mode)) facetModeHint = mode;
+  }
 
   if (typeof document !== 'undefined') {
     document.addEventListener('click', (event) => {
       const quick = event.target.closest('#quickTabs [data-mode]');
-      if (quick?.dataset.mode && ALLOWED_MODES.has(quick.dataset.mode)) facetModeHint = quick.dataset.mode;
+      if (quick?.dataset.mode && ALLOWED_MODES.has(quick.dataset.mode)) {
+        setFacetModeHint(quick.dataset.mode);
+        return;
+      }
 
-      if (event.target.closest('#resetFilters,[data-clear="all"]')) facetModeHint = 'recommended';
-      if (event.target.closest('[data-clear="query"]') && facetModeHint === 'all') facetModeHint = 'recommended';
+      if (event.target.closest('#resetFilters,[data-clear="all"]')) {
+        setFacetModeHint('recommended');
+        return;
+      }
+      if (event.target.closest('[data-clear="query"]')) {
+        setFacetModeHint(facetModeHint === 'all' ? 'recommended' : facetModeHint);
+        return;
+      }
 
       if (event.target.closest('#searchButton')) {
-        facetModeHint = document.getElementById('q')?.value.trim() ? 'all' : 'recommended';
+        setFacetModeHint(document.getElementById('q')?.value.trim() ? 'all' : 'recommended');
+        return;
       }
 
       const category = event.target.closest('#categoryChips [data-category]');
-      if (category && facetModeHint === 'food' && category.dataset.category !== 'food') facetModeHint = 'all';
-      if (event.target.closest('#clearCategory') && facetModeHint === 'food') facetModeHint = 'all';
+      if (category) {
+        setFacetModeHint(facetModeHint === 'food' && category.dataset.category !== 'food' ? 'all' : facetModeHint);
+        return;
+      }
+      if (event.target.closest('#clearCategory')) {
+        setFacetModeHint(facetModeHint === 'food' ? 'all' : facetModeHint);
+      }
     }, true);
 
     document.addEventListener('input', (event) => {
-      if (event.target?.id === 'sideSearch') facetModeHint = event.target.value.trim() ? 'all' : 'recommended';
+      if (event.target?.id === 'sideSearch') setFacetModeHint(event.target.value.trim() ? 'all' : 'recommended');
     }, true);
 
     document.addEventListener('keydown', (event) => {
-      if (event.target?.id === 'q' && event.key === 'Enter') facetModeHint = event.target.value.trim() ? 'all' : 'recommended';
+      if (event.target?.id === 'q' && event.key === 'Enter') setFacetModeHint(event.target.value.trim() ? 'all' : 'recommended');
     }, true);
 
     document.addEventListener('change', (event) => {
-      if (event.target?.id === 'categorySelect' && facetModeHint === 'food' && event.target.value !== 'food') facetModeHint = 'all';
+      if (event.target?.id === 'categorySelect') {
+        setFacetModeHint(facetModeHint === 'food' && event.target.value !== 'food' ? 'all' : facetModeHint);
+      }
     }, true);
   }
 
@@ -96,6 +119,10 @@
       globalFacetsPassed = true;
       return body;
     }
+
+    // The clean homepage startup intentionally reuses the global facets promise.
+    // Do not mutate a duplicate startup payload before the dedupe layer sees it.
+    if (!facetContextEngaged) return body;
 
     if (!ALLOWED_MODES.has(facetModeHint) || facetModeHint === 'all') return body;
     payload.p_mode = facetModeHint;
