@@ -4,12 +4,16 @@
   const LIST_KEY = 'slevao-shopping-list-v1';
   const CLAIM_QUANTITY = '__slevao_guest_claim_quantity';
   const POLL_MS = 30000;
+  const VERIFY_ATTEMPTS = 16;
+  const VERIFY_DELAY_MS = 250;
   const sharedQuery = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedQuery.get('share') || sharedHash.get('share'));
   if (sharedMode || !document.querySelector('.sfListLayout')) return;
 
   let checking = false;
+  let verifyingCompletion = false;
+  let completionBypass = false;
   let timer = 0;
   let listId = '';
 
@@ -73,30 +77,41 @@
     return listId;
   }
 
-  async function checkRemote() {
-    if (checking || document.hidden || editingList()) return;
+  async function snapshotState({ requireSettled = true } = {}) {
     const db = window.SlevaoSupabase?.getClient?.();
-    if (!db) return;
+    if (!db) return { status:'unavailable' };
 
     const localRows = readLocalRows();
-    if (!localIsSettled(localRows)) return;
+    if (requireSettled && !localIsSettled(localRows)) return { status:'pending' };
 
+    const { data:{ session }, error:sessionError } = await db.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!session?.user?.id) return { status:'guest' };
+
+    const currentListId = await resolveListId(db, session.user.id);
+    if (!currentListId) return { status:localRows.length ? 'mismatch' : 'current' };
+
+    const { data:remoteRows, error:remoteError } = await db.from('shopping_list_items')
+      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed')
+      .eq('shopping_list_id', currentListId)
+      .order('created_at');
+    if (remoteError) throw remoteError;
+
+    const localSignature = signature(localRows, false);
+    const remoteSignature = signature(remoteRows || [], true);
+    return {
+      status: localSignature === remoteSignature ? 'current' : 'mismatch',
+      localSignature,
+      remoteSignature,
+    };
+  }
+
+  async function checkRemote() {
+    if (checking || verifyingCompletion || document.hidden || editingList()) return;
     checking = true;
     try {
-      const { data:{ session }, error:sessionError } = await db.auth.getSession();
-      if (sessionError || !session?.user?.id) return;
-      const currentListId = await resolveListId(db, session.user.id);
-      if (!currentListId) return;
-
-      const { data:remoteRows, error:remoteError } = await db.from('shopping_list_items')
-        .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed')
-        .eq('shopping_list_id', currentListId)
-        .order('created_at');
-      if (remoteError) throw remoteError;
-
-      if (signature(localRows, false) !== signature(remoteRows || [], true)) {
-        location.reload();
-      }
+      const state = await snapshotState();
+      if (state.status === 'mismatch') location.reload();
     } catch (error) {
       console.debug('Kontrola cloudového nákupního seznamu selhala:', error);
     } finally {
@@ -104,10 +119,62 @@
     }
   }
 
+  async function verifyBeforeCompletion() {
+    let lastState = { status:'pending' };
+    for (let attempt = 0; attempt < VERIFY_ATTEMPTS; attempt++) {
+      lastState = await snapshotState();
+      if (lastState.status === 'current' || lastState.status === 'guest') return lastState;
+      if (lastState.status === 'unavailable') return lastState;
+      await new Promise((resolve) => setTimeout(resolve, VERIFY_DELAY_MS));
+    }
+    return lastState;
+  }
+
+  async function guardCompletionClick(event) {
+    const button = event.target?.closest?.('#completeShopping');
+    if (!button || completionBypass || button.disabled) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    if (verifyingCompletion) return;
+
+    verifyingCompletion = true;
+    button.disabled = true;
+    const originalTitle = button.title;
+    button.title = 'Ověřuji aktuální stav seznamu…';
+    try {
+      const state = await verifyBeforeCompletion();
+      if (state.status === 'current' || state.status === 'guest') {
+        completionBypass = true;
+        button.disabled = false;
+        button.title = originalTitle;
+        button.click();
+        completionBypass = false;
+        return;
+      }
+      if (state.status === 'mismatch') {
+        window.SlevaoPublic?.toast?.('Seznam se mezitím změnil na jiném zařízení. Načítám aktuální stav.');
+        location.reload();
+        return;
+      }
+      window.SlevaoPublic?.toast?.('Před dokončením se nepodařilo ověřit aktuální seznam. Zkus to prosím znovu.');
+    } catch (error) {
+      console.debug('Ověření seznamu před dokončením selhalo:', error);
+      window.SlevaoPublic?.toast?.('Před dokončením se nepodařilo ověřit aktuální seznam. Zkus to prosím znovu.');
+    } finally {
+      if (!completionBypass) {
+        button.disabled = false;
+        button.title = originalTitle;
+      }
+      verifyingCompletion = false;
+    }
+  }
+
   function scheduleSoon() {
     window.setTimeout(() => checkRemote(), 500);
   }
 
+  document.addEventListener('click', guardCompletionClick, true);
   window.addEventListener('focus', scheduleSoon);
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) scheduleSoon();
@@ -115,5 +182,5 @@
   timer = window.setInterval(() => checkRemote(), POLL_MS);
   window.addEventListener('pagehide', () => clearInterval(timer), { once:true });
 
-  window.SlevaoOwnerCloudRefresh = { signature, localIsSettled };
+  window.SlevaoOwnerCloudRefresh = { signature, localIsSettled, snapshotState, verifyBeforeCompletion };
 })();
