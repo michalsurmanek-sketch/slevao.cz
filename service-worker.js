@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260827-16';
+const CACHE_NAME = 'slevao-shell-20260827-17';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -18,6 +18,8 @@ const SHELL = [
   '/assets/supabase-client.js?v=20260825-1',
   '/assets/product-price-history-safe.js?v=20260827-1',
   '/assets/public-nav-upgrade.js?v=20260822-2',
+  '/assets/shopping-guest-claim-bridge.js?v=20260827-1',
+  '/assets/shopping-guest-claim-reconcile.js?v=20260827-1',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260822-1',
