@@ -1,31 +1,35 @@
 const SOURCE_URL = 'https://jysk.cz/campaign';
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const HEADERS = {
   'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
   accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
   'accept-language': 'cs-CZ,cs;q=0.9',
 };
 
-function compact(value: string) {
-  return value.replace(/\s+/g, ' ').trim();
+function authorized(req: Request) {
+  return Boolean(
+    (SERVICE_ROLE && req.headers.get('authorization') === `Bearer ${SERVICE_ROLE}`)
+    || (CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET)
+  );
 }
 
+function compact(value: string) { return value.replace(/\s+/g, ' ').trim(); }
 function around(html: string, marker: string, before = 1200, after = 5000) {
   const index = html.toLocaleLowerCase('cs').indexOf(marker.toLocaleLowerCase('cs'));
   return index < 0 ? '' : compact(html.slice(Math.max(0, index - before), Math.min(html.length, index + after)));
 }
-
 async function fetchText(url: string) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 15_000);
   try {
     const response = await fetch(url, { headers: HEADERS, redirect: 'follow', signal: controller.signal });
     return { status: response.status, finalUrl: response.url, text: await response.text() };
-  } finally {
-    clearTimeout(timer);
-  }
+  } finally { clearTimeout(timer); }
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (!authorized(req)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const listing = await fetchText(SOURCE_URL);
   const publications = [...new Set(
     [...listing.text.matchAll(/https:\/\/ipaper\.ipapercms\.dk\/jysk\/cz\/CampaignPaper\/[a-z0-9_]+(?:\?[^"'<>\s]*)?/gi)]
