@@ -17,8 +17,16 @@ new Script(homeProduct, { filename:'assets/home-product-favorites.js' });
 new Script(personalization, { filename:'assets/product-personalization.js' });
 new Script(storeRuntime, { filename:'assets/store-bottom-nav.js' });
 
-assert.doesNotMatch(bootstrap, /localStorage|sessionStorage|setTimeout|setInterval/, 'Facets dedupe bootstrap nesmí znovu převzít persistentní Storage logiku.');
-assert.match(bootstrap, /home-favorite-offer-sync\.js\?v=20260822-2/, 'Homepage bootstrap nenačítá aktuální oddělený favorite sync runtime.');
+assert.doesNotMatch(bootstrap, /localStorage|sessionStorage|setInterval/, 'Facets dedupe bootstrap nesmí převzít persistentní Storage ani intervalovou cache logiku.');
+const retryStart = bootstrap.indexOf('  function fetchWithReadRetry');
+const retryEnd = bootstrap.indexOf('\n  function contextualFacetBody', retryStart);
+assert.ok(retryStart >= 0 && retryEnd > retryStart, 'Facets bootstrap nemá izolovatelný bounded read retry.');
+const retrySource = bootstrap.slice(retryStart, retryEnd);
+assert.match(retrySource, /window\.setTimeout\(resolve, RETRY_DELAY_MS\)/, 'Jediný timeout musí patřit krátkému read-only RPC retry.');
+assert.equal((bootstrap.match(/setTimeout/g) || []).length, 1, 'Facets bootstrap nesmí přidat další timer mimo bounded read retry.');
+
+const favoriteSyncUrl = bootstrap.match(/syncScript\.src = '([^']+)'/)?.[1] || '';
+assert.match(favoriteSyncUrl, /^assets\/home-favorite-offer-sync\.js\?v=[0-9-]+$/, 'Homepage bootstrap nenačítá verzovaný oddělený favorite sync runtime.');
 assert.match(bootstrap, /syncScript\.async = false;/, 'Favorite sync loader nemá stabilní ordered-script režim.');
 
 assert.match(homeSync, /const HOME_FAVORITES_KEY = 'slevao-saved';/, 'Homepage bridge nehlídá homepage favorites klíč.');
@@ -30,8 +38,11 @@ assert.match(homeSync, /window\.addEventListener\('storage'/, 'Homepage nereaguj
 assert.match(homeSync, /initial\.homeChanged/, 'Pozdní favorite bootstrap neumí rozpoznat, že home-v2 načetl starý stav.');
 assert.match(homeSync, /location\.reload\(\)/, 'Po úvodní migraci homepage klíče chybí jednorázové obnovení home-v2 state.saved.');
 assert.match(homeSync, /@supabase\/supabase-js@2/, 'Homepage produktové oblíbené nemají zajištěný Supabase auth klient.');
-assert.match(homeSync, /product-personalization\.js\?v=20260821-4/, 'Homepage nenačítá sdílený účetní personalization runtime.');
-assert.match(homeSync, /home-product-favorites\.js\?v=20260822-1/, 'Homepage nenačítá bridge nabídka → produkt.');
+
+const personalizationUrl = homeSync.match(/script\.src = '([^']*product-personalization\.js\?v=[^']+)'/)?.[1] || '';
+const productFavoritesUrl = homeSync.match(/script\.src = '([^']*home-product-favorites\.js\?v=[^']+)'/)?.[1] || '';
+assert.match(personalizationUrl, /^assets\/product-personalization\.js\?v=[0-9-]+$/, 'Homepage nenačítá verzovaný sdílený účetní personalization runtime.');
+assert.match(productFavoritesUrl, /^assets\/home-product-favorites\.js\?v=[0-9-]+$/, 'Homepage nenačítá verzovaný bridge nabídka → produkt.');
 assert.match(homeSync, /document\.getElementById\('dealGrid'\)/, 'Produktové oblíbené se nesmí bootovat mimo homepage nabídky.');
 
 assert.match(homeProduct, /select: 'id,product_id'/, 'Homepage bridge musí mapovat offer.id na product_id.');
@@ -57,14 +68,16 @@ assert.match(storeListenerSource, /event\.newValue === null/, 'Store cross-tab l
 assert.match(storeListenerSource, /parseFavoriteList\(event\.newValue\)/, 'Store cross-tab listener nepřebírá přesnou novou hodnotu.');
 assert.doesNotMatch(storeListenerSource, /reconcileFavoriteKeys\(\)/, 'Store cross-tab listener nesmí unionem znovu oživit vzdáleně smazanou nabídku.');
 
-const rpcIndex = index.indexOf('assets/rpc-request-dedupe.js?v=20260819-1');
-const homeIndex = index.indexOf('assets/home-v2.js?v=20260821-1');
+const rpcUrl = index.match(/assets\/rpc-request-dedupe\.js\?v=[0-9-]+/)?.[0] || '';
+const homeUrl = index.match(/assets\/home-v2\.js\?v=[0-9-]+/)?.[0] || '';
+const rpcIndex = rpcUrl ? index.indexOf(rpcUrl) : -1;
+const homeIndex = homeUrl ? index.indexOf(homeUrl) : -1;
 assert.ok(rpcIndex >= 0 && homeIndex > rpcIndex, 'Homepage bootstrap musí startovat před home-v2.js.');
 assert.match(worker, /const CACHE_NAME = 'slevao-shell-[a-z0-9-]+';/i, 'PWA shell nemá platné verzované jméno cache.');
-assert.match(worker, /assets\/rpc-request-dedupe\.js\?v=20260819-1/, 'PWA shell necachuje homepage bootstrap.');
-assert.match(worker, /assets\/home-favorite-offer-sync\.js\?v=20260822-2/, 'PWA shell necachuje aktuální favorite sync runtime.');
-assert.match(worker, /assets\/home-product-favorites\.js\?v=20260822-1/, 'PWA shell necachuje homepage product favorite bridge.');
-assert.match(worker, /assets\/product-personalization\.js\?v=20260821-4/, 'PWA shell necachuje sdílený účetní personalization runtime.');
+assert.ok(worker.includes(`'/${rpcUrl}'`), 'PWA shell necachuje stejný homepage bootstrap jako index.html.');
+assert.ok(worker.includes(`'/${favoriteSyncUrl}'`), 'PWA shell necachuje stejný favorite sync runtime jako homepage bootstrap.');
+assert.ok(worker.includes(`'/${productFavoritesUrl}'`), 'PWA shell necachuje stejný homepage product favorite bridge jako favorite sync runtime.');
+assert.ok(worker.includes(`'/${personalizationUrl}'`), 'PWA shell necachuje stejný účetní personalization runtime jako favorite sync runtime.');
 
 class StorageMock {
   constructor(initial = {}) { this.map = new Map(Object.entries(initial)); }
