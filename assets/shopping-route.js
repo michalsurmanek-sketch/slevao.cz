@@ -150,26 +150,67 @@
       .sort((a, b) => Number(a.distance_km ?? Infinity) - Number(b.distance_km ?? Infinity))[0] || null;
   }
 
+  function branchCompatibleStorePlan(storeId, storeItems, offers, branches, position, kmCost) {
+    const allowedStore = new Set([String(storeId)]);
+    let best = null;
+    for (const branch of (branches || []).filter((item) => String(item.store_id) === String(storeId))) {
+      const items = [];
+      let subtotal = 0;
+      let complete = true;
+      for (const current of storeItems) {
+        const offer = offersForRow(current.row, offers, allowedStore)
+          .filter((candidate) => api().coverageMatches(candidate, [branch]))
+          .slice()
+          .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
+        if (!offer) {
+          complete = false;
+          break;
+        }
+        const rowSubtotal = Number(offer.price || 0) * Math.max(.01, Number(current.row.quantity || 1));
+        subtotal += rowSubtotal;
+        items.push({ row: current.row, offer, subtotal: rowSubtotal });
+      }
+      if (!complete) continue;
+      const directDistance = api().distanceKm(position.latitude, position.longitude, branch.latitude, branch.longitude);
+      const score = subtotal + (Number.isFinite(directDistance) ? directDistance * kmCost : 0);
+      if (!best || score < best.score || (score === best.score && subtotal < best.subtotal)) {
+        best = { branch, items, subtotal, score };
+      }
+    }
+    return best;
+  }
+
   function planFor(combo, rows, offers, branches, position, kmCost, stopCost) {
     const allowed = new Set(combo.map(String));
-    const chosen = [];
-    let basketTotal = 0;
+    let chosen = [];
     for (const row of rows) {
       const offer = offersForRow(row, offers, allowed)
         .slice()
         .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
       if (!offer) return null;
       const subtotal = Number(offer.price || 0) * Math.max(.01, Number(row.quantity || 1));
-      basketTotal += subtotal;
       chosen.push({ row, offer, subtotal });
     }
-    const usedStores = [...new Set(chosen.map((item) => String(item.offer.store_id)))];
+
     const branchByStore = new Map();
-    for (const storeId of usedStores) {
-      const branch = compatibleBranchForStore(storeId, chosen, branches);
-      if (!branch) return null;
+    const initialStores = [...new Set(chosen.map((item) => String(item.offer.store_id)))];
+    for (const storeId of initialStores) {
+      let branch = compatibleBranchForStore(storeId, chosen, branches);
+      if (!branch) {
+        const storeItems = chosen.filter((item) => String(item.offer.store_id) === String(storeId));
+        const fallback = branchCompatibleStorePlan(storeId, storeItems, offers, branches, position, kmCost);
+        if (!fallback) return null;
+        chosen = [
+          ...chosen.filter((item) => String(item.offer.store_id) !== String(storeId)),
+          ...fallback.items,
+        ];
+        branch = fallback.branch;
+      }
       branchByStore.set(String(storeId), branch);
     }
+
+    const usedStores = [...new Set(chosen.map((item) => String(item.offer.store_id)))];
+    const basketTotal = chosen.reduce((sum, item) => sum + Number(item.subtotal || 0), 0);
     const route = routeForStores(usedStores, branchByStore, position);
     if (!route) return null;
     const transportWeight = route.distanceKm * kmCost;
