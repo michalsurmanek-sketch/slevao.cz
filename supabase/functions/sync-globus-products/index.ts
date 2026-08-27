@@ -14,6 +14,7 @@ const MAX_PAGES = 10;
 const MAX_REPORTED_GAP = 100;
 const MAX_VALIDITY_DAYS = 180;
 const INVALID_VALIDITY_SENTINEL_YEAR = 2100;
+const API_PAGE_TIMEOUT_MS = 12_000;
 const ADAPTER = 'globus-action-products-api-v1';
 const PARSER_VERSION = 'globus-action-products-api-v1';
 
@@ -30,6 +31,20 @@ const CORS = {
 
 function json(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: CORS });
+}
+function errorText(error: unknown) {
+  if (error instanceof Error) {
+    if (error.name === 'AbortError') return `timeout po ${API_PAGE_TIMEOUT_MS} ms`;
+    return error.message;
+  }
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    return [value.message, value.details, value.hint, value.code]
+      .filter(Boolean)
+      .map(String)
+      .join(' | ') || JSON.stringify(value);
+  }
+  return String(error);
 }
 function allowed(req: Request) {
   return req.headers.get('authorization') === `Bearer ${SERVICE_ROLE_KEY}`
@@ -97,23 +112,37 @@ async function sha(value: string) {
 
 async function fetchPage(page: number) {
   const url = `${API_URL}?page=${page}&pageSize=${PAGE_SIZE}&listedProductOnly=true`;
-  const response = await fetch(url, {
-    headers: {
-      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36',
-      accept: 'application/json',
-      'accept-language': 'cs-CZ,cs;q=0.9',
-      referer: SOURCE_PAGE_URL,
-    },
-    redirect: 'follow',
-  });
-  if (!response.ok) throw new Error(`Globus API page ${page} HTTP ${response.status}`);
-  const payload = await response.json();
-  const products = Array.isArray(payload?.products) ? payload.products : [];
-  const totalCount = Number(payload?.totalCount);
-  const more = payload?.paginationShowMore === true;
-  if (!Number.isFinite(totalCount) || totalCount < 1) throw new Error(`Globus API page ${page} nemá platný totalCount.`);
-  if (more && products.length === 0) throw new Error(`Globus API page ${page} tvrdí další stránku, ale nevrátila produkty.`);
-  return { products, totalCount, more };
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), API_PAGE_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36',
+          accept: 'application/json',
+          'accept-language': 'cs-CZ,cs;q=0.9',
+          referer: SOURCE_PAGE_URL,
+        },
+        redirect: 'follow',
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error(`Globus API page ${page} HTTP ${response.status}`);
+      const payload = await response.json();
+      const products = Array.isArray(payload?.products) ? payload.products : [];
+      const totalCount = Number(payload?.totalCount);
+      const more = payload?.paginationShowMore === true;
+      if (!Number.isFinite(totalCount) || totalCount < 1) throw new Error(`Globus API page ${page} nemá platný totalCount.`);
+      if (more && products.length === 0) throw new Error(`Globus API page ${page} tvrdí další stránku, ale nevrátila produkty.`);
+      return { products, totalCount, more };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => setTimeout(resolve, 350));
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+  throw new Error(`Globus API page ${page} selhala po 2 pokusech: ${errorText(lastError)}`);
 }
 
 async function fetchAllProducts() {
@@ -215,13 +244,41 @@ function normalizeProduct(product: any) {
   };
 }
 
+async function markHealth(status: 'ok' | 'degraded', reason: string, count: number, error: string | null) {
+  try {
+    const { data: store } = await db.from('stores').select('id').eq('slug', 'globus').maybeSingle();
+    if (!store) return;
+    await db.from('store_product_sync_state').update({
+      adapter_name: ADAPTER,
+      adapter_version: PARSER_VERSION,
+      parser_version: PARSER_VERSION,
+      source_type: 'official-structured-api',
+      source_category: 'branch-action-offer',
+      health_status: status,
+      health_reason: reason,
+      last_offer_count: count,
+      expected_offer_count: status === 'ok' ? count : undefined,
+      minimum_offer_count: MIN_PRODUCTS,
+      last_run_at: new Date().toISOString(),
+      last_success_at: status === 'ok' ? new Date().toISOString() : undefined,
+      last_error: error,
+      last_parser_error: error,
+      updated_at: new Date().toISOString(),
+    }).eq('store_id', store.id);
+  } catch {
+    // Health telemetry must never turn a sync result into a different result.
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!allowed(req)) return json({ error: 'Unauthorized' }, 401);
 
+  let requestedDryRun = true;
   try {
     const body = await req.json().catch(() => ({}));
+    requestedDryRun = body.dry_run !== false;
     const fetched = await fetchAllProducts();
     const invalidValidityCount = fetched.products.filter((product) => {
       const house = product?.productInHouse || {};
@@ -272,7 +329,7 @@ Deno.serve(async (req) => {
       signature,
     };
 
-    if (body.dry_run !== false) {
+    if (requestedDryRun) {
       return json({
         ...summary,
         dry_run: true,
@@ -294,9 +351,13 @@ Deno.serve(async (req) => {
     });
     if (error) throw error;
 
+    await markHealth('ok', `Globus Olomouc: publikováno ${rows.length} ověřených API nabídek.`, rows.length, null);
     return json({ ...summary, dry_run: false, publish: data });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorText(error);
+    if (!requestedDryRun) {
+      await markHealth('degraded', `Globus Olomouc synchronizace selhala: ${message}`, 0, message);
+    }
     return json({ error: message, adapter: ADAPTER }, 500);
   }
 });
