@@ -1,14 +1,25 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
-const PUBLIC_FEATURES = 'assets/public-features.js?v=20260815-3';
-const PUBLIC_NAV = 'assets/public-nav-upgrade.js?v=20260822-2';
+const PUBLIC_FEATURES = 'assets/public-features.js';
+const PUBLIC_NAV = 'assets/public-nav-upgrade.js';
+const SHOPPING_BOOTSTRAP = 'assets/shopping-insights-bootstrap.js';
+const SHOPPING_LIST = 'assets/shopping-list.js';
 
 const CORE_PAGES = [
   { path:'/produkt.html', title:/Produkt/i, marker:'#productContent' },
   { path:'/seznam.html', title:/Nákupní seznam/i, marker:'main' },
   { path:'/ucet.html', title:/Můj účet/i, marker:'main' },
 ];
+
+function versionedScript(path) {
+  return `script[src^="${path}?v="]`;
+}
+
+function versionedShellAsset(path) {
+  const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`/${escaped}\\?v=[^'"\\s]+`);
+}
 
 function watchLocalRuntime(page) {
   const failedResponses = [];
@@ -55,11 +66,11 @@ async function openCorePage(page, entry, width) {
   expect(response?.status(), `${entry.path} document status`).toBe(200);
   await expect(page).toHaveTitle(entry.title);
   await expect(page.locator(entry.marker).first()).toBeVisible();
-  await expect(page.locator(`script[src="${PUBLIC_FEATURES}"]`)).toHaveCount(1);
-  await expect(page.locator(`script[src="${PUBLIC_NAV}"]`)).toHaveCount(1);
+  await expect(page.locator(versionedScript(PUBLIC_FEATURES))).toHaveCount(1);
+  await expect(page.locator(versionedScript(PUBLIC_NAV))).toHaveCount(1);
   if (entry.path === '/seznam.html') {
-    await expect(page.locator('script[src="assets/shopping-insights-bootstrap.js?v=20260822-2"]')).toHaveCount(1);
-    await expect(page.locator('script[src="assets/shopping-list.js?v=20260822-2"]')).toHaveCount(1);
+    await expect(page.locator(versionedScript(SHOPPING_BOOTSTRAP))).toHaveCount(1);
+    await expect(page.locator(versionedScript(SHOPPING_LIST))).toHaveCount(1);
   }
   await page.waitForTimeout(1_000);
   await expectNoHorizontalOverflow(page);
@@ -84,8 +95,17 @@ test('PWA service worker exposes the current core-page shell contract', async ({
   const source = await response.text();
 
   expect(source).toMatch(/const CACHE_NAME = 'slevao-shell-[a-z0-9-]+';/i);
-  expect(source).toContain(`/${PUBLIC_FEATURES}`);
-  expect(source).toContain('/assets/shopping-insights-bootstrap.js?v=20260822-2');
+  expect(source).toMatch(versionedShellAsset(PUBLIC_FEATURES));
+  expect(source).toMatch(versionedShellAsset(SHOPPING_BOOTSTRAP));
+  expect(source).toMatch(versionedShellAsset(SHOPPING_LIST));
+
+  const bootstrapResponse = await request.get(`${BASE_URL}/${SHOPPING_BOOTSTRAP}`);
+  expect(bootstrapResponse.status()).toBe(200);
+  const bootstrapSource = await bootstrapResponse.text();
+  const listUrl = bootstrapSource.match(/const LIST_URL = '([^']+)'/)?.[1];
+  expect(listUrl, 'Shopping bootstrap must expose its versioned list runtime URL.').toBeTruthy();
+  expect(source, 'PWA shell must cache the exact shopping-list runtime loaded by the bootstrap.').toContain(`/${listUrl}`);
+
   for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
     expect(source, `PWA shell is missing ${path}`).toContain(`'${path}'`);
   }
