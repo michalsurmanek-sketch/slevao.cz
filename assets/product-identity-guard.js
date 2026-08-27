@@ -5,14 +5,16 @@
   const root = document.getElementById('productContent');
   if (!productId || !root) return;
 
-  function exactIdentity(product) {
+  function identityMode(product) {
     const ean = String(product?.ean || '').trim();
     const brand = String(product?.brand || '').trim();
     const quantity = String(product?.quantity_text || '').trim();
     const verifiedCommodity = product?.is_verified === true
       && product?.metadata?.identity_type === 'verified_commodity'
       && quantity;
-    return Boolean(ean || (product?.is_verified === true && brand && quantity) || verifiedCommodity);
+    if (ean || verifiedCommodity) return 'exact';
+    if (product?.is_verified === true && brand && quantity) return 'verified_group';
+    return 'comparable';
   }
 
   async function getDb(timeout = 5000) {
@@ -50,47 +52,64 @@
     return data;
   }
 
-  function updateDynamicCopy(exact) {
+  function updateDynamicCopy(mode) {
+    const exact = mode === 'exact';
+    const grouped = mode === 'verified_group';
     const statLabels = root.querySelectorAll('.sfStats .sfStat small');
-    if (statLabels[0]) statLabels[0].textContent = exact ? 'Nejnižší za 30 dní' : 'Minimum srovnatelných cen za 30 dní';
-    if (statLabels[1]) statLabels[1].textContent = exact ? 'Nejnižší za 90 dní' : 'Minimum srovnatelných cen za 90 dní';
-    if (statLabels[2]) statLabels[2].textContent = exact ? 'Obvyklá akční cena' : 'Typická srovnatelná cena';
-    if (statLabels[3]) statLabels[3].textContent = exact ? 'Obchody s nabídkou' : 'Srovnávané obchody';
+    if (statLabels[0]) statLabels[0].textContent = exact ? 'Nejnižší za 30 dní' : grouped ? 'Nejnižší cena skupiny za 30 dní' : 'Minimum srovnatelných cen za 30 dní';
+    if (statLabels[1]) statLabels[1].textContent = exact ? 'Nejnižší za 90 dní' : grouped ? 'Nejnižší cena skupiny za 90 dní' : 'Minimum srovnatelných cen za 90 dní';
+    if (statLabels[2]) statLabels[2].textContent = exact ? 'Obvyklá akční cena' : grouped ? 'Typická cena ověřené skupiny' : 'Typická srovnatelná cena';
+    if (statLabels[3]) statLabels[3].textContent = exact ? 'Obchody s nabídkou' : grouped ? 'Obchody v ověřené skupině' : 'Srovnávané obchody';
 
     const historySection = document.getElementById('priceChart')?.closest('.sfSection');
     const historyEyebrow = historySection?.querySelector('.sfSectionHead .sfEyebrow');
     const historyTitle = historySection?.querySelector('.sfSectionHead h2');
-    if (historyEyebrow) historyEyebrow.textContent = exact ? 'Historie cen' : 'Historie srovnatelných cen';
-    if (historyTitle) historyTitle.textContent = exact ? 'Jak se cena měnila' : 'Jak se měnily srovnatelné ceny';
+    if (historyEyebrow) historyEyebrow.textContent = exact ? 'Historie cen' : grouped ? 'Historie ověřené skupiny' : 'Historie srovnatelných cen';
+    if (historyTitle) historyTitle.textContent = exact ? 'Jak se cena měnila' : grouped ? 'Jak se měnila cena této skupiny' : 'Jak se měnily srovnatelné ceny';
 
     if (!exact) {
       const currentCopy = document.querySelector('#currentStore .sfCurrentStore > span:last-child');
       if (currentCopy) {
-        currentCopy.textContent = currentCopy.textContent
-          .replace(/^Právě teď nejlevněji v /, 'Nejnižší srovnatelná nabídka nyní v ')
-          .replace(/^(Od .+?) nejlevněji v /, '$1 nejnižší srovnatelná nabídka v ');
+        currentCopy.textContent = grouped
+          ? currentCopy.textContent
+              .replace(/^Právě teď nejlevněji v /, 'Nejnižší cena ověřené skupiny nyní v ')
+              .replace(/^(Od .+?) nejlevněji v /, '$1 nejnižší cena ověřené skupiny v ')
+          : currentCopy.textContent
+              .replace(/^Právě teď nejlevněji v /, 'Nejnižší srovnatelná nabídka nyní v ')
+              .replace(/^(Od .+?) nejlevněji v /, '$1 nejnižší srovnatelná nabídka v ');
       }
 
       document.querySelectorAll('#offers .sfOfferStore').forEach((node) => {
-        node.textContent = node.textContent
-          .replace(' · nejnižší cena dnes', ' · nejnižší srovnatelná cena dnes')
-          .replace(' · nejnižší nadcházející cena', ' · nejnižší srovnatelná nadcházející cena');
+        node.textContent = grouped
+          ? node.textContent
+              .replace(' · nejnižší cena dnes', ' · nejnižší cena skupiny dnes')
+              .replace(' · nejnižší nadcházející cena', ' · nejnižší nadcházející cena skupiny')
+          : node.textContent
+              .replace(' · nejnižší cena dnes', ' · nejnižší srovnatelná cena dnes')
+              .replace(' · nejnižší nadcházející cena', ' · nejnižší srovnatelná nadcházející cena');
       });
       document.querySelectorAll('#offers [data-alert-offer]').forEach((button) => {
-        button.textContent = 'Hlídat srovnatelné ceny';
-        button.setAttribute('aria-label', 'Hlídat cenu v této skupině srovnatelných nabídek');
+        button.textContent = grouped ? 'Hlídat cenu skupiny' : 'Hlídat srovnatelné ceny';
+        button.setAttribute('aria-label', grouped
+          ? 'Hlídat cenu v této ověřené skupině bez EAN garance'
+          : 'Hlídat cenu v této skupině srovnatelných nabídek');
       });
     }
   }
 
   function apply(mode) {
     const exact = mode === 'exact';
+    const grouped = mode === 'verified_group';
     root.dataset.identityMode = mode;
     root.dataset.identityReady = '1';
     document.body.dataset.productIdentity = mode;
 
     const eyebrow = root.querySelector('.sfHeroMain > .sfEyebrow');
-    if (eyebrow) eyebrow.textContent = exact ? 'Porovnání stejného produktu' : 'Porovnání srovnatelných nabídek';
+    if (eyebrow) eyebrow.textContent = exact
+      ? 'Porovnání stejného produktu'
+      : grouped
+        ? 'Ověřené seskupení produktu'
+        : 'Porovnání srovnatelných nabídek';
 
     const meta = document.getElementById('productMeta');
     if (meta) {
@@ -102,7 +121,9 @@
           note.className = 'sfIdentityNotice';
           meta.after(note);
         }
-        note.innerHTML = '<strong>Srovnatelný produkt:</strong> chybí dostatečně silný identifikátor (např. EAN nebo ověřená značka + balení). Ceny proto ber jako porovnání obdobných nabídek, ne jako garantovaně stejné SKU.';
+        note.innerHTML = grouped
+          ? '<strong>Ověřené seskupení bez EAN:</strong> nabídky jsou spojeny podle ověřeného názvu, značky a balení. To je silná shoda, ale ne EAN-garantovaná identita jednoho SKU.'
+          : '<strong>Srovnatelný produkt:</strong> chybí dostatečně silný identifikátor. Ceny proto ber jako porovnání obdobných nabídek, ne jako garantovaně stejné SKU.';
       } else if (note) {
         note.remove();
       }
@@ -113,21 +134,23 @@
     if (offerEyebrow) {
       offerEyebrow.textContent = exact
         ? 'Platí nyní nebo začne do 7 dnů'
-        : 'Srovnatelné nabídky · platí nyní nebo začnou do 7 dnů';
+        : grouped
+          ? 'Ověřená skupina · platí nyní nebo začne do 7 dnů'
+          : 'Srovnatelné nabídky · platí nyní nebo začnou do 7 dnů';
     }
 
-    updateDynamicCopy(exact);
-    window.addEventListener('slevao:product-offers-rendered', () => updateDynamicCopy(exact));
+    updateDynamicCopy(mode);
+    window.addEventListener('slevao:product-offers-rendered', () => updateDynamicCopy(mode));
 
     window.dispatchEvent(new CustomEvent('slevao:product-identity-ready', {
-      detail:{ productId, mode, exact },
+      detail:{ productId, mode, exact, grouped },
     }));
   }
 
   async function init() {
     try {
       const data = await loadProduct();
-      apply(exactIdentity(data) ? 'exact' : 'comparable');
+      apply(identityMode(data));
     } catch {
       // Při nejistotě se nikdy netvrdí, že jde o přesně stejné SKU.
       apply('comparable');
