@@ -280,19 +280,25 @@
       .eq('shopping_list_id', listId);
 
     if (row.product_id) {
-      query = query.eq('product_id', row.product_id);
-    } else {
-      const customName = String(row.custom_name || row.name || '').trim();
-      if (!customName) return null;
-      query = query.is('product_id', null).ilike('custom_name', customName);
+      const { data, error } = await query
+        .eq('product_id', row.product_id)
+        .order('created_at', { ascending:true })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
     }
 
+    const customName = String(row.custom_name || row.name || '').trim();
+    if (!customName) return null;
+    const normalizedCustomName = customName.toLocaleLowerCase('cs-CZ');
     const { data, error } = await query
-      .order('created_at', { ascending:true })
-      .limit(1)
-      .maybeSingle();
+      .is('product_id', null)
+      .order('created_at', { ascending:true });
     if (error) throw error;
-    return data || null;
+    return (data || []).find((item) => (
+      String(item.custom_name || '').trim().toLocaleLowerCase('cs-CZ') === normalizedCustomName
+    )) || null;
   }
 
   function adoptRemoteState(row, remote) {

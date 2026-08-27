@@ -25,6 +25,11 @@ assert.match(
   'Synchronizované položky musí používat úplný jednotný seznam remote polí.'
 );
 
+const concurrent = section('  async function findConcurrentRemoteItem(row)', '\n\n  function adoptRemoteState');
+assert.doesNotMatch(concurrent, /\.ilike\(/, 'Recovery vlastních položek nesmí interpretovat % ani _ jako ILIKE wildcard.');
+assert.ok(concurrent.includes("const normalizedCustomName = customName.toLocaleLowerCase('cs-CZ');"), 'Recovery vlastních položek musí normalizovat přesný název.');
+assert.match(concurrent, /\.is\('product_id', null\)[\s\S]*?\.find\(\(item\) =>/, 'Recovery vlastních položek musí vybírat přesnou shodu až z položek aktuálního seznamu.');
+
 const adopt = section('  function adoptRemoteState(row, remote)', '\n\n  async function mergeRemote()');
 assert.match(adopt, /row\.server_id = remote\.id;/, 'Adopce serverového stavu musí převzít server_id.');
 assert.match(adopt, /row\.selected_offer_id = remote\.selected_offer_id \|\| null;/, 'Adopce serverového stavu musí převzít selected_offer_id.');

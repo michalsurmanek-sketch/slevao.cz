@@ -4,7 +4,7 @@
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
-  const LIST_URL = 'assets/shopping-list.js?v=20260827-1';
+  const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260821-1';
   const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
