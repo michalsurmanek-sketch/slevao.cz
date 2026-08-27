@@ -123,6 +123,19 @@ for (const width of [320, 430]) {
     expect(response?.status()).toBe(200);
     await expect(page.locator('#listItems .sfListItem')).toHaveCount(SEEDED_SHOPPING_ITEMS.length, { timeout:10_000 });
     await expect(page.locator('#listItems .sfItemPrice')).toHaveCount(SEEDED_SHOPPING_ITEMS.length, { timeout:10_000 });
+
+    const firstThumb = page.locator('#listItems .sfItemThumb').first();
+    const firstMeta = page.locator('#listItems .sfItemMeta').first();
+    if (width <= 350) {
+      await expect(firstThumb).toBeHidden();
+      await expect(firstMeta).toBeHidden();
+      const nameWidth = await page.locator('#listItems .sfItemName').first().evaluate((node) => node.getBoundingClientRect().width);
+      expect(nameWidth, '320px item name column is still too narrow').toBeGreaterThanOrEqual(65);
+    } else {
+      await expect(firstThumb).toBeVisible();
+      await expect(firstMeta).toBeVisible();
+    }
+
     await expectNoHorizontalOverflow(page);
     await expectItemsInsideViewport(page);
     await page.screenshot({ path:`test-results/seznam-mobile-${width}.png`, fullPage:true });
