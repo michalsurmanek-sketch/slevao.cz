@@ -9,11 +9,17 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
+const listUrl = bootstrap.match(/const LIST_URL = '([^']+)'/)?.[1] || '';
+const insightsUrl = bootstrap.match(/const INSIGHTS_URL = '([^']+)'/)?.[1] || '';
+const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[0-9-]+/)?.[0] || '';
+assert.match(listUrl, /^assets\/shopping-list\.js\?v=[0-9-]+$/, 'Bootstrap musí používat verzovaný shopping-list runtime.');
+assert.match(insightsUrl, /^assets\/shopping-insights\.js\?v=[0-9-]+$/, 'Bootstrap musí používat verzovaný insights runtime.');
+assert.ok(bootstrapUrl, 'seznam.html musí načítat verzovaný identity bootstrap.');
+
 for (const needle of [
   "const ACTIVE_USER_KEY = 'slevao-active-user-v1';",
   "const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';",
   "const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';",
-  "const LIST_URL = 'assets/shopping-list.js?v=20260822-2';",
   'function installBudgetOwnerBridge()',
   "activeUserId() ? `user:${activeUserId()}` : 'guest'",
   'Storage.prototype.getItem = function getItem',
@@ -39,12 +45,11 @@ const loadRuntimesIndex = bootstrap.indexOf('    loadShoppingRuntimes();', setOw
 assert.ok(setOwnerIndex >= 0 && loadRuntimesIndex > setOwnerIndex, 'Owner marker musí být nastaven před vložením shopping runtime skriptů.');
 assert.match(bootstrap, /function loadShoppingRuntimes\(\) \{\s*loadList\(\);\s*loadInsights\(\);\s*\}/, 'Shopping list musí být vložen před insights runtime.');
 
-assert.match(html, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'seznam.html nenačítá aktuální identity bootstrap.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js před ověřením ownera.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-insights\.js/, 'seznam.html nesmí spouštět shopping-insights.js napřímo.');
-assert.match(worker, /assets\/shopping-insights-bootstrap\.js\?v=20260822-2/, 'PWA necachuje aktuální identity bootstrap.');
-assert.match(worker, /assets\/shopping-list\.js\?v=20260822-2/, 'PWA necachuje dynamicky načítaný Shopping List runtime.');
-assert.match(worker, /assets\/shopping-insights\.js\?v=20260821-1/, 'PWA necachuje dynamicky načítaný Insights runtime.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje stejný identity bootstrap jako seznam.html.');
+assert.ok(worker.includes(`'/${listUrl}'`), 'PWA necachuje stejný dynamicky načítaný Shopping List runtime jako bootstrap.');
+assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje stejný Insights runtime jako bootstrap.');
 
 const functionStart = bootstrap.indexOf('  function installBudgetOwnerBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
@@ -179,7 +184,7 @@ const scenario = createBootstrapScenario();
 await flushAsync();
 assert.deepEqual(
   scenario.appended.map((entry) => entry.src),
-  ['assets/shopping-list.js?v=20260822-2', 'assets/shopping-insights.js?v=20260821-1'],
+  [listUrl, insightsUrl],
   'Shopping runtimy se nenačetly v bezpečném pořadí.'
 );
 assert.ok(scenario.appended.every((entry) => entry.owner === 'user-b'), 'Shopping runtime se vložil dřív, než bootstrap přepnul stale owner marker na aktuální session user B.');
