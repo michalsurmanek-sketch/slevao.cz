@@ -15,4 +15,15 @@ assert.match(sql, /last_success_at=v_now/);
 assert.match(sql, /last_offer_count=v_count/);
 assert.match(sql, /last_published_count=v_count/);
 
-console.log('Sportisimo transient retry guard OK');
+const formatSql = fs.readFileSync('supabase/migrations/20260827153000_sportisimo_sale_card_format_v2.sql', 'utf8');
+assert.match(formatSql, /current_cards0 as/);
+assert.match(formatSql, /string_to_table\(product_text, chr\(10\)\)/);
+assert.match(formatSql, /line ~ '\^Výprodej -\[0-9\]\+%\$'/);
+assert.match(formatSql, /stock_line='Skladem'/);
+assert.match(formatSql, /legacy_cards0 as/);
+assert.match(formatSql, /DMOC:/);
+assert.match(formatSql, /where not exists \(select 1 from current_cards0\)/);
+assert.match(formatSql, /price>0 and old_price>price and discount_percent between 5 and 90/);
+assert.match(formatSql, /u\.url like 'https:\/\/www\.sportisimo\.cz\/%'/);
+
+console.log('Sportisimo transient retry and current card format guard OK');
