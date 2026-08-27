@@ -10,13 +10,23 @@ new Script(source, { filename:'assets/shopping-owner-cloud-refresh.js' });
 
 for (const needle of [
   "const POLL_MS = 30000;",
+  "const VERIFY_ATTEMPTS = 16;",
+  "const VERIFY_DELAY_MS = 250;",
   "if (sharedMode || !document.querySelector('.sfListLayout')) return;",
-  "if (checking || document.hidden || editingList()) return;",
-  "if (!localIsSettled(localRows)) return;",
+  "if (checking || verifyingCompletion || document.hidden || editingList()) return;",
+  "if (requireSettled && !localIsSettled(localRows)) return { status:'pending' };",
   ".eq('user_id', userId)",
   ".eq('is_archived', false)",
   ".eq('shopping_list_id', currentListId)",
-  "if (signature(localRows, false) !== signature(remoteRows || [], true))",
+  "status: localSignature === remoteSignature ? 'current' : 'mismatch'",
+  'async function verifyBeforeCompletion()',
+  "if (lastState.status === 'current' || lastState.status === 'guest') return lastState;",
+  "event.target?.closest?.('#completeShopping')",
+  'event.preventDefault();',
+  'event.stopImmediatePropagation();',
+  'const state = await verifyBeforeCompletion();',
+  "if (state.status === 'mismatch')",
+  "document.addEventListener('click', guardCompletionClick, true);",
   "window.addEventListener('focus', scheduleSoon);",
   "document.addEventListener('visibilitychange'",
   "window.setInterval(() => checkRemote(), POLL_MS)",
@@ -25,12 +35,12 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí owner cloud refresh guard: ${needle}`);
 }
 
-const runtimeUrl = 'assets/shopping-owner-cloud-refresh.js?v=20260827-1';
-assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá owner cloud refresh runtime.');
+const runtimeUrl = 'assets/shopping-owner-cloud-refresh.js?v=20260827-2';
+assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá aktuální owner cloud refresh runtime.');
 assert.ok(html.indexOf('assets/shopping-insights-bootstrap.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před shopping bootstrapem.');
 assert.ok(html.indexOf('assets/shopping-guest-claim-reconcile.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před guest claim reconcilerem.');
-assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje owner cloud refresh runtime.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260827-18';/, 'PWA cache verze nebyla zvýšena pro cloud refresh.');
+assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje aktuální owner cloud refresh runtime.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260827-19';/, 'PWA cache verze nebyla zvýšena pro completion guard.');
 
 const helpersStart = source.indexOf('  const norm =');
 const helpersEnd = source.indexOf('\n  function editingList()', helpersStart);
@@ -58,4 +68,44 @@ assert.equal(context.result.settled, true, 'Potvrzený lokální řádek není p
 assert.equal(context.result.pendingInsert, false, 'Neuložený lokální insert nesmí spustit cloud refresh.');
 assert.equal(context.result.pendingClaim, false, 'Guest claim nesmí cloud refresh předběhnout.');
 
-console.log('Shopping owner cloud refresh OK');
+const verifyStart = source.indexOf('  async function verifyBeforeCompletion()');
+const verifyEnd = source.indexOf('\n  async function guardCompletionClick', verifyStart);
+assert.ok(verifyStart >= 0 && verifyEnd > verifyStart, 'Completion verifier nejde izolovaně otestovat.');
+const verifyFunction = source.slice(verifyStart, verifyEnd);
+
+async function runVerify(states) {
+  const verifyContext = {
+    result:null,
+    calls:0,
+    Promise,
+    setTimeout(callback) { callback(); return 1; },
+  };
+  new Script(`
+    const VERIFY_ATTEMPTS = 3;
+    const VERIFY_DELAY_MS = 0;
+    const states = ${JSON.stringify(states)};
+    let index = 0;
+    async function snapshotState() {
+      globalThis.calls += 1;
+      return states[Math.min(index++, states.length - 1)];
+    }
+    ${verifyFunction}
+    globalThis.promise = verifyBeforeCompletion();
+  `, { filename:'owner-cloud-completion-verify.js' }).runInNewContext(verifyContext);
+  verifyContext.result = await verifyContext.promise;
+  return verifyContext;
+}
+
+const pendingThenCurrent = await runVerify([{ status:'pending' }, { status:'current' }]);
+assert.equal(pendingThenCurrent.result.status, 'current', 'Completion guard nepočkal na dokončení lokální mutace.');
+assert.equal(pendingThenCurrent.calls, 2, 'Completion guard zbytečně pokračoval po dosažení current stavu.');
+
+const remoteMismatch = await runVerify([{ status:'mismatch' }]);
+assert.equal(remoteMismatch.result.status, 'mismatch', 'Trvalý remote mismatch byl chybně považovaný za aktuální seznam.');
+assert.equal(remoteMismatch.calls, 3, 'Completion guard nevyužil omezené čekací okno pro doběhnutí lokální mutace.');
+
+const guest = await runVerify([{ status:'guest' }]);
+assert.equal(guest.result.status, 'guest', 'Guest nákup byl chybně blokovaný cloudovým guardem.');
+assert.equal(guest.calls, 1, 'Guest dokončení nemá čekat na cloudový stav.');
+
+console.log('Shopping owner cloud refresh and completion guard OK');
