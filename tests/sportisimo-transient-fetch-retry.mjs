@@ -26,4 +26,14 @@ assert.match(formatSql, /where not exists \(select 1 from current_cards0\)/);
 assert.match(formatSql, /price>0 and old_price>price and discount_percent between 5 and 90/);
 assert.match(formatSql, /u\.url like 'https:\/\/www\.sportisimo\.cz\/%'/);
 
-console.log('Sportisimo transient retry and current card format guard OK');
+const dualFormatSql = fs.readFileSync('supabase/migrations/20260827154500_sportisimo_sale_card_format_v3.sql', 'utf8');
+assert.match(dualFormatSql, /compact_cards0 as/);
+assert.match(dualFormatSql, /line ~ '\^\[0-9\]\[0-9 \]\* Kč \\(\-\[0-9\]\+\[\[:space:\]\]\*%\\\)\$'/);
+assert.match(dualFormatSql, /when next1 like 'DMOC:%' then null::numeric/);
+assert.match(dualFormatSql, /next1 ~ '\^\(DMOC: \)\?\[0-9\]\[0-9 \]\* Kč\$'/);
+assert.match(dualFormatSql, /old_price is null or old_price>price/);
+assert.match(dualFormatSql, /select \* from compact_cards0[\s\S]*where not exists \(select 1 from current_cards0\)/);
+assert.match(dualFormatSql, /select \* from legacy_cards0[\s\S]*not exists \(select 1 from compact_cards0\)/);
+assert.doesNotMatch(dualFormatSql, /when next1 like 'DMOC:%' then replace\(/, 'DMOC must never be treated as old_price');
+
+console.log('Sportisimo transient retry and dual card rendering guard OK');
