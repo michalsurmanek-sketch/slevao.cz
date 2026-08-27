@@ -39,8 +39,8 @@ assert.match(homeSync, /initial\.homeChanged/, 'Pozdní favorite bootstrap neum�
 assert.match(homeSync, /location\.reload\(\)/, 'Po úvodní migraci homepage klíče chybí jednorázové obnovení home-v2 state.saved.');
 assert.match(homeSync, /@supabase\/supabase-js@2/, 'Homepage produktové oblíbené nemají zajištěný Supabase auth klient.');
 
-const personalizationUrl = homeSync.match(/script\.src = '([^']*product-personalization\.js\?v=[^']+)'/)?.[1] || '';
-const productFavoritesUrl = homeSync.match(/script\.src = '([^']*home-product-favorites\.js\?v=[^']+)'/)?.[1] || '';
+const personalizationUrl = homeSync.match(/const PERSONALIZATION_JS_URL = '([^']+)'/)?.[1] || '';
+const productFavoritesUrl = homeSync.match(/const HOME_PRODUCT_FAVORITES_URL = '([^']+)'/)?.[1] || '';
 assert.match(personalizationUrl, /^assets\/product-personalization\.js\?v=[0-9-]+$/, 'Homepage nenačítá verzovaný sdílený účetní personalization runtime.');
 assert.match(productFavoritesUrl, /^assets\/home-product-favorites\.js\?v=[0-9-]+$/, 'Homepage nenačítá verzovaný bridge nabídka → produkt.');
 assert.match(homeSync, /document\.getElementById\('dealGrid'\)/, 'Produktové oblíbené se nesmí bootovat mimo homepage nabídky.');
