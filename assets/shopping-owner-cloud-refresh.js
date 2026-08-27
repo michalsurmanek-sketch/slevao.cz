@@ -33,16 +33,19 @@
     }
   }
 
+  function itemKey(row) {
+    return row?.product_id
+      ? `p:${String(row.product_id)}`
+      : `c:${norm(row?.custom_name || row?.name)}`;
+  }
+
   function rowIdentity(row, remote = false) {
     const id = remote ? row?.id : row?.server_id;
     if (!id) return '';
-    const itemKey = row?.product_id
-      ? `p:${String(row.product_id)}`
-      : `c:${norm(row?.custom_name || row?.name)}`;
     const completed = remote ? Boolean(row?.is_completed) : Boolean(row?.completed);
     return [
       String(id),
-      itemKey,
+      itemKey(row),
       String(row?.selected_offer_id || ''),
       String(Number(row?.quantity || 1)),
       String(row?.unit || 'ks'),
@@ -56,6 +59,45 @@
 
   function localIsSettled(rows) {
     return (rows || []).every((row) => row?.server_id && !Number.isFinite(Number(row?.[CLAIM_QUANTITY])));
+  }
+
+  function reconcileRemoteRows(localRows, remoteRows) {
+    const remoteById = new Map((remoteRows || [])
+      .filter((row) => row?.id)
+      .map((row) => [String(row.id), row]));
+    const next = [];
+
+    for (const row of localRows || []) {
+      if (!row?.server_id) {
+        next.push(row);
+        continue;
+      }
+      const remote = remoteById.get(String(row.server_id));
+      if (!remote) continue;
+      if (itemKey(row) !== itemKey(remote)) continue;
+
+      const merged = {
+        ...row,
+        selected_offer_id: remote.selected_offer_id || null,
+        quantity: Number(remote.quantity || 1),
+        unit: remote.unit || row.unit || 'ks',
+        completed: Boolean(remote.is_completed),
+        updated_at: remote.updated_at || row.updated_at || null,
+      };
+      if (!merged.product_id && remote.custom_name) {
+        merged.custom_name = remote.custom_name;
+        merged.name = remote.custom_name;
+      }
+      next.push(merged);
+    }
+    return next;
+  }
+
+  function persistRemoteState(state) {
+    if (!Array.isArray(state?.localRows) || !Array.isArray(state?.remoteRows)) return;
+    const next = reconcileRemoteRows(state.localRows, state.remoteRows);
+    localStorage.setItem(LIST_KEY, JSON.stringify(next));
+    window.SlevaoPublic?.updateNavCount?.();
   }
 
   function editingList() {
@@ -89,20 +131,29 @@
     if (!session?.user?.id) return { status:'guest' };
 
     const currentListId = await resolveListId(db, session.user.id);
-    if (!currentListId) return { status:localRows.length ? 'mismatch' : 'current' };
+    if (!currentListId) {
+      return {
+        status: localRows.length ? 'mismatch' : 'current',
+        localRows,
+        remoteRows:[],
+      };
+    }
 
     const { data:remoteRows, error:remoteError } = await db.from('shopping_list_items')
-      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed')
+      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,updated_at')
       .eq('shopping_list_id', currentListId)
       .order('created_at');
     if (remoteError) throw remoteError;
 
+    const safeRemoteRows = remoteRows || [];
     const localSignature = signature(localRows, false);
-    const remoteSignature = signature(remoteRows || [], true);
+    const remoteSignature = signature(safeRemoteRows, true);
     return {
       status: localSignature === remoteSignature ? 'current' : 'mismatch',
       localSignature,
       remoteSignature,
+      localRows,
+      remoteRows:safeRemoteRows,
     };
   }
 
@@ -111,7 +162,10 @@
     checking = true;
     try {
       const state = await snapshotState();
-      if (state.status === 'mismatch') location.reload();
+      if (state.status === 'mismatch') {
+        persistRemoteState(state);
+        location.reload();
+      }
     } catch (error) {
       console.debug('Kontrola cloudového nákupního seznamu selhala:', error);
     } finally {
@@ -153,6 +207,7 @@
         return;
       }
       if (state.status === 'mismatch') {
+        persistRemoteState(state);
         window.SlevaoPublic?.toast?.('Seznam se mezitím změnil na jiném zařízení. Načítám aktuální stav.');
         location.reload();
         return;
@@ -182,5 +237,11 @@
   timer = window.setInterval(() => checkRemote(), POLL_MS);
   window.addEventListener('pagehide', () => clearInterval(timer), { once:true });
 
-  window.SlevaoOwnerCloudRefresh = { signature, localIsSettled, snapshotState, verifyBeforeCompletion };
+  window.SlevaoOwnerCloudRefresh = {
+    signature,
+    localIsSettled,
+    reconcileRemoteRows,
+    snapshotState,
+    verifyBeforeCompletion,
+  };
 })();
