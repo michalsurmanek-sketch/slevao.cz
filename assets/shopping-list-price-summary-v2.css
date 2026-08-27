@@ -107,3 +107,20 @@
   #listItems .sfItemThumb{width:44px;height:44px}
   #listItems .sfItemPrice strong{font-size:11px}
 }
+
+@media(max-width:350px){
+  /* At very narrow widths, keep the useful controls and give the item name room. */
+  #listItems .sfListItem{
+    grid-template-columns:22px minmax(0,1fr) 46px 38px 70px;
+    gap:5px;
+    min-height:72px;
+    padding:8px 6px;
+  }
+  #listItems .sfItemThumb{display:none}
+  #listItems .sfItemMeta{display:none}
+  #listItems .sfCheck{width:22px;height:22px}
+  #listItems .sfItemName{font-size:13px;line-height:1.2}
+  #listItems .sfListItem .sfInput{width:46px;min-height:42px}
+  #listItems .sfIconButton{width:38px;height:42px}
+  #listItems .sfItemPrice strong{font-size:11.5px}
+}
