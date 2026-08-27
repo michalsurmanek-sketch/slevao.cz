@@ -7,7 +7,10 @@ const migration = fs.readFileSync('supabase/migrations/20260823095208_schedule_s
 
 assert(sync.includes("const ADAPTER = 'tesco-apollo-pdf-v16-semantic-public';"), 'Tesco semantic-only adapter revision must stay explicit');
 assert(sync.includes('const dryRun = body.dry_run !== false;'), 'Tesco sync must default to dry-run');
-assert(sync.includes("body: JSON.stringify({ start_page: 1, probe_pages: pageCount })"), 'Tesco sync must parse every current leaflet page');
+assert(sync.includes('start_page: 1'), 'Tesco sync must start parsing at the first leaflet page');
+assert(sync.includes('probe_pages: leaflet.pageCount'), 'Tesco sync must parse every current leaflet page');
+assert(sync.includes('viewer_url: leaflet.viewer'), 'Tesco parser must be pinned to the viewer snapshot selected by the publisher');
+assert(sync.includes('expected_pdf_url: leaflet.pdfUrl'), 'Tesco parser must be pinned to the exact official PDF selected by the publisher');
 assert(sync.includes("if (before.fingerprint !== after.fingerprint)"), 'Tesco sync must reject leaflet rollover races');
 assert(sync.includes('(semantic >= 2 && layout <= 190)'), 'Tesco sync must require strong multi-word semantic evidence');
 assert(sync.includes('(semantic === 1 && layout <= 175)'), 'Tesco sync may accept one-word evidence only inside the parser token-distance bound');
