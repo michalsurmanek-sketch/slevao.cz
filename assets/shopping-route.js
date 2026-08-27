@@ -2,6 +2,7 @@
   'use strict';
 
   const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[char]));
+  const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
@@ -129,13 +130,33 @@
     return url.toString();
   }
 
-  function planFor(combo, rows, offers, branchByStore, position, kmCost, stopCost) {
+  function offersForRow(row, offers, allowedStores) {
+    const customKey = norm(row.custom_name || row.name);
+    return (offers || [])
+      .filter((candidate) => allowedStores.has(String(candidate.store_id)))
+      .filter((candidate) => row.product_id
+        ? String(candidate.product_id) === String(row.product_id)
+        : Boolean(customKey) && String(candidate.__shopping_query_key || '') === customKey);
+  }
+
+  function compatibleBranchForStore(storeId, chosen, branches) {
+    const storeOffers = chosen
+      .filter((item) => String(item.offer.store_id) === String(storeId))
+      .map((item) => item.offer);
+    if (!storeOffers.length) return null;
+    return (branches || [])
+      .filter((branch) => String(branch.store_id) === String(storeId))
+      .filter((branch) => storeOffers.every((offer) => api().coverageMatches(offer, [branch])))
+      .sort((a, b) => Number(a.distance_km ?? Infinity) - Number(b.distance_km ?? Infinity))[0] || null;
+  }
+
+  function planFor(combo, rows, offers, branches, position, kmCost, stopCost) {
     const allowed = new Set(combo.map(String));
     const chosen = [];
     let basketTotal = 0;
     for (const row of rows) {
-      const offer = offers
-        .filter((candidate) => String(candidate.product_id) === String(row.product_id) && allowed.has(String(candidate.store_id)))
+      const offer = offersForRow(row, offers, allowed)
+        .slice()
         .sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0];
       if (!offer) return null;
       const subtotal = Number(offer.price || 0) * Math.max(.01, Number(row.quantity || 1));
@@ -143,6 +164,12 @@
       chosen.push({ row, offer, subtotal });
     }
     const usedStores = [...new Set(chosen.map((item) => String(item.offer.store_id)))];
+    const branchByStore = new Map();
+    for (const storeId of usedStores) {
+      const branch = compatibleBranchForStore(storeId, chosen, branches);
+      if (!branch) return null;
+      branchByStore.set(String(storeId), branch);
+    }
     const route = routeForStores(usedStores, branchByStore, position);
     if (!route) return null;
     const transportWeight = route.distanceKm * kmCost;
@@ -158,12 +185,42 @@
     };
   }
 
+  async function fetchCustomRouteOffers(rows, storeIds, branches) {
+    const db = window.SlevaoSupabase?.getClient?.();
+    const queries = [...new Set((rows || [])
+      .filter((row) => !row.product_id)
+      .map((row) => String(row.custom_name || row.name || '').trim())
+      .filter(Boolean))];
+    if (!db || !queries.length) return [];
+    const { data, error } = await db.rpc('get_public_shopping_list_candidates', {
+      p_queries: queries,
+      p_limit_per_query: 30,
+    });
+    if (error) throw error;
+    const today = api().TODAY;
+    const allowed = new Set((storeIds || []).map(String));
+    const output = [];
+    for (const candidate of data || []) {
+      const offer = candidate?.offer;
+      if (!offer || Number(offer.price || 0) <= 0) continue;
+      if (!allowed.has(String(offer.store_id))) continue;
+      if (offer.valid_from && String(offer.valid_from) > today) continue;
+      if (offer.valid_to && String(offer.valid_to) < today) continue;
+      if (!api().coverageMatches(offer, branches)) continue;
+      output.push({
+        ...offer,
+        __shopping_query_key: String(candidate.query_key || norm(candidate.query_text)),
+      });
+    }
+    return output;
+  }
+
   function render(best, single, absolute, rows) {
     const a = api();
     const results = document.getElementById('srResults');
     if (!best) {
       results.innerHTML = '';
-      status('Pro zvolený okruh a počet obchodů chybí úplná kombinace cen pro všechny propojené položky.', 'bad');
+      status('Pro zvolený okruh a počet obchodů chybí úplná kombinace dnešních cen pro všechny položky.', 'bad');
       return;
     }
     const stops = best.route.order.map((branch, index) => {
@@ -202,7 +259,7 @@
           </div>
         </aside>
       </div>`;
-    status(`Spočítáno z ${rows.length} propojených položek a skutečných GPS poboček v okolí.`, 'good');
+    status(`Spočítáno z ${rows.length} položek a poboček, na kterých jsou zvolené ceny skutečně platné.`, 'good');
   }
 
   async function calculate() {
@@ -214,8 +271,8 @@
     status('Zjišťuji polohu, pobočky a dnešní ceny…');
     document.getElementById('srResults').innerHTML = '';
     try {
-      const rows = a.readList().filter((row) => !row.completed && row.product_id);
-      if (!rows.length) throw new Error('Nejdřív přidejte do seznamu alespoň jeden produkt propojený s nabídkou Slevao.');
+      const rows = a.readList().filter((row) => !row.completed);
+      if (!rows.length) throw new Error('Nejdřív přidejte do seznamu alespoň jednu položku.');
       const position = await a.getPosition();
       const maxStores = Math.max(1, Math.min(3, Number(document.getElementById('srMaxStores').value || 2)));
       const radius = Math.max(1, Number(document.getElementById('srRadius').value || 15));
@@ -225,13 +282,16 @@
       const nearestByStore = a.uniqueStores(branches);
       if (!nearestByStore.length) throw new Error('V tomto okruhu zatím nemáme evidovanou pobočku. Zkuste větší okruh.');
       const storeIds = nearestByStore.map((branch) => String(branch.store_id));
-      const offers = await a.fetchOffersForList(rows, storeIds, branches);
+      const [productOffers, customOffers] = await Promise.all([
+        a.fetchOffersForList(rows, storeIds, branches),
+        fetchCustomRouteOffers(rows, storeIds, branches),
+      ]);
+      const offers = [...productOffers, ...customOffers];
       if (!offers.length) throw new Error('Pro položky ze seznamu nejsou v okolních řetězcích dostupné dnešní ceny.');
       const availableStoreIds = storeIds.filter((storeId) => offers.some((offer) => String(offer.store_id) === storeId));
-      const branchByStore = new Map(nearestByStore.map((branch) => [String(branch.store_id), branch]));
       const plans = new Map();
       for (const combo of combinations(availableStoreIds, maxStores)) {
-        const plan = planFor(combo, rows, offers, branchByStore, position, kmCost, stopCost);
+        const plan = planFor(combo, rows, offers, branches, position, kmCost, stopCost);
         if (!plan) continue;
         const key = plan.usedStores.slice().sort().join('|');
         const current = plans.get(key);
