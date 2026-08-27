@@ -5,7 +5,7 @@
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
   const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
-  const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260827-2';
+  const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260827-3';
   const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
