@@ -13,6 +13,11 @@
   }[char]));
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
   const norm = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  const itemCountText = (value) => {
+    const count = Math.max(0, Number(value || 0));
+    const label = count === 1 ? 'položka' : (count >= 2 && count <= 4 ? 'položky' : 'položek');
+    return `${count} ${label}`;
+  };
 
   function pragueDate(value = new Date()) {
     return new Intl.DateTimeFormat('en-CA', {
@@ -326,12 +331,19 @@
     }
 
     const remaining = budget - metrics.total;
+    const unpricedCount = Math.max(0, metrics.itemCount - metrics.linkedCount);
     progress.classList.toggle('over', remaining < 0);
     bar.style.width = `${Math.min(100, Math.max(0, metrics.total / budget * 100))}%`;
     note.className = `sfBudgetNote ${remaining >= 0 ? 'good' : 'bad'}`;
-    note.textContent = remaining >= 0
-      ? `Do rozpočtu zbývá přibližně ${money(remaining)} Kč.`
-      : `Rozpočet je překročen přibližně o ${money(Math.abs(remaining))} Kč.`;
+    if (remaining < 0) {
+      note.textContent = unpricedCount
+        ? `Rozpočet je překročen nejméně o ${money(Math.abs(remaining))} Kč; ${itemCountText(unpricedCount)} ještě nemá cenu.`
+        : `Rozpočet je překročen přibližně o ${money(Math.abs(remaining))} Kč.`;
+      return;
+    }
+    note.textContent = unpricedCount
+      ? `Z nalezených cen zbývá do rozpočtu přibližně ${money(remaining)} Kč; ${itemCountText(unpricedCount)} ještě nemá cenu.`
+      : `Do rozpočtu zbývá přibližně ${money(remaining)} Kč.`;
   }
 
   function renderMetrics() {
@@ -341,9 +353,9 @@
     $('insightItems').textContent = `${metrics.linkedCount}/${metrics.itemCount}`;
     const hints = [];
     const unresolvedCustomCount = Math.max(0, metrics.customCount - metrics.customResolvedCount);
-    if (unresolvedCustomCount) hints.push(`${unresolvedCustomCount} vlastních položek nemá spolehlivě nalezenou cenu a není zahrnuto do odhadu.`);
-    if (metrics.missingCount) hints.push(`U ${metrics.missingCount} produktů se nepodařilo najít platnou ani brzy začínající cenu.`);
-    if (metrics.upcomingCount) hints.push(`${metrics.upcomingCount} položek používá akci začínající během příštích sedmi dnů.`);
+    if (unresolvedCustomCount) hints.push(`${itemCountText(unresolvedCustomCount)} z vlastních položek nemá spolehlivě nalezenou cenu a není zahrnuta do odhadu.`);
+    if (metrics.missingCount) hints.push(`U ${itemCountText(metrics.missingCount)} se nepodařilo najít platnou ani brzy začínající cenu.`);
+    if (metrics.upcomingCount) hints.push(`${itemCountText(metrics.upcomingCount)} používá akci začínající během příštích sedmi dnů.`);
     if (!hints.length && metrics.itemCount) hints.push('Všechny položky mají nalezenou cenu.');
     if (!metrics.itemCount) hints.push('Přidej položky do seznamu a odhad se vypočítá automaticky.');
     $('shoppingInsightsHint').textContent = hints.join(' ');
@@ -368,14 +380,20 @@
       container.innerHTML = '<div class="sfHistoryEmpty">Zatím tu není dokončený nákup. Až nakoupíš, ulož ho tlačítkem výše.</div>';
       return;
     }
-    container.innerHTML = history.map((purchase) => `
+    container.innerHTML = history.map((purchase) => {
+      const itemCount = Number(purchase.item_count || 0);
+      const purchaseItems = Array.isArray(purchase.items) ? purchase.items : [];
+      const pricedCount = purchaseItems.filter((item) => item?.subtotal != null).length;
+      const completeness = itemCount > 0 && pricedCount < itemCount ? ` · oceněno ${pricedCount}/${itemCount}` : '';
+      return `
       <article class="sfHistoryCard" data-purchase-id="${esc(purchase.id)}">
         <h3>${esc(purchase.name || 'Dokončený nákup')}</h3>
         <div class="sfHistoryDate">${esc(formatDate(purchase.completed_at))}</div>
         <div class="sfHistoryTotal"><strong>${money(purchase.planned_total)} Kč</strong>${Number(purchase.savings || 0) > 0 ? `<span class="sfHistorySaving">Úspora ${money(purchase.savings)} Kč</span>` : ''}</div>
-        <div class="sfHistoryMeta">${Number(purchase.item_count || 0)} položek · ${Number(purchase.stores_count || 0)} obchodů${purchase.budget ? ` · rozpočet ${money(purchase.budget)} Kč` : ''}</div>
+        <div class="sfHistoryMeta">${itemCountText(itemCount)} · ${Number(purchase.stores_count || 0)} obchodů${purchase.budget ? ` · rozpočet ${money(purchase.budget)} Kč` : ''}${completeness}</div>
         <div class="sfHistoryActions"><button class="sfButton primary" type="button" data-repeat-purchase>Zopakovat nákup</button><button class="sfButton" type="button" data-delete-purchase>Odstranit</button></div>
-      </article>`).join('');
+      </article>`;
+    }).join('');
   }
 
   async function saveBudget() {
@@ -414,7 +432,11 @@
 
   async function completeShopping() {
     if (sharedMode || busy || !metrics.itemCount) return;
-    if (!window.confirm(`Uložit nákup za přibližně ${money(metrics.total)} Kč do historie a vyčistit seznam?`)) return;
+    const unpricedCount = Math.max(0, metrics.itemCount - metrics.linkedCount);
+    const confirmation = unpricedCount
+      ? `Uložit nákup do historie a vyčistit seznam? Odhad ${money(metrics.total)} Kč zahrnuje cenu u ${metrics.linkedCount} z ${metrics.itemCount} položek; ${itemCountText(unpricedCount)} zatím cenu nemá.`
+      : `Uložit nákup za přibližně ${money(metrics.total)} Kč do historie a vyčistit seznam?`;
+    if (!window.confirm(confirmation)) return;
     busy = true;
     renderMetrics();
 
