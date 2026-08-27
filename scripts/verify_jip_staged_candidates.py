@@ -113,6 +113,49 @@ def normalized_box(candidate: dict[str, Any], page: dict[str, Any]) -> tuple[flo
     return left / width, top / height, right / width, bottom / height
 
 
+def normalized_price_token_box(candidate: dict[str, Any], page: dict[str, Any]) -> tuple[float, float, float, float]:
+    """Return the exact OCR word box carrying the staged decimal price.
+
+    Parser coordinates represent the whole OCR line, which can contain dashes,
+    promo glyphs or unit-price markers. For high-resolution confirmation we need
+    the glyph region of the decimal token itself. The token is selected only when
+    its parsed decimal equals the staged candidate price and it sits inside/near
+    the parser's original price line.
+    """
+    try:
+        target = round(float(candidate.get("price")), 2)
+    except (TypeError, ValueError):
+        return normalized_box(candidate, page)
+
+    line_box = normalized_box(candidate, page)
+    ll, lt, lr, lb = line_box
+    lcx, lcy = (ll + lr) / 2, (lt + lb) / 2
+    width, height = float(page["image_width"]), float(page["image_height"])
+    matches: list[tuple[float, float, tuple[float, float, float, float]]] = []
+
+    for word in page.get("words") or []:
+        values = decimal_values(word.get("text"))
+        if not any(price_close(value, target) for value in values):
+            continue
+        left = float(word.get("left") or 0) / width
+        top = float(word.get("top") or 0) / height
+        right = (float(word.get("left") or 0) + float(word.get("width") or 0)) / width
+        bottom = (float(word.get("top") or 0) + float(word.get("height") or 0)) / height
+        if right <= left or bottom <= top:
+            continue
+        cx, cy = (left + right) / 2, (top + bottom) / 2
+        if not (ll - 0.04 <= cx <= lr + 0.04 and lt - 0.025 <= cy <= lb + 0.025):
+            continue
+        distance = abs(cx - lcx) + abs(cy - lcy) * 2
+        confidence = float(word.get("confidence") or 0)
+        matches.append((distance, -confidence, (left, top, right, bottom)))
+
+    if not matches:
+        return line_box
+    matches.sort(key=lambda item: (item[0], item[1]))
+    return matches[0][2]
+
+
 def word_center(word: dict[str, Any], page: dict[str, Any]) -> tuple[float, float]:
     width, height = float(page["image_width"]), float(page["image_height"])
     return (
@@ -126,7 +169,7 @@ def detect_cross_engine_unit_price(candidate: dict[str, Any], v3_page: dict[str,
         target_price = round(float(candidate.get("price")), 2)
     except (TypeError, ValueError):
         return None
-    nl, nt, nr, nb = normalized_box(candidate, v3_page)
+    nl, nt, nr, nb = normalized_price_token_box(candidate, v3_page)
     tx, ty = (nl + nr) / 2, (nt + nb) / 2
 
     for price_word in v2_page.get("words") or []:
@@ -265,13 +308,17 @@ def verify_highres(candidate: dict[str, Any], v3_page: dict[str, Any], rendered:
         "quantity": candidate.get("quantity"), "page": candidate.get("page"),
         "conf": candidate.get("conf"), "price_line": (candidate.get("raw") or {}).get("price_line"),
     }
-    box_norm = normalized_box(candidate, v3_page)
+    line_box_norm = normalized_box(candidate, v3_page)
+    token_box_norm = normalized_price_token_box(candidate, v3_page)
     with Image.open(rendered) as page_image:
-        vote = vote_price(price_crop(page_image, box_norm), workdir, f"price-{candidate.get('page')}-{abs(hash(candidate_key(candidate))) % 10**8}")
+        vote = vote_price(price_crop(page_image, token_box_norm), workdir, f"price-{candidate.get('page')}-{abs(hash(candidate_key(candidate))) % 10**8}")
         if not vote.get("accepted") or not vote.get("winner"):
-            return {**base, "verified": False, "reason": "no_strong_price_vote", "price_vote": vote}
+            return {
+                **base, "verified": False, "reason": "no_strong_price_vote", "price_vote": vote,
+                "normalized_price_token_box": [round(x, 6) for x in token_box_norm],
+            }
         winner_price = round(float(vote["winner"][0]), 2)
-        context = context_crop(page_image, box_norm).convert("L")
+        context = context_crop(page_image, line_box_norm).convert("L")
     context_path = workdir / f"context-{abs(hash(candidate_key(candidate))) % 10**8}.png"
     context.save(context_path)
     texts = [tesseract_text(context_path, psm, False) for psm in (6, 11)]
@@ -283,8 +330,10 @@ def verify_highres(candidate: dict[str, Any], v3_page: dict[str, Any], rendered:
         return {**base, "verified": False, "reason": "weak_title_or_quantity", "price_vote": vote}
     return {
         **base, "verified": True, "verified_price": winner_price,
-        "verification": "targeted-highres-multivote-v1", "price_vote": vote,
-        "context_texts": texts, "normalized_price_box": [round(x, 6) for x in box_norm],
+        "verification": "targeted-highres-token-multivote-v2", "price_vote": vote,
+        "context_texts": texts,
+        "normalized_price_box": [round(x, 6) for x in line_box_norm],
+        "normalized_price_token_box": [round(x, 6) for x in token_box_norm],
     }
 
 
@@ -351,7 +400,9 @@ def main() -> int:
                 "verification": row["verification"],
                 "evidence": {
                     "staged_price": row["staged_price"], "price_vote": row["price_vote"],
-                    "normalized_price_box": row["normalized_price_box"], "context_texts": row["context_texts"],
+                    "normalized_price_box": row["normalized_price_box"],
+                    "normalized_price_token_box": row["normalized_price_token_box"],
+                    "context_texts": row["context_texts"],
                 },
             }
             for row in report["verified"]
