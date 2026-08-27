@@ -7,6 +7,7 @@ on:
     paths:
       - 'scripts/sync_jip_ocr.py'
       - 'scripts/compare_jip_ocr_engines.py'
+      - 'scripts/verify_jip_staged_candidates.py'
       - '.github/workflows/sync-jip-ocr.yml'
   schedule:
     - cron: '13,43 * * * *'
@@ -102,67 +103,36 @@ jobs:
           }, ensure_ascii=False))
           PY
 
-      - name: Izolovaný OCR probe cenovky RAJČE na straně 4
+      - name: Nezávisle ověřit v3-only cenovky ve vysokém rozlišení
         shell: bash
         run: |
-          python3 - <<'PY' > /tmp/jip-pdf-url.txt
-          import json
-          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
-              result = json.load(f)
-          source = str(result.get('source_document_url') or '').rstrip('/')
-          if not source.startswith('https://www.jip-potraviny.cz/wp-content/uploads/file/MO-'):
-              raise SystemExit(f'Unexpected JIP source URL: {source}')
-          print(source + '/files/downloads/MO.pdf')
-          PY
-          PDF_URL="$(cat /tmp/jip-pdf-url.txt)"
-          curl --fail-with-body --silent --show-error \
-            -A 'slevao-jip-price-crop-probe/1.0' "$PDF_URL" -o /tmp/jip-mo.pdf
-          pdftoppm -jpeg -f 4 -l 4 -singlefile -scale-to-x 3200 -scale-to-y -1 \
-            /tmp/jip-mo.pdf /tmp/jip-p4-3200
-
-          python3 - <<'PY'
-          from PIL import Image, ImageEnhance, ImageOps
-          image = Image.open('/tmp/jip-p4-3200.jpg').convert('L')
-          # Coordinates come from two independent full-page OCR passes around
-          # the large price immediately above 500 G / RAJČE soudkové.
-          crop = image.crop((2320, 1250, 2980, 1505))
-          crop.save('/tmp/jip-rajce-price-gray.png')
-          ImageEnhance.Contrast(crop).enhance(1.8).save('/tmp/jip-rajce-price-contrast.png')
-          ImageOps.autocontrast(crop).point(lambda p: 255 if p > 165 else 0).save('/tmp/jip-rajce-price-bw.png')
-          PY
-
-          : > /tmp/jip-rajce-readings.txt
-          for IMG in gray contrast bw; do
-            for PSM in 7 8 13; do
-              VALUE="$(tesseract /tmp/jip-rajce-price-${IMG}.png stdout \
-                -l eng --psm "$PSM" \
-                -c tessedit_char_whitelist='0123456789,.' 2>/dev/null \
-                | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//')"
-              printf '%s\n' "${IMG}:psm${PSM}:${VALUE}" | tee -a /tmp/jip-rajce-readings.txt
-            done
-          done
+          python3 scripts/verify_jip_staged_candidates.py \
+            --v2 /tmp/jip-v2.json \
+            --v3 /tmp/jip-v3.json \
+            --consensus /tmp/jip-consensus.json \
+            --output /tmp/jip-staged-verified.json
 
           python3 - <<'PY'
           import json
-          import re
-          from collections import Counter
-          from pathlib import Path
-
-          rows = []
-          normalized = []
-          for line in Path('/tmp/jip-rajce-readings.txt').read_text(encoding='utf-8').splitlines():
-              variant, psm, value = line.split(':', 2)
-              matches = re.findall(r'\d{1,3}[,.]\d{2}', value)
-              values = [m.replace('.', ',') for m in matches]
-              rows.append({'variant': variant, 'psm': psm, 'raw': value, 'decimal_values': values})
-              normalized.extend(values)
-          counts = Counter(normalized)
+          with open('/tmp/jip-staged-verified.json', encoding='utf-8') as f:
+              report = json.load(f)
+          if not report.get('ok'):
+              raise SystemExit(f"JIP staged verification failed: {report}")
+          if report.get('candidate_count') != report.get('verified_count', 0) + report.get('rejected_count', 0):
+              raise SystemExit(f"JIP staged verification accounting mismatch: {report}")
           print(json.dumps({
-              'ok': True,
-              'crop': [2320, 1250, 2980, 1505],
-              'readings': rows,
-              'decimal_vote': counts,
-              'winner': counts.most_common(1)[0] if counts else None,
+              'candidate_count': report.get('candidate_count'),
+              'verified_count': report.get('verified_count'),
+              'rejected_count': report.get('rejected_count'),
+              'verified': [
+                  {'title': x.get('title'), 'price': x.get('verified_price'), 'quantity': x.get('quantity'), 'page': x.get('page')}
+                  for x in report.get('verified', [])
+              ],
+              'rejected': [
+                  {'title': x.get('title'), 'staged_price': x.get('staged_price'), 'reason': x.get('reason')}
+                  for x in report.get('rejected', [])
+              ],
+              'publication_mode': 'diagnostic_only',
           }, ensure_ascii=False))
           PY
 
