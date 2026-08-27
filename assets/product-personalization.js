@@ -214,6 +214,20 @@
     try { localStorage.removeItem(FAVORITES_KEY); } catch {}
   }
 
+  async function claimAnonymousRecentViews() {
+    const guestRows = readRecentRows().slice(0, 30);
+    if (!guestRows.length) return;
+    const payload = guestRows.map((row) => ({
+      id:String(row.id || ''),
+      viewed_at:row.viewed_at || new Date().toISOString(),
+      view_count:Math.max(1, Math.min(1000000, Number(row.view_count || 1)))
+    }));
+    const { error } = await db.rpc('claim_recent_product_views', { p_rows:payload });
+    if (error) throw error;
+    recentRows = [];
+    try { localStorage.removeItem(RECENT_KEY); } catch {}
+  }
+
   async function toggleFavorite(productId) {
     productId = String(productId || '');
     if (!productId) return;
@@ -261,14 +275,7 @@
       return;
     }
 
-    const { data } = await db.from('recently_viewed_products')
-      .select('view_count').eq('user_id', userId).eq('product_id', productId).maybeSingle();
-    const { error } = await db.from('recently_viewed_products').upsert({
-      user_id:userId,
-      product_id:productId,
-      last_viewed_at:now,
-      view_count:Number(data?.view_count || 0) + 1
-    }, { onConflict:'user_id,product_id' });
+    const { error } = await db.rpc('record_recent_product_view', { p_product_id:productId });
     if (error) throw error;
   }
 
@@ -430,6 +437,7 @@
     if (!userId) {
       hydratedUserId = '';
       favoriteIds = readFavoriteIds();
+      recentRows = readRecentRows();
       accountProducts = new Map();
       accountOffers = new Map();
       await flushPendingRecentViews();
@@ -441,6 +449,7 @@
     updateFavoriteButtons();
     await loadServerFavorites();
     await claimAnonymousFavorites(userId);
+    await claimAnonymousRecentViews();
     hydratedUserId = userId;
     await flushPendingRecentViews();
     updateFavoriteButtons();
