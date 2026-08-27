@@ -55,7 +55,7 @@
   }
 
   function installShareBridge() {
-    if (!navigator.share || navigator.__slevaoShareBridge) return;
+    if (typeof navigator === 'undefined' || !navigator.share || navigator.__slevaoShareBridge) return;
 
     const nativeShare = navigator.share.bind(navigator);
     const readListRows = () => [...document.querySelectorAll('#listItems [data-id]')]
