@@ -190,6 +190,30 @@
     favoriteIds = new Set((data || []).map((row) => String(row.product_id)).filter(Boolean));
   }
 
+  async function claimAnonymousFavorites(userId) {
+    const guestIds = [...readFavoriteIds()].slice(0, 500);
+    if (!userId || !guestIds.length) return;
+
+    const { data: products, error: productError } = await db.from('products')
+      .select('id')
+      .in('id', guestIds)
+      .limit(500);
+    if (productError) throw productError;
+
+    const validIds = [...new Set((products || []).map((row) => String(row.id)).filter(Boolean))];
+    const missingIds = validIds.filter((id) => !favoriteIds.has(id));
+    if (missingIds.length) {
+      const { error } = await db.from('product_favorites').upsert(
+        missingIds.map((productId) => ({ user_id:userId, product_id:productId })),
+        { onConflict:'user_id,product_id' }
+      );
+      if (error) throw error;
+      missingIds.forEach((id) => favoriteIds.add(id));
+    }
+
+    try { localStorage.removeItem(FAVORITES_KEY); } catch {}
+  }
+
   async function toggleFavorite(productId) {
     productId = String(productId || '');
     if (!productId) return;
@@ -416,6 +440,7 @@
     favoriteIds = new Set();
     updateFavoriteButtons();
     await loadServerFavorites();
+    await claimAnonymousFavorites(userId);
     hydratedUserId = userId;
     await flushPendingRecentViews();
     updateFavoriteButtons();
