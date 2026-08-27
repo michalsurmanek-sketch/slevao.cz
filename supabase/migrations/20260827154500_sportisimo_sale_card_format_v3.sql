@@ -64,14 +64,14 @@ with src as (
          title,
          subtitle,
          replace(substring(line from '^([0-9][0-9 ]*) Kč'),' ','')::numeric as price,
-         substring(line from '\\(-([0-9]+)[[:space:]]*%\\)$')::int as discount_percent,
+         substring(line from '\(-([0-9]+)[[:space:]]*%\)$')::int as discount_percent,
          case
            when next1 like 'DMOC:%' then null::numeric
            else replace(substring(next1 from '^([0-9][0-9 ]*) Kč$'),' ','')::numeric
          end as old_price,
          vf,vt,c
   from product_lines
-  where line ~ '^[0-9][0-9 ]* Kč \\(-[0-9]+[[:space:]]*%\\)$'
+  where line ~ '^[0-9][0-9 ]* Kč \(-[0-9]+[[:space:]]*%\)$'
     and next1 ~ '^(DMOC: )?[0-9][0-9 ]* Kč$'
     and next2='Skladem'
 ), legacy_cards0 as (
