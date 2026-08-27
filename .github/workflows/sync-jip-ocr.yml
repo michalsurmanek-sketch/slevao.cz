@@ -47,6 +47,117 @@ jobs:
       - name: OCR aktuálního 12stránkového Maloobchod letáku
         run: python3 scripts/sync_jip_ocr.py
 
+      - name: Porovnat staged PDF OCR v3 s produkčním v2
+        shell: bash
+        run: |
+          curl --fail-with-body --silent --show-error \
+            -X POST "$SUPABASE_URL/functions/v1/sync-jip-pack-products" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data '{"dry_run":true}' \
+            > /tmp/jip-v2.json
+
+          python3 - <<'PY' > /tmp/jip-v3-request.json
+          import json
+          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
+              v2 = json.load(f)
+          if not v2.get('ok') or not v2.get('source_import_id'):
+              raise SystemExit(f"JIP v2 dry-run failed: {v2}")
+          print(json.dumps({
+              'import_id': v2['source_import_id'],
+              'engine': 'tesseract-cli-ces-jip-v3-pdf1800',
+          }))
+          PY
+
+          curl --fail-with-body --silent --show-error \
+            -X POST "$SUPABASE_URL/functions/v1/debug-jip-main-price-v5" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "Content-Type: application/json" \
+            --data-binary @/tmp/jip-v3-request.json \
+            > /tmp/jip-v3.json
+
+          python3 - <<'PY'
+          import json
+          import re
+
+          def clean(value):
+              return re.sub(r'\s+', ' ', str(value or '')).strip()
+
+          def ambiguous_brand_only(candidate):
+              title = clean(candidate.get('title'))
+              raw = candidate.get('raw') or {}
+              lines = [clean(x) for x in (raw.get('title_lines') or []) if clean(x)]
+              if len(lines) != 1:
+                  return False
+              words = title.rstrip('.!').split()
+              if len(words) < 2:
+                  return False
+              return all(word[:1].isupper() and word[1:].islower() for word in words if word)
+
+          def safe(candidate):
+              title = clean(candidate.get('title'))
+              quantity = clean(candidate.get('quantity'))
+              try:
+                  price = float(candidate.get('price'))
+              except (TypeError, ValueError):
+                  return False
+              raw_price = clean((candidate.get('raw') or {}).get('price_line'))
+              conf = candidate.get('conf') or {}
+              if candidate.get('price_mode') != 'direct-decimal':
+                  return False
+              if not re.search(r'\d{1,4}[,.]\d{2}', raw_price):
+                  return False
+              if len(title) < 5 or not quantity or price < 2 or price > 5000:
+                  return False
+              if float(conf.get('price') or 0) < 60 or float(conf.get('title') or 0) < 80 or float(conf.get('qty') or 0) < 65:
+                  return False
+              if re.search(r'(nabidka|neplati|dph|zdarma|kup |kupon|aplikac|sleva)', title, re.I):
+                  return False
+              if ambiguous_brand_only(candidate):
+                  return False
+              return True
+
+          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
+              v2 = json.load(f)
+          with open('/tmp/jip-v3.json', encoding='utf-8') as f:
+              v3 = json.load(f)
+          if not v3.get('ok'):
+              raise SystemExit(f"JIP v3 parser failed: {v3}")
+
+          all_v3 = v3.get('candidates') or []
+          safe_v3 = [c for c in all_v3 if safe(c)]
+          report = {
+              'ok': True,
+              'source_import_id': v2.get('source_import_id'),
+              'v2': {
+                  'engine': v2.get('engine'),
+                  'parsed_count': v2.get('parsed_count'),
+                  'safe_count': v2.get('safe_count'),
+                  'candidates': v2.get('candidates') or [],
+              },
+              'v3': {
+                  'engine': v3.get('engine'),
+                  'parsed_count': len(all_v3),
+                  'safe_count': len(safe_v3),
+                  'candidates': [
+                      {
+                          'title': c.get('title'),
+                          'price': c.get('price'),
+                          'quantity': c.get('quantity'),
+                          'page': c.get('page'),
+                          'conf': c.get('conf'),
+                          'price_line': (c.get('raw') or {}).get('price_line'),
+                      }
+                      for c in safe_v3
+                  ],
+              },
+              'production_engine_unchanged': True,
+          }
+          print(json.dumps(report, ensure_ascii=False))
+          PY
+
       - name: Publikovat pouze bezpečně ověřené JIP kandidáty
         shell: bash
         run: |
