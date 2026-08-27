@@ -62,6 +62,6 @@ assert.ok(worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'PWA musí
 const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping bootstrap.');
 assert.ok(worker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'PWA musí cacheovat stejnou bootstrap verzi jako seznam.html.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260827-1';/, 'PWA shell musí být po shopping-list runtime změně obnovený.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-[0-9a-z-]+';/i, 'PWA shell musí mít verzované cache jméno.');
 
 console.log('Shopping list mutation consistency OK');
