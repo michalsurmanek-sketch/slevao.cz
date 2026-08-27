@@ -122,6 +122,15 @@ function parseDateRange(html: string): DateRange | null {
     května: 5, kvetna: 5, června: 6, cervna: 6, července: 7, cervence: 7,
     srpna: 8, září: 9, zari: 9, října: 10, rijna: 10, listopadu: 11, prosince: 12,
   };
+  const namedAcrossMonths = text.match(/(?:v\s+nabídce\s+)?od\s+(\d{1,2})\.\s+(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)\s+do\s+(\d{1,2})\.\s+(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)/i);
+  if (namedAcrossMonths) {
+    const fromMonth = months[namedAcrossMonths[2].toLocaleLowerCase('cs')];
+    const toMonth = months[namedAcrossMonths[4].toLocaleLowerCase('cs')];
+    if (fromMonth && toMonth) {
+      return dateRange(Number(namedAcrossMonths[1]), fromMonth, Number(namedAcrossMonths[3]), toMonth);
+    }
+  }
+
   const named = text.match(/(?:v\s+nabídce\s+)?od\s+(\d{1,2})\.\s+do\s+(\d{1,2})\.\s+(ledna|února|unora|března|brezna|dubna|května|kvetna|června|cervna|července|cervence|srpna|září|zari|října|rijna|listopadu|prosince)/i);
   if (!named) return null;
   const month = months[named[3].toLocaleLowerCase('cs')];
