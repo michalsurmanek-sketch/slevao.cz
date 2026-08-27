@@ -17,6 +17,7 @@ assert(source.includes('cleanupExpired(now)'), 'Expired response entries must be
 assert(!/localStorage|sessionStorage|setInterval/.test(source), 'Dedupe bootstrap must not use persistent storage or an interval-driven cache.');
 assert(source.includes('let facetContextEngaged = false;'), 'Contextual facet mode rewriting must start disengaged.');
 assert(source.includes('if (!facetContextEngaged) return body;'), 'Clean startup facets must remain byte-identical so dedupe can collapse them.');
+assert(source.includes('if (!event.isTrusted) return;'), 'Synthetic startup UI events must not engage contextual facet mode.');
 assert(source.includes('setFacetModeHint(quick.dataset.mode);'), 'Quick-filter interaction must still engage contextual facet mode.');
 
 const cleanupStart = source.indexOf('  function cleanupExpired(now)');
@@ -111,8 +112,8 @@ assert.equal(underlyingCalls, 5, 'Non-facets RPCs must bypass the dedupe layer.'
 releases.shift()();
 await other;
 
-// Regression: the first global startup request marks the global shape as seen. A second
-// byte-identical startup request must still stay `all` until a real filter interaction occurs.
+// Regression: a synthetic startup UI event can fire between two otherwise identical
+// global facet callers. It must not turn the second request into another mode request.
 let modeClock = 20_000;
 class ModeDate extends Date {
   static now() { return modeClock; }
@@ -151,6 +152,7 @@ vm.createContext(modeContext);
 vm.runInContext(source, modeContext, { filename: 'assets/rpc-request-dedupe.js' });
 
 const startupPayload = {
+  p_include_upcoming:true,
   p_query:null,
   p_mode:'all',
   p_store_slug:null,
@@ -163,22 +165,24 @@ const startupPayload = {
 };
 const startupInit = { method:'POST', body:JSON.stringify(startupPayload) };
 const startupFirst = modeContext.window.fetch(url, startupInit);
+listeners.click({ isTrusted:false, target:{} });
 const startupSecond = modeContext.window.fetch(url, startupInit);
-assert.equal(modeCalls, 1, 'Clean homepage startup must keep both global facets payloads identical and collapse them to one network request.');
+assert.equal(modeCalls, 1, 'Clean homepage startup must ignore synthetic UI events, keep both global facets payloads identical and collapse them to one network request.');
 assert.equal(JSON.parse(modeBodies[0]).p_mode, 'all', 'The reusable startup facets payload must stay global/all.');
 modeReleases.shift()();
 await Promise.all([startupFirst, startupSecond]);
 
 modeClock += 1001;
 listeners.click({
+  isTrusted:true,
   target: {
     closest: (selector) => selector === '#quickTabs [data-mode]' ? { dataset:{ mode:'food' } } : null,
   },
 });
 const afterQuickFilter = modeContext.window.fetch(url, startupInit);
-assert.equal(modeCalls, 2, 'A user quick-filter interaction must request fresh contextual facets after the startup grace window.');
+assert.equal(modeCalls, 2, 'A trusted user quick-filter interaction must request fresh contextual facets after the startup grace window.');
 assert.equal(JSON.parse(modeBodies[1]).p_mode, 'food', 'After user interaction the facets payload must follow the selected quick-filter mode.');
 modeReleases.shift()();
 await afterQuickFilter;
 
-console.log('Homepage facets request dedupe, startup reuse, contextual mode and fallback OK');
+console.log('Homepage facets request dedupe, synthetic-startup guard, contextual mode and fallback OK');
