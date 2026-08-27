@@ -244,7 +244,7 @@ function normalizeProduct(product: any) {
   };
 }
 
-async function markHealth(status: 'ok' | 'degraded', reason: string, count: number, error: string | null) {
+async function markHealth(status: 'degraded', reason: string, error: string) {
   try {
     const { data: store } = await db.from('stores').select('id').eq('slug', 'globus').maybeSingle();
     if (!store) return;
@@ -256,17 +256,14 @@ async function markHealth(status: 'ok' | 'degraded', reason: string, count: numb
       source_category: 'branch-action-offer',
       health_status: status,
       health_reason: reason,
-      last_offer_count: count,
-      expected_offer_count: status === 'ok' ? count : undefined,
       minimum_offer_count: MIN_PRODUCTS,
       last_run_at: new Date().toISOString(),
-      last_success_at: status === 'ok' ? new Date().toISOString() : undefined,
       last_error: error,
       last_parser_error: error,
       updated_at: new Date().toISOString(),
     }).eq('store_id', store.id);
   } catch {
-    // Health telemetry must never turn a sync result into a different result.
+    // Failure telemetry must never replace the original sync error.
   }
 }
 
@@ -351,12 +348,13 @@ Deno.serve(async (req) => {
     });
     if (error) throw error;
 
-    await markHealth('ok', `Globus Olomouc: publikováno ${rows.length} ověřených API nabídek.`, rows.length, null);
+    // The database wrapper is authoritative for successful health/count telemetry
+    // because it knows the post-filter published count and exact source binding.
     return json({ ...summary, dry_run: false, publish: data });
   } catch (error) {
     const message = errorText(error);
     if (!requestedDryRun) {
-      await markHealth('degraded', `Globus Olomouc synchronizace selhala: ${message}`, 0, message);
+      await markHealth('degraded', `Globus Olomouc synchronizace selhala: ${message}`, message);
     }
     return json({ error: message, adapter: ADAPTER }, 500);
   }
