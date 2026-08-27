@@ -54,6 +54,68 @@
     window.SlevaoShoppingBudgetStorage = { activeOwner, storageKey };
   }
 
+  function installShareBridge() {
+    if (!navigator.share || navigator.__slevaoShareBridge) return;
+
+    const nativeShare = navigator.share.bind(navigator);
+    const readListRows = () => [...document.querySelectorAll('#listItems [data-id]')]
+      .filter((article) => !article.classList.contains('done'))
+      .map((article) => {
+        const name = String(article.querySelector('.sfItemName')?.textContent || '').trim();
+        const quantityInput = article.querySelector('[data-quantity]');
+        const rawQuantity = Number(quantityInput?.value || 1);
+        const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? rawQuantity : 1;
+        return { name, quantity };
+      })
+      .filter((row) => row.name);
+
+    const formatQuantity = (value) => Number(value).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
+    const pieceLabel = (value) => Number(value) === 1 ? 'kus' : (Number(value) >= 2 && Number(value) <= 4 ? 'kusy' : 'kusů');
+    const itemLabel = (value) => Number(value) === 1 ? 'položka' : (Number(value) >= 2 && Number(value) <= 4 ? 'položky' : 'položek');
+
+    const enhancedShare = async (data = {}) => {
+      const title = String(data?.title || '');
+      const isShoppingList = title.toLocaleLowerCase('cs-CZ').includes('nákupní seznam slevao.cz');
+      if (!isShoppingList) return nativeShare(data);
+
+      const rows = readListRows();
+      if (!rows.length) return nativeShare(data);
+
+      const totalPieces = rows.reduce((sum, row) => sum + row.quantity, 0);
+      const lines = rows.map((row) => `${formatQuantity(row.quantity)}× ${row.name}`);
+      const url = String(data?.url || '').trim();
+      const summary = `${rows.length} ${itemLabel(rows.length)} · ${formatQuantity(totalPieces)} ${pieceLabel(totalPieces)}`;
+      const text = [
+        'Nákupní seznam Slevao.cz',
+        summary,
+        '',
+        ...lines,
+        ...(url ? ['', 'Společný seznam:', url] : [])
+      ].join('\n');
+
+      return nativeShare({ title: 'Nákupní seznam Slevao.cz', text });
+    };
+
+    try {
+      navigator.share = enhancedShare;
+      Object.defineProperty(navigator, '__slevaoShareBridge', {
+        value: true,
+        configurable: true
+      });
+    } catch {
+      try {
+        Object.defineProperty(navigator, 'share', {
+          value: enhancedShare,
+          configurable: true
+        });
+        Object.defineProperty(navigator, '__slevaoShareBridge', {
+          value: true,
+          configurable: true
+        });
+      } catch {}
+    }
+  }
+
   function markerUserId() {
     try { return String(localStorage.getItem(ACTIVE_USER_KEY) || '').trim(); }
     catch { return ''; }
@@ -87,6 +149,7 @@
   }
 
   function loadShoppingRuntimes() {
+    installShareBridge();
     loadList();
     loadInsights();
   }
@@ -100,6 +163,7 @@
 
   async function boot() {
     installBudgetOwnerBridge();
+    installShareBridge();
     if (!db) {
       loadShoppingRuntimes();
       return;
