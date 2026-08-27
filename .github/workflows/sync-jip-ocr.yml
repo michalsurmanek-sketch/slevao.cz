@@ -35,13 +35,14 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
 
-      - name: Nainstalovat český Tesseract
+      - name: Nainstalovat český Tesseract a PDF renderer
         shell: bash
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng
+          sudo apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-ces tesseract-ocr-eng poppler-utils
           tesseract --version | head -1
           tesseract --list-langs | grep -E '^(ces|eng)$'
+          pdftoppm -v 2>&1 | head -1
 
       - name: OCR aktuálního 12stránkového Maloobchod letáku
         run: python3 scripts/sync_jip_ocr.py
