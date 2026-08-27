@@ -1,4 +1,13 @@
 const SOURCE_URL = 'https://pepco.cz/kolekce/letaky/';
+const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
+
+function authorized(req: Request) {
+  return Boolean(
+    (SERVICE_ROLE && req.headers.get('authorization') === `Bearer ${SERVICE_ROLE}`)
+    || (CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET)
+  );
+}
 
 function compact(value: string) {
   return value
@@ -9,7 +18,8 @@ function compact(value: string) {
     .trim();
 }
 
-Deno.serve(async () => {
+Deno.serve(async (req) => {
+  if (!authorized(req)) return Response.json({ error: 'Unauthorized' }, { status: 401 });
   const response = await fetch(SOURCE_URL, {
     headers: {
       'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
