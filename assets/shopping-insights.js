@@ -79,6 +79,7 @@
       linkedCount: 0,
       missingCount: 0,
       customCount: 0,
+      customResolvedCount: 0,
       upcomingCount: 0,
       snapshots: []
     };
@@ -196,22 +197,52 @@
     return (current.length ? current : candidates).slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0] || null;
   }
 
+  function chooseCustomOffer(offers, today = pragueDate()) {
+    const candidates = (Array.isArray(offers) ? offers : [])
+      .filter((offer) => Number(offer?.price || 0) > 0)
+      .filter((offer) => !offer.valid_to || String(offer.valid_to) >= today);
+    const current = candidates.filter((offer) => !offer.valid_from || String(offer.valid_from) <= today);
+    return (current.length ? current : candidates).slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0] || null;
+  }
+
   async function calculate() {
     const today = pragueDate();
     const upcomingTo = addCalendarDays(today, 7);
     const active = rows.filter((row) => !row.completed && !row.is_completed);
     const ids = [...new Set(active.map((row) => row.product_id).filter(Boolean).map(String))];
-    let offers = [];
-    if (ids.length) {
-      const { data, error } = await db.from('offers')
+    const customQueries = [...new Set(active
+      .filter((row) => !row.product_id)
+      .map((row) => String(row.custom_name || row.name || '').trim())
+      .filter(Boolean))];
+
+    const productPromise = ids.length
+      ? db.from('offers')
         .select('id,product_id,store_id,title,price,old_price,valid_from,valid_to,stores(id,name,slug)')
         .in('product_id', ids)
         .eq('status', 'published')
         .gte('valid_to', today)
         .lte('valid_from', upcomingTo)
-        .limit(5000);
-      if (error) throw error;
-      offers = data || [];
+        .limit(5000)
+      : Promise.resolve({ data: [], error: null });
+
+    const customPromise = customQueries.length
+      ? db.rpc('get_public_shopping_list_candidates', {
+        p_queries: customQueries,
+        p_limit_per_query: 30
+      })
+      : Promise.resolve({ data: [], error: null });
+
+    const [productResult, customResult] = await Promise.all([productPromise, customPromise]);
+    if (productResult.error) throw productResult.error;
+    if (customResult.error) throw customResult.error;
+    const offers = productResult.data || [];
+    const customOfferMap = new Map();
+    for (const candidate of customResult.data || []) {
+      const key = String(candidate.query_key || norm(candidate.query_text));
+      if (!key || !candidate.offer) continue;
+      const matches = customOfferMap.get(key) || [];
+      matches.push(candidate.offer);
+      customOfferMap.set(key, matches);
     }
 
     const next = blankMetrics();
@@ -230,17 +261,22 @@
         unit: row.unit || 'ks'
       };
 
+      let offer = null;
       if (!row.product_id) {
         next.customCount++;
-        next.snapshots.push({ ...base, offer_id: null, price: null, old_price: null, store_id: null, store_name: null, subtotal: null, reference_subtotal: null });
-        continue;
-      }
-
-      const offer = chooseOffer(offers, row.product_id, today);
-      if (!offer) {
-        next.missingCount++;
-        next.snapshots.push({ ...base, offer_id: null, price: null, old_price: null, store_id: null, store_name: null, subtotal: null, reference_subtotal: null });
-        continue;
+        offer = chooseCustomOffer(customOfferMap.get(norm(row.custom_name || row.name)) || [], today);
+        if (!offer) {
+          next.snapshots.push({ ...base, offer_id: null, price: null, old_price: null, store_id: null, store_name: null, subtotal: null, reference_subtotal: null });
+          continue;
+        }
+        next.customResolvedCount++;
+      } else {
+        offer = chooseOffer(offers, row.product_id, today);
+        if (!offer) {
+          next.missingCount++;
+          next.snapshots.push({ ...base, offer_id: null, price: null, old_price: null, store_id: null, store_name: null, subtotal: null, reference_subtotal: null });
+          continue;
+        }
       }
 
       const price = Math.max(0, Number(offer.price || 0));
@@ -304,10 +340,11 @@
     $('insightStores').textContent = String(metrics.storesCount);
     $('insightItems').textContent = `${metrics.linkedCount}/${metrics.itemCount}`;
     const hints = [];
-    if (metrics.customCount) hints.push(`${metrics.customCount} vlastních položek nemá cenu a není zahrnuto do odhadu.`);
+    const unresolvedCustomCount = Math.max(0, metrics.customCount - metrics.customResolvedCount);
+    if (unresolvedCustomCount) hints.push(`${unresolvedCustomCount} vlastních položek nemá spolehlivě nalezenou cenu a není zahrnuto do odhadu.`);
     if (metrics.missingCount) hints.push(`U ${metrics.missingCount} produktů se nepodařilo najít platnou ani brzy začínající cenu.`);
     if (metrics.upcomingCount) hints.push(`${metrics.upcomingCount} položek používá akci začínající během příštích sedmi dnů.`);
-    if (!hints.length && metrics.itemCount) hints.push('Všechny propojené položky mají nalezenou cenu.');
+    if (!hints.length && metrics.itemCount) hints.push('Všechny položky mají nalezenou cenu.');
     if (!metrics.itemCount) hints.push('Přidej položky do seznamu a odhad se vypočítá automaticky.');
     $('shoppingInsightsHint').textContent = hints.join(' ');
     $('completeShopping').disabled = sharedMode || !metrics.itemCount || busy;
