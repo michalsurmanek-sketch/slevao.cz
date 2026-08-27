@@ -19,14 +19,32 @@ function section(start, end) {
   return source.slice(from, to);
 }
 
+assert.match(
+  source,
+  /const REMOTE_ITEM_FIELDS = 'id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at';/,
+  'Synchronizované položky musí používat úplný jednotný seznam remote polí.'
+);
+
+const adopt = section('  function adoptRemoteState(row, remote)', '\n\n  async function mergeRemote()');
+assert.match(adopt, /row\.server_id = remote\.id;/, 'Adopce serverového stavu musí převzít server_id.');
+assert.match(adopt, /row\.selected_offer_id = remote\.selected_offer_id \|\| null;/, 'Adopce serverového stavu musí převzít selected_offer_id.');
+assert.match(adopt, /row\.quantity = Number\(remote\.quantity \|\| row\.quantity \|\| 1\);/, 'Adopce serverového stavu musí převzít množství.');
+assert.match(adopt, /row\.unit = remote\.unit \|\| row\.unit \|\| 'ks';/, 'Adopce serverového stavu musí převzít jednotku.');
+assert.match(adopt, /row\.completed = Boolean\(remote\.is_completed\);/, 'Adopce serverového stavu musí převzít stav koupeno.');
+assert.match(adopt, /row\.updated_at = remote\.updated_at \|\| row\.updated_at \|\| null;/, 'Adopce serverového stavu musí převzít updated_at.');
+
 const merge = section('  async function mergeRemote()', '\n  async function persistRow(row, state = row)');
-assert.match(merge, /\.select\('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at'\)/, 'Remote merge musí načíst celý synchronizovaný stav položky.');
-assert.match(merge, /if \(local\) \{[\s\S]*?local\.server_id = item\.id;[\s\S]*?local\.selected_offer_id = item\.selected_offer_id \|\| null;[\s\S]*?local\.quantity = Number\(item\.quantity \|\| local\.quantity \|\| 1\);[\s\S]*?local\.unit = item\.unit \|\| 'ks';[\s\S]*?local\.completed = Boolean\(item\.is_completed\);[\s\S]*?local\.updated_at = item\.updated_at \|\| local\.updated_at \|\| null;/, 'Existující lokální položka musí převzít serverový selected_offer_id, množství, jednotku, completed a updated_at.');
+assert.match(merge, /\.select\(REMOTE_ITEM_FIELDS\)/, 'Remote merge musí načíst celý synchronizovaný stav položky přes společný kontrakt polí.');
+assert.match(merge, /if \(local\) \{[\s\S]*?adoptRemoteState\(local, item\);/, 'Existující lokální položka musí převzít kompletní serverový stav přes adoptRemoteState.');
+assert.match(merge, /insertError\?\.code !== '23505'/, 'Remote merge musí odlišit legitimní souběžný unique konflikt od skutečné chyby.');
+assert.match(merge, /const concurrent = await findConcurrentRemoteItem\(row\);/, 'Po souběžném insertu musí merge převzít již existující serverovou položku.');
 
 const persist = section('  async function persistRow(row, state = row)', '\n  async function deleteRow(row)');
 assert.match(persist, /\.update\(payload\)[\s\S]*?\.eq\('id', row\.server_id\)[\s\S]*?\.eq\('shopping_list_id', listId\)/, 'Update položky není omezený na aktuální shopping_list_id.');
 assert.match(persist, /quantity:\s*Number\(state\.quantity \|\| 1\)/, 'Update nepoužívá snapshot množství konkrétní mutace.');
 assert.match(persist, /is_completed:\s*Boolean\(state\.completed\)/, 'Update nepoužívá snapshot stavu koupeno konkrétní mutace.');
+assert.match(persist, /error\?\.code !== '23505'/, 'Insert položky musí rozpoznat legitimní souběžný unique konflikt.');
+assert.match(persist, /const concurrent = await findConcurrentRemoteItem\(state\);[\s\S]*?adoptRemoteState\(row, concurrent\);/, 'Po souběžném insertu musí persist převzít potvrzený serverový řádek.');
 
 const remove = section('  async function deleteRow(row)', '\n  async function fetchOffers()');
 const remoteDelete = remove.indexOf("db.from('shopping_list_items')");

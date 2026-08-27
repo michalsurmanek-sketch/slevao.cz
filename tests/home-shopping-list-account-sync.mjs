@@ -4,6 +4,8 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/home-filter-range-guard.js', root), 'utf8');
+const migration = readFileSync(new URL('supabase/migrations/20260827080000_atomic_owner_shopping_list_offer_add.sql', root), 'utf8');
+const customMigration = readFileSync(new URL('supabase/migrations/20260827081000_unique_custom_shopping_list_items.sql', root), 'utf8');
 
 new Script(source, { filename:'assets/home-filter-range-guard.js' });
 
@@ -18,17 +20,6 @@ function section(start, end) {
 const priceGuard = section("  if (minPrice && maxPrice) {", '\n\n  async function publicApi');
 assert.match(priceGuard, /min > preset[\s\S]*?minPrice\.value = ''[\s\S]*?dispatchEvent\(new Event\('input'/, 'Původní ochrana cenového rozsahu musí zůstat zachovaná.');
 
-const remoteLookup = section('  async function findRemoteItem', '\n\n  async function addRemoteItem');
-assert.match(remoteLookup, /\.eq\('shopping_list_id', listId\)/, 'Vyhledání existující položky musí být omezené na aktivní shopping list.');
-assert.match(remoteLookup, /if \(offer\.product_id\)[\s\S]*?\.eq\('product_id', offer\.product_id\)/, 'Produktová položka se musí na serveru hledat podle product_id.');
-assert.match(remoteLookup, /\.eq\('selected_offer_id', offer\.id\)/, 'Nesjednocená nabídka se musí nejdřív hledat podle selected_offer_id.');
-
-const remoteAdd = section('  async function addRemoteItem', '\n\n  function alignLocalRow');
-assert.match(remoteAdd, /existing\.is_completed \? 1 : Math\.max\(0\.01, Number\(existing\.quantity \|\| 1\)\) \+ 1/, 'Aktivní serverová položka musí dostat přesně +1 a koupená položka se musí znovu aktivovat s množstvím 1.');
-assert.match(remoteAdd, /is_completed:false/, 'Přidání z homepage musí výslednou serverovou položku označit jako aktivní.');
-assert.match(remoteAdd, /\.update\(payload\)[\s\S]*?\.eq\('id', existing\.id\)[\s\S]*?\.eq\('shopping_list_id', listId\)/, 'Serverový update musí být omezený ID položky i shopping listu.');
-assert.match(remoteAdd, /\.insert\(payload\)/, 'Neexistující položka musí být založena na serveru.');
-
 const localAlign = section('  function alignLocalRow', '\n\n  function feedback');
 assert.match(localAlign, /active\.server_id = remoteRow\?\.id/, 'Lokální řádek musí převzít server_id potvrzené serverem.');
 assert.match(localAlign, /active\.quantity = Math\.max\(0\.01, Number\(remoteRow\?\.quantity/, 'Lokální množství musí převzít potvrzenou serverovou hodnotu.');
@@ -37,7 +28,11 @@ assert.match(localAlign, /rows\.filter\(\(row\) => row === active \|\| row\?\.ke
 const add = section('  async function addFromHomepage', '\n\n  document.addEventListener');
 assert.match(add, /db\.auth\.getSession\(\)/, 'Přidání musí zjistit aktuální session.');
 assert.match(add, /if \(!session\?\.user\?\.id\)[\s\S]*?api\.addItemFromOffer\(offer\)/, 'Host musí dál fungovat lokálně bez účtu.');
-const remoteWrite = add.indexOf('const remoteRow = await addRemoteItem');
+assert.match(add, /db\.rpc\('increment_own_shopping_list_offer', \{[\s\S]*?p_offer_id: offerId[\s\S]*?\}\)/, 'Přihlášený uživatel musí použít atomický serverový RPC increment.');
+assert.match(add, /const remoteRow = sync\?\.item \|\| null;/, 'Frontend musí převzít serverem potvrzenou položku z RPC odpovědi.');
+assert.match(add, /if \(!remoteRow\?\.id\)[\s\S]*?throw new Error/, 'Bez potvrzeného serverového ID se lokální seznam nesmí tvářit jako synchronizovaný.');
+assert.doesNotMatch(add, /db\.from\('shopping_list_items'\)/, 'Homepage nesmí vrátit neatomický SELECT/UPDATE/INSERT zápis položky.');
+const remoteWrite = add.indexOf("db.rpc('increment_own_shopping_list_offer'");
 const localWrite = add.indexOf('alignLocalRow(api, offer, remoteRow)');
 assert.ok(remoteWrite >= 0 && localWrite > remoteWrite, 'Přihlášený uživatel musí nejdřív potvrdit serverový zápis a teprve potom změnit lokální seznam.');
 
@@ -49,4 +44,14 @@ assert.match(click, /button\.disabled = true[\s\S]*?finally\(\(\) => \{[\s\S]*?b
 
 assert.match(source, /window\.__slevaoAccountShoppingListAddGuard = true;/, 'Runtime guard musí vystavit diagnostický příznak.');
 
-console.log('Homepage shopping-list account sync OK');
+assert.match(migration, /create unique index if not exists shopping_lists_one_active_per_user_uidx[\s\S]*?on public\.shopping_lists\(user_id\)[\s\S]*?where is_archived = false;/i, 'DB musí garantovat nejvýše jeden aktivní seznam na uživatele.');
+assert.match(migration, /create unique index if not exists shopping_list_items_one_product_per_list_uidx[\s\S]*?shopping_list_id, product_id[\s\S]*?where product_id is not null;/i, 'DB musí garantovat nejvýše jednu produktovou položku na seznam.');
+assert.match(migration, /create or replace function public\.increment_own_shopping_list_offer\(p_offer_id uuid\)[\s\S]*?security invoker/i, 'Atomický RPC musí zůstat SECURITY INVOKER.');
+assert.match(migration, /v_user_id uuid := auth\.uid\(\);[\s\S]*?if v_user_id is null then/i, 'RPC musí vyžadovat přihlášeného uživatele.');
+assert.match(migration, /on conflict \(user_id\) where is_archived = false do nothing/i, 'Vytvoření aktivního seznamu musí být bezpečné při souběhu.');
+assert.match(migration, /on conflict \(shopping_list_id, product_id\) where product_id is not null[\s\S]*?quantity = case[\s\S]*?shopping_list_items\.quantity \+ 1/i, 'Produktový +1 musí být proveden atomicky uvnitř databáze.');
+assert.match(migration, /revoke all on function public\.increment_own_shopping_list_offer\(uuid\) from public, anon;/i, 'RPC nesmí být dostupný rolím public ani anon.');
+assert.match(migration, /grant execute on function public\.increment_own_shopping_list_offer\(uuid\) to authenticated;/i, 'RPC musí být explicitně dostupný pouze authenticated.');
+assert.match(customMigration, /create unique index if not exists shopping_list_items_one_custom_name_per_list_uidx[\s\S]*?lower\(trim\(custom_name\)\)[\s\S]*?product_id is null/i, 'Vlastní položky musí mít unikátní normalizovaný název v rámci seznamu.');
+
+console.log('Homepage shopping-list atomic account sync OK');
