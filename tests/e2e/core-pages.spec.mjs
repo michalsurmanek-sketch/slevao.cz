@@ -5,11 +5,20 @@ const PUBLIC_FEATURES = 'assets/public-features.js';
 const PUBLIC_NAV = 'assets/public-nav-upgrade.js';
 const SHOPPING_BOOTSTRAP = 'assets/shopping-insights-bootstrap.js';
 const SHOPPING_LIST = 'assets/shopping-list.js';
+const SHOPPING_PRICE_SUMMARY = 'assets/shopping-list-price-summary.js';
 
 const CORE_PAGES = [
   { path:'/produkt.html', title:/Produkt/i, marker:'#productContent' },
   { path:'/seznam.html', title:/Nákupní seznam/i, marker:'main' },
   { path:'/ucet.html', title:/Můj účet/i, marker:'main' },
+];
+
+const SEEDED_SHOPPING_ITEMS = [
+  { local_id:'e2e-1', custom_name:'Mléko polotučné', name:'Mléko polotučné', quantity:2, unit:'ks', completed:false },
+  { local_id:'e2e-2', custom_name:'Chléb konzumní kmínový', name:'Chléb konzumní kmínový', quantity:1, unit:'ks', completed:false },
+  { local_id:'e2e-3', custom_name:'Kuřecí prsní řízky', name:'Kuřecí prsní řízky', quantity:1.5, unit:'ks', completed:false },
+  { local_id:'e2e-4', custom_name:'Máslo 250 g', name:'Máslo 250 g', quantity:3, unit:'ks', completed:false },
+  { local_id:'e2e-5', custom_name:'Minerální voda jemně perlivá', name:'Minerální voda jemně perlivá', quantity:6, unit:'ks', completed:false },
 ];
 
 function versionedScript(path) {
@@ -59,6 +68,18 @@ async function expectNoHorizontalOverflow(page) {
   expect(metrics.body, `body overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
 }
 
+async function expectItemsInsideViewport(page) {
+  const rows = await page.locator('#listItems .sfListItem').evaluateAll((nodes) => nodes.map((node) => {
+    const rect = node.getBoundingClientRect();
+    return { left:rect.left, right:rect.right, width:rect.width, viewport:window.innerWidth };
+  }));
+  expect(rows.length).toBeGreaterThan(0);
+  for (const row of rows) {
+    expect(row.left, `shopping row clipped left: ${JSON.stringify(row)}`).toBeGreaterThanOrEqual(-1);
+    expect(row.right, `shopping row clipped right: ${JSON.stringify(row)}`).toBeLessThanOrEqual(row.viewport + 1);
+  }
+}
+
 async function openCorePage(page, entry, width) {
   await page.setViewportSize({ width, height: width <= 430 ? 844 : 900 });
   const runtime = watchLocalRuntime(page);
@@ -71,6 +92,7 @@ async function openCorePage(page, entry, width) {
   if (entry.path === '/seznam.html') {
     await expect(page.locator(versionedScript(SHOPPING_BOOTSTRAP))).toHaveCount(1);
     await expect(page.locator(versionedScript(SHOPPING_LIST))).toHaveCount(1);
+    await expect(page.locator(versionedScript(SHOPPING_PRICE_SUMMARY))).toHaveCount(1);
   }
   await page.waitForTimeout(1_000);
   await expectNoHorizontalOverflow(page);
@@ -86,6 +108,26 @@ for (const entry of CORE_PAGES) {
 
   test(`${entry.path} renders at 390px without horizontal overflow`, async ({ page }) => {
     await openCorePage(page, entry, 390);
+  });
+}
+
+for (const width of [320, 430]) {
+  test(`/seznam.html with populated rows fits ${width}px viewport`, async ({ page }) => {
+    await page.setViewportSize({ width, height:844 });
+    await page.addInitScript((items) => {
+      localStorage.setItem('slevao-shopping-list-v1', JSON.stringify(items));
+    }, SEEDED_SHOPPING_ITEMS);
+    const runtime = watchLocalRuntime(page);
+    const response = await page.goto(`${BASE_URL}/seznam.html`, { waitUntil:'domcontentloaded' });
+    expect(response?.status()).toBe(200);
+    await expect(page.locator('#listItems .sfListItem')).toHaveCount(SEEDED_SHOPPING_ITEMS.length, { timeout:10_000 });
+    await expect(page.locator('#listItems .sfItemPrice')).toHaveCount(SEEDED_SHOPPING_ITEMS.length, { timeout:10_000 });
+    await expectNoHorizontalOverflow(page);
+    await expectItemsInsideViewport(page);
+    await page.screenshot({ path:`test-results/seznam-mobile-${width}.png`, fullPage:true });
+    expect(runtime.failedResponses, '/seznam.html populated local HTTP failures').toEqual([]);
+    expect(runtime.requestFailures, '/seznam.html populated local request failures').toEqual([]);
+    expect(runtime.pageErrors, '/seznam.html populated uncaught browser errors').toEqual([]);
   });
 }
 
