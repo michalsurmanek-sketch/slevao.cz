@@ -37,6 +37,8 @@
 
   if (typeof document !== 'undefined') {
     document.addEventListener('click', (event) => {
+      if (!event.isTrusted) return;
+
       const quick = event.target.closest('#quickTabs [data-mode]');
       if (quick?.dataset.mode && ALLOWED_MODES.has(quick.dataset.mode)) {
         setFacetModeHint(quick.dataset.mode);
@@ -68,14 +70,17 @@
     }, true);
 
     document.addEventListener('input', (event) => {
+      if (!event.isTrusted) return;
       if (event.target?.id === 'sideSearch') setFacetModeHint(event.target.value.trim() ? 'all' : 'recommended');
     }, true);
 
     document.addEventListener('keydown', (event) => {
+      if (!event.isTrusted) return;
       if (event.target?.id === 'q' && event.key === 'Enter') setFacetModeHint(event.target.value.trim() ? 'all' : 'recommended');
     }, true);
 
     document.addEventListener('change', (event) => {
+      if (!event.isTrusted) return;
       if (event.target?.id === 'categorySelect') {
         setFacetModeHint(facetModeHint === 'food' && event.target.value !== 'food' ? 'all' : facetModeHint);
       }
@@ -121,7 +126,7 @@
     }
 
     // The clean homepage startup intentionally reuses the global facets promise.
-    // Do not mutate a duplicate startup payload before the dedupe layer sees it.
+    // Synthetic initialization events must not turn its duplicate into a new mode request.
     if (!facetContextEngaged) return body;
 
     if (!ALLOWED_MODES.has(facetModeHint) || facetModeHint === 'all') return body;
