@@ -15,6 +15,9 @@ assert(source.includes('const GRACE_MS = 1000'), 'Facets dedupe must use the sho
 assert(source.includes('response.clone()'), 'Deduped callers must receive independent Response clones.');
 assert(source.includes('cleanupExpired(now)'), 'Expired response entries must be cleaned opportunistically.');
 assert(!/localStorage|sessionStorage|setInterval/.test(source), 'Dedupe bootstrap must not use persistent storage or an interval-driven cache.');
+assert(source.includes('let facetContextEngaged = false;'), 'Contextual facet mode rewriting must start disengaged.');
+assert(source.includes('if (!facetContextEngaged) return body;'), 'Clean startup facets must remain byte-identical so dedupe can collapse them.');
+assert(source.includes('setFacetModeHint(quick.dataset.mode);'), 'Quick-filter interaction must still engage contextual facet mode.');
 
 const cleanupStart = source.indexOf('  function cleanupExpired(now)');
 const cleanupEnd = source.indexOf('\n  function fetchWithReadRetry', cleanupStart);
@@ -108,4 +111,74 @@ assert.equal(underlyingCalls, 5, 'Non-facets RPCs must bypass the dedupe layer.'
 releases.shift()();
 await other;
 
-console.log('Homepage facets request dedupe, startup reuse and fallback OK');
+// Regression: the first global startup request marks the global shape as seen. A second
+// byte-identical startup request must still stay `all` until a real filter interaction occurs.
+let modeClock = 20_000;
+class ModeDate extends Date {
+  static now() { return modeClock; }
+}
+const listeners = {};
+const documentStub = {
+  querySelector: () => ({}),
+  addEventListener: (type, handler) => { listeners[type] = handler; },
+  getElementById: () => null,
+};
+let modeCalls = 0;
+let modeBodies = [];
+let modeReleases = [];
+const modeFetch = (requestUrl, init) => {
+  modeCalls += 1;
+  modeBodies.push(init?.body || '');
+  return new Promise((resolve) => {
+    modeReleases.push(() => resolve(new FakeResponse(`${requestUrl}:${init?.body || ''}`)));
+  });
+};
+const modeContext = {
+  window: {
+    fetch: modeFetch,
+    setTimeout: (callback) => { callback(); return 1; },
+  },
+  document: documentStub,
+  Request: undefined,
+  Map,
+  Set,
+  Date: ModeDate,
+  URLSearchParams,
+  location: { search: '' },
+};
+modeContext.window.window = modeContext.window;
+vm.createContext(modeContext);
+vm.runInContext(source, modeContext, { filename: 'assets/rpc-request-dedupe.js' });
+
+const startupPayload = {
+  p_query:null,
+  p_mode:'all',
+  p_store_slug:null,
+  p_min_price:null,
+  p_max_price:null,
+  p_only_images:false,
+  p_filter_group:null,
+  p_region_code:null,
+  p_city_name:null,
+};
+const startupInit = { method:'POST', body:JSON.stringify(startupPayload) };
+const startupFirst = modeContext.window.fetch(url, startupInit);
+const startupSecond = modeContext.window.fetch(url, startupInit);
+assert.equal(modeCalls, 1, 'Clean homepage startup must keep both global facets payloads identical and collapse them to one network request.');
+assert.equal(JSON.parse(modeBodies[0]).p_mode, 'all', 'The reusable startup facets payload must stay global/all.');
+modeReleases.shift()();
+await Promise.all([startupFirst, startupSecond]);
+
+modeClock += 1001;
+listeners.click({
+  target: {
+    closest: (selector) => selector === '#quickTabs [data-mode]' ? { dataset:{ mode:'food' } } : null,
+  },
+});
+const afterQuickFilter = modeContext.window.fetch(url, startupInit);
+assert.equal(modeCalls, 2, 'A user quick-filter interaction must request fresh contextual facets after the startup grace window.');
+assert.equal(JSON.parse(modeBodies[1]).p_mode, 'food', 'After user interaction the facets payload must follow the selected quick-filter mode.');
+modeReleases.shift()();
+await afterQuickFilter;
+
+console.log('Homepage facets request dedupe, startup reuse, contextual mode and fallback OK');
