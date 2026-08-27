@@ -35,6 +35,7 @@ assert.equal(
 );
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 23, 'homepage should keep the consolidated 23 direct CSS links');
+assert.equal(directCssLinks.length, 24, 'homepage should keep the consolidated 24 direct CSS links');
+assert.ok(index.includes('assets/mobile-hero-compact.css?v='), 'The 24th direct stylesheet is the intentional mobile hero compact layer.');
 
 console.log('home CSS request consolidation guard: OK');
