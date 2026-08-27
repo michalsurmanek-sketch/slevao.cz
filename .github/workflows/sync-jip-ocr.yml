@@ -158,6 +158,46 @@ jobs:
           print(json.dumps(report, ensure_ascii=False))
           PY
 
+      - name: Prověřit textovou vrstvu oficiálního PDF
+        shell: bash
+        run: |
+          python3 - <<'PY' > /tmp/jip-pdf-url.txt
+          import json
+          with open('/tmp/jip-v2.json', encoding='utf-8') as f:
+              result = json.load(f)
+          source = str(result.get('source_document_url') or '').rstrip('/')
+          if not source.startswith('https://www.jip-potraviny.cz/wp-content/uploads/file/MO-'):
+              raise SystemExit(f'Unexpected JIP source URL: {source}')
+          print(source + '/files/downloads/MO.pdf')
+          PY
+          PDF_URL="$(cat /tmp/jip-pdf-url.txt)"
+          curl --fail-with-body --silent --show-error \
+            -A 'slevao-github-actions-jip-pdf-text/1.0' \
+            "$PDF_URL" -o /tmp/jip-mo.pdf
+          test "$(stat -c%s /tmp/jip-mo.pdf)" -gt 100000
+          pdftotext -layout /tmp/jip-mo.pdf /tmp/jip-pdf.txt
+          python3 - <<'PY'
+          import json
+          import re
+          from pathlib import Path
+
+          text = Path('/tmp/jip-pdf.txt').read_text(encoding='utf-8', errors='replace')
+          compact = re.sub(r'[ \t]+', ' ', text)
+          probes = ['Lipánek', 'smetanový', 'Nesquik', 'RAJČE', 'CUKETA']
+          snippets = {}
+          lower = compact.lower()
+          for probe in probes:
+              i = lower.find(probe.lower())
+              if i >= 0:
+                  snippets[probe] = compact[max(0, i - 220):i + 420].replace('\n', ' | ')
+          print(json.dumps({
+              'pdf_text_chars': len(text),
+              'pdf_text_pages': text.count('\f'),
+              'probe_hits': list(snippets),
+              'snippets': snippets,
+          }, ensure_ascii=False))
+          PY
+
       - name: Publikovat pouze bezpečně ověřené JIP kandidáty
         shell: bash
         run: |
