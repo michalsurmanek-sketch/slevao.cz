@@ -5,10 +5,14 @@ const root = new URL('../', import.meta.url);
 const bridge = readFileSync(new URL('assets/shopping-owner-custom-add-bridge.js', root), 'utf8');
 const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 
+assert.match(bridge, /const ACTIVE_USER_KEY = 'slevao-active-user-v1';/, 'Bridge nepoužívá bootstrapem potvrzený owner marker.');
 assert.match(bridge, /const sharedMode = Boolean\(/, 'Bridge nepozná sdílený seznam.');
 assert.match(bridge, /if \(sharedMode \|\| !document\.querySelector\('\.sfListLayout'\)\) return;/, 'Shared režim musí zůstat na původní cestě.');
+assert.match(bridge, /function markedUserId\(\)/, 'Bridge neumí rozlišit potvrzeného ownera od guest režimu.');
+assert.match(bridge, /if \(bypass \|\| !markedUserId\(\)\) return;/, 'Guest click se nesmí zachytávat owner bridgem.');
+assert.match(bridge, /if \(bypass \|\| !markedUserId\(\) \|\| event\.key !== 'Enter'/, 'Guest Enter se nesmí zachytávat owner bridgem.');
 assert.match(bridge, /await db\.auth\.getSession\(\)/, 'Bridge před owner RPC neověřuje session.');
-assert.match(bridge, /if \(!session\?\.user\?\.id\)[\s\S]*forwardOriginal\(source\);/, 'Guest režim se nevrací k původnímu addCustom handleru.');
+assert.match(bridge, /if \(!session\?\.user\?\.id\)[\s\S]*forwardOriginal\(source\);/, 'Session race se nevrací k původnímu addCustom handleru.');
 assert.match(bridge, /db\.rpc\('add_own_shopping_list_custom_item'/, 'Owner add nepoužívá atomický RPC.');
 assert.match(bridge, /p_custom_name: name/, 'RPC nedostává název vlastní položky.');
 assert.match(bridge, /p_quantity: quantity/, 'RPC nedostává přidávané množství.');
@@ -20,7 +24,7 @@ assert.match(bridge, /event\.key !== 'Enter'[\s\S]*event\.stopImmediatePropagati
 assert.match(bridge, /location\.reload\(\);/, 'Po atomickém zápisu se nenačte potvrzený cloudový stav.');
 assert.ok(!bridge.includes("db.from('shopping_list_items')"), 'Bridge nesmí znovu zavádět přímý owner INSERT/UPDATE race.');
 
-assert.match(bootstrap, /const OWNER_CUSTOM_ADD_URL = 'assets\/shopping-owner-custom-add-bridge\.js\?v=20260828-1';/, 'Bootstrap nemá verzovaný owner-add bridge.');
+assert.match(bootstrap, /const OWNER_CUSTOM_ADD_URL = 'assets\/shopping-owner-custom-add-bridge\.js\?v=[0-9-]+';/, 'Bootstrap nemá verzovaný owner-add bridge.');
 const bridgeLoad = bootstrap.indexOf('loadOwnerCustomAddBridge();');
 const listLoad = bootstrap.indexOf('loadList();', bridgeLoad + 1);
 assert.ok(bridgeLoad >= 0 && listLoad > bridgeLoad, 'Owner-add bridge se musí načíst před shopping-list.js.');
