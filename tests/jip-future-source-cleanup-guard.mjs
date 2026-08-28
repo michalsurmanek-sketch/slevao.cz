@@ -13,3 +13,4 @@ assert.ok(sql.includes('new.detected_valid_to := old.detected_valid_to'));
 assert.ok(sql.includes('trg_guard_jip_future_source_cleanup'));
 
 console.log('JIP future cleanup guard regression checks passed');
+await import('./jip-main-price-full-payload-reuse.mjs');
