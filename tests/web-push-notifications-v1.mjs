@@ -151,3 +151,4 @@ if (!/assets\/web-push\.js\?v=[a-z0-9-]+/i.test(account)) {
 }
 
 console.log('Web Push notification pipeline guards OK');
+await import('./web-push-subscription-owner.mjs');
