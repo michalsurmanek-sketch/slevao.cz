@@ -208,9 +208,15 @@ function parserRow(c: Candidate) {
     raw_data:canonicalRaw(c.raw_data),
   };
 }
+function storedBaseTitle(item: any) {
+  const title = clean(item?.title);
+  const quantity = clean(item?.quantity_text);
+  const suffix = quantity ? ` · ${quantity}` : '';
+  return suffix && title.endsWith(suffix) ? title.slice(0,-suffix.length).trim() : title;
+}
 function storedRow(item: any) {
   return {
-    title:clean(item.title),
+    title:storedBaseTitle(item),
     price:Number(item.price),
     quantity_text:clean(item.quantity_text),
     source_page:Number(item.source_page),
@@ -221,7 +227,7 @@ function storedRow(item: any) {
 function expectedStoredRow(c: Candidate) {
   const row = parserRow(c);
   return {
-    title:`${row.title} · ${row.quantity_text}`,
+    title:row.title,
     price:row.price,
     quantity_text:row.quantity_text,
     source_page:row.source_page,
@@ -230,7 +236,11 @@ function expectedStoredRow(c: Candidate) {
   };
 }
 function stableSort<T>(rows: T[]): T[] {
-  return [...rows].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  return [...rows].sort((a,b) => {
+    const left = JSON.stringify(a);
+    const right = JSON.stringify(b);
+    return left < right ? -1 : left > right ? 1 : 0;
+  });
 }
 function sameStoredPayload(items: any[], candidates: Candidate[]) {
   if (items.length !== candidates.length) return false;
