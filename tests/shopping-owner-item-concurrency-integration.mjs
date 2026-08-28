@@ -19,7 +19,8 @@ assert.ok(
   'Owner item CAS bridge musí obalit Supabase klienta před shopping runtime bootstrapem.'
 );
 assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje owner item semantic CAS bridge.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260828-60';/, 'PWA shell nebyl po owner item CAS integraci posunut na verzi 60.');
+const shellVersion = Number(worker.match(/const CACHE_NAME = 'slevao-shell-20260828-(\d+)';/)?.[1] || 0);
+assert.ok(shellVersion >= 60, 'PWA shell se nesmí vrátit pod owner item CAS verzi 60.');
 assert.ok(source.includes("if (sharedMode || !document.querySelector('.sfListLayout')) return;"), 'CAS bridge není bezpečně vypnutý ve shared režimu.');
 assert.ok(source.includes("if (String(table) !== 'shopping_list_items') return base;"), 'CAS bridge neomezuje Supabase proxy jen na shopping_list_items.');
 
