@@ -34,7 +34,8 @@ assert.match(list, /if \(offersLoading\) return offersLoading;/, 'Současné ref
 assert.match(list, /visibilitychange[\s\S]*refreshOffersIfStale\(\)/, 'Po návratu do záložky se musí stale ceny obnovit.');
 assert.match(list, /window\.addEventListener\('focus',[\s\S]*refreshOffersIfStale\(\)/, 'Po návratu do okna se musí stale ceny obnovit.');
 
-assert.match(insights, /async function calculate\(\) \{\s*const today = pragueDate\(\);\s*const upcomingTo = addCalendarDays\(today, 7\);/, 'Shopping insights musí vytvářet čerstvé Prague +7 okno při každém přepočtu.');
+assert.match(insights, /async function calculateRows\(targetRows\) \{\s*const today = pragueDate\(\);\s*const upcomingTo = addCalendarDays\(today, 7\);/, 'Shopping insights musí vytvářet čerstvé Prague +7 okno při každém přepočtu vybraných položek.');
+assert.match(insights, /async function calculate\(\) \{\s*metrics = await calculateRows\(rows\.filter\(\(row\) => !row\.completed && !row\.is_completed\)\);\s*\}/, 'Běžný přepočet musí používat calculateRows nad aktuálně nedokončenými položkami.');
 assert.match(insights, /function chooseOffer\(offers, productId, today = pragueDate\(\)\)[\s\S]*String\(offer\.valid_to\) >= today/, 'Shopping insights nesmí vybrat expirovanou nabídku.');
 assert.match(insights, /let lastBusinessDay = '';/, 'Shopping insights musí sledovat business day odděleně od localStorage signature.');
 assert.match(insights, /current === lastSignature && businessDay === lastBusinessDay/, 'Nezměněný seznam smí přeskočit přepočet jen ve stejný Prague den.');
