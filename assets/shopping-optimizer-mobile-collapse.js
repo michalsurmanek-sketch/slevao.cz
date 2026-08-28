@@ -44,9 +44,10 @@
     }
 
     toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
-    toggle.textContent = expanded
+    const nextText = expanded
       ? 'Skrýt další možnosti'
       : `Další možnosti (${legacy.length})`;
+    if (toggle.textContent !== nextText) toggle.textContent = nextText;
   }
 
   function schedule() {
