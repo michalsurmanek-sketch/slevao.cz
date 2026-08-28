@@ -51,3 +51,4 @@ assert.ok(
 );
 
 console.log('Expired offer cleanup batching/provenance contract OK');
+await import('./price-history-provenance-validation.mjs');
