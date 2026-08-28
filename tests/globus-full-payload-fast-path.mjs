@@ -62,3 +62,4 @@ assert.ok(!fastBranch.includes('update public.offers'),
   'No-change branch nesmí přepisovat offers a znovu spouštět offer trigger lavinu.');
 
 console.log('Globus full-payload no-change fast-path contract OK');
+await import('./structured-store-full-payload-fast-path.mjs');
