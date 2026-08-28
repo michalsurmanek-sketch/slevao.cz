@@ -68,3 +68,4 @@ for (const field of ['product_id', 'custom_name', 'quantity', 'unit']) {
 }
 
 console.log('Atomic shopping purchase completion migration contract OK');
+await import('./shopping-repeat-purchase-sync.mjs');
