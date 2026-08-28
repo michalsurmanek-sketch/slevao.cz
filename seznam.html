@@ -3,6 +3,24 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="referrer" content="origin">
+  <script data-shopping-share-url-sanitizer>
+  (() => {
+    'use strict';
+    try {
+      const url = new URL(location.href);
+      const legacyToken = url.searchParams.get('share');
+      if (!legacyToken) return;
+      url.searchParams.delete('share');
+      const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
+      if (!hash.get('share') && /^[0-9a-f]{48}$/.test(legacyToken)) {
+        hash.set('share', legacyToken);
+        url.hash = hash.toString();
+      }
+      history.replaceState(history.state, '', `${url.pathname}${url.search}${url.hash}`);
+    } catch {}
+  })();
+  </script>
   <meta name="description" content="Chytrý a sdílený nákupní seznam Slevao.cz porovná ceny, hlídá rozpočet, počítá úsporu a uchovává historii nákupů.">
   <meta property="og:locale" content="cs_CZ">
   <meta property="og:type" content="website">
@@ -43,8 +61,8 @@
   <script defer src="assets/shopping-route-positive-price-guard.js?v=20260828-1"></script>
   <script defer src="assets/store-arrival-copy-variation.js?v=20260811-1"></script>
   <script defer src="assets/store-arrival-alerts.js?v=20260811-3"></script>
-  <script defer src="assets/shopping-clipboard-share-bridge.js?v=20260828-1"></script>
-  <script defer src="assets/shopping-insights-bootstrap.js?v=20260828-8"></script>
+  <script defer src="assets/shopping-clipboard-share-bridge.js?v=20260828-2"></script>
+  <script defer src="assets/shopping-insights-bootstrap.js?v=20260828-9"></script>
   <script defer src="assets/shopping-repeat-purchase-sync.js?v=20260828-2"></script>
   <script defer src="assets/shopping-history-freshness.js?v=20260828-1"></script>
   <script defer src="assets/shopping-shared-readonly-presentation.js?v=20260828-2"></script>
