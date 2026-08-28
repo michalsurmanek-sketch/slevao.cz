@@ -17,6 +17,12 @@
     return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';
   };
 
+  function pragueDate(value = new Date()) {
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone:'Europe/Prague', year:'numeric', month:'2-digit', day:'2-digit'
+    }).format(value);
+  }
+
   function absoluteBox() {
     const precise = optimizer.querySelector('[data-day-consistent-plan="true"]');
     if (precise) return precise;
@@ -27,6 +33,13 @@
   function boxUsesUpcomingPrice(box) {
     const note = normalize(box?.querySelector('.sfMuted')?.textContent);
     return note.includes('pouziva akci zacinajici');
+  }
+
+  function futureDayLabel(box) {
+    const dateNode = box?.querySelector('.sfDayPlanDate[data-plan-date]');
+    const dateKey = String(dateNode?.dataset?.planDate || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey) || dateKey <= pragueDate()) return '';
+    return String(dateNode?.textContent || '').trim();
   }
 
   function markUpcomingPlans() {
@@ -115,6 +128,8 @@
   }
 
   function renderPrices() {
+    const absolute = absoluteBox();
+    const futureTiming = futureDayLabel(absolute);
     const absoluteUpcoming = markUpcomingPlans();
     const prices = absolutePriceBuckets();
     const units = localUnitMap();
@@ -166,7 +181,7 @@
     summary.hidden = false;
     const complete = pricedCount === articles.length;
     const coverage = complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`;
-    const timing = absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '';
+    const timing = futureTiming ? ` · ${futureTiming}` : (absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '');
     const ambiguity = ambiguousKeys.size ? ' · stejné názvy bez rozpisu' : '';
     const summaryHtml = `<span><b>Celkem</b><small>${coverage}${timing}${ambiguity}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
     if (summary.innerHTML !== summaryHtml) summary.innerHTML = summaryHtml;
@@ -180,7 +195,7 @@
   };
 
   new MutationObserver(schedule).observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'data-unit'] });
-  new MutationObserver(schedule).observe(optimizer, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
+  new MutationObserver(schedule).observe(optimizer, { childList: true, subtree: true, attributes: true, attributeFilter: ['title', 'data-plan-date'] });
   list.addEventListener('change', schedule);
   schedule();
 })();
