@@ -12,6 +12,7 @@ new Script(source, { filename:'assets/shopping-shared-readonly-presentation.js' 
 
 for (const needle of [
   "const sharedToken = hash.get('share') || query.get('share') || '';",
+  "document.body.classList.add('sfSharedList');",
   "/pouze\\s+ke\\s+čtení/i",
   "document.body.classList.toggle('sfSharedReadonly', readOnly);",
   "attributeFilter:['disabled']",
@@ -22,9 +23,12 @@ for (const needle of [
   'body.sfSharedReadonly #clearCompleted',
   'body.sfSharedReadonly .sfListItem [data-delete]',
   'body.sfSharedReadonly .sfListLayout > .sfPanel:first-child .sfSectionHead > a.sfButton',
-]) assert.ok(css.includes(needle), `Chybí read-only CSS pravidlo: ${needle}`);
+  'body.sfSharedList #completeShopping',
+  'body.sfSharedList #shoppingHistorySection',
+]) assert.ok(css.includes(needle), `Chybí shared presentation CSS pravidlo: ${needle}`);
 
 assert.ok(!css.includes('#shareList'), 'Read-only prezentace nesmí skrývat sdílení odkazu.');
+assert.ok(!css.includes('#refreshShoppingInsights'), 'Sdílený seznam musí zachovat možnost přepočítat ceny.');
 assert.ok(!css.includes('[data-quantity]{display:none'), 'Read-only prezentace nesmí skrývat množství položky.');
 assert.ok(!css.includes('.sfItemName{display:none'), 'Read-only prezentace nesmí skrývat název položky.');
 
@@ -37,4 +41,4 @@ assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(jsUrl), 'Read-only presentat
 assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA necachuje read-only presentation CSS.');
 assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA necachuje read-only presentation runtime.');
 
-console.log('Shared view-only shopping lists hide edit affordances without changing permissions');
+console.log('Shared shopping lists hide unavailable owner controls and view-only edit affordances safely');
