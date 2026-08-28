@@ -4,9 +4,11 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-route-positive-price-guard.js', root), 'utf8');
+const dayLabelSource = readFileSync(new URL('assets/shopping-route-today-label.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-route-positive-price-guard.js' });
+new Script(dayLabelSource, { filename:'assets/shopping-route-today-label.js' });
 
 const calls = [];
 const api = {
@@ -43,12 +45,32 @@ for (const needle of [
   'api.__slevaoRoutePositivePriceGuard = true',
 ]) assert.ok(source.includes(needle), `Chybí GPS positive-price kontrakt: ${needle}`);
 
+for (const needle of [
+  "const label = date ? `Dnešní trasa · ${date}` : 'Dnešní trasa';",
+  "badge.dataset.routeDate = String(api.TODAY || '');",
+  "new MutationObserver(sync).observe(results, { childList:true, subtree:true });",
+]) assert.ok(dayLabelSource.includes(needle), `Chybí GPS today-label kontrakt: ${needle}`);
+
+const formatStart = dayLabelSource.indexOf('  function formatDateKey(dateKey)');
+const formatEnd = dayLabelSource.indexOf('\n  function sync()', formatStart);
+assert.ok(formatStart >= 0 && formatEnd > formatStart, 'GPS date formatter nejde izolovaně otestovat.');
+const dateContext = { String, Number, Intl, Date };
+new Script(`${dayLabelSource.slice(formatStart, formatEnd)}\nglobalThis.label = formatDateKey('2026-08-28');\nglobalThis.invalid = formatDateKey('bad');`, { filename:'shopping-route-date-format.js' }).runInNewContext(dateContext);
+assert.match(dateContext.label, /^28\.\s?8\.$/, 'GPS datum se neformátuje česky jako den a měsíc.');
+assert.equal(dateContext.invalid, '', 'Neplatný date key nemá vyrábět datumový badge.');
+
 const guardUrl = html.match(/assets\/shopping-route-positive-price-guard\.js\?v=[^"']+/)?.[0] || '';
+const dayLabelUrl = html.match(/assets\/shopping-route-today-label\.js\?v=[^"']+/)?.[0] || '';
 const locationUrl = html.match(/assets\/location-service\.js\?v=[^"']+/)?.[0] || '';
 const routeUrl = html.match(/assets\/shopping-route\.js\?v=[^"']+/)?.[0] || '';
+const autostartUrl = html.match(/assets\/shopping-route-autostart\.js\?v=[^"']+/)?.[0] || '';
 assert.match(guardUrl, /^assets\/shopping-route-positive-price-guard\.js\?v=20260828-[0-9]+$/);
+assert.match(dayLabelUrl, /^assets\/shopping-route-today-label\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný GPS today label.');
 assert.ok(html.indexOf(locationUrl) < html.indexOf(guardUrl), 'GPS price guard musí běžet po location-service.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(routeUrl), 'GPS price guard musí běžet před shopping-route.');
+assert.ok(html.indexOf(routeUrl) < html.indexOf(dayLabelUrl), 'GPS today label musí běžet po shopping-route runtime.');
+assert.ok(html.indexOf(dayLabelUrl) < html.indexOf(autostartUrl), 'GPS today label má být připravený před route autostartem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje GPS positive-price guard.');
+assert.ok(worker.includes(`'/${dayLabelUrl}'`), 'PWA necachuje GPS today label ze seznam.html.');
 
-console.log('GPS shopping route filters zero, negative and non-finite offer prices before planning');
+console.log('GPS shopping route filters invalid prices and visibly identifies the exact current shopping day');
