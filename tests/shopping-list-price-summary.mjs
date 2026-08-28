@@ -86,8 +86,8 @@ assert.equal(context.ambiguousMissing, true, 'Neúplný počet cen u stejného n
 assert.equal(context.samePriceSafe, false, 'Stejná cena u všech duplicitních názvů se zbytečně skrývá.');
 assert.equal(context.unitKg, 'kg', 'Známá jednotka z quantity inputu se ztratila.');
 assert.equal(context.unitLitres, 'l', 'Známá jednotka z article datasetu se ztratila.');
-assert.equal(context.unitUnknown, 'jednotku', 'Neznámá jednotka se nesmí vydávat za kus.');
-assert.equal(context.unitUnsafe, 'jednotku', 'Nebezpečný unit label se nesmí vložit do HTML.');
+assert.equal(context.unitUnknown, '', 'Neznámá jednotka má skrýt jednotkovou cenu místo vymyšleného popisku.');
+assert.equal(context.unitUnsafe, '', 'Nebezpečný unit label se nesmí vložit do HTML.');
 
 for (const needle of [
   'function markUpcomingPlans()',
@@ -97,10 +97,10 @@ for (const needle of [
   'const subtotal = Number(bucket.shift() || 0);',
   "count >= 2 && count <= 4 ? 'položky' : 'položek'",
   'function unitLabel(article)',
-  "if (!raw) return 'jednotku';",
-  "return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : 'jednotku';",
+  "if (!raw) return '';",
+  "return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';",
   'const label = unitLabel(article);',
-  '`<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ${label}</small>` : \'\'}`',
+  'qty > 1 && label ? `<small>${money(unit)} / ${label}</small>` :',
   "attributeFilter: ['value', 'data-unit']",
   'function syncPriceNode(article, className, html)',
   'function ambiguousPriceKeys(articles, prices)',
@@ -108,6 +108,7 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí cenový timing/unit/render kontrakt: ${needle}`);
 }
 assert.ok(!source.includes('${money(unit)} / ks'), 'Neznámá jednotka se stále natvrdo vykresluje jako ks.');
+assert.ok(!source.includes('/ jednotku'), 'Neznámá jednotka se nesmí zobrazovat jako dlouhý generický popisek na mobilu.');
 assert.ok(!source.includes("article.querySelector('.sfItemPrice')?.remove();"), 'Price summary nesmí při každém renderu odstranit a znovu vložit cenu.');
 assert.ok(!source.includes('summary.innerHTML = `<span><b>Celkem</b>'), 'Souhrn nesmí být bezpodmínečně přepisovaný při každém observer průchodu.');
 
