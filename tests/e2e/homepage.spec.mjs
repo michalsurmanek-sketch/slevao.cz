@@ -16,43 +16,41 @@ async function openHomepage(page) {
 async function expectNoHorizontalOverflow(page) {
   const metrics = await page.evaluate(() => {
     const viewport = window.innerWidth;
-    const offenders = Array.from(document.querySelectorAll('body *'))
-      .map((element) => {
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        const rightOverflow = Math.max(0, rect.right - viewport);
-        const leftOverflow = Math.max(0, -rect.left);
-        return {
-          tag: element.tagName.toLowerCase(),
-          id: element.id || '',
-          className: typeof element.className === 'string' ? element.className.trim().replace(/\s+/g, '.') : '',
-          left: Number(rect.left.toFixed(1)),
-          right: Number(rect.right.toFixed(1)),
-          width: Number(rect.width.toFixed(1)),
-          scrollWidth: element.scrollWidth,
-          clientWidth: element.clientWidth,
-          position: style.position,
-          overflowX: style.overflowX,
-          cssWidth: style.width,
-          minWidth: style.minWidth,
-          marginLeft: style.marginLeft,
-          marginRight: style.marginRight,
-          excess: Number(Math.max(rightOverflow, leftOverflow).toFixed(1))
-        };
-      })
-      .filter((entry) => entry.excess > 1 && entry.width > 0)
-      .sort((a, b) => b.excess - a.excess)
-      .slice(0, 15);
+    const root = document.scrollingElement || document.documentElement;
+    const bodyRect = document.body.getBoundingClientRect();
+    const initialX = window.scrollX;
+    const initialY = window.scrollY;
+
+    // Horizontal rails (categories, stores, quick tabs) intentionally have a large
+    // internal scrollWidth. The page itself must still be impossible to pan sideways.
+    window.scrollTo(1_000_000, initialY);
+    const attemptedPageScrollX = window.scrollX;
+    window.scrollTo(initialX, initialY);
 
     return {
       viewport,
-      html: document.documentElement.scrollWidth,
-      body: document.body.scrollWidth,
-      offenders
+      rootScrollWidth: root.scrollWidth,
+      rootClientWidth: root.clientWidth,
+      htmlScrollWidth: document.documentElement.scrollWidth,
+      bodyScrollWidth: document.body.scrollWidth,
+      bodyLeft: Number(bodyRect.left.toFixed(1)),
+      bodyRight: Number(bodyRect.right.toFixed(1)),
+      bodyWidth: Number(bodyRect.width.toFixed(1)),
+      attemptedPageScrollX
     };
   });
-  expect(metrics.html, `html overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
-  expect(metrics.body, `body overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
+
+  expect(
+    metrics.rootScrollWidth,
+    `root overflow: ${JSON.stringify(metrics)}`
+  ).toBeLessThanOrEqual(metrics.viewport + 1);
+  expect(
+    metrics.rootClientWidth,
+    `root client width mismatch: ${JSON.stringify(metrics)}`
+  ).toBeLessThanOrEqual(metrics.viewport + 1);
+  expect(metrics.bodyLeft, `body escapes left: ${JSON.stringify(metrics)}`).toBeGreaterThanOrEqual(-1);
+  expect(metrics.bodyRight, `body escapes right: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
+  expect(metrics.attemptedPageScrollX, `page can pan horizontally: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(1);
 }
 
 test('homepage loads the canonical mobile UX stylesheet only once', async ({ page }) => {
