@@ -5,8 +5,9 @@ const serializationPath = 'supabase/migrations/20260828152611_serialize_shopping
 const triggerAclPath = 'supabase/migrations/20260828152759_restrict_shopping_trigger_function_execute.sql';
 const directWriteAclPath = 'supabase/migrations/20260828153552_restrict_direct_shopping_share_writes.sql';
 const tokenFormatPath = 'supabase/migrations/20260828153929_validate_shopping_share_token_format.sql';
+const expirationPath = 'supabase/migrations/20260828154318_require_shopping_share_expiration.sql';
 const shoppingRuntimePath = 'assets/shopping-list.js';
-for (const path of [bolaPath, serializationPath, triggerAclPath, directWriteAclPath, tokenFormatPath, shoppingRuntimePath]) {
+for (const path of [bolaPath, serializationPath, triggerAclPath, directWriteAclPath, tokenFormatPath, expirationPath, shoppingRuntimePath]) {
   if (!fs.existsSync(path)) throw new Error(`Missing file: ${path}`);
 }
 
@@ -124,6 +125,25 @@ if (resolverGrants.some((statement) => /\bto\s+[^;]*\b(?:public|anon|authenticat
   throw new Error('Share token resolver must remain internal to trusted roles.');
 }
 
+const expiration = fs.readFileSync(expirationPath, 'utf8');
+for (const needle of [
+  'v_expires_days integer := coalesce(p_expires_days, 30)',
+  'if v_expires_days < 1 or v_expires_days > 365 then',
+  'Platnost sdíleného odkazu musí být 1 až 365 dnů.',
+  'now() + make_interval(days => v_expires_days)',
+  'and user_id = v_user',
+  'and is_archived = false',
+  'for update',
+  'set revoked_at = now()',
+  'revoke all on function public.create_shopping_list_share(uuid,text,integer) from public, anon',
+  'grant execute on function public.create_shopping_list_share(uuid,text,integer) to authenticated, service_role'
+]) {
+  if (!expiration.toLowerCase().includes(needle.toLowerCase())) throw new Error(`Missing share-expiration guard: ${needle}`);
+}
+if (/then\s+null\s+else\s+now\(\)/i.test(expiration) || /expires_at\s*\)\s*values[\s\S]*\bnull\b/i.test(expiration)) {
+  throw new Error('Share creation must not retain a no-expiration branch.');
+}
+
 const runtime = fs.readFileSync(shoppingRuntimePath, 'utf8');
 for (const rpc of ['create_shopping_list_share', 'get_shared_shopping_list', 'get_shared_shopping_list_revision', 'mutate_shared_shopping_list']) {
   if (!new RegExp(`\\.rpc\\(['\"]${rpc}['\"]`, 'i').test(runtime)) {
@@ -134,4 +154,4 @@ if (/\.from\(['\"]shopping_list_shares['\"]\)/i.test(runtime)) {
   throw new Error('Shopping runtime must not bypass share RPCs with direct shopping_list_shares table access.');
 }
 
-console.log('Shopping list share BOLA, serialized token replacement, token format, RPC-only writes, and trigger ACL guards OK');
+console.log('Shopping list share BOLA, serialized token replacement, token format, mandatory expiration, RPC-only writes, and trigger ACL guards OK');
