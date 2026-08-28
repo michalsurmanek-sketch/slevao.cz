@@ -2,6 +2,8 @@
   'use strict';
 
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
+  const PENDING_ATTEMPTS = 16;
+  const PENDING_DELAY_MS = 250;
   const sharedQuery = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedQuery.get('share') || sharedHash.get('share'));
@@ -55,6 +57,39 @@
     }
   }
 
+  function pendingDeleteMutation() {
+    return Boolean(document.querySelector('#listItems [data-delete]:disabled'));
+  }
+
+  async function waitForPendingDeletes() {
+    for (let attempt = 0; attempt < PENDING_ATTEMPTS; attempt++) {
+      if (!pendingDeleteMutation()) return true;
+      await new Promise((resolve) => setTimeout(resolve, PENDING_DELAY_MS));
+    }
+    return !pendingDeleteMutation();
+  }
+
+  function lockMutationControls() {
+    const controls = [...document.querySelectorAll(
+      '#listItems input, #listItems button, #customName, #customQuantity, #addCustom, #clearCompleted'
+    )];
+    const state = controls.map((control) => ({ control, disabled:Boolean(control.disabled) }));
+    controls.forEach((control) => { control.disabled = true; });
+    return state;
+  }
+
+  function restoreMutationControls(state) {
+    (state || []).forEach(({ control, disabled }) => {
+      if (control?.isConnected) control.disabled = disabled;
+    });
+  }
+
+  async function verifyCurrentOwnerState() {
+    const verify = window.SlevaoOwnerCloudRefresh?.verifyBeforeCompletion;
+    if (typeof verify !== 'function') return { status:'unavailable' };
+    return verify();
+  }
+
   async function addOwnerCustom(source) {
     if (handling) return;
     const button = document.getElementById('addCustom');
@@ -70,19 +105,37 @@
     }
 
     handling = true;
-    const originallyDisabled = button.disabled;
-    button.disabled = true;
-    button.setAttribute('aria-busy', 'true');
+    let controlState = null;
 
     try {
       const { data:{ session }, error:sessionError } = await db.auth.getSession();
       if (sessionError) throw sessionError;
 
       if (!session?.user?.id) {
-        button.disabled = originallyDisabled;
-        button.removeAttribute('aria-busy');
         handling = false;
         forwardOriginal(source);
+        return;
+      }
+
+      const pendingDeletesSettled = await waitForPendingDeletes();
+      if (!pendingDeletesSettled) {
+        showMessage('Seznam ještě dokončuje předchozí změnu. Zkus přidání znovu.', true);
+        handling = false;
+        return;
+      }
+
+      controlState = lockMutationControls();
+      button.setAttribute('aria-busy', 'true');
+
+      const state = await verifyCurrentOwnerState();
+      if (state.status !== 'current') {
+        const message = state.status === 'mismatch'
+          ? 'Seznam se mezitím změnil. Počkej na synchronizaci a přidání zopakuj.'
+          : 'Před přidáním se nepodařilo ověřit aktuální seznam. Zkus to znovu.';
+        showMessage(message, true);
+        restoreMutationControls(controlState);
+        button.removeAttribute('aria-busy');
+        handling = false;
         return;
       }
 
@@ -101,7 +154,7 @@
       location.reload();
     } catch (error) {
       showMessage(error?.message || 'Položku se nepodařilo přidat.', true);
-      button.disabled = originallyDisabled;
+      restoreMutationControls(controlState);
       button.removeAttribute('aria-busy');
       handling = false;
     }
