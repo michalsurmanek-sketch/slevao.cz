@@ -45,9 +45,10 @@
   }
 
   #optimizer .sfResultBox.hasUpcomingPrice::after{
-    content:"Část cen začne během 7 dnů";
+    content:"Akce nemusí platit ve stejný den";
     grid-column:1 / -1;
     justify-self:start;
+    max-width:100%;
     padding:3px 6px;
     border:1px solid #ead9a8;
     border-radius:999px;
@@ -57,6 +58,8 @@
     line-height:1.1;
     font-weight:750;
     white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   #optimizer .sfStoreTags{
