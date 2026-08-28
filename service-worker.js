@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260828-68';
+const CACHE_NAME = 'slevao-shell-20260828-69';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -29,6 +29,7 @@ const SHELL = [
   '/assets/shopping-owner-custom-add-bridge.js?v=20260828-3',
   '/assets/shopping-shared-add-submit-guard.js?v=20260828-1',
   '/assets/shopping-shared-add-submit-guard.js?v=20260828-2',
+  '/assets/shopping-shared-add-submit-guard.js?v=20260828-3',
   '/assets/shopping-owner-cloud-refresh.js?v=20260828-1',
   '/assets/shopping-plan-validity-warning.js?v=20260828-1',
   '/assets/shopping-list-copy-guard.js?v=20260828-1',
