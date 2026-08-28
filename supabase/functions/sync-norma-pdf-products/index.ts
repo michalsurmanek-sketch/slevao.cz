@@ -169,10 +169,12 @@ Deno.serve(async(req)=>{
     const legacyHash=`norma-spatial-safe-v2-${src.id}`;
     const {data:legacy,error:le}=await db.from('leaflet_imports').select(selectExisting).eq('source_hash',legacyHash).maybeSingle();if(le)throw le;
     if(legacy?.status==='published'&&await storedImportMatches(legacy as ExistingImport,candidates,src)){
-      const verifiedAt=new Date().toISOString();
-      const metadata={...(legacy.metadata||{}),full_payload_hash_version:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256,legacy_source_hash:legacyHash,verified_at:verifiedAt};
-      const {error:mu}=await db.from('leaflet_imports').update({source_hash:hash,metadata}).eq('id',legacy.id);if(mu)throw mu;
-      return json({ok:true,reused:true,migrated_legacy_hash:true,import_id:legacy.id,candidate_count:candidates.length,payload_contract:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256});
+      const alreadyVerified=legacy.metadata?.full_payload_hash_version==='norma-spatial-safe-v3'&&legacy.metadata?.full_payload_sha256===fullPayloadSha256;
+      if(!alreadyVerified){
+        const metadata={...(legacy.metadata||{}),full_payload_hash_version:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256,legacy_source_hash:legacyHash,verified_at:new Date().toISOString()};
+        const {error:mu}=await db.from('leaflet_imports').update({metadata}).eq('id',legacy.id);if(mu)throw mu;
+      }
+      return json({ok:true,reused:true,migrated_legacy_hash:!alreadyVerified,legacy_source_hash_retained:true,import_id:legacy.id,candidate_count:candidates.length,payload_contract:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256});
     }
 
     let id=current?.id;
