@@ -26,3 +26,4 @@ if(normalizeCalls!==1) throw new Error(`Semantic tags must normalize input exact
 if(/drop\s+function|alter\s+table|delete\s+from|update\s+public\./i.test(sql)) throw new Error('Semantic-tag performance migration must not mutate schema/data beyond function replacement.');
 
 console.log('Public offer semantic tags performance guard OK');
+await import('./public-semantic-match-security.mjs');
