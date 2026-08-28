@@ -4,6 +4,7 @@
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
+  const OWNER_CUSTOM_ADD_URL = 'assets/shopping-owner-custom-add-bridge.js?v=20260828-1';
   const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260827-3';
   const sharedParams = new URLSearchParams(location.search);
@@ -11,6 +12,7 @@
   const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
   const db = window.SlevaoSupabase?.getClient?.();
   let bootedUserId = null;
+  let ownerCustomAddLoaded = false;
   let listLoaded = false;
   let insightLoaded = false;
   let reloadQueued = false;
@@ -130,6 +132,15 @@
     window.SlevaoPublic?.updateNavCount?.();
   }
 
+  function loadOwnerCustomAddBridge() {
+    if (ownerCustomAddLoaded || document.querySelector('script[src*="shopping-owner-custom-add-bridge.js"]')) return;
+    ownerCustomAddLoaded = true;
+    const script = document.createElement('script');
+    script.src = OWNER_CUSTOM_ADD_URL;
+    script.async = false;
+    document.head.appendChild(script);
+  }
+
   function loadList() {
     if (listLoaded || document.querySelector('script[src*="shopping-list.js"]')) return;
     listLoaded = true;
@@ -149,6 +160,7 @@
   }
 
   function loadShoppingRuntimes() {
+    loadOwnerCustomAddBridge();
     loadList();
     loadInsights();
   }
