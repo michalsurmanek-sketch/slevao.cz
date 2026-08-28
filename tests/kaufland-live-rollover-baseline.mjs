@@ -20,10 +20,12 @@ for (const needle of [
 }
 
 for (const needle of [
-  "const PARSER_REV = 'kaufland-title-v10'",
+  "const PARSER_REV = 'kaufland-title-v11'",
   "const PROMO_ONLY_TITLE = 'tvoje cena s kaufland card'",
+  "function isPromoOnlyProductPart(value: string)",
+  "/^pri koupi \\d+ (?:kus|kusu|kusy) .+ zdarma$/",
   ".replace(/\\bTvoje cena s Kaufland Card\\b/gi, ' ')",
-  "normalized !== PROMO_ONLY_TITLE",
+  "!isPromoOnlyProductPart(clean)",
   "return meaningful(value) ? value : ''",
   "const meaningfulCount = current.filter((row) => row.klNr && meaningful(row.productTitle)).length",
 ]) {
