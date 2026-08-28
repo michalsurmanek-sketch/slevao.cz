@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260828-46';
+const CACHE_NAME = 'slevao-shell-20260828-47';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -31,6 +31,7 @@ const SHELL = [
   '/assets/shopping-share-fallback-guard.js?v=20260828-1',
   '/assets/mobile-optimizer-compact.css?v=20260828-3',
   '/assets/shopping-list-mobile-focus.css?v=20260828-1',
+  '/assets/shopping-optimizer-mobile-collapse.css?v=20260828-1',
   '/assets/mobile-leaflet-nav-position.js?v=20260809-8',
   '/assets/home-autopilot.css?v=20260810-4',
   '/assets/home-autopilot.js?v=20260822-1',
@@ -62,6 +63,7 @@ const SHELL = [
   '/assets/shopping-list.js?v=20260827-2',
   '/assets/shopping-list-price-summary-v2.css?v=20260827-1',
   '/assets/shopping-day-consistent-plan.js?v=20260828-4',
+  '/assets/shopping-optimizer-mobile-collapse.js?v=20260828-1',
   '/assets/shopping-list-price-summary.js?v=20260828-7',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights-bootstrap.js?v=20260828-4',
