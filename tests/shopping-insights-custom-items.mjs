@@ -8,7 +8,9 @@ new Script(source, { filename:'assets/shopping-insights.js' });
 
 for (const needle of [
   'customResolvedCount: 0',
-  "const customQueries = [...new Set(active",
+  'async function calculateRows(targetRows)',
+  'const selected = Array.isArray(targetRows) ? targetRows : [];',
+  "const customQueries = [...new Set(selected",
   "db.rpc('get_public_shopping_list_candidates'",
   'p_limit_per_query: 30',
   'const customOfferMap = new Map();',
@@ -28,7 +30,7 @@ assert.doesNotMatch(
 );
 
 const chooseStart = source.indexOf('  function chooseCustomOffer(');
-const chooseEnd = source.indexOf('\n  async function calculate()', chooseStart);
+const chooseEnd = source.indexOf('\n  async function calculateRows(', chooseStart);
 assert.ok(chooseStart >= 0 && chooseEnd > chooseStart, 'chooseCustomOffer nejde izolovaně otestovat.');
 const chooseFunction = source.slice(chooseStart, chooseEnd);
 
