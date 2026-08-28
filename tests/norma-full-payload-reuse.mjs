@@ -74,3 +74,4 @@ assert.match(source, /function allowed\(req:Request\)[\s\S]*Bearer \$\{KEY\}[\s\
   'verify_jwt=false je bezpečné pouze při zachované vlastní service-role/cron autentizaci.');
 
 console.log('NORMA full-payload reuse contract OK');
+await import('./terno-full-payload-reuse.mjs');
