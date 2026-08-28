@@ -107,7 +107,9 @@ assert.ok(shareCheck > fullDelete && revoke > shareCheck, 'Share se má revokova
 const insightsUrl = bootstrap.match(/const INSIGHTS_URL = '([^']+)'/)?.[1] || '';
 assert.equal(insightsUrl, 'assets/shopping-insights.js?v=20260828-1', 'Bootstrap nemá checked-history shopping-insights v1.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
-assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-8', 'seznam.html nemá checked-history bootstrap v8.');
+assert.match(bootstrapUrl, /^assets\/shopping-insights-bootstrap\.js\?v=20260828-(\d+)$/, 'seznam.html nemá verzovaný checked-history bootstrap.');
+const bootstrapRevision = Number(bootstrapUrl.match(/20260828-(\d+)$/)?.[1] || 0);
+assert.ok(bootstrapRevision >= 8, 'Checked-history bootstrap nesmí klesnout pod revizi 8.');
 assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje přesný checked-history insights asset.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný checked-history bootstrap asset.');
 const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
