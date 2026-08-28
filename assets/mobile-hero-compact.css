@@ -32,3 +32,59 @@
     scroll-padding-right:0!important;
   }
 }
+
+/* Kategorie: stejný mobilní panelový jazyk jako Poblíž vás a Nákupní autopilot. */
+@media(max-width:800px){
+  html body main#top #categoriesSection>.container{
+    padding:10px 12px 12px!important;
+    border-color:rgba(18,154,143,.24)!important;
+    border-radius:21px!important;
+    background:linear-gradient(rgba(255,255,255,.24),rgba(255,255,255,.24)),url('/assets/nearby-panel-uploaded-bg.svg?v=20260808-1') center center/cover no-repeat!important;
+    box-shadow:0 9px 24px rgba(13,108,100,.10)!important;
+  }
+  html body main#top #categoriesSection .sectionHead{
+    min-height:66px!important;
+    margin:0 0 6px!important;
+    align-items:center!important;
+  }
+  html body main#top #categoriesSection .categoryPanelIntro{
+    width:100%!important;
+    min-height:66px!important;
+    grid-template-columns:42px minmax(0,1fr)!important;
+    align-items:center!important;
+    gap:11px!important;
+    padding:0 4px 0 2px!important;
+  }
+  html body main#top #categoriesSection .categoryPanelIcon{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    min-height:42px!important;
+  }
+  html body main#top #categoriesSection .categoryPanelCopy{
+    min-width:0!important;
+    gap:4px!important;
+  }
+  html body main#top #categoriesSection .categoryPanelCopy h2{
+    margin:0!important;
+    color:#087e75!important;
+    font-size:13px!important;
+    line-height:1.05!important;
+    font-weight:950!important;
+    letter-spacing:.035em!important;
+  }
+  html body main#top #categoriesSection .categoryPanelCopy p{
+    margin:0!important;
+    color:#697b79!important;
+    font-size:11px!important;
+    line-height:1.25!important;
+    font-weight:650!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+  }
+  html body main#top #categoriesSection #categoryChips{
+    margin:0 -12px!important;
+    padding:2px 12px 5px!important;
+  }
+}
