@@ -105,7 +105,7 @@
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260804-2';
+    script.src = 'assets/public-features.js?v=20260828-1';
     script.async = false;
     document.head.appendChild(script);
   }

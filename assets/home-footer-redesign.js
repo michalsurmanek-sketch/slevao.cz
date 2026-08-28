@@ -9,7 +9,7 @@
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260815-3';
+    script.src = 'assets/public-features.js?v=20260828-1';
     script.defer = true;
     document.head.appendChild(script);
   }

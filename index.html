@@ -61,6 +61,7 @@
   <link rel="stylesheet" href="assets/index-mobile-final.css?v=20260816-7">
   <link rel="stylesheet" href="assets/mobile-deals-heading-fix.css?v=20260816-2">
   <link rel="stylesheet" href="assets/mobile-hero-compact.css?v=20260826-3">
+  <link rel="stylesheet" href="assets/mobile-footer-upgrade.css?v=20260828-1">
   <style>
     @media(max-width:800px){#dealsTitle .dealsTitleRest{display:block!important}}
     @media(min-width:801px){#dealsTitle .dealsTitleRest{display:inline!important}}
@@ -269,9 +270,8 @@
         <section class="footerWatch" aria-labelledby="footerWatchTitle">
           <div class="footerWatchHead">
             <span class="footerBell" aria-hidden="true">♧</span>
-            <h3 id="footerWatchTitle">Hlídání slev</h3>
+            <div><h3 id="footerWatchTitle">Hlídání slev</h3><p class="footerWatchLead">Nech si posílat ty nejlepší akce a slevy jako první.</p></div>
           </div>
-          <p>Nech si posílat upozornění na nejlepší akce a slevy.</p>
           <form id="footerAlertsForm" class="footerWatchForm">
             <label class="footerSrOnly" for="footerAlertEmail">Váš e-mail</label>
             <input id="footerAlertEmail" type="email" inputmode="email" autocomplete="email" placeholder="Váš e-mail" required>
@@ -279,6 +279,20 @@
             <small class="footerWatchHint">Žádný spam. Zrušení kdykoli.</small>
             <p id="footerAlertStatus" class="footerWatchStatus" role="status" aria-live="polite"></p>
           </form>
+          <div class="footerWatchPromises" aria-label="Výhody upozornění">
+            <span><i aria-hidden="true">♢</i><b>Žádný spam</b><small>Zrušení kdykoli</small></span>
+            <span><i aria-hidden="true">◇</i><b>Jen nejlepší akce</b><small>Ověřené nabídky</small></span>
+            <span><i aria-hidden="true">♧</i><b>Včas a přehledně</b><small>Upozornění e-mailem</small></span>
+          </div>
+          <section class="footerWatchReasons" aria-labelledby="footerWatchReasonsTitle">
+            <div class="footerWatchReasonsHead"><h4 id="footerWatchReasonsTitle">Proč si zapnout hlídání slev?</h4><span aria-hidden="true">★</span></div>
+            <ul>
+              <li><i aria-hidden="true">✓</i><span><b>Ověřené a aktuální nabídky</b><small>Data z oficiálních letáků, průběžně aktualizováno</small></span></li>
+              <li><i aria-hidden="true">✦</i><span><b>100 % zdarma</b><small>Žádné poplatky ani skryté podmínky</small></span></li>
+              <li><i aria-hidden="true">↻</i><span><b>Denně nové akce</b><small>Každý den přidáváme nové slevy</small></span></li>
+              <li><i aria-hidden="true">□</i><span><b>Bez registrace</b><small>Nepotřebujeme žádné osobní údaje navíc</small></span></li>
+            </ul>
+          </section>
         </section>
       </div>
 
