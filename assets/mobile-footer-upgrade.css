@@ -23,6 +23,7 @@
   .slevaoBottomNav a span{width:27px;height:27px;display:grid;place-items:center;font-size:0!important;line-height:0!important}
   .slevaoBottomNav a svg{width:24px;height:24px;display:block;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .slevaoBottomNav a:first-child svg{fill:currentColor;stroke:none}
+  .slevaoBottomNav a[href$="ucet.html"]>span::before{content:none!important;display:none!important}
   .slevaoBottomNav a em{font-style:normal}
   .slevaoBottomNav a.active{color:#079d92!important;background:transparent!important;font-weight:900!important}
   .slevaoBottomNav a.active:after{content:"";position:absolute;left:25%;right:25%;bottom:0;height:3px;border-radius:3px 3px 0 0;background:#079d92}
