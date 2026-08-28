@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-repeat-purchase-sync.js', root), 'utf8');
 const migration = readFileSync(new URL('supabase/migrations/20260828102937_repeat_shopping_purchase_atomic.sql', root), 'utf8');
 const idempotentMigration = readFileSync(new URL('supabase/migrations/20260828121925_idempotent_repeat_shopping_purchase.sql', root), 'utf8');
+const fallbackMigration = readFileSync(new URL('supabase/migrations/20260828125540_repeat_purchase_missing_product_fallback.sql', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-repeat-purchase-sync.js' });
@@ -52,6 +53,26 @@ for (const needle of [
   'revoke all on function public.repeat_shopping_purchase(uuid, uuid) from anon;',
   'grant execute on function public.repeat_shopping_purchase(uuid, uuid) to authenticated;',
 ]) assert.ok(idempotentMigration.toLowerCase().includes(needle.toLowerCase()), `Chybí idempotent repeat SQL kontrakt: ${needle}`);
+
+for (const needle of [
+  'create or replace function public.repeat_shopping_purchase(p_purchase_id uuid, p_mutation_id uuid)',
+  'security definer',
+  "set search_path to ''",
+  'from public.products p',
+  'where p.id = v_product_id',
+  'for key share;',
+  'if found then',
+  'v_product_id := null;',
+  "nullif(btrim(v_item->>'name'), '')",
+  'public.shopping_custom_name_key(v_custom_name)',
+  'custom_key = v_custom_key',
+]) assert.ok(fallbackMigration.toLowerCase().includes(needle.toLowerCase()), `Chybí fallback chybějícího produktu: ${needle}`);
+const productLock = fallbackMigration.toLowerCase().indexOf('for key share;');
+const productBranch = fallbackMigration.toLowerCase().indexOf('if found then', productLock);
+const fallbackToCustom = fallbackMigration.toLowerCase().indexOf('v_product_id := null;', productBranch);
+const customKey = fallbackMigration.toLowerCase().indexOf('v_custom_key := public.shopping_custom_name_key(v_custom_name);', fallbackToCustom);
+assert.ok(productLock >= 0 && productBranch > productLock, 'Repeat RPC neověřuje existující produkt pod KEY SHARE lockem.');
+assert.ok(fallbackToCustom > productBranch && customKey > fallbackToCustom, 'Chybějící produkt nepřechází do kanonické custom-item větve.');
 
 const storage = new Map();
 const rpcCalls = [];
@@ -164,4 +185,4 @@ assert.equal(assetUrl, 'assets/shopping-repeat-purchase-sync.js?v=20260828-2', '
 assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA necachuje přesný repeat-purchase bridge ze seznam.html.');
 assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-(?:6[1-9]|[7-9][0-9]|[1-9][0-9]{2,})'/, 'PWA shell nebyl po repeat retry fixu posunut nad verzi 60.');
 
-console.log('Shopping repeat purchase is atomic, retry-idempotent and preserves guest merge semantics');
+console.log('Shopping repeat purchase is atomic, retry-idempotent, survives missing catalog products and preserves guest merge semantics');
