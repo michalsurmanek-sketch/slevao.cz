@@ -53,6 +53,16 @@
     return Number.isFinite(value) && value > 0 ? value : 1;
   }
 
+  function syncPriceNode(article, className, html) {
+    let price = article.querySelector('.sfItemPrice');
+    if (!price) {
+      price = document.createElement('div');
+      article.appendChild(price);
+    }
+    if (price.className !== className) price.className = className;
+    if (price.innerHTML !== html) price.innerHTML = html;
+  }
+
   function renderPrices() {
     const absoluteUpcoming = markUpcomingPlans();
     const prices = absolutePriceBuckets();
@@ -61,25 +71,23 @@
     const articles = [...list.querySelectorAll('.sfListItem:not(.done)')];
 
     articles.forEach((article) => {
-      article.querySelector('.sfItemPrice')?.remove();
       const name = article.querySelector('.sfItemName')?.textContent || '';
       const bucket = prices.get(normalize(name)) || [];
       const subtotal = Number(bucket.shift() || 0);
       const qty = quantityOf(article);
-      const price = document.createElement('div');
-      price.className = 'sfItemPrice';
 
       if (subtotal > 0) {
         total += subtotal;
         pricedCount += 1;
         const unit = qty > 1 ? subtotal / qty : 0;
-        price.innerHTML = `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ks</small>` : ''}`;
+        syncPriceNode(
+          article,
+          'sfItemPrice',
+          `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ks</small>` : ''}`
+        );
       } else {
-        price.classList.add('missing');
-        price.innerHTML = '<strong>Cena<br>nenalezena</strong>';
+        syncPriceNode(article, 'sfItemPrice missing', '<strong>Cena<br>nenalezena</strong>');
       }
-
-      article.appendChild(price);
     });
 
     let summary = document.getElementById('listPriceSummary');
@@ -99,7 +107,8 @@
     const complete = pricedCount === articles.length;
     const coverage = complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`;
     const timing = absoluteUpcoming ? ' · část cen začne během 7 dnů' : '';
-    summary.innerHTML = `<span><b>Celkem</b><small>${coverage}${timing}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
+    const summaryHtml = `<span><b>Celkem</b><small>${coverage}${timing}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
+    if (summary.innerHTML !== summaryHtml) summary.innerHTML = summaryHtml;
   }
 
   let queued = false;
