@@ -12,6 +12,12 @@
   box-shadow:0 12px 34px rgba(24,49,47,.055);
 }
 
+#categoriesSection .sectionHead>.categoryPanelIntro{display:grid;grid-template-columns:48px minmax(0,1fr);align-items:center;gap:13px!important}
+#categoriesSection .categoryPanelIcon{grid-row:1;width:48px;height:48px;display:grid;grid-template-columns:repeat(2,8px);grid-template-rows:repeat(2,8px);place-content:center;gap:4px;margin:0;border-radius:50%;color:#087f76;background:#eaf8f6}
+#categoriesSection .categoryPanelIcon i{width:8px;height:8px;border:2px solid currentColor;border-radius:2px}
+#categoriesSection .categoryPanelCopy{min-width:0;display:grid;gap:2px}
+#categoriesSection .categoryPanelCopy p{margin:0;color:#697674;font-size:12px;line-height:1.25}
+
 #categoriesSection .sectionHead{
   min-height:28px;
   align-items:center;
@@ -78,14 +84,14 @@
 /* Desktop: všech 10 hlavních kategorií v jednom čistém řádku. */
 #categoryChips{
   display:grid;
-  grid-template-columns:repeat(10,minmax(0,1fr));
+  grid-template-columns:repeat(12,minmax(0,1fr));
   align-items:center;
   gap:6px;
 }
 
 /* Vše je nyní v hlavičce sekce; původní dynamické tlačítko zůstává skryté jako funkční proxy. */
 #categoryChips .categoryChip[data-category="all"]{
-  display:none;
+  display:inline-flex;
 }
 
 #categoryChips .categoryChip{
@@ -94,11 +100,11 @@
   min-height:38px;
   display:inline-flex;
   align-items:center;
-  justify-content:center;
+  justify-content:flex-start;
   gap:5px;
   padding:0 8px;
   border:1px solid #dfe9e8;
-  border-radius:999px;
+  border-radius:16px;
   background:#fff;
   color:#3d4a49;
   font-size:12px;
@@ -109,7 +115,11 @@
   transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease,color .16s ease;
 }
 
-#categoryChips .categoryChip>span{
+#categoryChips .categoryChipCopy{min-width:0!important;width:auto!important;height:auto!important;display:grid!important;justify-items:start!important;gap:3px!important;margin:0!important;border-radius:0!important;background:transparent!important;font-size:inherit!important}
+#categoryChips .categoryChipCopy strong{max-width:100%;overflow:hidden;text-overflow:ellipsis;color:inherit;font:850 11px/1.05 system-ui,sans-serif;white-space:nowrap}
+#categoryChips .categoryChipCopy small{font:700 9px/1 system-ui,sans-serif}
+
+#categoryChips .categoryChip>.categoryChipIcon{
   width:20px;
   height:20px;
   flex:0 0 20px;
@@ -144,7 +154,7 @@
   box-shadow:0 8px 18px rgba(11,157,147,.2);
 }
 
-#categoryChips .categoryChip.active>span{
+#categoryChips .categoryChip.active>.categoryChipIcon{
   background:rgba(255,255,255,.17);
 }
 
@@ -199,6 +209,10 @@
     background:linear-gradient(rgba(255,255,255,.18),rgba(255,255,255,.18)),url('/assets/nearby-panel-uploaded-bg.svg?v=20260808-1') center center/cover no-repeat;
   }
 
+  #categoriesSection .categoryPanelIntro{grid-template-columns:46px minmax(0,1fr)!important;gap:12px!important}
+  #categoriesSection .categoryPanelIcon{width:46px;height:46px}
+  #categoriesSection .categoryPanelCopy p{font-size:11.5px}
+
   #categoriesSection .sectionHead{
     margin-bottom:10px;
   }
@@ -212,9 +226,7 @@
   }
 
   #categoryAllHeader{
-    min-height:28px;
-    padding:0 10px;
-    font-size:11px;
+    display:none!important;
   }
 
   #categoryChips{
@@ -224,16 +236,20 @@
   }
 
   #categoryChips .categoryChip{
-    min-height:38px;
-    padding:0 11px;
-    font-size:12px;
+    flex:0 0 116px;
+    width:116px;
+    min-height:62px;
+    padding:8px 9px;
+    gap:7px;
+    font-size:11px;
     scroll-snap-align:start;
   }
 
-  #categoryChips .categoryChip>span{
-    width:20px;
-    height:20px;
-    font-size:13px;
+  #categoryChips .categoryChip>.categoryChipIcon{
+    width:30px;
+    height:30px;
+    flex-basis:30px;
+    font-size:18px;
   }
 }
 

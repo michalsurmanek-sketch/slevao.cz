@@ -285,8 +285,9 @@
   function renderCategories() {
     const counts = groupCountMap();
     const available = CATEGORY_DEFS.filter(([key]) => counts.get(key) || key === state.category);
+    const total = [...counts.values()].reduce((sum, count) => sum + Number(count || 0), 0);
     if ($('categoryChips')) {
-      $('categoryChips').innerHTML = `<button class="categoryChip ${state.category === 'all' ? 'active' : ''}" data-category="all"><span>✨</span>Vše</button>` + available.map(([key,name,icon]) => `<button class="categoryChip ${state.category === key ? 'active' : ''}" data-category="${key}"><span>${icon}</span>${esc(name)} <small>${counts.get(key) || 0}</small></button>`).join('');
+      $('categoryChips').innerHTML = `<button class="categoryChip ${state.category === 'all' ? 'active' : ''}" data-category="all"><span class="categoryChipIcon">🛒</span><span class="categoryChipCopy"><strong>Vše</strong><small>${total.toLocaleString('cs-CZ')}</small></span></button>` + available.map(([key,name,icon]) => `<button class="categoryChip ${state.category === key ? 'active' : ''}" data-category="${key}"><span class="categoryChipIcon">${icon}</span><span class="categoryChipCopy"><strong>${esc(name)}</strong><small>${(counts.get(key) || 0).toLocaleString('cs-CZ')}</small></span></button>`).join('');
     }
     if ($('categorySelect')) {
       $('categorySelect').innerHTML = '<option value="all">Všechny kategorie</option>' + available.map(([key,name]) => `<option value="${key}">${esc(name)} (${counts.get(key) || 0})</option>`).join('');

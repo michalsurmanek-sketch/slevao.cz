@@ -714,3 +714,13 @@
   html body #dealsSection .dealViewButton{width:29px!important;min-width:29px!important;height:29px!important;min-height:29px!important}
   html body #dealGrid[data-card-view="mini"] .dealInfo h3{font-size:12px!important}
 }
+
+/* Finální mobilní panel kategorií – bez překryvné šipky. */
+@media(max-width:900px){
+  html body #categoriesSection>.container::before,
+  html body #categoriesSection>.container::after{content:none!important;display:none!important}
+  html body #categoriesSection .categoryChips{padding-right:14px!important;scroll-padding-right:14px!important}
+  html body #categoriesSection .sectionHead h2{font-size:17px!important;line-height:1.08!important;text-transform:uppercase!important;letter-spacing:.15px!important}
+  html body #categoriesSection .sectionHead p{margin:2px 0 0!important;font-size:11.5px!important;line-height:1.25!important;color:#697674!important}
+  html body #categoriesSection .categoryChip{flex:0 0 116px!important;width:116px!important;min-height:62px!important}
+}
