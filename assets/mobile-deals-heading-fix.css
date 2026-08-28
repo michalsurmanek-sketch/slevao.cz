@@ -698,7 +698,7 @@
   html body #dealGrid[data-card-view="mini"] .dealMenu{z-index:4!important}
   html body #dealGrid[data-card-view="mini"] .storeLine,
   html body #dealGrid[data-card-view="mini"] .dealInfo h3{padding-right:34px!important}
-  html body #dealGrid[data-card-view="mini"] .dealInfo h3{height:34px!important;min-height:34px!important;max-height:34px!important;text-overflow:ellipsis!important}
+  html body #dealGrid[data-card-view="mini"] .dealInfo h3{height:30px!important;min-height:30px!important;max-height:30px!important;margin-bottom:7px!important;font-size:12.5px!important;line-height:1.16!important;letter-spacing:-.12px!important;text-overflow:ellipsis!important}
   html body #dealGrid[data-card-view="mini"] .dealChips{display:grid!important;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)!important;width:100%!important;min-height:26px!important;overflow:visible!important}
   html body #dealGrid[data-card-view="mini"] .dealChips>span{min-width:0!important;width:100%!important;min-height:26px!important;padding:0 4px!important;justify-content:center!important;gap:3px!important;font-size:clamp(7px,2vw,8.5px)!important;letter-spacing:-.12px!important;white-space:nowrap!important}
   html body #dealGrid[data-card-view="mini"] .dealChips>span:only-child{grid-column:1/-1!important;width:max-content!important;max-width:100%!important;justify-self:start!important;padding-inline:7px!important}
@@ -712,4 +712,5 @@
 @media (max-width:360px){
   html body #dealsSection .toolbar #resultText{font-size:10px!important}
   html body #dealsSection .dealViewButton{width:29px!important;min-width:29px!important;height:29px!important;min-height:29px!important}
+  html body #dealGrid[data-card-view="mini"] .dealInfo h3{font-size:12px!important}
 }

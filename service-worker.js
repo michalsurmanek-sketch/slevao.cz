@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260828-75';
+const CACHE_NAME = 'slevao-shell-20260828-76';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
