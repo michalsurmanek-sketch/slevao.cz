@@ -16,6 +16,12 @@ for (const needle of [
   'const RELEASE_TIMEOUT_MS = 15000;',
   'const PENDING_MUTATION_TTL_MS = 5 * 60 * 1000;',
   "const MUTATION_RPC = 'mutate_shared_shopping_list';",
+  'const pendingAddMutations = new Map();',
+  'function prunePendingMutations(now = Date.now())',
+  'pendingAddMutations.get(fingerprint)',
+  'pendingAddMutations.set(fingerprint, pending)',
+  'function pendingFor(args)',
+  'return pendingAddMutations.size;',
   'function installMutationBridge()',
   "args?.p_action !== 'add'",
   'const id = currentMutationId(args);',
@@ -75,7 +81,7 @@ for (const needle of [
   "'action', 'update'",
   "'item_id', p_item_id",
   "'action', 'delete'",
-  "encode(extensions.digest(jsonb_build_object(",
+  'encode(extensions.digest(jsonb_build_object(',
   'share_id, mutation_id, action, request_hash, shopping_list_id',
   'select m.action, m.request_hash',
   'v_existing_request_hash is distinct from v_request_hash',
@@ -174,6 +180,7 @@ const context = {
   Math,
   Promise,
   Object,
+  Map,
   crypto,
 };
 new Script(source, { filename:'shared-add-submit-guard-simulation.js' }).runInNewContext(context);
@@ -183,7 +190,7 @@ assert.equal(clickHandlers.length, 1, 'Shared guard nezaregistroval click captur
 assert.equal(keyHandlers.length, 1, 'Shared guard nezaregistroval Enter capture handler.');
 assert.equal(observerCallbacks.length, 2, 'Shared guard nesleduje render i chybovou zprávu.');
 
-const addPayload = {
+const addPayloadA = {
   p_token:'test-token',
   p_action:'add',
   p_item_id:null,
@@ -194,31 +201,60 @@ const addPayload = {
   p_unit:'ks',
   p_is_completed:false,
 };
+const addPayloadB = {
+  ...addPayloadA,
+  p_custom_name:'Chléb',
+  p_quantity:1,
+};
 
+// A selže nejasně a musí si ponechat mutation ID.
 rpcResults.push({ data:null, error:{ message:'TypeError: Failed to fetch' }, status:0 });
-const ambiguous = await db.rpc('mutate_shared_shopping_list', addPayload);
-assert.ok(ambiguous.error, 'Simulovaný síťový výpadek se ztratil.');
-const firstMutationId = rpcCalls.at(-1).args.p_mutation_id;
-assert.match(firstMutationId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/i, 'Shared add neposílá platné mutation UUID.');
-assert.equal(window.SlevaoSharedAddMutationBridge.pending()?.id, firstMutationId, 'Nejasný síťový výsledek nezachoval mutation ID pro retry.');
+const ambiguousA = await db.rpc('mutate_shared_shopping_list', addPayloadA);
+assert.ok(ambiguousA.error, 'Simulovaný síťový výpadek A se ztratil.');
+const mutationA = rpcCalls.at(-1).args.p_mutation_id;
+assert.match(mutationA, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-8[0-9a-f]{3}-[0-9a-f]{12}$/i, 'Shared add A neposílá platné mutation UUID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadA)?.id, mutationA, 'Nejasný výsledek A nezachoval mutation ID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.count(), 1, 'Po prvním nejasném add má být právě jeden pending retry.');
 
-rpcResults.push({ data:{ ok:true }, error:null, status:200 });
-await db.rpc('mutate_shared_shopping_list', addPayload);
-const retryMutationId = rpcCalls.at(-1).args.p_mutation_id;
-assert.equal(retryMutationId, firstMutationId, 'Retry stejného add payloadu po Failed to fetch nepoužil stejné mutation ID.');
-assert.equal(window.SlevaoSharedAddMutationBridge.pending(), null, 'Úspěšný retry neuvolnil pending mutation ID.');
+// B selže také nejasně. Nesmí přepsat pending ID položky A.
+rpcResults.push({ data:null, error:{ message:'Network timeout' }, status:503 });
+const ambiguousB = await db.rpc('mutate_shared_shopping_list', addPayloadB);
+assert.ok(ambiguousB.error, 'Simulovaný síťový výpadek B se ztratil.');
+const mutationB = rpcCalls.at(-1).args.p_mutation_id;
+assert.notEqual(mutationB, mutationA, 'Různé add payloady nesmí sdílet mutation ID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadA)?.id, mutationA, 'Pending B přepsal mutation ID položky A.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadB)?.id, mutationB, 'Nejasný výsledek B nezachoval vlastní mutation ID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.count(), 2, 'Dva nejasné add requesty musí držet dva oddělené pending retry klíče.');
 
+// Retry A musí použít původní A ID a po úspěchu odstranit pouze A.
 rpcResults.push({ data:{ ok:true }, error:null, status:200 });
-await db.rpc('mutate_shared_shopping_list', addPayload);
+await db.rpc('mutate_shared_shopping_list', addPayloadA);
+assert.equal(rpcCalls.at(-1).args.p_mutation_id, mutationA, 'Retry A nepoužil původní mutation ID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadA), null, 'Úspěšný retry A neuvolnil svůj pending klíč.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadB)?.id, mutationB, 'Úspěšný retry A chybně odstranil pending B.');
+assert.equal(window.SlevaoSharedAddMutationBridge.count(), 1, 'Po úspěchu A má zůstat pouze pending B.');
+
+// Retry B musí stále použít původní B ID.
+rpcResults.push({ data:{ ok:true }, error:null, status:200 });
+await db.rpc('mutate_shared_shopping_list', addPayloadB);
+assert.equal(rpcCalls.at(-1).args.p_mutation_id, mutationB, 'Retry B nepoužil původní mutation ID.');
+assert.equal(window.SlevaoSharedAddMutationBridge.count(), 0, 'Po úspěšném retry B musí být pending mapa prázdná.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pending(), null, 'Po vyřízení všech retry nesmí zůstat první pending záznam.');
+
+// Nové vědomé přidání A po úspěchu musí dostat nové UUID.
+rpcResults.push({ data:{ ok:true }, error:null, status:200 });
+await db.rpc('mutate_shared_shopping_list', addPayloadA);
 const intentionalNextMutationId = rpcCalls.at(-1).args.p_mutation_id;
-assert.notEqual(intentionalNextMutationId, firstMutationId, 'Nové vědomé přidání po úspěchu chybně recykluje staré mutation ID.');
+assert.notEqual(intentionalNextMutationId, mutationA, 'Nové vědomé přidání A po úspěchu recykluje staré mutation ID.');
 
+// Definitivní 4xx chyba mutation ID nedrží.
+const addPayloadC = { ...addPayloadA, p_custom_name:'Máslo' };
 rpcResults.push({ data:null, error:{ message:'Validation failed' }, status:400 });
-await db.rpc('mutate_shared_shopping_list', { ...addPayload, p_custom_name:'Chléb' });
+await db.rpc('mutate_shared_shopping_list', addPayloadC);
 const rejectedMutationId = rpcCalls.at(-1).args.p_mutation_id;
-assert.equal(window.SlevaoSharedAddMutationBridge.pending(), null, 'Definitivní 4xx chyba nesmí držet mutation ID pro další pokus.');
+assert.equal(window.SlevaoSharedAddMutationBridge.pendingFor(addPayloadC), null, 'Definitivní 4xx chyba nesmí držet mutation ID pro další pokus.');
 rpcResults.push({ data:{ ok:true }, error:null, status:200 });
-await db.rpc('mutate_shared_shopping_list', { ...addPayload, p_custom_name:'Chléb' });
+await db.rpc('mutate_shared_shopping_list', addPayloadC);
 assert.notEqual(rpcCalls.at(-1).args.p_mutation_id, rejectedMutationId, 'Po definitivní 4xx chybě se musí vytvořit nové mutation ID.');
 
 const first = createEvent(target);
@@ -245,11 +281,11 @@ observerCallbacks[0]();
 assert.equal(button.disabled, true, 'View-only shared seznam se po release chybně odemkl.');
 
 const directGuardUrl = html.match(/assets\/shopping-shared-add-submit-guard\.js\?v=[^"']+/)?.[0] || '';
-assert.equal(directGuardUrl, 'assets/shopping-shared-add-submit-guard.js?v=20260828-2', 'seznam.html nenačítá idempotentní shared add guard v2.');
+assert.equal(directGuardUrl, 'assets/shopping-shared-add-submit-guard.js?v=20260828-3', 'seznam.html nenačítá concurrent shared add guard v3.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
-assert.ok(html.indexOf(directGuardUrl) < html.indexOf(bootstrapUrl), 'Idempotentní shared add bridge musí běžet před shopping bootstrapem.');
-assert.ok(worker.includes(`'/${directGuardUrl}'`), 'PWA necachuje idempotentní shared add guard v2.');
+assert.ok(html.indexOf(directGuardUrl) < html.indexOf(bootstrapUrl), 'Shared add bridge musí běžet před shopping bootstrapem.');
+assert.ok(worker.includes(`'/${directGuardUrl}'`), 'PWA necachuje concurrent shared add guard v3.');
 const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
-assert.ok(shellVersion >= 68, 'PWA shell nebyl po shared add idempotency fixu posunut na verzi 68+.');
+assert.ok(shellVersion >= 69, 'PWA shell nebyl po concurrent shared add fixu posunut na verzi 69+.');
 
-console.log('Shared custom add double-submit, server idempotency, and payload binding OK');
+console.log('Shared custom add double-submit, concurrent retries, server idempotency, and payload binding OK');
