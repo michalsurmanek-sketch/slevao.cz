@@ -3,10 +3,12 @@
 
   const LIST_KEY = 'slevao-shopping-list-v1';
   const HISTORY_KEY = 'slevao-shopping-history-v1';
+  const REPEAT_PENDING_KEY = 'slevao-shopping-repeat-pending-v1';
   const db = window.SlevaoSupabase?.getClient?.();
   if (!db || !document.querySelector('.sfListLayout')) return;
 
   let busy = false;
+  const pendingRepeatMemory = new Map();
 
   const norm = (value) => String(value || '')
     .normalize('NFD')
@@ -27,6 +29,58 @@
   function positiveQuantity(value) {
     const quantity = Number(value);
     return Number.isFinite(quantity) && quantity > 0 ? quantity : 1;
+  }
+
+  function createMutationId() {
+    const source = globalThis.crypto;
+    if (source?.randomUUID) return source.randomUUID();
+    if (!source?.getRandomValues) throw new Error('Prohlížeč neumí bezpečně vytvořit identifikátor změny.');
+    const bytes = new Uint8Array(16);
+    source.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  function repeatMutationKey(userId, purchaseId) {
+    return `${String(userId || '').trim()}:${String(purchaseId || '').trim()}`;
+  }
+
+  function readPendingRepeats() {
+    const value = readJson(REPEAT_PENDING_KEY, {});
+    return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
+  }
+
+  function rememberRepeatMutation(userId, purchaseId) {
+    const key = repeatMutationKey(userId, purchaseId);
+    if (!key || key.startsWith(':') || key.endsWith(':')) throw new Error('Nákup se nepodařilo bezpečně identifikovat.');
+
+    const stored = readPendingRepeats();
+    const known = String(stored[key] || pendingRepeatMemory.get(key) || '').trim();
+    if (known) {
+      pendingRepeatMemory.set(key, known);
+      return known;
+    }
+
+    const mutationId = createMutationId();
+    pendingRepeatMemory.set(key, mutationId);
+    stored[key] = mutationId;
+    try { localStorage.setItem(REPEAT_PENDING_KEY, JSON.stringify(stored)); } catch {}
+    return mutationId;
+  }
+
+  function clearRepeatMutation(userId, purchaseId, mutationId) {
+    const key = repeatMutationKey(userId, purchaseId);
+    if (!key) return;
+    if (pendingRepeatMemory.get(key) === mutationId) pendingRepeatMemory.delete(key);
+    try {
+      const stored = readPendingRepeats();
+      if (String(stored[key] || '') !== String(mutationId || '')) return;
+      delete stored[key];
+      if (Object.keys(stored).length) localStorage.setItem(REPEAT_PENDING_KEY, JSON.stringify(stored));
+      else localStorage.removeItem(REPEAT_PENDING_KEY);
+    } catch {}
   }
 
   function rowFromSnapshot(item) {
@@ -83,11 +137,22 @@
       .find((purchase) => String(purchase?.id) === String(purchaseId)) || null;
   }
 
-  async function repeatCloudPurchase(purchaseId) {
+  async function repeatCloudPurchase(purchaseId, userId = '') {
+    let ownerId = String(userId || '').trim();
+    if (!ownerId) {
+      const { data, error } = await db.auth.getSession();
+      if (error) throw error;
+      ownerId = String(data?.session?.user?.id || '').trim();
+    }
+    if (!ownerId) throw new Error('Přihlášení je vyžadováno.');
+
+    const mutationId = rememberRepeatMutation(ownerId, purchaseId);
     const { data, error } = await db.rpc('repeat_shopping_purchase', {
-      p_purchase_id: purchaseId
+      p_purchase_id: purchaseId,
+      p_mutation_id: mutationId
     });
     if (error) throw error;
+    clearRepeatMutation(ownerId, purchaseId, mutationId);
     return data || null;
   }
 
@@ -112,7 +177,7 @@
       const session = data?.session || null;
 
       if (session?.user?.id) {
-        await repeatCloudPurchase(card.dataset.purchaseId);
+        await repeatCloudPurchase(card.dataset.purchaseId, session.user.id);
       } else {
         const purchase = localPurchase(card.dataset.purchaseId);
         if (!purchase) throw new Error('Dokončený nákup se nepodařilo najít.');
@@ -134,6 +199,9 @@
   window.SlevaoRepeatPurchaseSync = {
     norm,
     positiveQuantity,
+    createMutationId,
+    rememberRepeatMutation,
+    clearRepeatMutation,
     repeatGuestPurchase,
     repeatCloudPurchase
   };
