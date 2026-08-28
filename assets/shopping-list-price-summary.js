@@ -18,6 +18,8 @@
   };
 
   function absoluteBox() {
+    const precise = optimizer.querySelector('[data-day-consistent-plan="true"]');
+    if (precise) return precise;
     const boxes = [...optimizer.querySelectorAll('.sfResultBox')];
     return boxes.find((box) => normalize(box.querySelector('h3')?.textContent) === 'absolutne nejnizsi cena') || boxes[1] || null;
   }
