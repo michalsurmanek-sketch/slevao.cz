@@ -9,9 +9,29 @@
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kč';
   const itemLabel = (count) => count === 1 ? 'položku' : (count >= 2 && count <= 4 ? 'položky' : 'položek');
 
-  function absolutePriceBuckets() {
+  function absoluteBox() {
     const boxes = [...optimizer.querySelectorAll('.sfResultBox')];
-    const absolute = boxes.find((box) => normalize(box.querySelector('h3')?.textContent) === 'absolutne nejnizsi cena') || boxes[1];
+    return boxes.find((box) => normalize(box.querySelector('h3')?.textContent) === 'absolutne nejnizsi cena') || boxes[1] || null;
+  }
+
+  function boxUsesUpcomingPrice(box) {
+    const note = normalize(box?.querySelector('.sfMuted')?.textContent);
+    return note.includes('pouziva akci zacinajici');
+  }
+
+  function markUpcomingPlans() {
+    let absoluteUpcoming = false;
+    const absolute = absoluteBox();
+    optimizer.querySelectorAll('.sfResultBox').forEach((box) => {
+      const upcoming = boxUsesUpcomingPrice(box);
+      box.classList.toggle('hasUpcomingPrice', upcoming);
+      if (box === absolute && upcoming) absoluteUpcoming = true;
+    });
+    return absoluteUpcoming;
+  }
+
+  function absolutePriceBuckets() {
+    const absolute = absoluteBox();
     const map = new Map();
     absolute?.querySelectorAll('.sfStoreTag[title]').forEach((tag) => {
       String(tag.getAttribute('title') || '').split('\n').forEach((line) => {
@@ -34,6 +54,7 @@
   }
 
   function renderPrices() {
+    const absoluteUpcoming = markUpcomingPlans();
     const prices = absolutePriceBuckets();
     let total = 0;
     let pricedCount = 0;
@@ -76,7 +97,9 @@
 
     summary.hidden = false;
     const complete = pricedCount === articles.length;
-    summary.innerHTML = `<span><b>Celkem</b><small>${complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
+    const coverage = complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`;
+    const timing = absoluteUpcoming ? ' · část cen začne během 7 dnů' : '';
+    summary.innerHTML = `<span><b>Celkem</b><small>${coverage}${timing}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
   }
 
   let queued = false;
