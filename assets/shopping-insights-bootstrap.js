@@ -5,6 +5,7 @@
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
   const OWNER_CUSTOM_ADD_URL = 'assets/shopping-owner-custom-add-bridge.js?v=20260828-3';
+  const SHARED_ADD_GUARD_URL = 'assets/shopping-shared-add-submit-guard.js?v=20260828-1';
   const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260827-3';
   const sharedParams = new URLSearchParams(location.search);
@@ -13,6 +14,7 @@
   const db = window.SlevaoSupabase?.getClient?.();
   let bootedUserId = null;
   let ownerCustomAddLoaded = false;
+  let sharedAddGuardLoaded = false;
   let listLoaded = false;
   let insightLoaded = false;
   let reloadQueued = false;
@@ -141,6 +143,15 @@
     document.head.appendChild(script);
   }
 
+  function loadSharedAddGuard() {
+    if (sharedAddGuardLoaded || document.querySelector('script[src*="shopping-shared-add-submit-guard.js"]')) return;
+    sharedAddGuardLoaded = true;
+    const script = document.createElement('script');
+    script.src = SHARED_ADD_GUARD_URL;
+    script.async = false;
+    document.head.appendChild(script);
+  }
+
   function loadList() {
     if (listLoaded || document.querySelector('script[src*="shopping-list.js"]')) return;
     listLoaded = true;
@@ -161,6 +172,7 @@
 
   function loadShoppingRuntimes() {
     loadOwnerCustomAddBridge();
+    loadSharedAddGuard();
     loadList();
     loadInsights();
   }
