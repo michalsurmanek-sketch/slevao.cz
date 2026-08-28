@@ -146,8 +146,9 @@ new Script(`${localUnitsFunction}\nglobalThis.units = localUnitMap();`, { filena
 assert.equal(sharedUnitContext.units.size, 0, 'Shared seznam nesmí přebírat jednotky z lokálního vlastního seznamu.');
 
 assert.ok(mobileCss.includes('#optimizer .sfResultBox.hasUpcomingPrice::after'), 'Mobilní optimizer neukazuje kompaktní upozornění na budoucí cenu.');
-assert.ok(mobileCss.includes('Část cen začne během 7 dnů'), 'Mobilní upozornění na budoucí cenu nemá srozumitelný text.');
-assert.ok(html.includes('assets/mobile-optimizer-compact.css?v=20260828-1'), 'seznam.html nenačítá aktuální mobilní timing CSS.');
+assert.ok(mobileCss.includes('Akce nemusí platit ve stejný den'), 'Mobilní upozornění neříká, že 7denní ceny nemusí být současně dosažitelné.');
+assert.ok(mobileCss.includes('max-width:100%'), 'Mobilní mixed-date badge nemá ochranu proti přetečení.');
+assert.match(html, /assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální mobilní optimizer CSS.');
 assert.match(html, /assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální cenový runtime.');
 
 console.log('Shopping list price summary timing, local unit safety, shared isolation and duplicate safety OK');
