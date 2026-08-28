@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-shared-add-submit-guard.js', root), 'utf8');
 const migration = readFileSync(new URL('supabase/migrations/20260828161211_idempotent_shared_shopping_mutations.sql', root), 'utf8');
+const payloadBindingMigration = readFileSync(new URL('supabase/migrations/20260828161930_bind_shared_mutation_id_to_payload.sql', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-shared-add-submit-guard.js' });
@@ -57,6 +58,37 @@ for (const needle of [
 ]) {
   assert.ok(migration.toLowerCase().includes(needle.toLowerCase()), `Chybí serverový shared mutation kontrakt: ${needle}`);
 }
+
+for (const needle of [
+  'alter table private.shopping_share_mutations',
+  'add column request_hash text not null',
+  "check (request_hash ~ '^[0-9a-f]{64}$')",
+  'v_existing_request_hash text;',
+  'v_request_hash text;',
+  "'action', 'add'",
+  "'product_id', p_product_id",
+  "'selected_offer_id', p_selected_offer_id",
+  "'custom_name', v_name",
+  "'quantity', v_quantity",
+  "'unit', v_unit",
+  "'is_completed', coalesce(p_is_completed, false)",
+  "'action', 'update'",
+  "'item_id', p_item_id",
+  "'action', 'delete'",
+  "encode(extensions.digest(jsonb_build_object(",
+  'share_id, mutation_id, action, request_hash, shopping_list_id',
+  'select m.action, m.request_hash',
+  'v_existing_request_hash is distinct from v_request_hash',
+  "raise exception 'Mutation ID už bylo použito s jinými daty.';",
+]) {
+  assert.ok(payloadBindingMigration.toLowerCase().includes(needle.toLowerCase()), `Chybí payload binding mutation ID: ${needle}`);
+}
+const payloadHashPos = payloadBindingMigration.indexOf('v_request_hash := encode(extensions.digest');
+const claimPos = payloadBindingMigration.indexOf('insert into private.shopping_share_mutations');
+const mismatchPos = payloadBindingMigration.indexOf('v_existing_request_hash is distinct from v_request_hash');
+const replayReturnPos = payloadBindingMigration.indexOf('return public.get_shared_shopping_list(p_token);', mismatchPos);
+assert.ok(payloadHashPos >= 0 && claimPos > payloadHashPos, 'Request hash se musí spočítat před mutation claimem.');
+assert.ok(mismatchPos > claimPos && replayReturnPos > mismatchPos, 'Duplicate mutation se musí porovnat s payloadem před idempotentním návratem.');
 
 function createEvent(target) {
   return {
@@ -220,4 +252,4 @@ assert.ok(worker.includes(`'/${directGuardUrl}'`), 'PWA necachuje idempotentní 
 const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
 assert.ok(shellVersion >= 68, 'PWA shell nebyl po shared add idempotency fixu posunut na verzi 68+.');
 
-console.log('Shared custom add double-submit and server idempotency bridge OK');
+console.log('Shared custom add double-submit, server idempotency, and payload binding OK');
