@@ -23,7 +23,11 @@ const db = {
         return {
           filters: [],
           gt(field, value) {
-            this.filters.push([field, value]);
+            this.filters.push(['gt', field, value]);
+            return this;
+          },
+          eq(field, value) {
+            this.filters.push(['eq', field, value]);
             return this;
           }
         };
@@ -64,8 +68,11 @@ for (const invalid of [0, -1, '0', 'bad', NaN, Infinity, null, undefined]) {
   assert.equal(context.window.SlevaoShoppingPositivePriceGuard.hasPositivePrice(invalid), false, `Neplatná cena prošla guardem: ${String(invalid)}`);
 }
 
-const offerSelect = db.from('offers').select('id,price');
-assert.deepEqual(offerSelect.filters, [['price', 0]], 'offers.select nedostal databázový filtr price > 0.');
+const offerSelect = db.from('offers').select('id,price,is_verified');
+assert.deepEqual(offerSelect.filters, [
+  ['gt', 'price', 0],
+  ['eq', 'is_verified', true]
+], 'offers.select nedostal databázové filtry price > 0 a is_verified = true.');
 assert.equal(selectCalls.length, 1, 'offers.select se provedl neočekávaně vícekrát.');
 assert.deepEqual(db.from('shopping_lists').select('id'), { marker:'other-select' }, 'Guard zasáhl do jiné tabulky než offers.');
 
@@ -83,9 +90,10 @@ assert.equal(db.rpc, guardedRpc, 'Druhá instalace znovu obalila db.rpc.');
 for (const needle of [
   "table !== 'offers'",
   "selected.gt('price', 0)",
+  "positive.eq('is_verified', true)",
   "name !== 'get_public_shopping_list_candidates'",
   'Number.isFinite(price) && price > 0',
-]) assert.ok(source.includes(needle), `Chybí positive-price kontrakt: ${needle}`);
+]) assert.ok(source.includes(needle), `Chybí positive/verified-price kontrakt: ${needle}`);
 
 const guardUrl = html.match(/assets\/shopping-positive-price-guard\.js\?v=[^"']+/)?.[0] || '';
 assert.match(guardUrl, /^assets\/shopping-positive-price-guard\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný positive-price guard.');
@@ -94,4 +102,4 @@ assert.ok(bootstrapUrl, 'seznam.html nemá shopping insights bootstrap.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Positive-price guard se musí načíst před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný positive-price guard ze seznam.html.');
 
-console.log('Shopping positive-price guard filters offers and custom candidates before optimizer/insights runtime');
+console.log('Shopping positive-price guard filters verified positive offers and custom candidates before optimizer/insights runtime');
