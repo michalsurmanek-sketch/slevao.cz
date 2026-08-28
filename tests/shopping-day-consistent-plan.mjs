@@ -23,7 +23,21 @@ for (const needle of [
   "db.rpc('get_public_shopping_list_candidates', { p_queries:customQueries, p_limit_per_query:30 })",
   ".lte('valid_from', upcomingTo)",
   ".gte('valid_to', today)",
+  'let rerunRequested = false;',
+  'rerunRequested = true;',
 ]) assert.ok(source.includes(needle), `Chybí day-consistent planner kontrakt: ${needle}`);
+
+const refreshStart = source.indexOf('  async function refresh(');
+const scheduleStart = source.indexOf('\n  function schedule()', refreshStart);
+assert.ok(refreshStart >= 0 && scheduleStart > refreshStart, 'Planner refresh funkci nejde izolovaně ověřit.');
+const refreshSource = source.slice(refreshStart, scheduleStart);
+const guardIndex = refreshSource.indexOf('if (refreshing) {');
+const requestIndex = refreshSource.indexOf('rerunRequested = true;', guardIndex);
+const finallyIndex = refreshSource.indexOf('finally {');
+const replayIndex = refreshSource.indexOf('if (rerunRequested) {', finallyIndex);
+const scheduleIndex = refreshSource.indexOf('schedule();', replayIndex);
+assert.ok(guardIndex >= 0 && requestIndex > guardIndex, 'Změna během běžícího planneru nepožádá o další refresh.');
+assert.ok(finallyIndex >= 0 && replayIndex > finallyIndex && scheduleIndex > replayIndex, 'Po dokončení planneru se zahozená změna znovu nepřepočítá.');
 
 const validStart = source.indexOf('  function validOn(');
 const validEnd = source.indexOf('\n  async function readRows()', validStart);
@@ -73,4 +87,4 @@ assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent p
 assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
 assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
 
-console.log('Day-consistent shopping planner and runtime wiring OK');
+console.log('Day-consistent shopping planner, refresh replay and runtime wiring OK');
