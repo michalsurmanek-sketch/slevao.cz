@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const migrationPath = 'supabase/migrations/20260827215811_atomic_owner_custom_item_add.sql';
+const indexMigrationPath = 'supabase/migrations/20260828135959_index_shopping_list_add_mutation_foreign_keys.sql';
 const sql = readFileSync(new URL(migrationPath, root), 'utf8');
+const indexSql = readFileSync(new URL(indexMigrationPath, root), 'utf8');
 
 for (const needle of [
   'create table if not exists public.shopping_list_add_mutations',
@@ -55,4 +57,15 @@ assert.ok(mutationCommit > itemUpdate, 'Mutation log se označuje jako aplikovan
 assert.ok(!/grant\s+(?:select|insert|update|delete|all).*shopping_list_add_mutations.*authenticated/is.test(sql), 'Interní mutation tabulka nesmí být přímo dostupná authenticated klientům.');
 assert.ok(!sql.includes('grant execute on function public.add_own_shopping_list_custom_item(text, numeric, text, uuid) to anon'), 'Atomický owner RPC nesmí být dostupný anonymním uživatelům.');
 
-console.log('Idempotent owner custom item add migration contract OK');
+for (const needle of [
+  'create index if not exists shopping_list_add_mutations_list_idx',
+  'on public.shopping_list_add_mutations (shopping_list_id);',
+  'create index if not exists shopping_list_add_mutations_item_idx',
+  'on public.shopping_list_add_mutations (item_id)',
+  'where item_id is not null;',
+]) {
+  assert.ok(indexSql.includes(needle), `Chybí FK index owner mutation tabulky: ${needle}`);
+}
+assert.ok(indexSql.indexOf('shopping_list_add_mutations_list_idx') < indexSql.indexOf('shopping_list_add_mutations_item_idx'), 'FK index migration nemá stabilní pořadí list → item.');
+
+console.log('Idempotent owner custom item add and mutation FK index contract OK');
