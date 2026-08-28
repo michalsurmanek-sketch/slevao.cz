@@ -92,3 +92,4 @@ assert.ok(
 );
 
 console.log('Lidl full-payload no-change fast-path contract OK');
+await import('./coop-full-payload-fast-path.mjs');
