@@ -3,7 +3,9 @@ import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const migrationPath = 'supabase/migrations/20260827215001_atomic_shopping_purchase_completion.sql';
+const hardeningPath = 'supabase/migrations/20260828103919_require_list_for_authenticated_purchase_completion.sql';
 const sql = readFileSync(new URL(migrationPath, root), 'utf8');
+const hardeningSql = readFileSync(new URL(hardeningPath, root), 'utf8');
 
 for (const needle of [
   'create or replace function public.validate_shopping_purchase_snapshot()',
@@ -66,6 +68,24 @@ for (const field of ['product_id', 'custom_name', 'quantity', 'unit']) {
   const matches = sql.match(new RegExp(`'${field}'`, 'g')) || [];
   assert.ok(matches.length >= 2, `Pole ${field} není kanonizované na obou stranách snapshotu.`);
 }
+
+for (const needle of [
+  'create or replace function public.validate_shopping_purchase_snapshot()',
+  "if tg_op = 'INSERT'",
+  'and auth.uid() is not null',
+  'and new.shopping_list_id is null then',
+  'Před dokončením nákupu se nepodařilo určit aktivní nákupní seznam.',
+  'if v_atomic_completion then',
+  'delete from public.shopping_list_items sli',
+  'perform public.revoke_shopping_list_shares(new.shopping_list_id);',
+]) {
+  assert.ok(hardeningSql.includes(needle), `Chybí hardening completion kontrakt: ${needle}`);
+}
+
+const nullListGuard = hardeningSql.indexOf('and new.shopping_list_id is null then');
+const normalAtomicGuard = hardeningSql.indexOf('and new.shopping_list_id is not null', nullListGuard + 1);
+assert.ok(nullListGuard >= 0 && normalAtomicGuard > nullListGuard, 'Null-list ochrana musí předcházet atomickému completion bloku.');
+assert.ok(!/alter\s+table\s+public\.shopping_list_purchases[\s\S]*shopping_list_id[\s\S]*not\s+null/i.test(hardeningSql), 'shopping_list_id nesmí být NOT NULL; historie používá FK ON DELETE SET NULL.');
 
 console.log('Atomic shopping purchase completion migration contract OK');
 await import('./shopping-repeat-purchase-sync.mjs');
