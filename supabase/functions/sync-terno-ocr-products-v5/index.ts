@@ -5,6 +5,7 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const PUBLISHER_URL = `${SUPABASE_URL}/functions/v1/publish-imports`;
 const PARSER = 'terno-ocr-spatial-unit-price-v5';
+const PAYLOAD_CONTRACT = 'terno-ocr-safe-v6';
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession:false, autoRefreshToken:false } });
 
 const CORS = {
@@ -18,6 +19,12 @@ type OcrPage = { page_number:number; avg_confidence:number|string|null; words:Oc
 type SpatialLine = { text:string; left:number; right:number; top:number; bottom:number; centerX:number; confidence:number; column:number };
 type PrintedPrice = { value:number; text:string; delta:number; confidence:number; mode:'single_word'|'split_major_cents' };
 type Candidate = { title:string; price:number; quantity_text:string; source_page:number; confidence:number; raw_data:Record<string,unknown> };
+type ExistingImport = {
+  id:string; status:string; product_count:number|null; source_document_url:string|null;
+  detected_valid_from:string|null; detected_valid_to:string|null; source_hash:string;
+  coverage_scope:string|null; region_code:string|null; city_name:string|null; store_location_name:string|null;
+  metadata:Record<string,unknown>|null;
+};
 
 function allowed(req:Request){
   const auth=req.headers.get('authorization')||'';
@@ -210,6 +217,84 @@ function parsePage(page:OcrPage):Candidate[]{
   }
   return out;
 }
+function canonicalRaw(raw:any){
+  return {
+    parser:clean(raw?.parser),
+    unit_price:Number(raw?.unit_price),
+    unit_price_line:clean(raw?.unit_price_line),
+    unit_price_distance:Number(raw?.unit_price_distance),
+    expected_price:Number(raw?.expected_price),
+    printed_price_word:clean(raw?.printed_price_word),
+    printed_price_mode:clean(raw?.printed_price_mode),
+    price_delta:Number(raw?.price_delta),
+    quantity_coordinates:{
+      left:Number(raw?.quantity_coordinates?.left), top:Number(raw?.quantity_coordinates?.top),
+      right:Number(raw?.quantity_coordinates?.right), bottom:Number(raw?.quantity_coordinates?.bottom),
+    },
+    ocr_page_confidence:Number(raw?.ocr_page_confidence),
+    coverage_label:clean(raw?.coverage_label),
+    deterministic_price_check:raw?.deterministic_price_check===true,
+  };
+}
+function parserRow(c:Candidate){
+  return {title:clean(c.title),price:Number(c.price),quantity_text:clean(c.quantity_text),source_page:Number(c.source_page),confidence:Number(c.confidence),raw_data:canonicalRaw(c.raw_data)};
+}
+function storedBaseTitle(item:any){
+  const title=clean(item?.title),quantity=clean(item?.quantity_text),suffix=quantity?` · ${quantity}`:'';
+  return suffix&&title.endsWith(suffix)?title.slice(0,-suffix.length).trim():title;
+}
+function storedRow(item:any){
+  return {title:storedBaseTitle(item),price:Number(item.price),quantity_text:clean(item.quantity_text),source_page:Number(item.source_page),confidence:Number(item.confidence),raw_data:canonicalRaw(item.raw_data)};
+}
+function stableSort<T>(rows:T[]):T[]{
+  return [...rows].sort((a,b)=>{ const left=JSON.stringify(a),right=JSON.stringify(b); return left<right?-1:left>right?1:0; });
+}
+function sameStoredPayload(items:any[],candidates:Candidate[]){
+  if(items.length!==candidates.length) return false;
+  return JSON.stringify(stableSort(items.map(storedRow)))===JSON.stringify(stableSort(candidates.map(parserRow)));
+}
+async function sha256Hex(value:unknown){
+  const bytes=new TextEncoder().encode(JSON.stringify(value));
+  const digest=await crypto.subtle.digest('SHA-256',bytes);
+  return [...new Uint8Array(digest)].map(b=>b.toString(16).padStart(2,'0')).join('');
+}
+function intendedScope(sourceImport:any){
+  return {
+    coverage_scope:String(sourceImport.coverage_scope||'city'),
+    region_code:String(sourceImport.region_code||''),
+    city_name:String(sourceImport.city_name||''),
+    store_location_name:String(sourceImport.store_location_name||''),
+  };
+}
+async function payloadHash(candidates:Candidate[],sourceImport:any){
+  const scope=intendedScope(sourceImport);
+  return await sha256Hex({
+    payload_contract:PAYLOAD_CONTRACT,
+    parser_contract:PARSER,
+    source_import_id:String(sourceImport.id),
+    source_document_url:String(sourceImport.source_document_url||''),
+    valid_from:String(sourceImport.detected_valid_from||''),
+    valid_to:String(sourceImport.detected_valid_to||''),
+    ...scope,
+    rows:stableSort(candidates.map(parserRow)),
+  });
+}
+async function storedImportMatches(row:ExistingImport,candidates:Candidate[],sourceImport:any){
+  if(row.status!=='published') return false;
+  if(Number(row.product_count||0)!==candidates.length) return false;
+  if(String(row.source_document_url||'')!==String(sourceImport.source_document_url||'')) return false;
+  if(String(row.detected_valid_from||'')!==String(sourceImport.detected_valid_from||'')) return false;
+  if(String(row.detected_valid_to||'')!==String(sourceImport.detected_valid_to||'')) return false;
+  const scope=intendedScope(sourceImport);
+  if(String(row.coverage_scope||'')!==scope.coverage_scope) return false;
+  if(String(row.region_code||'')!==scope.region_code) return false;
+  if(String(row.city_name||'')!==scope.city_name) return false;
+  if(String(row.store_location_name||'')!==scope.store_location_name) return false;
+  const q=await db.from('leaflet_import_items').select('title,price,quantity_text,source_page,confidence,raw_data,status').eq('import_id',row.id);
+  if(q.error) throw q.error;
+  if((q.data||[]).some((item:any)=>item.status!=='published')) return false;
+  return sameStoredPayload(q.data||[],candidates);
+}
 async function callPublisher(importId:string){
   const res=await fetch(PUBLISHER_URL,{
     method:'POST',
@@ -251,23 +336,41 @@ Deno.serve(async(req)=>{
     const rawCandidates=(pages||[]).flatMap((p:any)=>parsePage(p));
     const seen=new Set<string>();
     const candidates=rawCandidates.filter((c)=>{ const key=`${norm(c.title)}|${c.price}|${c.quantity_text}`; if(seen.has(key)) return false; seen.add(key); return true; });
+    const fullPayloadSha256=await payloadHash(candidates,sourceImport);
+    const hash=`terno-ocr-safe-v6-${fullPayloadSha256}`;
 
-    if(dryRun) return json({ok:true,dry_run:true,parser:PARSER,source_import_id:sourceImport.id,source_document_url:sourceImport.source_document_url,candidate_count:candidates.length,candidates:candidates.slice(0,80)});
+    if(dryRun) return json({ok:true,dry_run:true,parser:PARSER,payload_contract:PAYLOAD_CONTRACT,source_import_id:sourceImport.id,source_document_url:sourceImport.source_document_url,candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256,candidates:candidates.slice(0,80)});
     if(candidates.length<1) throw new Error('Bezpečný Terno parser v5 nenašel žádnou deterministicky ověřenou položku; publikace zastavena.');
 
-    const hash=`terno-ocr-safe-v5-${sourceImport.id}`;
-    const existing=await db.from('leaflet_imports').select('id,status').eq('source_hash',hash).maybeSingle();
-    if(existing.error) throw existing.error;
-    if(existing.data?.status==='published') return json({ok:true,reused:true,parser:PARSER,import_id:existing.data.id,candidate_count:candidates.length});
+    const selectExisting='id,status,product_count,source_document_url,detected_valid_from,detected_valid_to,source_hash,coverage_scope,region_code,city_name,store_location_name,metadata';
+    const current=await db.from('leaflet_imports').select(selectExisting).eq('source_hash',hash).maybeSingle();
+    if(current.error) throw current.error;
+    if(current.data?.status==='published'){
+      if(!await storedImportMatches(current.data as ExistingImport,candidates,sourceImport)) throw new Error('TERNO v6 payload hash odpovídá importu, ale publikované položky se liší; reuse zastaven.');
+      return json({ok:true,reused:true,parser:PARSER,payload_contract:PAYLOAD_CONTRACT,import_id:current.data.id,source_import_id:sourceImport.id,candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256});
+    }
 
-    let derivedId=existing.data?.id||null;
+    const legacyHash=`terno-ocr-safe-v5-${sourceImport.id}`;
+    const legacy=await db.from('leaflet_imports').select(selectExisting).eq('source_hash',legacyHash).maybeSingle();
+    if(legacy.error) throw legacy.error;
+    if(legacy.data?.status==='published'&&await storedImportMatches(legacy.data as ExistingImport,candidates,sourceImport)){
+      const alreadyVerified=legacy.data.metadata?.full_payload_hash_version===PAYLOAD_CONTRACT&&legacy.data.metadata?.full_payload_sha256===fullPayloadSha256;
+      if(!alreadyVerified){
+        const metadata={...(legacy.data.metadata||{}),full_payload_hash_version:PAYLOAD_CONTRACT,full_payload_sha256:fullPayloadSha256,legacy_source_hash:legacyHash,verified_at:new Date().toISOString()};
+        const backfill=await db.from('leaflet_imports').update({metadata}).eq('id',legacy.data.id);
+        if(backfill.error) throw backfill.error;
+      }
+      return json({ok:true,reused:true,migrated_legacy_hash:!alreadyVerified,legacy_source_hash_retained:true,parser:PARSER,payload_contract:PAYLOAD_CONTRACT,import_id:legacy.data.id,source_import_id:sourceImport.id,candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256});
+    }
+
+    let derivedId=current.data?.id||null;
     if(!derivedId){
       const created=await db.from('leaflet_imports').insert({
         source_id:sourceImport.source_id,store_id:store.id,source_document_url:sourceImport.source_document_url,source_hash:hash,status:'queued',
         coverage_scope:sourceImport.coverage_scope||'city',region_code:sourceImport.region_code||null,city_name:sourceImport.city_name||null,
         store_location_name:sourceImport.store_location_name||null,detected_valid_from:sourceImport.detected_valid_from,detected_valid_to:sourceImport.detected_valid_to,
         confidence:0.98,
-        metadata:{parser:PARSER,deterministic:true,verified_pipeline:true,source_import_id:sourceImport.id,coverage_label:'Vybrané prodejny Terno',region:sourceImport.metadata?.region||null,split_price_support:true},
+        metadata:{parser:PARSER,deterministic:true,verified_pipeline:true,source_import_id:sourceImport.id,coverage_label:'Vybrané prodejny Terno',region:sourceImport.metadata?.region||null,split_price_support:true,full_payload_hash_version:PAYLOAD_CONTRACT,full_payload_sha256:fullPayloadSha256},
       }).select('id').single();
       if(created.error) throw created.error;
       derivedId=created.data.id;
@@ -285,7 +388,7 @@ Deno.serve(async(req)=>{
     if(!publish?.ok || result?.error || published<1) throw new Error(`Terno publish selhal: ${JSON.stringify(publish).slice(0,700)}`);
 
     if(sourceImport.source_id) await db.from('leaflet_sources').update({last_checked_at:new Date().toISOString(),last_success_at:new Date().toISOString(),last_error:null}).eq('id',sourceImport.source_id);
-    return json({ok:true,dry_run:false,parser:PARSER,import_id:derivedId,source_import_id:sourceImport.id,candidate_count:candidates.length,publish});
+    return json({ok:true,dry_run:false,parser:PARSER,payload_contract:PAYLOAD_CONTRACT,import_id:derivedId,source_import_id:sourceImport.id,candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256,publish});
   }catch(e){
     const message=e instanceof Error?e.message:(typeof e==='object'?JSON.stringify(e):String(e));
     return json({ok:false,error:message},500);
