@@ -6,6 +6,8 @@
   const POLL_MS = 30000;
   const VERIFY_ATTEMPTS = 16;
   const VERIFY_DELAY_MS = 250;
+  const COMPLETION_RECOVERY_ATTEMPTS = 40;
+  const COMPLETION_RECOVERY_DELAY_MS = 250;
   const sharedQuery = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedQuery.get('share') || sharedHash.get('share'));
@@ -184,6 +186,23 @@
     return lastState;
   }
 
+  async function recoverAfterCompletionAttempt(button) {
+    for (let attempt = 0; attempt < COMPLETION_RECOVERY_ATTEMPTS; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, COMPLETION_RECOVERY_DELAY_MS));
+      if (!document.contains(button)) return { status:'unmounted' };
+      if (button.disabled) continue;
+
+      const state = await snapshotState({ requireSettled:false });
+      if (state.status === 'mismatch') {
+        persistRemoteState(state);
+        window.SlevaoPublic?.toast?.('Seznam se mezitím změnil na jiném zařízení. Načítám aktuální stav.');
+        location.reload();
+      }
+      return state;
+    }
+    return { status:'busy' };
+  }
+
   async function guardCompletionClick(event) {
     const button = event.target?.closest?.('#completeShopping');
     if (!button || completionBypass || button.disabled) return;
@@ -195,6 +214,7 @@
     verifyingCompletion = true;
     button.disabled = true;
     const originalTitle = button.title;
+    let forwarded = false;
     button.title = 'Ověřuji aktuální stav seznamu…';
     try {
       const state = await verifyBeforeCompletion();
@@ -204,6 +224,10 @@
         button.title = originalTitle;
         button.click();
         completionBypass = false;
+        forwarded = true;
+        void recoverAfterCompletionAttempt(button).catch((error) => {
+          console.debug('Obnova seznamu po konfliktu dokončení selhala:', error);
+        });
         return;
       }
       if (state.status === 'mismatch') {
@@ -217,7 +241,7 @@
       console.debug('Ověření seznamu před dokončením selhalo:', error);
       window.SlevaoPublic?.toast?.('Před dokončením se nepodařilo ověřit aktuální seznam. Zkus to prosím znovu.');
     } finally {
-      if (!completionBypass) {
+      if (!completionBypass && !forwarded) {
         button.disabled = false;
         button.title = originalTitle;
       }
@@ -243,5 +267,6 @@
     reconcileRemoteRows,
     snapshotState,
     verifyBeforeCompletion,
+    recoverAfterCompletionAttempt,
   };
 })();
