@@ -6,7 +6,7 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OFFER_URL = 'https://prodejny.kaufland.cz/nabidka/prehled.html?kloffer-week=current';
 const SOURCE_URL = 'https://prodejny.kaufland.cz/letak.html';
 const ADAPTER = 'kaufland-products-v4-ssr';
-const PARSER_REV = 'kaufland-title-v10';
+const PARSER_REV = 'kaufland-title-v11';
 const IMAGE_OVERRIDES: Record<string, string> = {
   // Kaufland currently maps this Zlatopramen 11 can offer to a Krušovice PET image.
   '02312871': 'https://cdn.globusonline.cz/content/images/product/zlatopramen-11-pivo-lezak-svetly-plech-0-5-l_1250.jpg',
@@ -56,6 +56,11 @@ function normalize(value: string) {
 function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 const GENERIC_DETAIL = /^(?:různé druhy|mix druhů|více druhů|dle výběru|různé barvy|v různých barvách|různá provedení|i\.? jakost)$/i;
 const PROMO_ONLY_TITLE = 'tvoje cena s kaufland card';
+function isPromoOnlyProductPart(value: string) {
+  const normalized = normalize(value);
+  return normalized === PROMO_ONLY_TITLE
+    || /^pri koupi \d+ (?:kus|kusu|kusy) .+ zdarma$/.test(normalized);
+}
 function cleanProductPart(value: string) {
   return decodeHtml(value)
     .replace(/^K-Mistři od fochu\s+/i, '')
@@ -68,8 +73,7 @@ function cleanProductPart(value: string) {
 }
 function meaningful(value: string) {
   const clean = cleanProductPart(value);
-  const normalized = normalize(clean);
-  return clean.length >= 2 && normalized !== PROMO_ONLY_TITLE && !GENERIC_DETAIL.test(clean);
+  return clean.length >= 2 && !isPromoOnlyProductPart(clean) && !GENERIC_DETAIL.test(clean);
 }
 function mergeProductParts(left: string, right: string) {
   const a = cleanProductPart(left);
