@@ -63,22 +63,45 @@
     if (price.innerHTML !== html) price.innerHTML = html;
   }
 
+  function ambiguousPriceKeys(articles, prices) {
+    const counts = new Map();
+    articles.forEach((article) => {
+      const key = normalize(article.querySelector('.sfItemName')?.textContent || '');
+      if (key) counts.set(key, Number(counts.get(key) || 0) + 1);
+    });
+    const ambiguous = new Set();
+    counts.forEach((count, key) => {
+      if (count <= 1) return;
+      const values = prices.get(key) || [];
+      const distinct = new Set(values.map((value) => Number(value).toFixed(2)));
+      if (values.length !== count || distinct.size > 1) ambiguous.add(key);
+    });
+    return ambiguous;
+  }
+
   function renderPrices() {
     const absoluteUpcoming = markUpcomingPlans();
     const prices = absolutePriceBuckets();
     let total = 0;
     let pricedCount = 0;
     const articles = [...list.querySelectorAll('.sfListItem:not(.done)')];
+    const ambiguousKeys = ambiguousPriceKeys(articles, prices);
 
     articles.forEach((article) => {
       const name = article.querySelector('.sfItemName')?.textContent || '';
-      const bucket = prices.get(normalize(name)) || [];
+      const key = normalize(name);
+      const bucket = prices.get(key) || [];
       const subtotal = Number(bucket.shift() || 0);
       const qty = quantityOf(article);
 
       if (subtotal > 0) {
         total += subtotal;
         pricedCount += 1;
+      }
+
+      if (ambiguousKeys.has(key)) {
+        syncPriceNode(article, 'sfItemPrice missing', '<strong>Viz<br>souhrn</strong>');
+      } else if (subtotal > 0) {
         const unit = qty > 1 ? subtotal / qty : 0;
         syncPriceNode(
           article,
@@ -107,7 +130,8 @@
     const complete = pricedCount === articles.length;
     const coverage = complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`;
     const timing = absoluteUpcoming ? ' · část cen začne během 7 dnů' : '';
-    const summaryHtml = `<span><b>Celkem</b><small>${coverage}${timing}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
+    const ambiguity = ambiguousKeys.size ? ' · stejné názvy bez rozpisu' : '';
+    const summaryHtml = `<span><b>Celkem</b><small>${coverage}${timing}${ambiguity}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
     if (summary.innerHTML !== summaryHtml) summary.innerHTML = summaryHtml;
   }
 
