@@ -12,6 +12,8 @@ for (const needle of [
   "const POLL_MS = 30000;",
   "const VERIFY_ATTEMPTS = 16;",
   "const VERIFY_DELAY_MS = 250;",
+  "const COMPLETION_RECOVERY_ATTEMPTS = 40;",
+  "const COMPLETION_RECOVERY_DELAY_MS = 250;",
   "if (sharedMode || !document.querySelector('.sfListLayout')) return;",
   "if (checking || verifyingCompletion || document.hidden || editingList()) return;",
   "if (requireSettled && !localIsSettled(localRows)) return { status:'pending' };",
@@ -24,10 +26,18 @@ for (const needle of [
   'persistRemoteState(state);',
   'async function verifyBeforeCompletion()',
   "if (lastState.status === 'current' || lastState.status === 'guest') return lastState;",
+  'async function recoverAfterCompletionAttempt(button)',
+  "snapshotState({ requireSettled:false })",
+  "if (button.disabled) continue;",
+  "return { status:'busy' };",
   "event.target?.closest?.('#completeShopping')",
   'event.preventDefault();',
   'event.stopImmediatePropagation();',
   'const state = await verifyBeforeCompletion();',
+  "let forwarded = false;",
+  "forwarded = true;",
+  "void recoverAfterCompletionAttempt(button).catch((error) =>",
+  "if (!completionBypass && !forwarded)",
   "if (state.status === 'mismatch')",
   "document.addEventListener('click', guardCompletionClick, true);",
   "window.addEventListener('focus', scheduleSoon);",
@@ -38,7 +48,7 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí owner cloud refresh guard: ${needle}`);
 }
 
-const runtimeUrl = 'assets/shopping-owner-cloud-refresh.js?v=20260827-2';
+const runtimeUrl = 'assets/shopping-owner-cloud-refresh.js?v=20260828-1';
 assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá aktuální owner cloud refresh runtime.');
 assert.ok(html.indexOf('assets/shopping-insights-bootstrap.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před shopping bootstrapem.');
 assert.ok(html.indexOf('assets/shopping-guest-claim-reconcile.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před guest claim reconcilerem.');
@@ -48,8 +58,8 @@ assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
-  cacheDate > 20260827 || (cacheDate === 20260827 && cacheRevision >= 20),
-  'PWA cache verze je starší než remote deletion reconcile.'
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 66),
+  'PWA cache verze je starší než completion conflict recovery.'
 );
 
 const helpersStart = source.indexOf('  const norm =');
@@ -92,7 +102,7 @@ assert.equal(context.result.deletedCount, 0, 'Serverově smazaný řádek by se 
 assert.equal(context.result.pendingCount, 1, 'Neuložený lokální řádek se při reconcile nesmí zahodit.');
 
 const verifyStart = source.indexOf('  async function verifyBeforeCompletion()');
-const verifyEnd = source.indexOf('\n  async function guardCompletionClick', verifyStart);
+const verifyEnd = source.indexOf('\n  async function recoverAfterCompletionAttempt', verifyStart);
 assert.ok(verifyStart >= 0 && verifyEnd > verifyStart, 'Completion verifier nejde izolovaně otestovat.');
 const verifyFunction = source.slice(verifyStart, verifyEnd);
 
@@ -131,5 +141,48 @@ const guest = await runVerify([{ status:'guest' }]);
 assert.equal(guest.result.status, 'guest', 'Guest nákup byl chybně blokovaný cloudovým guardem.');
 assert.equal(guest.calls, 1, 'Guest dokončení nemá čekat na cloudový stav.');
 
-console.log('Shopping owner cloud refresh and completion guard OK');
+const recoveryStart = source.indexOf('  async function recoverAfterCompletionAttempt(button)');
+const recoveryEnd = source.indexOf('\n  async function guardCompletionClick', recoveryStart);
+assert.ok(recoveryStart >= 0 && recoveryEnd > recoveryStart, 'Completion conflict recovery nejde izolovaně otestovat.');
+const recoveryFunction = source.slice(recoveryStart, recoveryEnd);
+const recoveryContext = {
+  result:null,
+  persisted:false,
+  reloaded:false,
+  toasted:false,
+  requireSettled:null,
+  Promise,
+  setTimeout(callback) { callback(); return 1; },
+};
+new Script(`
+  const COMPLETION_RECOVERY_ATTEMPTS = 3;
+  const COMPLETION_RECOVERY_DELAY_MS = 0;
+  const button = { disabled:false };
+  const document = { contains(value) { return value === button; } };
+  const window = { SlevaoPublic:{ toast(){ globalThis.toasted = true; } } };
+  const location = { reload(){ globalThis.reloaded = true; } };
+  async function snapshotState(options) {
+    globalThis.requireSettled = options?.requireSettled;
+    return { status:'mismatch', localRows:[{ server_id:'row-1' }], remoteRows:[] };
+  }
+  function persistRemoteState() { globalThis.persisted = true; }
+  ${recoveryFunction}
+  globalThis.promise = recoverAfterCompletionAttempt(button);
+`, { filename:'owner-cloud-completion-recovery.js' }).runInNewContext(recoveryContext);
+recoveryContext.result = await recoveryContext.promise;
+assert.equal(recoveryContext.result.status, 'mismatch', 'Serverový completion konflikt nebyl rozpoznán jako remote mismatch.');
+assert.equal(recoveryContext.requireSettled, false, 'Recovery po serverovém konfliktu nesmí čekat na settled local snapshot.');
+assert.equal(recoveryContext.persisted, true, 'Aktuální remote stav se po completion konfliktu neuložil lokálně.');
+assert.equal(recoveryContext.toasted, true, 'Uživatel nedostane informaci o automatické obnově seznamu.');
+assert.equal(recoveryContext.reloaded, true, 'Po completion konfliktu se stránka nenačte znovu s aktuálním stavem.');
+
+const guardStart = source.indexOf('  async function guardCompletionClick(event)');
+const guardEnd = source.indexOf('\n  function scheduleSoon()', guardStart);
+const guardBlock = source.slice(guardStart, guardEnd);
+assert.ok(guardBlock.includes('let forwarded = false;'), 'Completion guard nesleduje předání kliknutí runtime dokončení.');
+assert.ok(guardBlock.includes('forwarded = true;'), 'Completion guard neoznačí předané dokončení.');
+assert.ok(guardBlock.includes('if (!completionBypass && !forwarded)'), 'Guard po předání kliknutí stále předčasně povoluje tlačítko.');
+assert.ok(guardBlock.includes('recoverAfterCompletionAttempt(button)'), 'Po předaném dokončení se nespouští server-conflict recovery.');
+
+console.log('Shopping owner cloud refresh, completion guard and server-conflict recovery OK');
 await import('./shopping-owner-cold-sync.mjs');
