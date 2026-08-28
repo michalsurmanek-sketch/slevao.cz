@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
-const migrationPath = 'supabase/migrations/20260827215500_atomic_owner_custom_item_add.sql';
+const migrationPath = 'supabase/migrations/20260827215811_atomic_owner_custom_item_add.sql';
 const sql = readFileSync(new URL(migrationPath, root), 'utf8');
 
 for (const needle of [
