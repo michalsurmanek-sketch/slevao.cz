@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const clipboardBridge = readFileSync(new URL('assets/shopping-clipboard-share-bridge.js', root), 'utf8');
+const fallbackGuard = readFileSync(new URL('assets/shopping-share-fallback-guard.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
@@ -13,6 +14,7 @@ assert.ok(
   'Share bridge musí bezpečně fungovat i tam, kde navigator není dostupný.'
 );
 new Script(clipboardBridge, { filename:'assets/shopping-clipboard-share-bridge.js' });
+new Script(fallbackGuard, { filename:'assets/shopping-share-fallback-guard.js' });
 
 const functionStart = bootstrap.indexOf('  function installShareBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
@@ -126,16 +128,95 @@ assert.equal(clipboardCalls[1], ordinaryClipboard, 'Clipboard bridge nesmí měn
 new Script(clipboardBridge, { filename:'shopping-clipboard-share-second-install.js' }).runInNewContext(clipboardContext);
 assert.equal(clipboard.writeText, firstClipboardWrapper, 'Druhá instalace nesmí znovu obalit clipboard.writeText.');
 
+const failedNativeCalls = [];
+const failedClipboardCalls = [];
+const failedNavigator = {
+  clipboard: {
+    async writeText(value) {
+      failedClipboardCalls.push(value);
+    },
+  },
+  async share(value) {
+    failedNativeCalls.push(value);
+    const error = new Error('System share blocked');
+    error.name = 'NotAllowedError';
+    throw error;
+  },
+};
+const failedContext = {
+  navigator: failedNavigator,
+  document,
+  String,
+  Number,
+  Object,
+  Array,
+  Intl,
+  URL,
+  URLSearchParams,
+};
+new Script(clipboardBridge, { filename:'shopping-failed-share-clipboard-bridge.js' }).runInNewContext(failedContext);
+new Script(`${bridgeFunction}\ninstallShareBridge();`, { filename:'shopping-failed-share-format-bridge.js' }).runInNewContext(failedContext);
+new Script(fallbackGuard, { filename:'shopping-failed-share-fallback-guard.js' }).runInNewContext(failedContext);
+await failedNavigator.share({ title:'Nákupní seznam Slevao.cz', text:'Původní text', url });
+assert.equal(failedNativeCalls.length, 1, 'Selhaný systémový share se má zkusit právě jednou.');
+assert.equal(failedClipboardCalls.length, 1, 'Po selhání systémového share se má použít clipboard právě jednou.');
+assert.match(failedClipboardCalls[0], /^Nákupní seznam Slevao\.cz\n2 položky · 3 kusy\n\n/);
+assert.ok(failedClipboardCalls[0].includes(`Společný seznam:\n${url}`), 'Fallback po selhání share musí zachovat společný odkaz.');
+assert.equal(failedClipboardCalls[0].split(url).length - 1, 1, 'Fallback po selhání share nesmí duplikovat URL.');
+
+const abortClipboardCalls = [];
+const abortNavigator = {
+  clipboard: {
+    async writeText(value) {
+      abortClipboardCalls.push(value);
+    },
+  },
+  async share() {
+    const error = new Error('Cancelled');
+    error.name = 'AbortError';
+    throw error;
+  },
+};
+const abortContext = {
+  navigator: abortNavigator,
+  document,
+  String,
+  Number,
+  Object,
+  Array,
+  Intl,
+  URL,
+  URLSearchParams,
+};
+new Script(clipboardBridge, { filename:'shopping-abort-clipboard-bridge.js' }).runInNewContext(abortContext);
+new Script(`${bridgeFunction}\ninstallShareBridge();`, { filename:'shopping-abort-share-format-bridge.js' }).runInNewContext(abortContext);
+new Script(fallbackGuard, { filename:'shopping-abort-share-fallback-guard.js' }).runInNewContext(abortContext);
+await assert.rejects(
+  abortNavigator.share({ title:'Nákupní seznam Slevao.cz', text:'Původní text', url }),
+  (error) => error?.name === 'AbortError'
+);
+assert.equal(abortClipboardCalls.length, 0, 'Uživatelské zrušení share dialogu nesmí nic kopírovat.');
+
 for (const needle of [
   "navigator.clipboard.__slevaoShoppingShareClipboardBridge",
   "hash.get('share') || url.searchParams.get('share')",
   "return /\\/seznam(?:\\.html)?$/i.test(url.pathname) && Boolean(token);",
 ]) assert.ok(clipboardBridge.includes(needle), `Chybí clipboard share kontrakt: ${needle}`);
+for (const needle of [
+  "navigator.__slevaoShoppingShareFallbackGuard",
+  "if (error?.name === 'AbortError') throw error;",
+  "const fallback = String(data?.url || data?.text || '').trim();",
+  'await navigator.clipboard.writeText(fallback);',
+]) assert.ok(fallbackGuard.includes(needle), `Chybí share fallback kontrakt: ${needle}`);
 
 const clipboardUrl = html.match(/assets\/shopping-clipboard-share-bridge\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
+const fallbackUrl = html.match(/assets\/shopping-share-fallback-guard\.js\?v=[^"']+/)?.[0] || '';
 assert.match(clipboardUrl, /^assets\/shopping-clipboard-share-bridge\.js\?v=20260828-[0-9]+$/);
+assert.match(fallbackUrl, /^assets\/shopping-share-fallback-guard\.js\?v=20260828-[0-9]+$/);
 assert.ok(html.indexOf(clipboardUrl) < html.indexOf(bootstrapUrl), 'Clipboard share bridge musí běžet před bootstrapem seznamu.');
+assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(fallbackUrl), 'Share fallback guard musí běžet až po Web Share bridge bootstrapu.');
 assert.ok(worker.includes(`'/${clipboardUrl}'`), 'PWA necachuje clipboard share bridge.');
+assert.ok(worker.includes(`'/${fallbackUrl}'`), 'PWA necachuje share fallback guard.');
 
 console.log('Shopping share format OK');
