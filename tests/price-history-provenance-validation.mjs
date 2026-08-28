@@ -25,3 +25,4 @@ assert.ok(
 );
 
 console.log('Price history provenance backfill/validation contract OK');
+await import('./globus-full-payload-fast-path.mjs');
