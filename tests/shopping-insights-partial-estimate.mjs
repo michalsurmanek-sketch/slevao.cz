@@ -8,7 +8,8 @@ for (const needle of [
   'const unpricedCount = Math.max(0, metrics.itemCount - metrics.linkedCount);',
   'Z nalezených cen zbývá do rozpočtu přibližně',
   'Rozpočet je překročen nejméně o',
-  'Odhad ${money(metrics.total)} Kč zahrnuje cenu u ${metrics.linkedCount} z ${metrics.itemCount} položek',
+  'const completionMetrics = await calculateRows(selection.rows);',
+  'Odhad ${money(completionMetrics.total)} Kč zahrnuje cenu u ${completionMetrics.linkedCount} z ${completionMetrics.itemCount} položek',
   'const pricedCount = purchaseItems.filter((item) => item?.subtotal != null).length;',
   "const completeness = itemCount > 0 && pricedCount < itemCount ? ` · oceněno ${pricedCount}/${itemCount}` : '';",
 ]) {
