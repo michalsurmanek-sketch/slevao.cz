@@ -19,6 +19,17 @@ for (const needle of [
   if (!source.includes(needle)) throw new Error(`Missing Kaufland rollover safety guard: ${needle}`);
 }
 
+for (const needle of [
+  "const PARSER_REV = 'kaufland-title-v10'",
+  "const PROMO_ONLY_TITLE = 'tvoje cena s kaufland card'",
+  ".replace(/\\bTvoje cena s Kaufland Card\\b/gi, ' ')",
+  "normalized !== PROMO_ONLY_TITLE",
+  "return meaningful(value) ? value : ''",
+  "const meaningfulCount = current.filter((row) => row.klNr && meaningful(row.productTitle)).length",
+]) {
+  if (!source.includes(needle)) throw new Error(`Missing Kaufland promo-title safety guard: ${needle}`);
+}
+
 for (const forbidden of [
   /healthyMinimum\s*=\s*Math\.max\(50,\s*Math\.floor\(previousCount\s*\*\s*0\.9\)\)/,
   /products\.length\s*<\s*Math\.floor\(previousCount\s*\*\s*0\.6\)/,
@@ -37,4 +48,4 @@ if (!source.includes("v_published < greatest(50")) {
   // This guard lives in the SQL publisher, not this Edge source. Keep this comment explicit so the test does not imply otherwise.
 }
 
-console.log('Kaufland live rollover baseline guard OK');
+console.log('Kaufland live rollover and promo-title guards OK');
