@@ -1,13 +1,21 @@
 (() => {
   'use strict';
+  const LIST_KEY = 'slevao-shopping-list-v1';
   const list = document.getElementById('listItems');
   const optimizer = document.getElementById('optimizer');
   if (!list || !optimizer) return;
 
+  const sharedQuery = new URLSearchParams(location.search);
+  const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const sharedMode = Boolean(sharedQuery.get('share') || sharedHash.get('share'));
   const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const parseMoney = (value) => Number(String(value || '').replace(/\s/g, '').replace(',', '.').replace(/[^0-9.-]/g, '')) || 0;
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Kč';
   const itemLabel = (count) => count === 1 ? 'položku' : (count >= 2 && count <= 4 ? 'položky' : 'položek');
+  const safeUnit = (value) => {
+    const raw = String(value || '').trim().toLowerCase();
+    return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';
+  };
 
   function absoluteBox() {
     const boxes = [...optimizer.querySelectorAll('.sfResultBox')];
@@ -48,16 +56,34 @@
     return map;
   }
 
+  function localUnitMap() {
+    const map = new Map();
+    if (sharedMode) return map;
+    try {
+      const rows = JSON.parse(localStorage.getItem(LIST_KEY) || '[]');
+      if (!Array.isArray(rows)) return map;
+      rows.forEach((row) => {
+        const unit = safeUnit(row?.unit);
+        if (!unit) return;
+        const localId = String(row?.local_id || '').trim();
+        const serverId = String(row?.server_id || '').trim();
+        if (localId) map.set(localId, unit);
+        if (serverId) map.set(serverId, unit);
+      });
+    } catch {}
+    return map;
+  }
+
   function quantityOf(article) {
     const value = Number(article.querySelector('[data-quantity]')?.value || 1);
     return Number.isFinite(value) && value > 0 ? value : 1;
   }
 
-  function unitLabel(article) {
+  function unitLabel(article, units) {
     const quantityInput = article.querySelector('[data-quantity]');
-    const raw = String(quantityInput?.dataset?.unit || article?.dataset?.unit || '').trim().toLowerCase();
-    if (!raw) return '';
-    return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';
+    const direct = safeUnit(quantityInput?.dataset?.unit || article?.dataset?.unit || '');
+    if (direct) return direct;
+    return safeUnit(units?.get(String(article?.dataset?.id || '').trim()) || '');
   }
 
   function syncPriceNode(article, className, html) {
@@ -89,6 +115,7 @@
   function renderPrices() {
     const absoluteUpcoming = markUpcomingPlans();
     const prices = absolutePriceBuckets();
+    const units = localUnitMap();
     let total = 0;
     let pricedCount = 0;
     const articles = [...list.querySelectorAll('.sfListItem:not(.done)')];
@@ -110,7 +137,7 @@
         syncPriceNode(article, 'sfItemPrice missing', '<strong>Viz<br>souhrn</strong>');
       } else if (subtotal > 0) {
         const unit = qty > 1 ? subtotal / qty : 0;
-        const label = unitLabel(article);
+        const label = unitLabel(article, units);
         syncPriceNode(
           article,
           'sfItemPrice',
