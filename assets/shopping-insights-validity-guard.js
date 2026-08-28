@@ -48,19 +48,18 @@
   }
 
   function install() {
-    if (installed) return;
-    if (!sync()) return;
+    if (installed) return true;
+    if (!sync()) return false;
     installed = true;
     const hint = document.getElementById('shoppingInsightsHint');
-    if (!hint) return;
-    new MutationObserver(() => sync()).observe(hint, { childList:true, subtree:true, characterData:true });
+    if (hint) new MutationObserver(() => sync()).observe(hint, { childList:true, subtree:true, characterData:true });
+    return true;
   }
 
   if (!install()) {
     const observer = new MutationObserver(() => {
       if (!document.getElementById('shoppingInsights')) return;
-      install();
-      if (installed) observer.disconnect();
+      if (install()) observer.disconnect();
     });
     observer.observe(document.documentElement, { childList:true, subtree:true });
   }
