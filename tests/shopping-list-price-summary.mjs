@@ -4,6 +4,10 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-list-price-summary.js', root), 'utf8');
+const mobileCss = readFileSync(new URL('assets/mobile-optimizer-compact.css', root), 'utf8');
+const html = readFileSync(new URL('seznam.html', root), 'utf8');
+
+new Script(source, { filename:'assets/shopping-list-price-summary.js' });
 
 const functionStart = source.indexOf('  function absolutePriceBuckets()');
 const functionEnd = source.indexOf('\n  function quantityOf(', functionStart);
@@ -11,8 +15,10 @@ assert.ok(functionStart >= 0 && functionEnd > functionStart, 'Price bucket funkc
 const bucketFunction = source.slice(functionStart, functionEnd);
 
 const absoluteBox = {
+  classList:{ toggle() {} },
   querySelector(selector) {
     if (selector === 'h3') return { textContent:'Absolutně nejnižší cena' };
+    if (selector === '.sfMuted') return { textContent:'Nejnižší cena každé nalezené položky. 1 položek používá akci začínající během příštích 7 dnů.' };
     return null;
   },
   querySelectorAll(selector) {
@@ -30,7 +36,7 @@ const optimizer = {
   querySelectorAll(selector) {
     assert.equal(selector, '.sfResultBox');
     return [
-      { querySelector: () => ({ textContent:'Vše v jednom obchodě' }) },
+      { classList:{ toggle() {} }, querySelector: () => ({ textContent:'Vše v jednom obchodě' }) },
       absoluteBox,
     ];
   },
@@ -40,17 +46,39 @@ const context = { optimizer, Map, String, Number };
 new Script(`
   const normalize = (value) => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
   const parseMoney = (value) => Number(String(value || '').replace(/\\s/g, '').replace(',', '.').replace(/[^0-9.-]/g, '')) || 0;
+  function absoluteBox() {
+    const boxes = [...optimizer.querySelectorAll('.sfResultBox')];
+    return boxes.find((box) => normalize(box.querySelector('h3')?.textContent) === 'absolutne nejnizsi cena') || boxes[1] || null;
+  }
+  function boxUsesUpcomingPrice(box) {
+    const note = normalize(box?.querySelector('.sfMuted')?.textContent);
+    return note.includes('pouziva akci zacinajici');
+  }
   ${bucketFunction}
   const buckets = absolutePriceBuckets();
   globalThis.milk = buckets.get('mleko');
   globalThis.bread = buckets.get('chleb');
+  globalThis.upcoming = boxUsesUpcomingPrice(absoluteBox());
 `, { filename:'shopping-list-price-buckets-test.js' }).runInNewContext(context);
 
 assert.deepEqual(Array.from(context.milk || []), [20, 40], 'Stejnojmenné položky nesmí přepsat předchozí cenu.');
 assert.deepEqual(Array.from(context.bread || []), [35], 'Jedinečná položka má mít právě jednu cenu.');
+assert.equal(context.upcoming, true, 'Budoucí akce v absolutním plánu není rozpoznaná.');
 
-assert.ok(source.includes("const bucket = prices.get(normalize(name)) || [];"), 'Render musí číst cenový bucket podle názvu.');
-assert.ok(source.includes('const subtotal = Number(bucket.shift() || 0);'), 'Každá cena se musí použít maximálně jednou.');
-assert.ok(source.includes("count >= 2 && count <= 4 ? 'položky' : 'položek'"), 'Souhrn musí správně skloňovat 5+ položek.');
+for (const needle of [
+  'function markUpcomingPlans()',
+  "box.classList.toggle('hasUpcomingPrice', upcoming);",
+  "const timing = absoluteUpcoming ? ' · část cen začne během 7 dnů' : '';",
+  "const bucket = prices.get(normalize(name)) || [];",
+  'const subtotal = Number(bucket.shift() || 0);',
+  "count >= 2 && count <= 4 ? 'položky' : 'položek'",
+]) {
+  assert.ok(source.includes(needle), `Chybí cenový timing kontrakt: ${needle}`);
+}
 
-console.log('Shopping list price summary duplicate handling OK');
+assert.ok(mobileCss.includes('#optimizer .sfResultBox.hasUpcomingPrice::after'), 'Mobilní optimizer neukazuje kompaktní upozornění na budoucí cenu.');
+assert.ok(mobileCss.includes('Část cen začne během 7 dnů'), 'Mobilní upozornění na budoucí cenu nemá srozumitelný text.');
+assert.ok(html.includes('assets/mobile-optimizer-compact.css?v=20260828-1'), 'seznam.html nenačítá aktuální mobilní timing CSS.');
+assert.ok(html.includes('assets/shopping-list-price-summary.js?v=20260828-1'), 'seznam.html nenačítá aktuální cenový timing runtime.');
+
+console.log('Shopping list price summary and upcoming timing labels OK');
