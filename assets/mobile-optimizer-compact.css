@@ -44,6 +44,21 @@
     display:none;
   }
 
+  #optimizer .sfResultBox.hasUpcomingPrice::after{
+    content:"Část cen začne během 7 dnů";
+    grid-column:1 / -1;
+    justify-self:start;
+    padding:3px 6px;
+    border:1px solid #ead9a8;
+    border-radius:999px;
+    background:#fff8e6;
+    color:#6f5716;
+    font-size:9px;
+    line-height:1.1;
+    font-weight:750;
+    white-space:nowrap;
+  }
+
   #optimizer .sfStoreTags{
     grid-area:stores;
     min-width:0;
