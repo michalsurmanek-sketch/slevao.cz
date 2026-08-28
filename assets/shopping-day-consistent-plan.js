@@ -202,6 +202,20 @@
     if (box.innerHTML !== html) box.innerHTML = html;
   }
 
+  function commitResult(signature, html) {
+    lastSignature = signature;
+    lastRefreshAt = Date.now();
+    lastHtml = html;
+    renderCard(lastHtml);
+  }
+
+  function clearFailedResult() {
+    lastSignature = '';
+    lastRefreshAt = 0;
+    lastHtml = '';
+    renderCard('');
+  }
+
   async function refresh({ force = false } = {}) {
     if (refreshing) {
       rerunRequested = true;
@@ -218,11 +232,8 @@
         renderCard(lastHtml);
         return;
       }
-      lastSignature = signature;
-      lastRefreshAt = Date.now();
       if (!activeRows.length) {
-        lastHtml = '';
-        renderCard('');
+        commitResult(signature, '');
         return;
       }
 
@@ -232,14 +243,13 @@
         return false;
       }));
       if (!priceable.length) {
-        lastHtml = '';
-        renderCard('');
+        commitResult(signature, '');
         return;
       }
       const plan = bestDayPlan(priceable, offerLists, today);
-      lastHtml = plan ? planHtml(plan, priceable.length, activeRows.length) : '';
-      renderCard(lastHtml);
+      commitResult(signature, plan ? planHtml(plan, priceable.length, activeRows.length) : '');
     } catch (error) {
+      clearFailedResult();
       console.debug('Day-consistent shopping plan failed:', error);
     } finally {
       refreshing = false;
