@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="cs">
+<html lang="cs" class="slevaoHomeBooting">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -17,6 +17,16 @@
   <meta property="og:url" content="https://slevao.cz/">
   <meta name="twitter:card" content="summary">
   <title>Slevao.cz – najdi, kde dnes nakoupíš nejlevněji</title>
+  <style id="slevaoHomeBootStyle">
+    html.slevaoHomeBooting body{visibility:hidden}
+  </style>
+  <script>
+    (() => {
+      const reveal = () => document.documentElement.classList.remove('slevaoHomeBooting');
+      window.addEventListener('load', () => requestAnimationFrame(reveal), { once:true });
+      window.setTimeout(reveal, 2000);
+    })();
+  </script>
   <link rel="stylesheet" href="assets/home-v2.css?v=20260815-9">
   <link rel="stylesheet" href="assets/home-redesign-step1.css?v=20260802-2">
   <link rel="stylesheet" href="assets/home-redesign-step2.css?v=20260808-3">
@@ -75,8 +85,8 @@
             <p>Porovnej ceny a nakup nejlevněji.</p>
             <div class="heroStats">
               <span id="statusPill" class="statusPill">Aktualizováno</span>
-              <span><span class="heroStatCopy"><span class="heroStatLabel">Aktuálních nabídek</span><b id="offerCount" class="heroStatValue">0</b></span></span>
-              <span><span class="heroStatCopy"><span class="heroStatLabel">Obchodů</span><b id="storeCount" class="heroStatValue">0</b></span></span>
+              <span><span class="heroStatCopy"><span class="heroStatLabel">Aktuálních nabídek</span><b id="offerCount" class="heroStatValue">…</b></span></span>
+              <span><span class="heroStatCopy"><span class="heroStatLabel">Obchodů</span><b id="storeCount" class="heroStatValue">…</b></span></span>
             </div>
           </div>
           <div class="heroArtwork" aria-hidden="true"></div>
