@@ -14,11 +14,43 @@ async function openHomepage(page) {
 }
 
 async function expectNoHorizontalOverflow(page) {
-  const metrics = await page.evaluate(() => ({
-    viewport: window.innerWidth,
-    html: document.documentElement.scrollWidth,
-    body: document.body.scrollWidth
-  }));
+  const metrics = await page.evaluate(() => {
+    const viewport = window.innerWidth;
+    const offenders = Array.from(document.querySelectorAll('body *'))
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const rightOverflow = Math.max(0, rect.right - viewport);
+        const leftOverflow = Math.max(0, -rect.left);
+        return {
+          tag: element.tagName.toLowerCase(),
+          id: element.id || '',
+          className: typeof element.className === 'string' ? element.className.trim().replace(/\s+/g, '.') : '',
+          left: Number(rect.left.toFixed(1)),
+          right: Number(rect.right.toFixed(1)),
+          width: Number(rect.width.toFixed(1)),
+          scrollWidth: element.scrollWidth,
+          clientWidth: element.clientWidth,
+          position: style.position,
+          overflowX: style.overflowX,
+          cssWidth: style.width,
+          minWidth: style.minWidth,
+          marginLeft: style.marginLeft,
+          marginRight: style.marginRight,
+          excess: Number(Math.max(rightOverflow, leftOverflow).toFixed(1))
+        };
+      })
+      .filter((entry) => entry.excess > 1 && entry.width > 0)
+      .sort((a, b) => b.excess - a.excess)
+      .slice(0, 15);
+
+    return {
+      viewport,
+      html: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth,
+      offenders
+    };
+  });
   expect(metrics.html, `html overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
   expect(metrics.body, `body overflow: ${JSON.stringify(metrics)}`).toBeLessThanOrEqual(metrics.viewport + 1);
 }
