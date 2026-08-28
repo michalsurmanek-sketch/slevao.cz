@@ -4,11 +4,13 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-route-freshness.js', root), 'utf8');
+const autostart = readFileSync(new URL('assets/shopping-route-autostart.js', root), 'utf8');
 const css = readFileSync(new URL('assets/shopping-route-freshness.css', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(source, { filename:'assets/shopping-route-freshness.js' });
+new Script(autostart, { filename:'assets/shopping-route-autostart.js' });
 
 for (const needle of [
   'const STALE_MS = 5 * 60 * 1000;',
@@ -19,6 +21,13 @@ for (const needle of [
   'staleTimer = window.setTimeout(() => markStale(results, routeNode), STALE_MS);',
   "resultObserver.observe(results, { childList:true });",
 ]) assert.ok(source.includes(needle), `Chybí route freshness kontrakt: ${needle}`);
+
+for (const needle of [
+  'function ownerGateReady()',
+  'script[src*="shopping-insights-bootstrap.js"]',
+  'script[src*="shopping-list.js"]',
+  'if (!ownerGateReady()) return false;',
+]) assert.ok(autostart.includes(needle), `Chybí auth-owner gate route autostartu: ${needle}`);
 
 assert.ok(!source.includes('.click('), 'Freshness guard nesmí automaticky přepočítávat trasu.');
 assert.ok(!source.includes('getPosition'), 'Freshness guard nesmí sám žádat GPS polohu.');
@@ -84,9 +93,61 @@ assert.equal(timeoutMs, 300000, 'Nový výpočet musí znovu založit pětiminut
 
 const cssUrl = html.match(/assets\/shopping-route-freshness\.css\?v=[^"']+/)?.[0] || '';
 const jsUrl = html.match(/assets\/shopping-route-freshness\.js\?v=[^"']+/)?.[0] || '';
+const autostartUrl = html.match(/assets\/shopping-route-autostart\.js\?v=[^"']+/)?.[0] || '';
 assert.match(cssUrl, /^assets\/shopping-route-freshness\.css\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný route freshness CSS.');
 assert.match(jsUrl, /^assets\/shopping-route-freshness\.js\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný route freshness runtime.');
+assert.ok(autostartUrl, 'HTML nenačítá route autostart runtime.');
 assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA nemá stejnou route freshness CSS verzi jako HTML.');
 assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA nemá stejnou route freshness JS verzi jako HTML.');
+assert.ok(worker.includes(`'/${autostartUrl}'`), 'PWA nemá stejnou route autostart verzi jako HTML.');
 
-console.log('Shopping route becomes visibly stale after five minutes without automatic GPS recalculation');
+let listGateReady = false;
+let autostartInterval = null;
+let routeClicks = 0;
+let routeStatus = '';
+const routeButton = {
+  disabled:false,
+  click() { routeClicks += 1; },
+};
+const routeStatusNode = {
+  set textContent(value) { routeStatus = String(value); },
+  get textContent() { return routeStatus; },
+};
+const autostartContext = {
+  localStorage:{ getItem() { return null; } },
+  location:{ search:'?route=1' },
+  URLSearchParams,
+  JSON,
+  Number,
+  String,
+  Boolean,
+  document:{
+    readyState:'complete',
+    addEventListener() {},
+    querySelector(selector) {
+      if (selector.includes('shopping-insights-bootstrap.js')) return {};
+      if (selector.includes('shopping-list.js')) return listGateReady ? {} : null;
+      return null;
+    },
+    getElementById(id) {
+      if (id === 'srCalculate') return routeButton;
+      if (id === 'srStatus') return routeStatusNode;
+      return null;
+    },
+  },
+  window:{
+    setInterval(callback) { autostartInterval = callback; return 1; },
+    clearInterval() {},
+    setTimeout(callback) { callback(); return 1; },
+  },
+};
+new Script(autostart, { filename:'shopping-route-autostart-runtime.js' }).runInNewContext(autostartContext);
+assert.equal(typeof autostartInterval, 'function', 'Route autostart nezaložil čekání na připravený runtime.');
+autostartInterval();
+assert.equal(routeClicks, 0, 'Route autostart klikl před dokončením auth-owner gate.');
+listGateReady = true;
+autostartInterval();
+assert.equal(routeClicks, 1, 'Route autostart se nespustil po dokončení auth-owner gate.');
+assert.match(routeStatus, /připravuji GPS trasu/i, 'Route autostart po odemčení gate neaktualizoval stav.');
+
+console.log('Shopping route becomes visibly stale after five minutes and autostart waits for auth-owner readiness');
