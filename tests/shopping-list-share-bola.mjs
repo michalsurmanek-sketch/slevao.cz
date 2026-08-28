@@ -1,9 +1,12 @@
 import fs from 'node:fs';
 
-const path = 'supabase/migrations/20260818203243_fix_shopping_list_share_update_bola.sql';
-if (!fs.existsSync(path)) throw new Error(`Missing migration: ${path}`);
-const sql = fs.readFileSync(path, 'utf8');
+const bolaPath = 'supabase/migrations/20260818203243_fix_shopping_list_share_update_bola.sql';
+const serializationPath = 'supabase/migrations/20260828152611_serialize_shopping_list_share_creation.sql';
+for (const path of [bolaPath, serializationPath]) {
+  if (!fs.existsSync(path)) throw new Error(`Missing migration: ${path}`);
+}
 
+const sql = fs.readFileSync(bolaPath, 'utf8');
 for (const needle of [
   "policyname='shopping_list_shares_owner_update'",
   'drop policy if exists shopping_list_shares_owner_update on public.shopping_list_shares;',
@@ -36,4 +39,34 @@ for (const forbidden of [
   if (forbidden.test(sql)) throw new Error(`BOLA migration contains forbidden behavior: ${forbidden}`);
 }
 
-console.log('Shopping list share update ownership policy OK');
+const serialization = fs.readFileSync(serializationPath, 'utf8');
+for (const needle of [
+  'create unique index if not exists shopping_list_shares_one_active_per_list_idx',
+  'on public.shopping_list_shares (shopping_list_id)',
+  'where revoked_at is null',
+  'create or replace function public.create_shopping_list_share',
+  'and user_id = v_user',
+  'and is_archived = false',
+  'for update',
+  'set revoked_at = now()',
+  'where shopping_list_id = p_list_id',
+  'and revoked_at is null',
+  "encode(extensions.gen_random_bytes(24), 'hex')",
+  "encode(extensions.digest(v_token, 'sha256'), 'hex')",
+  'revoke all on function public.create_shopping_list_share(uuid,text,integer) from public, anon',
+  'grant execute on function public.create_shopping_list_share(uuid,text,integer) to authenticated, service_role'
+]) {
+  if (!serialization.toLowerCase().includes(needle.toLowerCase())) throw new Error(`Missing serialized share creation guard: ${needle}`);
+}
+
+const lockPos = serialization.toLowerCase().indexOf('for update');
+const revokePos = serialization.toLowerCase().indexOf('set revoked_at = now()');
+const insertPos = serialization.toLowerCase().indexOf('insert into public.shopping_list_shares');
+if (!(lockPos >= 0 && revokePos > lockPos && insertPos > revokePos)) {
+  throw new Error('Share creation must lock the owned list, revoke active shares, then insert the replacement token.');
+}
+if (/grant\s+execute[\s\S]*\b(?:public|anon)\b/i.test(serialization)) {
+  throw new Error('Anonymous/public role must not execute create_shopping_list_share.');
+}
+
+console.log('Shopping list share BOLA and serialized replacement token guards OK');
