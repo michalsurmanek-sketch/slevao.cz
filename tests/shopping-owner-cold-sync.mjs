@@ -130,7 +130,8 @@ for (const needle of [
 const coldUrl = html.match(/assets\/shopping-owner-cold-sync\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(coldUrl, 'assets/shopping-owner-cold-sync.js?v=20260828-1', 'seznam.html nemá očekávanou cold-sync verzi.');
-assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-6', 'seznam.html nemá očekávanou bootstrap verzi pro cold sync.');
+const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
+assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
 assert.ok(html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(coldUrl), 'Cold sync se načítá před owner-storage bridge.');
 assert.ok(html.indexOf(coldUrl) < html.indexOf(bootstrapUrl), 'Cold sync se načítá až po shopping bootstrapu.');
 assert.ok(worker.includes(`'/${coldUrl}'`), 'PWA necachuje přesný cold-sync runtime ze seznam.html.');
