@@ -4,10 +4,12 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-day-consistent-plan.js', root), 'utf8');
+const insightGuard = readFileSync(new URL('assets/shopping-insights-validity-guard.js', root), 'utf8');
 const mobileCss = readFileSync(new URL('assets/mobile-optimizer-compact.css', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-day-consistent-plan.js' });
+new Script(insightGuard, { filename:'assets/shopping-insights-validity-guard.js' });
 
 for (const needle of [
   'function validOn(offer, dateKey)',
@@ -109,15 +111,35 @@ for (const needle of [
   'display:inline-flex;',
 ]) assert.ok(mobileCss.includes(needle), `Mobilní přesný plán neudrží datum viditelné: ${needle}`);
 
+for (const needle of [
+  "totalLabel.textContent !== '7denní odhad'",
+  '7denní odhad může kombinovat ceny z různých dnů',
+  'Dokončit nákup a uložit orientační odhad',
+  'Uložená částka je plánovaný odhad nákupu, ne skutečná účtenka.',
+  'function hasMixedTiming(text)',
+  "return normalized.includes('pouziva akci zacinajici');",
+]) assert.ok(insightGuard.includes(needle), `Insights mixed-date guard neříká pravdivě význam odhadu: ${needle}`);
+
+const timingStart = insightGuard.indexOf('  function hasMixedTiming(text)');
+const timingEnd = insightGuard.indexOf('\n  function sync()', timingStart);
+assert.ok(timingStart >= 0 && timingEnd > timingStart, 'Insights timing guard nejde izolovaně otestovat.');
+const timingContext = { String };
+new Script(`${insightGuard.slice(timingStart, timingEnd)}\nglobalThis.mixed = hasMixedTiming('1 položka používá akci začínající během příštích sedmi dnů.');\nglobalThis.current = hasMixedTiming('Všechny položky mají nalezenou cenu.');`, { filename:'shopping-insight-timing-test.js' }).runInNewContext(timingContext);
+assert.equal(timingContext.mixed, true, 'Budoucí akce se neoznačí jako mixed-date orientační odhad.');
+assert.equal(timingContext.current, false, 'Čistě aktuální odhad se chybně označí jako mixed-date.');
+
 const plannerUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']+/)?.[0] || '';
 const summaryUrl = html.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0] || '';
 const mobileCssUrl = html.match(/assets\/mobile-optimizer-compact\.css\?v=[^"']+/)?.[0] || '';
+const insightGuardUrl = html.match(/assets\/shopping-insights-validity-guard\.js\?v=[^"']+/)?.[0] || '';
 assert.match(plannerUrl, /^assets\/shopping-day-consistent-plan\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný day-consistent planner.');
 assert.match(summaryUrl, /^assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný price summary.');
 assert.match(mobileCssUrl, /^assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný mobilní optimizer CSS.');
+assert.match(insightGuardUrl, /^assets\/shopping-insights-validity-guard\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá mixed-date insights guard.');
 assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent planner se musí načíst před price-summary runtime.');
 assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
 assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
 assert.ok(worker.includes(`'/${mobileCssUrl}'`), 'PWA necachuje přesný mobilní optimizer CSS ze seznam.html.');
+assert.ok(worker.includes(`'/${insightGuardUrl}'`), 'PWA necachuje mixed-date insights guard ze seznam.html.');
 
-console.log('Day-consistent shopping planner, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');
+console.log('Day-consistent shopping planner, mixed-date insight semantics, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');
