@@ -1,0 +1,22 @@
+@media (max-width:720px){
+  #optimizer .sfResultBox[hidden]{
+    display:none!important;
+  }
+
+  #shoppingLegacyPlansToggle{
+    width:100%;
+    min-height:36px;
+    margin:0;
+    padding:0 11px;
+    border:1px solid #d8e7e4;
+    border-radius:12px;
+    background:#fff;
+    color:#334a47;
+    font:800 10.5px/1 system-ui,sans-serif;
+    cursor:pointer;
+  }
+
+  #shoppingLegacyPlansToggle[aria-expanded="true"]{
+    background:#f6faf9;
+  }
+}
