@@ -4,6 +4,8 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-budget-concurrency.js', root), 'utf8');
+const html = readFileSync(new URL('seznam.html', root), 'utf8');
+const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-budget-concurrency.js' });
 
 let remote = {
@@ -136,5 +138,13 @@ for (const needle of [
 
 assert.equal(typeof listeners.get('change:true'), 'function', 'Guard neposlouchá change v capture fázi.');
 assert.equal(typeof listeners.get('blur:true'), 'function', 'Guard neposlouchá blur v capture fázi.');
+
+const guardUrl = html.match(/assets\/shopping-budget-concurrency\.js\?v=[^"']+/)?.[0] || '';
+const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
+assert.match(guardUrl, /^assets\/shopping-budget-concurrency\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný budget concurrency guard.');
+assert.ok(bootstrapUrl, 'seznam.html nemá shopping insights bootstrap.');
+assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
+assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
+assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-57'/, 'PWA shell nebyl po přidání budget guardu posunut na verzi 57.');
 
 console.log('Shopping budget concurrency guard OK');
