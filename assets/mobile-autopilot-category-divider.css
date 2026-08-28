@@ -1,9 +1,9 @@
-/* Mobilní předěl mezi Nákupním autopilotem a kategoriemi – rozměry a čárky stejné jako horní předěly. */
+/* Mobilní předěl mezi Nákupním autopilotem a kategoriemi – velikost a čárky podle horních předělů. */
 @media(max-width:800px){
   html body main#top #categoriesSection{
     position:relative!important;
     margin-top:38px!important;
-    padding-top:26px!important;
+    padding-top:20px!important;
     overflow:visible!important;
     border-top:0!important;
   }
@@ -26,18 +26,20 @@
     position:absolute!important;
     z-index:7!important;
     left:50%!important;
-    top:-24px!important;
-    width:48px!important;
-    height:48px!important;
+    top:-14px!important;
+    width:28px!important;
+    height:28px!important;
+    min-width:28px!important;
+    min-height:28px!important;
     display:grid!important;
     place-items:center!important;
     border:0!important;
     border-radius:50%!important;
     background:linear-gradient(145deg,#20b8ad,#079b91)!important;
     color:#fff!important;
-    box-shadow:0 7px 18px rgba(8,127,118,.18)!important;
+    box-shadow:0 5px 14px rgba(8,127,118,.18)!important;
     font-family:Arial,sans-serif!important;
-    font-size:20px!important;
+    font-size:13px!important;
     font-weight:700!important;
     line-height:1!important;
     transform:translateX(-50%)!important;
