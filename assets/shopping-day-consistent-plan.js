@@ -185,7 +185,7 @@
     const coverage = pricedCount === totalCount
       ? `Všechny uvedené ceny platí současně ${date}.`
       : `Ceny platí současně ${date} · nalezeno u ${pricedCount} z ${totalCount} položek.`;
-    return `<h3>Nejlevnější nákup v jeden den</h3><div class="sfResultPrice">${money(plan.total)} Kč</div><span class="sfDayPlanDate">Platí společně ${esc(date)}</span><div class="sfStoreTags">${tags}</div><p class="sfMuted">${esc(coverage)}</p>`;
+    return `<h3>Nejlevnější nákup v jeden den</h3><div class="sfResultPrice">${money(plan.total)} Kč</div><span class="sfDayPlanDate" data-plan-date="${esc(plan.dateKey)}">Platí společně ${esc(date)}</span><div class="sfStoreTags">${tags}</div><p class="sfMuted">${esc(coverage)}</p>`;
   }
 
   function renderCard(html) {
