@@ -115,6 +115,7 @@ for (const needle of [
   'const units = localUnitMap();',
   'const label = unitLabel(article, units);',
   'qty > 1 && label ? `<small>${money(unit)} / ${label}</small>` :',
+  "const timing = absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '';",
   "attributeFilter: ['value', 'data-unit']",
   'function ambiguousPriceKeys(articles, prices)',
 ]) {
@@ -122,6 +123,7 @@ for (const needle of [
 }
 assert.ok(!source.includes('${money(unit)} / ks'), 'Jednotková cena se nesmí natvrdo vydávat za ks.');
 assert.ok(!source.includes('/ jednotku'), 'Neznámá jednotka se nesmí zobrazovat jako generický popisek.');
+assert.ok(!source.includes('část cen začne během 7 dnů'), 'Celkový součet nesmí zamlčet, že budoucí akce nemusí platit současně.');
 
 const localUnitContext = {
   Map,
