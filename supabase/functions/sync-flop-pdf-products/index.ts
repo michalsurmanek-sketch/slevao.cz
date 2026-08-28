@@ -21,6 +21,18 @@ type Candidate = {
   confidence:number;
   raw_data:Record<string, unknown>;
 };
+type Validity = { from:string; to:string };
+
+type ExistingImport = {
+  id:string;
+  status:string;
+  product_count:number | null;
+  source_document_url:string | null;
+  detected_valid_from:string | null;
+  detected_valid_to:string | null;
+  source_hash:string;
+  metadata:Record<string, unknown> | null;
+};
 
 function allowed(req: Request) {
   return req.headers.get('authorization') === `Bearer ${KEY}` || Boolean(CRON && req.headers.get('x-cron-secret') === CRON);
@@ -156,7 +168,7 @@ function parsePage(page: Page): Candidate[] {
   }
   return out;
 }
-function deriveValidity(url: string) {
+function deriveValidity(url: string): Validity | null {
   const m = url.match(/\/(\d{1,2})_(\d{2})_(?:tisk_nahled_s|online)\.pdf$/i);
   if (!m) return null;
   const week = Number(m[1]), year = 2000 + Number(m[2]);
@@ -167,6 +179,93 @@ function deriveValidity(url: string) {
   const from = new Date(monday); from.setUTCDate(monday.getUTCDate()+2);
   const to = new Date(monday); to.setUTCDate(monday.getUTCDate()+8);
   return { from:from.toISOString().slice(0,10), to:to.toISOString().slice(0,10) };
+}
+
+function canonicalRaw(raw: any) {
+  return {
+    parser:clean(raw?.parser),
+    deterministic:raw?.deterministic === true,
+    verification:clean(raw?.verification),
+    unit_price:Number(raw?.unit_price),
+    unit_price_unit:clean(raw?.unit_price_unit),
+    unit_price_token:clean(raw?.unit_price_token),
+    expected_price:Number(raw?.expected_price),
+    printed_price:clean(raw?.printed_price),
+    price_delta:Number(raw?.price_delta),
+    quantity_token:clean(raw?.quantity_token),
+    quantity_coordinates:{x:Number(raw?.quantity_coordinates?.x),y:Number(raw?.quantity_coordinates?.y)},
+    price_coordinates:{x:Number(raw?.price_coordinates?.x),y:Number(raw?.price_coordinates?.y)},
+  };
+}
+function parserRow(c: Candidate) {
+  return {
+    title:clean(c.title),
+    normalized_title:norm(c.title),
+    price:Number(c.price),
+    quantity_text:clean(c.quantity_text),
+    source_page:Number(c.source_page),
+    confidence:Number(c.confidence),
+    raw_data:canonicalRaw(c.raw_data),
+  };
+}
+function storedRow(item: any) {
+  return {
+    title:clean(item.title),
+    price:Number(item.price),
+    quantity_text:clean(item.quantity_text),
+    source_page:Number(item.source_page),
+    confidence:Number(item.confidence),
+    raw_data:canonicalRaw(item.raw_data),
+  };
+}
+function expectedStoredRow(c: Candidate) {
+  const row = parserRow(c);
+  return {
+    title:`${row.title} · ${row.quantity_text}`,
+    price:row.price,
+    quantity_text:row.quantity_text,
+    source_page:row.source_page,
+    confidence:row.confidence,
+    raw_data:row.raw_data,
+  };
+}
+function stableSort<T>(rows: T[]): T[] {
+  return [...rows].sort((a,b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+}
+function sameStoredPayload(items: any[], candidates: Candidate[]) {
+  if (items.length !== candidates.length) return false;
+  return JSON.stringify(stableSort(items.map(storedRow))) === JSON.stringify(stableSort(candidates.map(expectedStoredRow)));
+}
+async function sha256Hex(value: unknown) {
+  const bytes = new TextEncoder().encode(JSON.stringify(value));
+  const digest = await crypto.subtle.digest('SHA-256', bytes);
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2,'0')).join('');
+}
+async function payloadHash(candidates: Candidate[], src: any, validity: Validity) {
+  const rows = stableSort(candidates.map(parserRow));
+  return await sha256Hex({
+    payload_contract:'flop-pdf-spatial-safe-v4',
+    parser_contract:'flop-pdf-spatial-unit-price-v3',
+    source_import_id:String(src.id),
+    source_document_url:String(src.source_document_url || ''),
+    valid_from:validity.from,
+    valid_to:validity.to,
+    coverage_scope:'store',
+    store_location_name:'FLOP TOP',
+    rows,
+  });
+}
+async function storedImportMatches(row: ExistingImport, candidates: Candidate[], src: any, validity: Validity) {
+  if (row.status !== 'published') return false;
+  if (Number(row.product_count || 0) !== candidates.length) return false;
+  if (String(row.source_document_url || '') !== String(src.source_document_url || '')) return false;
+  if (row.detected_valid_from !== validity.from || row.detected_valid_to !== validity.to) return false;
+  const { data:items,error } = await db.from('leaflet_import_items')
+    .select('title,price,quantity_text,source_page,confidence,raw_data,status')
+    .eq('import_id',row.id);
+  if (error) throw error;
+  if ((items || []).some((item:any) => item.status !== 'published')) return false;
+  return sameStoredPayload(items || [],candidates);
 }
 async function extraction(importId?: string) {
   const { data:store,error:se } = await db.from('stores').select('id').eq('slug','flop').maybeSingle();
@@ -225,22 +324,56 @@ Deno.serve(async (req) => {
       ? { from:src.detected_valid_from, to:src.detected_valid_to }
       : deriveValidity(String(src.source_document_url || ''));
     if (!validity) throw new Error('Flop validity cannot be derived');
+    const fullPayloadSha256 = await payloadHash(candidates,src,validity);
     if (body.dry_run !== false) return json({
       ok:true,dry_run:true,source_import_id:src.id,source_document_url:src.source_document_url,
-      parser:'flop-pdf-spatial-unit-price-v3',candidate_count:candidates.length,validity,candidates:candidates.slice(0,100),
+      parser:'flop-pdf-spatial-unit-price-v3',payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
+      candidate_count:candidates.length,validity,candidates:candidates.slice(0,100),
     });
     if (candidates.length < 25) throw new Error(`Flop spatial parser found only ${candidates.length} deterministic products; publication stopped`);
-    const hash = `flop-pdf-spatial-safe-v3-${src.id}`;
-    const { data:old,error:oe } = await db.from('leaflet_imports').select('id,status').eq('source_hash',hash).maybeSingle();
+
+    const hash = `flop-pdf-spatial-safe-v4-${fullPayloadSha256}`;
+    const { data:oldV4,error:oe } = await db.from('leaflet_imports')
+      .select('id,status,product_count,source_document_url,detected_valid_from,detected_valid_to,source_hash,metadata')
+      .eq('source_hash',hash).maybeSingle();
     if (oe) throw oe;
-    if (old?.status === 'published') return json({ok:true,reused:true,import_id:old.id,candidate_count:candidates.length,validity});
-    let id = old?.id;
+    if (oldV4?.status === 'published') {
+      if (!await storedImportMatches(oldV4 as ExistingImport,candidates,src,validity)) {
+        throw new Error('FLOP v4 payload hash odpovídá importu, ale publikované položky se liší; automatické reuse zastaveno.');
+      }
+      return json({ok:true,reused:true,import_id:oldV4.id,candidate_count:candidates.length,validity,payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256});
+    }
+
+    const legacyHash = `flop-pdf-spatial-safe-v3-${src.id}`;
+    const { data:legacy,error:le } = await db.from('leaflet_imports')
+      .select('id,status,product_count,source_document_url,detected_valid_from,detected_valid_to,source_hash,metadata')
+      .eq('source_hash',legacyHash).maybeSingle();
+    if (le) throw le;
+    if (legacy?.status === 'published' && await storedImportMatches(legacy as ExistingImport,candidates,src,validity)) {
+      const migratedAt = new Date().toISOString();
+      const metadata = {
+        ...(legacy.metadata || {}),
+        full_payload_hash_version:'flop-pdf-spatial-safe-v4',
+        full_payload_sha256:fullPayloadSha256,
+        legacy_source_hash:legacyHash,
+        full_payload_verified_at:migratedAt,
+      };
+      const { error:me } = await db.from('leaflet_imports').update({metadata}).eq('id',legacy.id);
+      if (me) throw me;
+      return json({ok:true,reused:true,migrated_legacy_hash:true,import_id:legacy.id,candidate_count:candidates.length,validity,payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256});
+    }
+
+    let id = oldV4?.id;
     if (!id) {
       const created = await db.from('leaflet_imports').insert({
         source_id:src.source_id,store_id:src.store_id,source_document_url:src.source_document_url,
         source_hash:hash,status:'queued',coverage_scope:'store',store_location_name:'FLOP TOP',
         detected_valid_from:validity.from,detected_valid_to:validity.to,confidence:0.99,
-        metadata:{parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,verified_pipeline:true,source_import_id:src.id,partial_coverage:true},
+        metadata:{
+          parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,
+          verified_pipeline:true,source_import_id:src.id,partial_coverage:true,
+          payload_contract:'flop-pdf-spatial-safe-v4',full_payload_hash_version:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
+        },
       }).select('id').single();
       if (created.error) throw created.error;
       id = created.data.id;
@@ -251,13 +384,23 @@ Deno.serve(async (req) => {
       confidence:c.confidence,status:'approved',raw_data:c.raw_data,
     })));
     if (ins.error) throw ins.error;
-    const upd = await db.from('leaflet_imports').update({status:'review',product_count:candidates.length,confidence:0.99,error_message:null,finished_at:new Date().toISOString()}).eq('id',id);
+    const upd = await db.from('leaflet_imports').update({
+      status:'review',product_count:candidates.length,confidence:0.99,error_message:null,finished_at:new Date().toISOString(),
+      metadata:{
+        ...(oldV4?.metadata || {}),parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,
+        verified_pipeline:true,source_import_id:src.id,partial_coverage:true,
+        payload_contract:'flop-pdf-spatial-safe-v4',full_payload_hash_version:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
+      },
+    }).eq('id',id);
     if (upd.error) throw upd.error;
     const result = await publish(id);
     await db.from('offers').update({status:'expired',updated_at:new Date().toISOString()})
       .eq('store_id',src.store_id).eq('status','published').eq('store_location_name','FLOP TOP')
       .lt('valid_to',validity.from);
-    return json({ok:true,dry_run:false,import_id:id,source_import_id:src.id,candidate_count:candidates.length,validity,publish:result});
+    return json({
+      ok:true,dry_run:false,import_id:id,source_import_id:src.id,candidate_count:candidates.length,validity,publish:result,
+      payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
+    });
   } catch (e) {
     return json({ok:false,error:e instanceof Error ? e.message : String(e)},500);
   }
