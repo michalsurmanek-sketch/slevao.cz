@@ -209,6 +209,11 @@
         if (budgetReady && typeof budgetReady.then === 'function') await budgetReady;
         window.SlevaoShoppingBudgetConcurrency?.syncStorage?.();
       } catch {}
+      try {
+        await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId);
+      } catch (error) {
+        console.debug('slevao_shopping_owner_cold_sync_failed', error);
+      }
     }
     loadShoppingRuntimes();
   }
