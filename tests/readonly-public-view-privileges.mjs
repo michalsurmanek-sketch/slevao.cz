@@ -21,3 +21,4 @@ assert.ok(!/from\s+service_role/i.test(migration), 'Read-only view hardening nem
 assert.ok(!/drop\s+view|create\s+(?:or\s+replace\s+)?view|alter\s+view/i.test(migration), 'ACL hardening nesmí měnit definice view.');
 
 console.log('Read-only public views expose SELECT only to public client roles');
+await import('./anonymous-public-write-privileges.mjs');
