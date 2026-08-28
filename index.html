@@ -22,8 +22,18 @@
   </style>
   <script>
     (() => {
+      const startAtTop = !location.hash || location.hash === '#top';
+      if (startAtTop && 'scrollRestoration' in history) history.scrollRestoration = 'manual';
+      const resetStartPosition = () => {
+        if (startAtTop) window.scrollTo({ top:0, left:0, behavior:'auto' });
+      };
       const reveal = () => document.documentElement.classList.remove('slevaoHomeBooting');
-      window.addEventListener('load', () => requestAnimationFrame(reveal), { once:true });
+      resetStartPosition();
+      window.addEventListener('pageshow', resetStartPosition);
+      window.addEventListener('load', () => requestAnimationFrame(() => {
+        resetStartPosition();
+        reveal();
+      }), { once:true });
       window.setTimeout(reveal, 2000);
     })();
   </script>
