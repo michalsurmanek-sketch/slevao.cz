@@ -10,7 +10,7 @@
     try {
       const url = new URL(String(value || ''), 'https://slevao.cz/');
       const hash = new URLSearchParams(url.hash.replace(/^#/, ''));
-      const token = hash.get('share') || url.searchParams.get('share');
+      const token = hash.get('share');
       return /\/seznam(?:\.html)?$/i.test(url.pathname) && Boolean(token);
     } catch {
       return false;
