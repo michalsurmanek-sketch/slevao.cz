@@ -87,4 +87,3 @@ assert.match(source, /function ok\(r: Request\)[\s\S]*Bearer \$\{K\}[\s\S]*x-cro
   'verify_jwt=false je bezpečné pouze při zachované vlastní service-role/cron autentizaci.');
 
 console.log('JIP main-price full-payload reuse contract OK');
-await import('./coop-verified-full-payload-fast-path.mjs');
