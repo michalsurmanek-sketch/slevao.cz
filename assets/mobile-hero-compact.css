@@ -19,3 +19,16 @@
   html body .heroCopy>h1{max-width:76%!important;font-size:clamp(27px,8.8vw,32px)!important}
   html body .heroCopy>p{max-width:64%!important}
 }
+
+/* Kategorie: bez staré plovoucí šipky – zůstává pouze čárkovaný předěl s ikonou. */
+@media(max-width:900px){
+  html body main#top #categoriesSection .container::before,
+  html body main#top #categoriesSection .container::after{
+    content:none!important;
+    display:none!important;
+  }
+  html body main#top #categoriesSection .categoryChips{
+    padding-right:0!important;
+    scroll-padding-right:0!important;
+  }
+}
