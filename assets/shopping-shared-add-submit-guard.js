@@ -10,7 +10,7 @@
   const MUTATION_RPC = 'mutate_shared_shopping_list';
   let busy = false;
   let releaseTimer = 0;
-  let pendingAddMutation = null;
+  const pendingAddMutations = new Map();
 
   function mutationId() {
     if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -29,19 +29,45 @@
     ]);
   }
 
+  function prunePendingMutations(now = Date.now()) {
+    for (const [fingerprint, pending] of pendingAddMutations) {
+      if (now - pending.createdAt > PENDING_MUTATION_TTL_MS) {
+        pendingAddMutations.delete(fingerprint);
+      }
+    }
+  }
+
   function currentMutationId(args) {
     const fingerprint = addFingerprint(args);
     const now = Date.now();
-    if (!pendingAddMutation
-        || pendingAddMutation.fingerprint !== fingerprint
-        || now - pendingAddMutation.createdAt > PENDING_MUTATION_TTL_MS) {
-      pendingAddMutation = { id:mutationId(), fingerprint, createdAt:now };
+    prunePendingMutations(now);
+    let pending = pendingAddMutations.get(fingerprint);
+    if (!pending) {
+      pending = { id:mutationId(), fingerprint, createdAt:now };
+      pendingAddMutations.set(fingerprint, pending);
     }
-    return pendingAddMutation.id;
+    return pending.id;
   }
 
   function clearPendingMutation(id) {
-    if (pendingAddMutation?.id === id) pendingAddMutation = null;
+    for (const [fingerprint, pending] of pendingAddMutations) {
+      if (pending.id === id) {
+        pendingAddMutations.delete(fingerprint);
+        return;
+      }
+    }
+  }
+
+  function pendingFor(args) {
+    prunePendingMutations();
+    const pending = pendingAddMutations.get(addFingerprint(args));
+    return pending ? { ...pending } : null;
+  }
+
+  function firstPending() {
+    prunePendingMutations();
+    const pending = pendingAddMutations.values().next().value;
+    return pending ? { ...pending } : null;
   }
 
   function isAmbiguousFailure(result) {
@@ -88,7 +114,12 @@
     }
 
     window.SlevaoSharedAddMutationBridge = {
-      pending: () => pendingAddMutation ? { ...pendingAddMutation } : null,
+      pending: firstPending,
+      pendingFor,
+      count: () => {
+        prunePendingMutations();
+        return pendingAddMutations.size;
+      },
     };
   }
 
