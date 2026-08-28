@@ -26,6 +26,8 @@ jobs:
         run: node tests/shopping-custom-key-canonicalization.mjs
       - name: Ověřit čerstvost a mobilní historii nákupů
         run: node tests/shopping-history-freshness.mjs && node tests/shopping-history-mobile-compact.mjs
+      - name: Ověřit ukládání koupených položek do historie
+        run: node tests/shopping-completed-history.mjs
       - name: Ověřit fallback guest položek po změně katalogu
         run: node tests/shopping-guest-product-fallback.mjs
       - name: Ověřit synchronizaci přidání do nákupního seznamu z homepage
