@@ -164,9 +164,8 @@
   }
 
   function bottomNav() {
-    if (document.querySelector('.slevaoBottomNav')) return;
     const path = location.pathname.split('/').pop() || 'index.html';
-    const nav = document.createElement('nav');
+    const nav = document.querySelector('.slevaoBottomNav') || document.createElement('nav');
     nav.className = 'slevaoBottomNav';
     nav.setAttribute('aria-label', 'Hlavní mobilní navigace');
     const icons = {
@@ -179,12 +178,12 @@
     const items = [
       ['index.html','home','Domů', path === '' || path === 'index.html'],
       ['index.html#dealsSection','search','Hledat', false],
-      ['index.html#leafletsSection','leaflets','Letáky', false],
+      ['letaky.html','leaflets','Letáky', path === 'letaky.html'],
       ['seznam.html','list','Seznam', path === 'seznam.html'],
       ['ucet.html','account','Účet', path === 'ucet.html']
     ];
-    nav.innerHTML = items.map(([href,icon,label,active]) => `<a href="${href}" class="${active ? 'active' : ''}"><span>${icons[icon]}</span><em style="font-style:normal">${label}</em>${label === 'Seznam' ? '<b data-sf-list-count hidden></b>' : ''}</a>`).join('');
-    document.body.appendChild(nav);
+    nav.innerHTML = items.map(([href,icon,label,active]) => `<a href="${href}" class="${active ? 'active' : ''}"${active ? ' aria-current="page"' : ''}><span>${icons[icon]}</span><em>${label}</em>${label === 'Seznam' ? '<b data-sf-list-count hidden></b>' : ''}</a>`).join('');
+    if (!nav.isConnected) document.body.appendChild(nav);
     updateNavCount();
   }
 

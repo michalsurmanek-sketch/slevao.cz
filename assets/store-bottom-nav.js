@@ -97,6 +97,12 @@
     style.href = 'assets/public-features.css?v=20260816-5';
     document.head.appendChild(style);
   }
+  if (!document.querySelector('link[href*="mobile-footer-upgrade.css"]')) {
+    const navStyle = document.createElement('link');
+    navStyle.rel = 'stylesheet';
+    navStyle.href = 'assets/mobile-footer-upgrade.css?v=20260828-6';
+    document.head.appendChild(navStyle);
+  }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
     navScript.src = 'assets/public-nav-upgrade.js?v=20260822-2';
@@ -105,7 +111,7 @@
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260828-1';
+    script.src = 'assets/public-features.js?v=20260828-2';
     script.async = false;
     document.head.appendChild(script);
   }

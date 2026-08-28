@@ -53,7 +53,7 @@ for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtm
   );
 }
 assert.match(storeBottomNav, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'Store loader nemá aktuální owner bridge.');
-assert.ok(storeBottomNav.indexOf('public-nav-upgrade.js?v=20260822-2') < storeBottomNav.indexOf('public-features.js?v=20260828-1'), 'Store loader musí vložit bridge před public-features.');
+assert.ok(storeBottomNav.indexOf('public-nav-upgrade.js?v=20260822-2') < storeBottomNav.indexOf('public-features.js?v=20260828-2'), 'Store loader musí vložit bridge před public-features.');
 assert.match(storeBottomNav, /navScript\.async = false;/, 'Store public-nav loader nemá vynucené pořadí.');
 assert.match(storeBottomNav, /script\.async = false;/, 'Store public-features loader nemá vynucené pořadí.');
 const accountVersion = accountHtml.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';

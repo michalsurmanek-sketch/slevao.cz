@@ -15,7 +15,7 @@ new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 
 const navVersion = '20260822-2';
 const locationVersion = '20260821-1';
-const publicFeaturesVersion = '20260828-1';
+const publicFeaturesVersion = '20260828-2';
 
 assert.match(nav, /function loadLocationService\(\)/, 'Public nav negarantuje načtení location service.');
 assert.match(nav, new RegExp(`assets/location-service\\.js\\?v=${locationVersion}`), 'Public nav nenačítá Prague-safe location runtime.');
@@ -28,7 +28,7 @@ for (const [name, source] of [['index.html', index], ['produkt.html', product], 
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nepoužívá aktuální public-nav verzi.`);
 }
 
-for (const [name, source] of [['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
+for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
   assert.match(source, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), `${name} nepoužívá sjednocenou public-features verzi.`);
 }
 assert.match(footer, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), 'Homepage footer loader nepoužívá sjednocenou public-features verzi.');
