@@ -4,9 +4,11 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-budget-concurrency.js', root), 'utf8');
+const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-budget-concurrency.js' });
+new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
 let remote = {
   id:'list-1',
@@ -64,17 +66,25 @@ const db = {
 };
 
 const listeners = new Map();
+const storageMap = new Map([['slevao-shopping-budget-v1', 'stale-local-budget']]);
+const localStorage = {
+  getItem(key) { return storageMap.has(String(key)) ? storageMap.get(String(key)) : null; },
+  setItem(key, value) { storageMap.set(String(key), String(value)); },
+  removeItem(key) { storageMap.delete(String(key)); }
+};
 const document = {
   addEventListener(type, callback, capture) { listeners.set(`${type}:${Boolean(capture)}`, callback); }
 };
 const window = {
   SlevaoSupabase:{ getClient:() => db },
   SlevaoPublic:{ toast() {} },
+  localStorage,
   setTimeout(callback) { callback(); return 1; }
 };
 const context = createContext({
   window,
   document,
+  localStorage,
   location:{ search:'', hash:'' },
   URLSearchParams,
   Number,
@@ -90,13 +100,14 @@ const context = createContext({
 });
 new Script(source, { filename:'shopping-budget-concurrency-runtime.js' }).runInContext(context);
 
-for (let i = 0; i < 8 && !window.SlevaoShoppingBudgetConcurrency?.getState?.(); i++) {
-  await new Promise((resolve) => setImmediate(resolve));
-}
+assert.ok(window.SlevaoShoppingBudgetConcurrencyReady instanceof Promise, 'Budget guard nevystavil readiness Promise před bootstrapem.');
+await window.SlevaoShoppingBudgetConcurrencyReady;
 const api = window.SlevaoShoppingBudgetConcurrency;
 assert.ok(api, 'Budget concurrency API se nenainstalovalo.');
 assert.equal(db.__slevaoBudgetConcurrencyGuard, true, 'Budget concurrency guard neoznačil Supabase klienta.');
 assert.equal(api.getState().budget, 1000, 'Počáteční cloudový rozpočet se nenačetl.');
+assert.equal(api.syncStorage(), true, 'Cloudový rozpočet se nepodařilo synchronizovat do owner storage.');
+assert.equal(localStorage.getItem('slevao-shopping-budget-v1'), '1000', 'Cloudový rozpočet nepřepsal stale lokální fallback před bootem insights.');
 
 const first = await api.persistBudget(1500);
 assert.equal(first.conflict, false, 'Běžné uložení rozpočtu bylo chybně vyhodnoceno jako konflikt.');
@@ -126,25 +137,50 @@ assert.equal(sameValue.conflict, false, 'Stejná hodnota už uložená na druhé
 assert.equal(remote.budget, 2300);
 assert.equal(updateAttempts.at(-1).expected, versionBeforeSameValue, 'Same-value kontrola nepoužila poslední známou verzi.');
 
+remote = { ...remote, budget:null, updated_at:'2026-08-28T10:09:00.000Z' };
+const clearedElsewhere = await api.persistBudget(9999);
+assert.equal(clearedElsewhere.conflict, true, 'Zrušení rozpočtu na druhém zařízení nebylo rozpoznáno jako novější cloudový stav.');
+assert.equal(api.getState().budget, 0, 'Cloudové NULL se nepřevedlo na nulový rozpočet.');
+localStorage.setItem('slevao-shopping-budget-v1', '2300');
+assert.equal(api.syncStorage(), true);
+assert.equal(localStorage.getItem('slevao-shopping-budget-v1'), null, 'Cloudové NULL neodstranilo stale lokální rozpočet před cold-load bootem.');
+
 for (const needle of [
+  "const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';",
   "table !== 'shopping_lists'",
   "Object.prototype.hasOwnProperty.call(values, 'budget')",
   ".eq('updated_at', currentState.updated_at)",
   "sameBudget(latestState.budget, currentState.budget)",
   'return persistBudget(next, false);',
+  'function syncStorage()',
+  'localStorage.removeItem(LEGACY_BUDGET_KEY);',
+  'const initialization = (async () =>',
+  'window.SlevaoShoppingBudgetConcurrencyReady = initialization;',
+  'await ensureState({ attempts: 1 });',
   'event.stopImmediatePropagation();',
   'skipNextBudgetWrite = true;',
-]) assert.ok(source.includes(needle), `Chybí budget concurrency kontrakt: ${needle}`);
+]) assert.ok(source.includes(needle), `Chybí budget concurrency/cold-load kontrakt: ${needle}`);
 
 assert.equal(typeof listeners.get('change:true'), 'function', 'Guard neposlouchá change v capture fázi.');
 assert.equal(typeof listeners.get('blur:true'), 'function', 'Guard neposlouchá blur v capture fázi.');
 
+const bootStart = bootstrap.indexOf('  async function boot()');
+const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', bootStart);
+const readyIndex = bootstrap.indexOf('window.SlevaoShoppingBudgetConcurrencyReady', markerIndex);
+const syncIndex = bootstrap.indexOf('window.SlevaoShoppingBudgetConcurrency?.syncStorage?.();', readyIndex);
+const runtimeIndex = bootstrap.indexOf('    loadShoppingRuntimes();', syncIndex);
+assert.ok(bootStart >= 0 && markerIndex > bootStart, 'Bootstrap nenastaví owner marker uvnitř bootu.');
+assert.ok(readyIndex > markerIndex, 'Bootstrap čeká na cloud budget dřív, než nastaví správného ownera.');
+assert.ok(syncIndex > readyIndex, 'Bootstrap nesynchronizuje cloud budget po readiness.');
+assert.ok(runtimeIndex > syncIndex, 'Shopping runtimy se načítají před cloud-authoritative budget synchronizací.');
+
 const guardUrl = html.match(/assets\/shopping-budget-concurrency\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
-assert.match(guardUrl, /^assets\/shopping-budget-concurrency\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný budget concurrency guard.');
-assert.ok(bootstrapUrl, 'seznam.html nemá shopping insights bootstrap.');
+assert.equal(guardUrl, 'assets/shopping-budget-concurrency.js?v=20260828-2', 'seznam.html nemá očekávanou cold-load verzi budget guardu.');
+assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-5', 'seznam.html nemá očekávanou cloud-budget bootstrap verzi.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
-assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-57'/, 'PWA shell nebyl po přidání budget guardu posunut na verzi 57.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný shopping bootstrap ze seznam.html.');
+assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-58'/, 'PWA shell nebyl po cold-load budget fixu posunut na verzi 58.');
 
-console.log('Shopping budget concurrency guard OK');
+console.log('Shopping budget concurrency and cloud-authoritative cold-load guard OK');
