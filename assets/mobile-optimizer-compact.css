@@ -1,5 +1,9 @@
 /* Mobile-only compact presentation for the "Kde nakoupit" optimizer.
    Calculation logic and optimizer DOM are intentionally untouched. */
+#optimizer .sfDayPlanDate{
+  display:none;
+}
+
 @media (max-width: 720px){
   #optimizer{
     display:grid;
@@ -19,6 +23,13 @@
     row-gap:5px;
     align-items:center;
     border-radius:14px;
+  }
+
+  #optimizer .sfResultBox[data-day-consistent-plan="true"]{
+    grid-template-areas:
+      "title price"
+      "date date"
+      "stores stores";
   }
 
   #optimizer .sfResultBox h3{
@@ -42,6 +53,24 @@
 
   #optimizer .sfResultBox > .sfMuted{
     display:none;
+  }
+
+  #optimizer .sfDayPlanDate{
+    grid-area:date;
+    display:inline-flex;
+    justify-self:start;
+    max-width:100%;
+    padding:3px 6px;
+    border:1px solid rgba(15,23,42,.12);
+    border-radius:999px;
+    background:rgba(255,255,255,.72);
+    color:inherit;
+    font-size:9px;
+    line-height:1.1;
+    font-weight:750;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
   }
 
   #optimizer .sfResultBox.hasUpcomingPrice::after{
