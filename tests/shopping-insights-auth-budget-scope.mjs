@@ -9,9 +9,11 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
+const ownerCustomAddUrl = bootstrap.match(/const OWNER_CUSTOM_ADD_URL = '([^']+)'/)?.[1] || '';
 const listUrl = bootstrap.match(/const LIST_URL = '([^']+)'/)?.[1] || '';
 const insightsUrl = bootstrap.match(/const INSIGHTS_URL = '([^']+)'/)?.[1] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[0-9-]+/)?.[0] || '';
+assert.match(ownerCustomAddUrl, /^assets\/shopping-owner-custom-add-bridge\.js\?v=[0-9-]+$/, 'Bootstrap musí používat verzovaný owner custom add bridge.');
 assert.match(listUrl, /^assets\/shopping-list\.js\?v=[0-9-]+$/, 'Bootstrap musí používat verzovaný shopping-list runtime.');
 assert.match(insightsUrl, /^assets\/shopping-insights\.js\?v=[0-9-]+$/, 'Bootstrap musí používat verzovaný insights runtime.');
 assert.ok(bootstrapUrl, 'seznam.html musí načítat verzovaný identity bootstrap.');
@@ -29,6 +31,7 @@ for (const needle of [
   'setMarkerUserId(currentUserId);',
   'bootedUserId = currentUserId;',
   'loadShoppingRuntimes();',
+  'function loadOwnerCustomAddBridge()',
   'function loadList()',
   "db.auth.onAuthStateChange((event, nextSession) =>",
   "if (event === 'INITIAL_SESSION') return;",
@@ -43,11 +46,18 @@ for (const needle of [
 const setOwnerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);');
 const loadRuntimesIndex = bootstrap.indexOf('    loadShoppingRuntimes();', setOwnerIndex);
 assert.ok(setOwnerIndex >= 0 && loadRuntimesIndex > setOwnerIndex, 'Owner marker musí být nastaven před vložením shopping runtime skriptů.');
-assert.match(bootstrap, /function loadShoppingRuntimes\(\) \{\s*loadList\(\);\s*loadInsights\(\);\s*\}/, 'Shopping list musí být vložen před insights runtime.');
+const runtimeBlockStart = bootstrap.indexOf('  function loadShoppingRuntimes()');
+const ownerAddRuntimeIndex = bootstrap.indexOf('    loadOwnerCustomAddBridge();', runtimeBlockStart);
+const listRuntimeIndex = bootstrap.indexOf('    loadList();', ownerAddRuntimeIndex);
+const insightsRuntimeIndex = bootstrap.indexOf('    loadInsights();', listRuntimeIndex);
+assert.ok(runtimeBlockStart >= 0 && ownerAddRuntimeIndex > runtimeBlockStart, 'Owner custom add bridge se nevkládá v shopping runtime bloku.');
+assert.ok(listRuntimeIndex > ownerAddRuntimeIndex, 'Owner custom add bridge musí být vložen před shopping-list runtime.');
+assert.ok(insightsRuntimeIndex > listRuntimeIndex, 'Shopping list musí být vložen před insights runtime.');
 
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js před ověřením ownera.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-insights\.js/, 'seznam.html nesmí spouštět shopping-insights.js napřímo.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje stejný identity bootstrap jako seznam.html.');
+assert.ok(worker.includes(`'/${ownerCustomAddUrl}'`), 'PWA necachuje stejný owner custom add bridge jako bootstrap.');
 assert.ok(worker.includes(`'/${listUrl}'`), 'PWA necachuje stejný dynamicky načítaný Shopping List runtime jako bootstrap.');
 assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje stejný Insights runtime jako bootstrap.');
 
@@ -184,7 +194,7 @@ const scenario = createBootstrapScenario();
 await flushAsync();
 assert.deepEqual(
   scenario.appended.map((entry) => entry.src),
-  [listUrl, insightsUrl],
+  [ownerCustomAddUrl, listUrl, insightsUrl],
   'Shopping runtimy se nenačetly v bezpečném pořadí.'
 );
 assert.ok(scenario.appended.every((entry) => entry.owner === 'user-b'), 'Shopping runtime se vložil dřív, než bootstrap přepnul stale owner marker na aktuální session user B.');
