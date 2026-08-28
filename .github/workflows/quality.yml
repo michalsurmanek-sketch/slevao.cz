@@ -24,7 +24,7 @@ jobs:
         run: node tests/shopping-owner-item-concurrency.mjs && node tests/shopping-owner-item-concurrency-integration.mjs
       - name: Ověřit kanonický klíč vlastních položek
         run: node tests/shopping-custom-key-canonicalization.mjs
-      - name: Ověřit čerstvost historie nákupů mezi zařízeními
-        run: node tests/shopping-history-freshness.mjs
+      - name: Ověřit čerstvost a mobilní historii nákupů
+        run: node tests/shopping-history-freshness.mjs && node tests/shopping-history-mobile-compact.mjs
       - name: Ověřit synchronizaci přidání do nákupního seznamu z homepage
         run: node tests/home-shopping-list-account-sync.mjs
