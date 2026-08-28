@@ -68,7 +68,8 @@ const insertPos = serialization.toLowerCase().indexOf('insert into public.shoppi
 if (!(lockPos >= 0 && revokePos > lockPos && insertPos > revokePos)) {
   throw new Error('Share creation must lock the owned list, revoke active shares, then insert the replacement token.');
 }
-if (/grant\s+execute[\s\S]*\b(?:public|anon)\b/i.test(serialization)) {
+const serializationGrants = serialization.match(/grant\s+execute[\s\S]*?;/gi) || [];
+if (serializationGrants.some((statement) => /\bto\s+[^;]*\b(?:public|anon)\b/i.test(statement))) {
   throw new Error('Anonymous/public role must not execute create_shopping_list_share.');
 }
 
@@ -80,7 +81,8 @@ for (const fn of ['guard_shopping_list_selected_offer()', 'validate_shopping_pur
   if (!revoke.test(triggerAcl)) throw new Error(`Public execute not revoked from trigger function: ${fn}`);
   if (!grant.test(triggerAcl)) throw new Error(`Trusted execute not retained for trigger function: ${fn}`);
 }
-if (/grant\s+execute[\s\S]*\b(?:anon|authenticated|public)\b/i.test(triggerAcl)) {
+const triggerGrants = triggerAcl.match(/grant\s+execute[\s\S]*?;/gi) || [];
+if (triggerGrants.some((statement) => /\bto\s+[^;]*\b(?:anon|authenticated|public)\b/i.test(statement))) {
   throw new Error('Shopping trigger ACL migration must not grant direct execute to public client roles.');
 }
 
