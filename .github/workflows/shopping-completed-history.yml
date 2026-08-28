@@ -1,0 +1,38 @@
+name: Historie dokončených nákupů
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'assets/shopping-insights.js'
+      - 'assets/shopping-insights-bootstrap.js'
+      - 'seznam.html'
+      - 'service-worker.js'
+      - 'supabase/migrations/**'
+      - 'tests/shopping-completed-history.mjs'
+      - '.github/workflows/shopping-completed-history.yml'
+  pull_request:
+    paths:
+      - 'assets/shopping-insights.js'
+      - 'assets/shopping-insights-bootstrap.js'
+      - 'seznam.html'
+      - 'service-worker.js'
+      - 'supabase/migrations/**'
+      - 'tests/shopping-completed-history.mjs'
+      - '.github/workflows/shopping-completed-history.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  checked-history:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ověřit uložení koupených položek do historie
+        run: node tests/shopping-completed-history.mjs
