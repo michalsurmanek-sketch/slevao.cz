@@ -203,6 +203,13 @@
 
     setMarkerUserId(currentUserId);
     bootedUserId = currentUserId;
+    if (currentUserId) {
+      try {
+        const budgetReady = window.SlevaoShoppingBudgetConcurrencyReady;
+        if (budgetReady && typeof budgetReady.then === 'function') await budgetReady;
+        window.SlevaoShoppingBudgetConcurrency?.syncStorage?.();
+      } catch {}
+    }
     loadShoppingRuntimes();
   }
 
