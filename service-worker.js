@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260828-54';
+const CACHE_NAME = 'slevao-shell-20260828-55';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -70,6 +70,7 @@ const SHELL = [
   '/assets/shopping-visible-refresh-tick.js?v=20260828-1',
   '/assets/shopping-insights.css?v=20260804-1',
   '/assets/shopping-insights-bootstrap.js?v=20260828-4',
+  '/assets/shopping-repeat-purchase-sync.js?v=20260828-1',
   '/assets/shopping-shared-readonly-presentation.js?v=20260828-2',
   '/assets/shopping-insights-mobile-order.js?v=20260828-1',
   '/assets/shopping-optimizer-window-label.js?v=20260828-1',
@@ -164,7 +165,7 @@ self.addEventListener('notificationclick', (event) => {
         if ('focus' in client) return await client.focus();
       } catch {}
     }
-    if (self.clients.openWindow) return self.clients.openWindow(target);
+    if (self.clients.openWindow) return await self.clients.openWindow(target);
     return null;
   })());
 });
