@@ -6,7 +6,7 @@ const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const OFFER_URL = 'https://prodejny.kaufland.cz/nabidka/prehled.html?kloffer-week=current';
 const SOURCE_URL = 'https://prodejny.kaufland.cz/letak.html';
 const ADAPTER = 'kaufland-products-v4-ssr';
-const PARSER_REV = 'kaufland-title-v9';
+const PARSER_REV = 'kaufland-title-v10';
 const IMAGE_OVERRIDES: Record<string, string> = {
   // Kaufland currently maps this Zlatopramen 11 can offer to a Krušovice PET image.
   '02312871': 'https://cdn.globusonline.cz/content/images/product/zlatopramen-11-pivo-lezak-svetly-plech-0-5-l_1250.jpg',
@@ -55,9 +55,11 @@ function normalize(value: string) {
 }
 function escapeRegExp(value: string) { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
 const GENERIC_DETAIL = /^(?:různé druhy|mix druhů|více druhů|dle výběru|různé barvy|v různých barvách|různá provedení|i\.? jakost)$/i;
+const PROMO_ONLY_TITLE = 'tvoje cena s kaufland card';
 function cleanProductPart(value: string) {
   return decodeHtml(value)
     .replace(/^K-Mistři od fochu\s+/i, '')
+    .replace(/\bTvoje cena s Kaufland Card\b/gi, ' ')
     .replace(/\s*,?\s*(?:pultový|samoobslužný)\s+prodej\s*$/i, '')
     .replace(/(?:^|[\s,;/|-]+)(?:různé druhy|mix druhů|více druhů|dle výběru|různé barvy|v různých barvách|různá provedení)(?=$|[\s,;/|-]+)/gi, ' ')
     .replace(/\s+/g, ' ')
@@ -66,7 +68,8 @@ function cleanProductPart(value: string) {
 }
 function meaningful(value: string) {
   const clean = cleanProductPart(value);
-  return clean.length >= 2 && !GENERIC_DETAIL.test(clean);
+  const normalized = normalize(clean);
+  return clean.length >= 2 && normalized !== PROMO_ONLY_TITLE && !GENERIC_DETAIL.test(clean);
 }
 function mergeProductParts(left: string, right: string) {
   const a = cleanProductPart(left);
@@ -111,7 +114,8 @@ function productTitle(description: string, detailTitle: string, title: string, s
   if (!value) return '';
 
   if (unit) value = value.replace(new RegExp(`\s+${escapeRegExp(unit)}$`, 'i'), '').trim();
-  return value;
+  value = cleanProductPart(value);
+  return meaningful(value) ? value : '';
 }
 function sameIdentity(left: string, right: string) {
   const a = normalize(left); const b = normalize(right); return a === b || (a.length >= 8 && b.length >= 8 && (a.includes(b) || b.includes(a)));
@@ -163,7 +167,7 @@ function parseProducts(html: string) {
   }
   const today = pragueDate(); const current = result.filter((product) => product.dateTo >= today);
   if (current.length < 50) throw new Error(`Kaufland vrátil pouze ${current.length} platných produktů; stará data zůstala zachována.`);
-  const meaningfulCount = current.filter((row) => row.klNr && row.productTitle && !GENERIC_DETAIL.test(row.productTitle)).length;
+  const meaningfulCount = current.filter((row) => row.klNr && meaningful(row.productTitle)).length;
   if (meaningfulCount < Math.floor(current.length * 0.9)) throw new Error(`Kaufland má jen ${meaningfulCount}/${current.length} produktů s klNr a skutečným názvem.`); return current;
 }
 
