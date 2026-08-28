@@ -113,7 +113,10 @@ assert.ok(coldSyncAt >= 0 && fallbackAt > coldSyncAt && runtimesAt > fallbackAt,
 const assetUrl = html.match(/assets\/shopping-guest-product-fallback\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-guest-product-fallback.js?v=20260828-1', 'seznam.html nemá guest product fallback v1.');
 assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA shell necachuje přesný guest product fallback asset.');
-assert.equal(html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0], 'assets/shopping-insights-bootstrap.js?v=20260828-7', 'Bootstrap nebyl po guest fallback integraci posunut na v7.');
+const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9]{8})-([0-9]+)/)?.[0] || '';
+const bootstrapVersion = Number(html.match(/assets\/shopping-insights-bootstrap\.js\?v=20260828-([0-9]+)/)?.[1] || 0);
+assert.ok(bootstrapVersion >= 7, 'Bootstrap po guest fallback integraci nesmí klesnout pod v7.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA shell musí cacheovat přesně stejnou verzi shopping insights bootstrapu jako seznam.html.');
 assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-(?:6[4-9]|[7-9][0-9]|[1-9][0-9]{2,})'/, 'PWA shell nebyl po guest fallback integraci posunut nad verzi 63.');
 
 console.log('Guest shopping rows safely fallback missing catalog products before cloud merge');
