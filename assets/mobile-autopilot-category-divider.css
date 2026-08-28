@@ -1,0 +1,6 @@
+/* Mobilní předěl mezi Nákupním autopilotem a kategoriemi. */
+@media(max-width:800px){
+  html body main#top #categoriesSection{position:relative!important;margin-top:44px!important;overflow:visible!important}
+  html body main#top #categoriesSection::after{content:''!important;position:absolute!important;z-index:1!important;left:26px!important;right:26px!important;top:-12px!important;height:1px!important;background:repeating-linear-gradient(90deg,rgba(108,135,132,.35) 0 8px,transparent 8px 17px)!important;pointer-events:none!important}
+  html body main#top #categoriesSection::before{content:'✦'!important;position:absolute!important;z-index:7!important;left:50%!important;top:-35px!important;width:48px!important;height:48px!important;display:grid!important;place-items:center!important;border:5px solid #f7fbfa!important;border-radius:50%!important;background:linear-gradient(145deg,#20b8ad,#079b91)!important;color:#fff!important;box-shadow:0 7px 18px rgba(8,127,118,.18)!important;font-size:19px!important;line-height:1!important;transform:translateX(-50%)!important}
+}
