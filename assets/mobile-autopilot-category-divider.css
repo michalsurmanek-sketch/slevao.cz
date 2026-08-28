@@ -1,6 +1,9 @@
-/* Mobilní předěl mezi Nákupním autopilotem a kategoriemi – stejný rytmus jako horní předěly. */
+/* Slevao.cz mobile – jednotný předěl mezi hlavními sekcemi. */
 @media(max-width:800px){
-  html body main#top #categoriesSection{
+  html body main#top #categoriesSection,
+  html body main#top #storesSection,
+  html body main#top #leafletsSection,
+  html body main#top #dealsSection{
     position:relative!important;
     margin-top:38px!important;
     padding-top:26px!important;
@@ -8,7 +11,11 @@
     border-top:0!important;
   }
 
-  html body main#top #categoriesSection::after{
+  /* Stejná čárkovaná linka u všech sekcí. */
+  html body main#top #categoriesSection::after,
+  html body main#top #storesSection::after,
+  html body main#top #leafletsSection::after,
+  html body main#top #dealsSection::after{
     content:''!important;
     display:block!important;
     position:absolute!important;
@@ -21,8 +28,11 @@
     pointer-events:none!important;
   }
 
-  /* Čtyři samostatné zaoblené čtverce 2×2 – ne znak/fontová mřížka. */
-  html body main#top #categoriesSection::before{
+  /* Stejný tyrkysový kruh u všech sekcí. */
+  html body main#top #categoriesSection::before,
+  html body main#top #storesSection::before,
+  html body main#top #leafletsSection::before,
+  html body main#top #dealsSection::before{
     content:''!important;
     position:absolute!important;
     z-index:7!important;
@@ -36,9 +46,6 @@
     border:0!important;
     border-radius:50%!important;
     background-color:#11a89e!important;
-    background-image:
-      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2.2'%3E%3Crect x='1.5' y='1.5' width='7' height='7' rx='1.6'/%3E%3Crect x='13.5' y='1.5' width='7' height='7' rx='1.6'/%3E%3Crect x='1.5' y='13.5' width='7' height='7' rx='1.6'/%3E%3Crect x='13.5' y='13.5' width='7' height='7' rx='1.6'/%3E%3C/g%3E%3C/svg%3E"),
-      linear-gradient(145deg,#20b8ad,#079b91)!important;
     background-repeat:no-repeat,no-repeat!important;
     background-position:center,center!important;
     background-size:20px 20px,100% 100%!important;
@@ -47,6 +54,35 @@
     pointer-events:none!important;
   }
 
+  /* Kategorie – čtyři samostatné čtverce 2×2. */
+  html body main#top #categoriesSection::before{
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='22' height='22' viewBox='0 0 22 22'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2.2'%3E%3Crect x='1.5' y='1.5' width='7' height='7' rx='1.6'/%3E%3Crect x='13.5' y='1.5' width='7' height='7' rx='1.6'/%3E%3Crect x='1.5' y='13.5' width='7' height='7' rx='1.6'/%3E%3Crect x='13.5' y='13.5' width='7' height='7' rx='1.6'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(145deg,#20b8ad,#079b91)!important;
+  }
+
+  /* Obchody – jednoduchá prodejna. */
+  html body main#top #storesSection::before{
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9h16l-1.4-4H5.4L4 9Z'/%3E%3Cpath d='M5 9v10h14V9M9 19v-6h6v6'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(145deg,#20b8ad,#079b91)!important;
+  }
+
+  /* Letáky – list papíru. */
+  html body main#top #leafletsSection::before{
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 3h8l4 4v14H6z'/%3E%3Cpath d='M14 3v5h5M9 12h6M9 16h6'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(145deg,#20b8ad,#079b91)!important;
+  }
+
+  /* Nabídky – procento. */
+  html body main#top #dealsSection::before{
+    background-image:
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cg fill='none' stroke='%23fff' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M7 17 17 7'/%3E%3Ccircle cx='8' cy='8' r='2.2'/%3E%3Ccircle cx='16' cy='16' r='2.2'/%3E%3C/g%3E%3C/svg%3E"),
+      linear-gradient(145deg,#20b8ad,#079b91)!important;
+  }
+
+  /* Levá ikona panelu kategorií zůstává ve stejném jazyce. */
   html body main#top #categoriesSection .categoryPanelIntro{
     grid-template-columns:42px minmax(0,1fr)!important;
     gap:10px!important;
