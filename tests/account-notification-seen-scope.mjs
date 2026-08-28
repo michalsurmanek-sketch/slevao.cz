@@ -112,3 +112,4 @@ deliveryContext.deliverBrowserNotification(row);
 assert.equal(attempts, 2, 'Seen upozornění bylo zbytečně vytvořeno znovu.');
 
 console.log('Account notification seen scope OK');
+await import('./account-notification-integrity.mjs');
