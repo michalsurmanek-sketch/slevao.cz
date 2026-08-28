@@ -6,6 +6,8 @@
   const sharedToken = hash.get('share') || query.get('share') || '';
   if (!sharedToken) return;
 
+  document.body.classList.add('sfSharedList');
+
   const status = document.getElementById('accountStatus');
   const customName = document.getElementById('customName');
   if (!status || !customName) return;
