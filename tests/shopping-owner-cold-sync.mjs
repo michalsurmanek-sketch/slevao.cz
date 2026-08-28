@@ -4,7 +4,11 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
+const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
+const html = readFileSync(new URL('seznam.html', root), 'utf8');
+const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-owner-cold-sync.js' });
+new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
 const helperStart = source.indexOf('  const norm =');
 const helperEnd = source.indexOf('\n  async function sync(userId)', helperStart);
@@ -122,5 +126,23 @@ for (const needle of [
   ".eq('shopping_list_id', list.id)",
   'localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));',
 ]) assert.ok(source.includes(needle), `Chybí owner cold-sync kontrakt: ${needle}`);
+
+const coldUrl = html.match(/assets\/shopping-owner-cold-sync\.js\?v=[^"']+/)?.[0] || '';
+const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
+assert.equal(coldUrl, 'assets/shopping-owner-cold-sync.js?v=20260828-1', 'seznam.html nemá očekávanou cold-sync verzi.');
+assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-6', 'seznam.html nemá očekávanou bootstrap verzi pro cold sync.');
+assert.ok(html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(coldUrl), 'Cold sync se načítá před owner-storage bridge.');
+assert.ok(html.indexOf(coldUrl) < html.indexOf(bootstrapUrl), 'Cold sync se načítá až po shopping bootstrapu.');
+assert.ok(worker.includes(`'/${coldUrl}'`), 'PWA necachuje přesný cold-sync runtime ze seznam.html.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
+assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-59'/, 'PWA shell nebyl po cold-sync fixu posunut na verzi 59.');
+
+const bootStart = bootstrap.indexOf('  async function boot()');
+const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', bootStart);
+const coldSyncIndex = bootstrap.indexOf('await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId);', markerIndex);
+const runtimeIndex = bootstrap.indexOf('    loadShoppingRuntimes();', coldSyncIndex);
+assert.ok(markerIndex > bootStart, 'Bootstrap nenastaví owner marker před cold sync.');
+assert.ok(coldSyncIndex > markerIndex, 'Cold sync běží před nastavením správného owner scope.');
+assert.ok(runtimeIndex > coldSyncIndex, 'Shopping runtimy se spouští před dokončením cold sync.');
 
 console.log('Shopping owner cold sync prevents stale remote deletions from resurrecting');
