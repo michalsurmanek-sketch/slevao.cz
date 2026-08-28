@@ -299,7 +299,12 @@ async function subscribe(req: Request, body: any) {
     last_seen_at: now,
     updated_at: now,
   }, { onConflict: 'endpoint' }).select('id').single();
-  if (error) throw error;
+  if (error) {
+    if (error.code === '42501' && /Vlastníka push subscription nelze změnit/i.test(error.message || '')) {
+      return json({ error: 'Push endpoint už je přiřazen jinému účtu.' }, 409);
+    }
+    throw error;
+  }
 
   if (sendTest) {
     await ensureVapidKeys();
