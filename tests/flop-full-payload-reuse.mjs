@@ -32,8 +32,10 @@ assert.match(source, /if \(\(items \|\| \[\]\)\.some\(\(item:any\) => item\.stat
   'Reuse nesmí přijmout částečně publikovaný import.');
 assert.match(source, /sameStoredPayload\(items \|\| \[\],candidates\)/,
   'Počet položek sám nestačí; musí se porovnat celý uložený payload.');
-assert.match(source, /title:`\$\{row\.title\} · \$\{row\.quantity_text\}`/,
-  'Legacy matcher musí respektovat DB display-title trigger, který připojuje množství.');
+assert.match(source, /function storedBaseTitle\(item: any\)[\s\S]*const suffix = quantity \? ` · \$\{quantity\}` : ''[\s\S]*title\.endsWith\(suffix\)/,
+  'Legacy matcher smí od uloženého titulku odstranit jen přesný DB display suffix pro quantity.');
+assert.match(source, /function expectedStoredRow\(c: Candidate\)[\s\S]*title:row\.title/,
+  'Po odstranění DB display suffixu se musí porovnávat původní parserový titul.');
 for (const field of [
   'unit_price:Number(raw?.unit_price)',
   'unit_price_unit:clean(raw?.unit_price_unit)',
