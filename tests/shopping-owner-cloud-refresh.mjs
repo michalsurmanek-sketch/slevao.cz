@@ -43,7 +43,14 @@ assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá aktuální owner c
 assert.ok(html.indexOf('assets/shopping-insights-bootstrap.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před shopping bootstrapem.');
 assert.ok(html.indexOf('assets/shopping-guest-claim-reconcile.js') < html.indexOf(runtimeUrl), 'Cloud refresh se spouští před guest claim reconcilerem.');
 assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje aktuální owner cloud refresh runtime.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260827-20';/, 'PWA cache verze nebyla zvýšena pro remote deletion reconcile.');
+const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260827 || (cacheDate === 20260827 && cacheRevision >= 20),
+  'PWA cache verze je starší než remote deletion reconcile.'
+);
 
 const helpersStart = source.indexOf('  const norm =');
 const helpersEnd = source.indexOf('\n  function editingList()', helpersStart);
