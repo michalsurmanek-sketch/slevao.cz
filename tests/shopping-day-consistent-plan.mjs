@@ -25,6 +25,10 @@ for (const needle of [
   ".gte('valid_to', today)",
   'let rerunRequested = false;',
   'rerunRequested = true;',
+  'function commitResult(signature, html)',
+  'function clearFailedResult()',
+  "commitResult(signature, '');",
+  "clearFailedResult();",
 ]) assert.ok(source.includes(needle), `Chybí day-consistent planner kontrakt: ${needle}`);
 
 const refreshStart = source.indexOf('  async function refresh(');
@@ -33,11 +37,26 @@ assert.ok(refreshStart >= 0 && scheduleStart > refreshStart, 'Planner refresh fu
 const refreshSource = source.slice(refreshStart, scheduleStart);
 const guardIndex = refreshSource.indexOf('if (refreshing) {');
 const requestIndex = refreshSource.indexOf('rerunRequested = true;', guardIndex);
+const fetchIndex = refreshSource.indexOf('await fetchOfferLists(activeRows, today)');
+const successCommitIndex = refreshSource.indexOf('commitResult(signature, plan ? planHtml', fetchIndex);
+const catchIndex = refreshSource.indexOf('catch (error) {');
+const clearFailureIndex = refreshSource.indexOf('clearFailedResult();', catchIndex);
 const finallyIndex = refreshSource.indexOf('finally {');
 const replayIndex = refreshSource.indexOf('if (rerunRequested) {', finallyIndex);
 const scheduleIndex = refreshSource.indexOf('schedule();', replayIndex);
 assert.ok(guardIndex >= 0 && requestIndex > guardIndex, 'Změna během běžícího planneru nepožádá o další refresh.');
+assert.ok(fetchIndex > 0 && successCommitIndex > fetchIndex, 'Úspěšný síťový výsledek se neukládá až po načtení cen.');
+assert.ok(!refreshSource.slice(0, fetchIndex).includes('lastRefreshAt = Date.now();'), 'Planner označí síťový refresh jako čerstvý ještě před načtením cen.');
+assert.ok(!refreshSource.slice(0, fetchIndex).includes('lastSignature = signature;'), 'Planner cachuje podpis řádků ještě před úspěšným načtením cen.');
+assert.ok(catchIndex >= 0 && clearFailureIndex > catchIndex, 'Selhání planneru neodstraní stale přesnou kartu a cache.');
 assert.ok(finallyIndex >= 0 && replayIndex > finallyIndex && scheduleIndex > replayIndex, 'Po dokončení planneru se zahozená změna znovu nepřepočítá.');
+
+const clearStart = source.indexOf('  function clearFailedResult()');
+const clearEnd = source.indexOf('\n  async function refresh(', clearStart);
+const clearSource = source.slice(clearStart, clearEnd);
+for (const needle of ["lastSignature = '';", 'lastRefreshAt = 0;', "lastHtml = '';", "renderCard('');"]) {
+  assert.ok(clearSource.includes(needle), `Failure cleanup nečistí stale stav: ${needle}`);
+}
 
 const validStart = source.indexOf('  function validOn(');
 const validEnd = source.indexOf('\n  async function readRows()', validStart);
@@ -87,4 +106,4 @@ assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent p
 assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
 assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
 
-console.log('Day-consistent shopping planner, refresh replay and runtime wiring OK');
+console.log('Day-consistent shopping planner, refresh replay, failure-cache safety and runtime wiring OK');
