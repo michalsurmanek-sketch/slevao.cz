@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const db = window.SlevaoSupabase?.getClient?.();
   if (!db || db.__slevaoBudgetConcurrencyGuard) return;
 
@@ -96,6 +97,13 @@
     }
   }
 
+  function syncStorage() {
+    if (!userId || !state?.id) return false;
+    if (state.budget > 0) localStorage.setItem(LEGACY_BUDGET_KEY, String(Number(state.budget.toFixed(2))));
+    else localStorage.removeItem(LEGACY_BUDGET_KEY);
+    return true;
+  }
+
   async function persistBudget(nextBudget, allowRetry = true) {
     const currentState = await ensureState({ attempts: 1 });
     if (!currentState?.id || !userId) throw new Error('Aktivní nákupní seznam zatím není připravený. Zkus rozpočet uložit znovu.');
@@ -175,6 +183,7 @@
 
       const requestedBudget = normalizeBudget(input.value);
       const result = await persistBudget(requestedBudget);
+      syncStorage();
       if (result.conflict) {
         input.value = formatBudget(result.state.budget);
         replayBudgetChange(input, { suppressToast:true });
@@ -188,6 +197,7 @@
       replayBudgetChange(input);
     } catch (error) {
       input.value = formatBudget(state?.budget || 0);
+      syncStorage();
       window.SlevaoPublic?.toast?.(error.message || 'Rozpočet se nepodařilo uložit.');
     } finally {
       syncing = false;
@@ -201,18 +211,22 @@
   window.SlevaoShoppingBudgetConcurrency = {
     normalizeBudget,
     persistBudget,
+    syncStorage,
     getState: () => state ? { ...state } : null
   };
 
-  (async () => {
+  const initialization = (async () => {
     try {
       const { data, error } = await db.auth.getSession();
       if (error) throw error;
       userId = String(data?.session?.user?.id || '');
-      if (userId) await ensureState({ attempts: 6 });
+      if (userId) await ensureState({ attempts: 1 });
+      return state ? { ...state } : null;
     } catch {
       userId = '';
       state = null;
+      return null;
     }
   })();
+  window.SlevaoShoppingBudgetConcurrencyReady = initialization;
 })();
