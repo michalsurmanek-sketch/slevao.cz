@@ -56,8 +56,8 @@
   function unitLabel(article) {
     const quantityInput = article.querySelector('[data-quantity]');
     const raw = String(quantityInput?.dataset?.unit || article?.dataset?.unit || '').trim().toLowerCase();
-    if (!raw) return 'jednotku';
-    return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : 'jednotku';
+    if (!raw) return '';
+    return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';
   }
 
   function syncPriceNode(article, className, html) {
@@ -114,7 +114,7 @@
         syncPriceNode(
           article,
           'sfItemPrice',
-          `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ${label}</small>` : ''}`
+          `<strong>${money(subtotal)}</strong>${qty > 1 && label ? `<small>${money(unit)} / ${label}</small>` : ''}`
         );
       } else {
         syncPriceNode(article, 'sfItemPrice missing', '<strong>Cena<br>nenalezena</strong>');
