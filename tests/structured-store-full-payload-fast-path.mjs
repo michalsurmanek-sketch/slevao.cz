@@ -66,3 +66,4 @@ assert.ok(
 );
 
 console.log('Structured store full-payload no-change fast-path contract OK');
+await import('./albert-strong-full-payload-fast-path.mjs');
