@@ -9,6 +9,11 @@ const html = readFileSync(new URL('seznam.html', root), 'utf8');
 
 new Script(source, { filename:'assets/shopping-list-price-summary.js' });
 
+const absoluteStart = source.indexOf('  function absoluteBox()');
+const absoluteEnd = source.indexOf('\n  function boxUsesUpcomingPrice', absoluteStart);
+assert.ok(absoluteStart >= 0 && absoluteEnd > absoluteStart, 'Absolute box selector nejde izolovaně otestovat.');
+const absoluteFunction = source.slice(absoluteStart, absoluteEnd);
+
 const functionStart = source.indexOf('  function absolutePriceBuckets()');
 const functionEnd = source.indexOf('\n  function localUnitMap()', functionStart);
 assert.ok(functionStart >= 0 && functionEnd > functionStart, 'Price bucket funkci nejde izolovaně otestovat.');
@@ -42,6 +47,10 @@ const absoluteBox = {
   },
 };
 const optimizer = {
+  querySelector(selector) {
+    if (selector === '[data-day-consistent-plan="true"]') return null;
+    return null;
+  },
   querySelectorAll() {
     return [
       { classList:{ toggle() {} }, querySelector: () => ({ textContent:'Vše v jednom obchodě' }) },
@@ -49,6 +58,21 @@ const optimizer = {
     ];
   },
 };
+
+const preciseBox = { marker:'precise' };
+const preferenceContext = {
+  optimizer:{
+    querySelector(selector) { return selector === '[data-day-consistent-plan="true"]' ? preciseBox : null; },
+    querySelectorAll() { return [absoluteBox]; },
+  },
+  String,
+};
+new Script(`
+  const normalize = (value) => String(value || '').normalize('NFD').replace(/[\\u0300-\\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  ${absoluteFunction}
+  globalThis.selected = absoluteBox();
+`, { filename:'price-summary-day-plan-preference.js' }).runInNewContext(preferenceContext);
+assert.equal(preferenceContext.selected, preciseBox, 'Price summary nepreferuje přesný jednodenní plán před smíšeným 7denním plánem.');
 
 const context = { optimizer, Map, Set, String, Number };
 new Script(`
@@ -58,10 +82,7 @@ new Script(`
     const raw = String(value || '').trim().toLowerCase();
     return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : '';
   };
-  function absoluteBox() {
-    const boxes = [...optimizer.querySelectorAll('.sfResultBox')];
-    return boxes.find((box) => normalize(box.querySelector('h3')?.textContent) === 'absolutne nejnizsi cena') || boxes[1] || null;
-  }
+  ${absoluteFunction}
   function boxUsesUpcomingPrice(box) {
     const note = normalize(box?.querySelector('.sfMuted')?.textContent);
     return note.includes('pouziva akci zacinajici');
@@ -102,6 +123,8 @@ assert.equal(context.unitUnknown, '', 'Neznámá jednotka má skrýt jednotkovou
 assert.equal(context.unitUnsafe, '', 'Nebezpečný unit label se nesmí vložit do HTML.');
 
 for (const needle of [
+  "const precise = optimizer.querySelector('[data-day-consistent-plan=\"true\"]');",
+  'if (precise) return precise;',
   "const LIST_KEY = 'slevao-shopping-list-v1';",
   'const sharedMode = Boolean(sharedQuery.get(\'share\') || sharedHash.get(\'share\'));',
   'const safeUnit = (value) =>',
@@ -153,4 +176,4 @@ assert.ok(mobileCss.includes('max-width:100%'), 'Mobilní mixed-date badge nemá
 assert.match(html, /assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální mobilní optimizer CSS.');
 assert.match(html, /assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální cenový runtime.');
 
-console.log('Shopping list price summary timing, local unit safety, shared isolation and duplicate safety OK');
+console.log('Shopping list price summary prefers day-consistent plan and keeps unit/shared safety OK');
