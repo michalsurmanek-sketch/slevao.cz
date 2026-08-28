@@ -135,7 +135,9 @@ assert.ok(html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.index
 assert.ok(html.indexOf(coldUrl) < html.indexOf(bootstrapUrl), 'Cold sync se načítá až po shopping bootstrapu.');
 assert.ok(worker.includes(`'/${coldUrl}'`), 'PWA necachuje přesný cold-sync runtime ze seznam.html.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
-assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-59'/, 'PWA shell nebyl po cold-sync fixu posunut na verzi 59.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát pro cold-sync ochranu.');
+assert.ok(Number(cacheMatch[1]) >= 59, 'PWA shell je starší než cold-sync fix verze 59.');
 
 const bootStart = bootstrap.indexOf('  async function boot()');
 const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', bootStart);
