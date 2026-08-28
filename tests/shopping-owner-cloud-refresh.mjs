@@ -132,3 +132,4 @@ assert.equal(guest.result.status, 'guest', 'Guest nákup byl chybně blokovaný 
 assert.equal(guest.calls, 1, 'Guest dokončení nemá čekat na cloudový stav.');
 
 console.log('Shopping owner cloud refresh and completion guard OK');
+await import('./shopping-owner-cold-sync.mjs');
