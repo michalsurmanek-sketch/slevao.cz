@@ -4,8 +4,10 @@ import { readFileSync } from 'node:fs';
 const root = new URL('../', import.meta.url);
 const migrationPath = 'supabase/migrations/20260827215001_atomic_shopping_purchase_completion.sql';
 const hardeningPath = 'supabase/migrations/20260828103919_require_list_for_authenticated_purchase_completion.sql';
+const windowPath = 'supabase/migrations/20260828104148_align_purchase_history_with_seven_day_estimate.sql';
 const sql = readFileSync(new URL(migrationPath, root), 'utf8');
 const hardeningSql = readFileSync(new URL(hardeningPath, root), 'utf8');
+const windowSql = readFileSync(new URL(windowPath, root), 'utf8');
 
 for (const needle of [
   'create or replace function public.validate_shopping_purchase_snapshot()',
@@ -86,6 +88,23 @@ const nullListGuard = hardeningSql.indexOf('and new.shopping_list_id is null the
 const normalAtomicGuard = hardeningSql.indexOf('and new.shopping_list_id is not null', nullListGuard + 1);
 assert.ok(nullListGuard >= 0 && normalAtomicGuard > nullListGuard, 'Null-list ochrana musí předcházet atomickému completion bloku.');
 assert.ok(!/alter\s+table\s+public\.shopping_list_purchases[\s\S]*shopping_list_id[\s\S]*not\s+null/i.test(hardeningSql), 'shopping_list_id nesmí být NOT NULL; historie používá FK ON DELETE SET NULL.');
+
+for (const needle of [
+  'v_purchase_window_end date :=',
+  "::date + 7",
+  'o.valid_from <= v_purchase_window_end',
+  'o.valid_to >= v_purchase_date',
+  "o.status = 'published'",
+  'o.is_verified = true',
+  "or o.product_id = (item.value->>'product_id')::uuid",
+  "or abs(o.price - (item.value->>'price')::numeric) <= 0.01",
+  'Historie obsahuje nabídku mimo povolený sedmidenní odhad nebo s nesouhlasící cenou.',
+]) {
+  assert.ok(windowSql.includes(needle), `Chybí sedmidenní purchase-history kontrakt: ${needle}`);
+}
+assert.ok(!windowSql.includes('o.valid_from <= v_purchase_date\n          and o.valid_to >= v_purchase_date'), 'Finální validace stále vyžaduje, aby každá uložená nabídka platila přesně v den dokončení.');
+assert.ok(windowSql.includes('and new.shopping_list_id is null then'), 'Sedmidenní migrace ztratila null-list ochranu.');
+assert.ok(windowSql.includes('if v_atomic_completion then'), 'Sedmidenní migrace ztratila atomický cleanup.');
 
 console.log('Atomic shopping purchase completion migration contract OK');
 await import('./shopping-repeat-purchase-sync.mjs');
