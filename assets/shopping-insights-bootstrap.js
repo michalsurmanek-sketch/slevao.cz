@@ -214,6 +214,11 @@
       } catch (error) {
         console.debug('slevao_shopping_owner_cold_sync_failed', error);
       }
+      try {
+        await window.SlevaoShoppingGuestProductFallback?.sync?.();
+      } catch (error) {
+        console.debug('slevao_shopping_guest_product_fallback_failed', error);
+      }
     }
     loadShoppingRuntimes();
   }
