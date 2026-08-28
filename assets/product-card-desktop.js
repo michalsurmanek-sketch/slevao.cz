@@ -294,6 +294,13 @@
 
   const buttons = [...control.querySelectorAll('[data-card-view]')];
 
+  const markLongPrices = () => {
+    grid.querySelectorAll('.dealCard .price').forEach((price) => {
+      const amount = price.textContent.replace(/\s+/g, '').replace(/Kč.*$/i, '').replace(/[^\d,.]/g, '');
+      price.classList.toggle('dealPriceLong', amount.length >= 5);
+    });
+  };
+
   const applyView = (view, persist = true) => {
     const next = ['classic', 'mini', 'leaflet'].includes(view) ? view : 'mini';
     grid.dataset.cardView = next;
@@ -313,5 +320,15 @@
     applyView(button.dataset.cardView);
   });
 
+  let priceFrame = 0;
+  new MutationObserver(() => {
+    if (priceFrame) return;
+    priceFrame = requestAnimationFrame(() => {
+      priceFrame = 0;
+      markLongPrices();
+    });
+  }).observe(grid, { childList:true, subtree:true, characterData:true });
+
   applyView(readView(), false);
+  markLongPrices();
 })();

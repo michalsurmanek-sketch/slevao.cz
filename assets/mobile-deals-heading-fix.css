@@ -685,3 +685,31 @@
     margin:0!important;
   }
 }
+
+/* Mobile mini cards: readable metadata, stable rows and compact view controls. */
+@media (max-width:800px){
+  html body #dealsSection .toolbar #resultText{font-size:11px!important;white-space:normal!important;overflow:visible!important;text-overflow:clip!important}
+  html body #dealsSection .dealViewSwitch{gap:1px!important;padding:2px!important}
+  html body #dealsSection .dealViewButton{width:31px!important;min-width:31px!important;height:31px!important;min-height:31px!important}
+  html body #dealsSection .dealViewButton svg{width:17px!important;height:17px!important}
+  html body #dealGrid[data-card-view="mini"] .dealInfo{padding:9px 2px 7px!important}
+  html body #dealGrid[data-card-view="mini"] .dealMedia>img{position:relative!important;z-index:1!important}
+  html body #dealGrid[data-card-view="mini"] .discountBadge{z-index:3!important;isolation:isolate!important}
+  html body #dealGrid[data-card-view="mini"] .dealMenu{z-index:4!important}
+  html body #dealGrid[data-card-view="mini"] .storeLine,
+  html body #dealGrid[data-card-view="mini"] .dealInfo h3{padding-right:34px!important}
+  html body #dealGrid[data-card-view="mini"] .dealInfo h3{height:34px!important;min-height:34px!important;max-height:34px!important;text-overflow:ellipsis!important}
+  html body #dealGrid[data-card-view="mini"] .dealChips{display:grid!important;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr)!important;width:100%!important;min-height:26px!important;overflow:visible!important}
+  html body #dealGrid[data-card-view="mini"] .dealChips>span{min-width:0!important;width:100%!important;min-height:26px!important;padding:0 4px!important;justify-content:center!important;gap:3px!important;font-size:clamp(7px,2vw,8.5px)!important;letter-spacing:-.12px!important;white-space:nowrap!important}
+  html body #dealGrid[data-card-view="mini"] .dealChips>span:only-child{grid-column:1/-1!important;width:max-content!important;max-width:100%!important;justify-self:start!important;padding-inline:7px!important}
+  html body #dealGrid[data-card-view="mini"] .priceRow{min-height:51px!important}
+  html body #dealGrid[data-card-view="mini"] .price.dealPriceLong{font-size:clamp(21px,6.25vw,28px)!important;letter-spacing:-1.15px!important}
+  html body #dealGrid[data-card-view="mini"] .saving{min-height:25px!important;align-items:center!important}
+  html body #dealGrid[data-card-view="mini"] .dealBody{display:flex!important;flex-direction:column!important}
+  html body #dealGrid[data-card-view="mini"] .dealUtilityPanel{margin-top:auto!important}
+}
+
+@media (max-width:360px){
+  html body #dealsSection .toolbar #resultText{font-size:10px!important}
+  html body #dealsSection .dealViewButton{width:29px!important;min-width:29px!important;height:29px!important;min-height:29px!important}
+}
