@@ -138,7 +138,9 @@ for (const needle of [
   'const units = localUnitMap();',
   'const label = unitLabel(article, units);',
   'qty > 1 && label ? `<small>${money(unit)} / ${label}</small>` :',
-  "const timing = absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '';",
+  'function futureDayLabel(box)',
+  "box?.querySelector('.sfDayPlanDate[data-plan-date]')",
+  "const timing = futureTiming ? ` · ${futureTiming}` : (absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '');",
   "attributeFilter: ['value', 'data-unit']",
   'function ambiguousPriceKeys(articles, prices)',
 ]) {
