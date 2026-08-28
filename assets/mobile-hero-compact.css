@@ -1,3 +1,5 @@
+@import url('/assets/mobile-autopilot-category-divider.css?v=20260828-1');
+
 /* Slevao.cz – mobilní hero: čistý obrázek přes celé pozadí karty. */
 @media(max-width:800px){
   html body .hero{
