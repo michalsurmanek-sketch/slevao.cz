@@ -54,7 +54,7 @@
   /* Výhody jsou už v bloku Hlídání slev; starou druhou sadu na mobilu nezobrazovat. */
   .footerBottom{min-height:34px!important;margin:0 12px 10px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
   .footerBottomInner{display:none!important}
-  .footerBottom::after{position:static!important;min-height:34px!important;display:flex!important;justify-content:center!important;padding:0!important;text-align:center!important;color:#a9c2bf!important;font-size:10px!important;line-height:1.35!important}
+  .footerBottom::after{content:"© 2026 Slevao.cz"!important;position:static!important;min-height:34px!important;display:flex!important;justify-content:center!important;padding:0!important;text-align:center!important;color:#a9c2bf!important;font-size:10px!important;line-height:1.35!important}
 }
 
 @media(max-width:360px){
