@@ -13,8 +13,66 @@ assert.ok(
   bootstrap.includes("typeof navigator === 'undefined' || !navigator.share"),
   'Share bridge musí bezpečně fungovat i tam, kde navigator není dostupný.'
 );
+assert.ok(
+  bootstrap.includes("const sharedMode = Boolean(sharedHash.get('share'));"),
+  'Bootstrap musí shared režim odvozovat pouze z hash tokenu.'
+);
+assert.ok(
+  !bootstrap.includes('new URLSearchParams(location.search)'),
+  'Bootstrap nesmí znovu přijímat share token z query stringu.'
+);
 new Script(clipboardBridge, { filename:'assets/shopping-clipboard-share-bridge.js' });
 new Script(fallbackGuard, { filename:'assets/shopping-share-fallback-guard.js' });
+
+const sanitizerMatch = html.match(/<script data-shopping-share-url-sanitizer>([\s\S]*?)<\/script>/i);
+assert.ok(sanitizerMatch?.[1], 'Chybí časný sanitizér legacy share URL.');
+const sanitizer = sanitizerMatch[1];
+new Script(sanitizer, { filename:'shopping-share-url-sanitizer.js' });
+for (const needle of [
+  "url.searchParams.get('share')",
+  "url.searchParams.delete('share')",
+  "/^[0-9a-f]{48}$/.test(legacyToken)",
+  "hash.set('share', legacyToken)",
+  'history.replaceState(history.state',
+]) {
+  assert.ok(sanitizer.includes(needle), `Chybí sanitizační kontrakt share URL: ${needle}`);
+}
+assert.ok(html.includes('<meta name="referrer" content="origin">'), 'Seznam musí omezit Referer na origin.');
+const sanitizerIndex = html.indexOf('data-shopping-share-url-sanitizer');
+const firstStylesheetIndex = html.indexOf('<link rel="stylesheet"');
+const firstDeferredScriptIndex = html.indexOf('<script defer');
+assert.ok(sanitizerIndex >= 0 && sanitizerIndex < firstStylesheetIndex, 'Share URL se musí sanitizovat před načítáním stylů.');
+assert.ok(sanitizerIndex < firstDeferredScriptIndex, 'Share URL se musí sanitizovat před deferred runtime skripty.');
+
+function sanitizeLegacyUrl(href) {
+  let replacement = null;
+  const context = {
+    location: { href },
+    history: {
+      state: { keep:true },
+      replaceState(state, title, value) {
+        replacement = { state, title, value };
+      },
+    },
+    URL,
+    URLSearchParams,
+  };
+  new Script(sanitizer, { filename:'shopping-share-url-sanitizer-runtime.js' }).runInNewContext(context);
+  return replacement;
+}
+
+const validLegacyToken = 'a'.repeat(48);
+const migrated = sanitizeLegacyUrl(`https://slevao.cz/seznam.html?utm_source=test&share=${validLegacyToken}`);
+assert.equal(migrated?.value, `/seznam.html?utm_source=test#share=${validLegacyToken}`, 'Platný legacy query token se musí převést do hashe a zachovat ostatní query parametry.');
+assert.deepEqual(migrated?.state, { keep:true }, 'Sanitizace nesmí zahodit history state.');
+
+const existingHashToken = 'b'.repeat(48);
+const existingHash = sanitizeLegacyUrl(`https://slevao.cz/seznam.html?share=${validLegacyToken}#share=${existingHashToken}`);
+assert.equal(existingHash?.value, `/seznam.html#share=${existingHashToken}`, 'Existující hash token má přednost před legacy query tokenem.');
+
+const invalidLegacy = sanitizeLegacyUrl('https://slevao.cz/seznam.html?share=test-token');
+assert.equal(invalidLegacy?.value, '/seznam.html', 'Neplatný legacy share parametr se musí z URL odstranit.');
+assert.equal(sanitizeLegacyUrl('https://slevao.cz/seznam.html#share=test-token'), null, 'Hash-only odkaz se nesmí zbytečně přepisovat.');
 
 const functionStart = bootstrap.indexOf('  function installShareBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
@@ -125,6 +183,11 @@ await clipboard.writeText(ordinaryClipboard);
 assert.equal(clipboardCalls.length, 2, 'Běžné kopírování musí projít nativně.');
 assert.equal(clipboardCalls[1], ordinaryClipboard, 'Clipboard bridge nesmí měnit nesouvisející text.');
 
+const legacyQueryClipboard = `https://slevao.cz/seznam.html?share=${validLegacyToken}`;
+await clipboard.writeText(legacyQueryClipboard);
+assert.equal(clipboardCalls.length, 3, 'Legacy query URL musí clipboard bridge předat právě jednou.');
+assert.equal(clipboardCalls[2], legacyQueryClipboard, 'Clipboard bridge nesmí považovat query token za bezpečný shared odkaz.');
+
 new Script(clipboardBridge, { filename:'shopping-clipboard-share-second-install.js' }).runInNewContext(clipboardContext);
 assert.equal(clipboard.writeText, firstClipboardWrapper, 'Druhá instalace nesmí znovu obalit clipboard.writeText.');
 
@@ -199,9 +262,10 @@ assert.equal(abortClipboardCalls.length, 0, 'Uživatelské zrušení share dialo
 
 for (const needle of [
   "navigator.clipboard.__slevaoShoppingShareClipboardBridge",
-  "hash.get('share') || url.searchParams.get('share')",
+  "const token = hash.get('share');",
   "return /\\/seznam(?:\\.html)?$/i.test(url.pathname) && Boolean(token);",
 ]) assert.ok(clipboardBridge.includes(needle), `Chybí clipboard share kontrakt: ${needle}`);
+assert.ok(!clipboardBridge.includes("url.searchParams.get('share')"), 'Clipboard bridge nesmí přijímat share token z query stringu.');
 for (const needle of [
   "navigator.__slevaoShoppingShareFallbackGuard",
   "if (error?.name === 'AbortError') throw error;",
@@ -212,11 +276,15 @@ for (const needle of [
 const clipboardUrl = html.match(/assets\/shopping-clipboard-share-bridge\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 const fallbackUrl = html.match(/assets\/shopping-share-fallback-guard\.js\?v=[^"']+/)?.[0] || '';
-assert.match(clipboardUrl, /^assets\/shopping-clipboard-share-bridge\.js\?v=20260828-[0-9]+$/);
+assert.equal(clipboardUrl, 'assets/shopping-clipboard-share-bridge.js?v=20260828-2');
+assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-9');
 assert.match(fallbackUrl, /^assets\/shopping-share-fallback-guard\.js\?v=20260828-[0-9]+$/);
 assert.ok(html.indexOf(clipboardUrl) < html.indexOf(bootstrapUrl), 'Clipboard share bridge musí běžet před bootstrapem seznamu.');
 assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(fallbackUrl), 'Share fallback guard musí běžet až po Web Share bridge bootstrapu.');
 assert.ok(worker.includes(`'/${clipboardUrl}'`), 'PWA necachuje clipboard share bridge.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje hash-only bootstrap seznamu.');
 assert.ok(worker.includes(`'/${fallbackUrl}'`), 'PWA necachuje share fallback guard.');
+const cacheRevision = Number(worker.match(/slevao-shell-20260828-(\d+)/)?.[1] || 0);
+assert.ok(cacheRevision >= 67, 'PWA cache revize musí zahrnout hash-only share změny.');
 
-console.log('Shopping share format OK');
+console.log('Shopping share hash-only format and legacy URL sanitization OK');
