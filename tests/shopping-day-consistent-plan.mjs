@@ -4,6 +4,7 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-day-consistent-plan.js', root), 'utf8');
+const mobileCss = readFileSync(new URL('assets/mobile-optimizer-compact.css', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-day-consistent-plan.js' });
@@ -19,6 +20,8 @@ for (const needle of [
   "box.dataset.dayConsistentPlan = 'true';",
   '<h3>Nejlevnější nákup v jeden den</h3>',
   'Všechny uvedené ceny platí současně',
+  'class="sfDayPlanDate"',
+  'Platí společně ${esc(date)}',
   "db.rpc('get_shared_shopping_list', { p_token:sharedToken })",
   "db.rpc('get_public_shopping_list_candidates', { p_queries:customQueries, p_limit_per_query:30 })",
   ".lte('valid_from', upcomingTo)",
@@ -98,12 +101,23 @@ assert.equal(context.plan?.total, 32, 'Day-consistent cena má být 12 + 20 = 32
 assert.equal(context.none, null, 'Planner vytvořil košík, i když nabídky nemají žádný společný den.');
 assert.equal(context.quantityPlan?.total, 21, 'Planner nenásobí cenu skutečným množstvím.');
 
+for (const needle of [
+  '#optimizer .sfDayPlanDate',
+  '#optimizer .sfResultBox[data-day-consistent-plan="true"]',
+  '"date date"',
+  'grid-area:date;',
+  'display:inline-flex;',
+]) assert.ok(mobileCss.includes(needle), `Mobilní přesný plán neudrží datum viditelné: ${needle}`);
+
 const plannerUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']+/)?.[0] || '';
 const summaryUrl = html.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0] || '';
+const mobileCssUrl = html.match(/assets\/mobile-optimizer-compact\.css\?v=[^"']+/)?.[0] || '';
 assert.match(plannerUrl, /^assets\/shopping-day-consistent-plan\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný day-consistent planner.');
 assert.match(summaryUrl, /^assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný price summary.');
+assert.match(mobileCssUrl, /^assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný mobilní optimizer CSS.');
 assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent planner se musí načíst před price-summary runtime.');
 assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
 assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
+assert.ok(worker.includes(`'/${mobileCssUrl}'`), 'PWA necachuje přesný mobilní optimizer CSS ze seznam.html.');
 
-console.log('Day-consistent shopping planner, refresh replay, failure-cache safety and runtime wiring OK');
+console.log('Day-consistent shopping planner, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');
