@@ -1,0 +1,61 @@
+/* Mobile focus: get users from the header to their actual shopping list faster.
+   Layout only; prices, controls, account state and optimizer logic stay untouched. */
+@media (max-width:720px){
+  .sfHero{
+    gap:6px;
+    margin-bottom:8px;
+  }
+
+  .listHeroMain{
+    padding:11px 13px;
+    border-radius:17px;
+  }
+
+  .listHeroMain .sfEyebrow{
+    display:none;
+  }
+
+  .sfHero h1{
+    margin:0;
+    font-size:24px;
+    line-height:1.08;
+    letter-spacing:-.035em;
+  }
+
+  .listHeroMain > .sfMuted:not(#accountStatus),
+  .listBenefits{
+    display:none;
+  }
+
+  #accountStatus{
+    margin:4px 0 0;
+    font-size:10px;
+    line-height:1.25;
+  }
+
+  #accountStatus:empty{
+    display:none;
+  }
+
+  .listHeroSide{
+    padding:9px 11px;
+    border-radius:16px;
+  }
+
+  .listSummaryIcon{
+    width:36px;
+    height:36px;
+    border-radius:11px;
+    font-size:18px;
+  }
+
+  .listHeroSide > strong{
+    font-size:17px;
+  }
+
+  .listHeroSide .sfButton{
+    min-height:34px;
+    padding:0 8px;
+    font-size:9.5px;
+  }
+}
