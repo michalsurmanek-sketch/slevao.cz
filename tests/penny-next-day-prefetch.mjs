@@ -13,3 +13,4 @@ assert.doesNotMatch(sql, /where store_id=v_store_id\s+and status='published'\s+a
 assert.doesNotMatch(sql, /if not \(v_from<=v_today and v_to>=v_today\)/, 'Penny must not reject an official campaign solely because it begins tomorrow.');
 
 console.log('Penny next-day prefetch guard OK');
+await import('./lidl-full-payload-fast-path.mjs');
