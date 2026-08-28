@@ -100,7 +100,7 @@ const context = createContext({
 });
 new Script(source, { filename:'shopping-budget-concurrency-runtime.js' }).runInContext(context);
 
-assert.ok(window.SlevaoShoppingBudgetConcurrencyReady instanceof Promise, 'Budget guard nevystavil readiness Promise před bootstrapem.');
+assert.equal(typeof window.SlevaoShoppingBudgetConcurrencyReady?.then, 'function', 'Budget guard nevystavil awaitable readiness kontrakt před bootstrapem.');
 await window.SlevaoShoppingBudgetConcurrencyReady;
 const api = window.SlevaoShoppingBudgetConcurrency;
 assert.ok(api, 'Budget concurrency API se nenainstalovalo.');
