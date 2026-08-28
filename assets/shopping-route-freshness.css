@@ -1,0 +1,19 @@
+.srRouteFreshness{
+  margin-top:10px;
+  padding:11px 13px;
+  border:1px solid #ead9a8;
+  border-radius:13px;
+  background:#fff9e8;
+  color:#72581a;
+  font-size:12px;
+  font-weight:800;
+  line-height:1.45;
+}
+
+@media(max-width:700px){
+  .srRouteFreshness{
+    margin-top:8px;
+    padding:10px 11px;
+    font-size:11px;
+  }
+}
