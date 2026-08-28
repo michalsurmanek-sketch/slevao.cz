@@ -9,16 +9,20 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-owner-item-concurrency.js' });
 
 const runtimeUrl = 'assets/shopping-owner-item-concurrency.js?v=20260828-1';
+const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá owner item semantic CAS bridge.');
 assert.ok(
   html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(runtimeUrl),
   'Owner item CAS bridge běží před owner-scoped localStorage bridge.'
 );
+const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
+assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
 assert.ok(
-  html.indexOf(runtimeUrl) < html.indexOf('assets/shopping-insights-bootstrap.js?v=20260828-6'),
+  html.indexOf(runtimeUrl) < html.indexOf(bootstrapUrl),
   'Owner item CAS bridge musí obalit Supabase klienta před shopping runtime bootstrapem.'
 );
 assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje owner item semantic CAS bridge.');
+assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
 const shellVersion = Number(worker.match(/const CACHE_NAME = 'slevao-shell-20260828-(\d+)';/)?.[1] || 0);
 assert.ok(shellVersion >= 60, 'PWA shell se nesmí vrátit pod owner item CAS verzi 60.');
 assert.ok(source.includes("if (sharedMode || !document.querySelector('.sfListLayout')) return;"), 'CAS bridge není bezpečně vypnutý ve shared režimu.');
