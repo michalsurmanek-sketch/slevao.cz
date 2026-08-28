@@ -1,6 +1,7 @@
 (() => {
   'use strict';
 
+  const ACTIVE_USER_KEY = 'slevao-active-user-v1';
   const sharedQuery = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedQuery.get('share') || sharedHash.get('share'));
@@ -11,6 +12,11 @@
 
   let handling = false;
   let bypass = false;
+
+  function markedUserId() {
+    try { return String(localStorage.getItem(ACTIVE_USER_KEY) || '').trim(); }
+    catch { return ''; }
+  }
 
   function showMessage(text, bad = false) {
     const element = document.getElementById('listMessage');
@@ -102,7 +108,7 @@
   }
 
   document.addEventListener('click', (event) => {
-    if (bypass) return;
+    if (bypass || !markedUserId()) return;
     const button = event.target?.closest?.('#addCustom');
     if (!button || button.disabled) return;
     event.preventDefault();
@@ -111,7 +117,7 @@
   }, true);
 
   document.addEventListener('keydown', (event) => {
-    if (bypass || event.key !== 'Enter' || event.target?.id !== 'customName') return;
+    if (bypass || !markedUserId() || event.key !== 'Enter' || event.target?.id !== 'customName') return;
     event.preventDefault();
     event.stopImmediatePropagation();
     addOwnerCustom('enter');
