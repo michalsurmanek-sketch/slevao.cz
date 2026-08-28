@@ -103,3 +103,4 @@ assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Positive-price g
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný positive-price guard ze seznam.html.');
 
 console.log('Shopping positive-price guard filters verified positive offers and custom candidates before optimizer/insights runtime');
+await import('./shopping-budget-concurrency.mjs');
