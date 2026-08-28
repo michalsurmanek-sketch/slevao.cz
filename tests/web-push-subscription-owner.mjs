@@ -16,9 +16,22 @@ for (const needle of [
   assert.ok(migration.includes(needle), `Chybí immutable Web Push owner guard: ${needle}`);
 }
 
-assert.ok(edge.includes(".eq('endpoint', subscription.endpoint)"), 'Subscribe flow nekontroluje existující endpoint.');
-assert.ok(edge.includes("String(existing.user_id) !== String(user.id)"), 'Subscribe flow nekontroluje vlastníka existujícího endpointu.');
-assert.ok(edge.includes("Push endpoint už je přiřazen jinému účtu."), 'Subscribe flow nemá explicitní odmítnutí cizího endpointu.');
-assert.ok(edge.includes("{ onConflict: 'endpoint' }"), 'Test musí hlídat DB guard proti endpoint upsert race.');
+for (const needle of [
+  ".eq('endpoint', subscription.endpoint)",
+  'String(existing.user_id) !== String(user.id)',
+  'Push endpoint už je přiřazen jinému účtu.',
+  "{ onConflict: 'endpoint' }",
+  "error.code === '42501'",
+  '/Vlastníka push subscription nelze změnit/i',
+  "return json({ error: 'Push endpoint už je přiřazen jinému účtu.' }, 409);",
+]) {
+  assert.ok(edge.includes(needle), `Chybí Web Push ownership race handling: ${needle}`);
+}
 
-console.log('Web Push subscription ownership is immutable across endpoint races');
+const upsertIndex = edge.indexOf("{ onConflict: 'endpoint' }");
+const raceCodeIndex = edge.indexOf("error.code === '42501'", upsertIndex);
+const conflictResponseIndex = edge.indexOf("return json({ error: 'Push endpoint už je přiřazen jinému účtu.' }, 409);", raceCodeIndex);
+assert.ok(upsertIndex >= 0 && raceCodeIndex > upsertIndex, 'DB ownership conflict se nekontroluje po endpoint upsertu.');
+assert.ok(conflictResponseIndex > raceCodeIndex, 'DB ownership conflict se nepřekládá na HTTP 409.');
+
+console.log('Web Push subscription ownership is immutable and endpoint races return 409');
