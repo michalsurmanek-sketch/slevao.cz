@@ -56,3 +56,4 @@ assert.ok(
 );
 
 console.log(`Explicit internal-table deny policies OK (${expectedTables.length} tables)`);
+await import('./extension-schema-hardening.mjs');
