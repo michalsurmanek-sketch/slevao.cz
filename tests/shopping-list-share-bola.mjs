@@ -4,8 +4,9 @@ const bolaPath = 'supabase/migrations/20260818203243_fix_shopping_list_share_upd
 const serializationPath = 'supabase/migrations/20260828152611_serialize_shopping_list_share_creation.sql';
 const triggerAclPath = 'supabase/migrations/20260828152759_restrict_shopping_trigger_function_execute.sql';
 const directWriteAclPath = 'supabase/migrations/20260828153552_restrict_direct_shopping_share_writes.sql';
+const tokenFormatPath = 'supabase/migrations/20260828153929_validate_shopping_share_token_format.sql';
 const shoppingRuntimePath = 'assets/shopping-list.js';
-for (const path of [bolaPath, serializationPath, triggerAclPath, directWriteAclPath, shoppingRuntimePath]) {
+for (const path of [bolaPath, serializationPath, triggerAclPath, directWriteAclPath, tokenFormatPath, shoppingRuntimePath]) {
   if (!fs.existsSync(path)) throw new Error(`Missing file: ${path}`);
 }
 
@@ -96,6 +97,33 @@ if (/revoke[\s\S]*\bselect\b/i.test(directWriteAcl)) {
   throw new Error('Direct-write hardening must preserve shopping_list_shares SELECT compatibility.');
 }
 
+const tokenFormat = fs.readFileSync(tokenFormatPath, 'utf8');
+for (const needle of [
+  'create or replace function public.resolve_shopping_list_share(p_token text)',
+  'language plpgsql',
+  'security definer',
+  'octet_length(p_token) <> 48',
+  "p_token !~ '^[0-9a-f]{48}$'",
+  'return;',
+  "encode(extensions.digest(p_token, 'sha256'), 'hex')",
+  'and s.revoked_at is null',
+  'and (s.expires_at is null or s.expires_at > now())',
+  'and sl.is_archived = false',
+  'revoke all on function public.resolve_shopping_list_share(text) from public, anon, authenticated',
+  'grant execute on function public.resolve_shopping_list_share(text) to postgres, service_role'
+]) {
+  if (!tokenFormat.toLowerCase().includes(needle.toLowerCase())) throw new Error(`Missing share-token format guard: ${needle}`);
+}
+const formatGuardPos = tokenFormat.toLowerCase().indexOf('octet_length(p_token) <> 48');
+const digestPos = tokenFormat.toLowerCase().indexOf("extensions.digest(p_token, 'sha256')");
+if (!(formatGuardPos >= 0 && digestPos > formatGuardPos)) {
+  throw new Error('Share token format must be rejected before SHA-256 work.');
+}
+const resolverGrants = tokenFormat.match(/grant\s+execute[\s\S]*?;/gi) || [];
+if (resolverGrants.some((statement) => /\bto\s+[^;]*\b(?:public|anon|authenticated)\b/i.test(statement))) {
+  throw new Error('Share token resolver must remain internal to trusted roles.');
+}
+
 const runtime = fs.readFileSync(shoppingRuntimePath, 'utf8');
 for (const rpc of ['create_shopping_list_share', 'get_shared_shopping_list', 'get_shared_shopping_list_revision', 'mutate_shared_shopping_list']) {
   if (!new RegExp(`\\.rpc\\(['\"]${rpc}['\"]`, 'i').test(runtime)) {
@@ -106,4 +134,4 @@ if (/\.from\(['\"]shopping_list_shares['\"]\)/i.test(runtime)) {
   throw new Error('Shopping runtime must not bypass share RPCs with direct shopping_list_shares table access.');
 }
 
-console.log('Shopping list share BOLA, serialized token replacement, RPC-only writes, and trigger ACL guards OK');
+console.log('Shopping list share BOLA, serialized token replacement, token format, RPC-only writes, and trigger ACL guards OK');
