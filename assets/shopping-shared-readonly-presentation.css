@@ -1,0 +1,16 @@
+body.sfSharedReadonly .sfAddRow,
+body.sfSharedReadonly #clearCompleted,
+body.sfSharedReadonly .sfListLayout > .sfPanel:first-child .sfSectionHead > a.sfButton,
+body.sfSharedReadonly .sfListItem [data-delete]{
+  display:none!important;
+}
+
+body.sfSharedReadonly .sfListItem{
+  grid-template-columns:auto auto minmax(0,1fr) 90px;
+}
+
+@media(max-width:720px){
+  body.sfSharedReadonly .sfListItem{
+    grid-template-columns:34px minmax(0,1fr) 54px;
+  }
+}
