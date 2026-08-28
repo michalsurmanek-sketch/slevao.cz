@@ -34,4 +34,31 @@
     line-height:1!important;
     transform:translateX(-50%)!important;
   }
+
+  /* Levá ikona sekce kategorií = stejný kruhový styl jako Poblíž vás / Autopilot. */
+  html body main#top #categoriesSection .categoryPanelIntro{
+    grid-template-columns:42px minmax(0,1fr)!important;
+    gap:10px!important;
+  }
+  html body main#top #categoriesSection .categoryPanelIcon{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    min-height:42px!important;
+    display:grid!important;
+    grid-template-columns:repeat(2,7px)!important;
+    grid-template-rows:repeat(2,7px)!important;
+    place-content:center!important;
+    gap:4px!important;
+    border-radius:50%!important;
+    background:linear-gradient(145deg,#e4faf7,#f5fffd)!important;
+    color:#0a978c!important;
+    box-shadow:inset 0 0 0 1px rgba(8,126,117,.08)!important;
+  }
+  html body main#top #categoriesSection .categoryPanelIcon i{
+    width:7px!important;
+    height:7px!important;
+    border:2px solid currentColor!important;
+    border-radius:2px!important;
+  }
 }
