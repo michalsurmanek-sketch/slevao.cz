@@ -117,16 +117,39 @@ for (const needle of [
   'Dokončit nákup a uložit orientační odhad',
   'Uložená částka je plánovaný odhad nákupu, ne skutečná účtenka.',
   'function hasMixedTiming(text)',
-  "return normalized.includes('pouziva akci zacinajici');",
-]) assert.ok(insightGuard.includes(needle), `Insights mixed-date guard neříká pravdivě význam odhadu: ${needle}`);
+  'function isSuccessHint(text)',
+  'const RETRY_DELAYS = [4000, 10000, 20000];',
+  'if (retryTimer || retryAttempts >= RETRY_DELAYS.length) return;',
+  'if (sharedMode || !String(errorText || \'\').trim() || isSuccessHint(errorText)) return;',
+  'refresh.click();',
+  "complete.textContent = 'Dokončení čeká na přepočet';",
+  "complete.textContent = 'Počítám odhad…';",
+  'complete.disabled = true;',
+  'if (success) clearRetryState();',
+]) assert.ok(insightGuard.includes(needle), `Insights validity/retry guard nemá požadovanou ochranu: ${needle}`);
 
-const timingStart = insightGuard.indexOf('  function hasMixedTiming(text)');
-const timingEnd = insightGuard.indexOf('\n  function sync()', timingStart);
-assert.ok(timingStart >= 0 && timingEnd > timingStart, 'Insights timing guard nejde izolovaně otestovat.');
+const statusStart = insightGuard.indexOf('  function normalizeText(text)');
+const statusEnd = insightGuard.indexOf('\n  function clearRetryState()', statusStart);
+assert.ok(statusStart >= 0 && statusEnd > statusStart, 'Insights status funkce nejdou izolovaně otestovat.');
 const timingContext = { String };
-new Script(`${insightGuard.slice(timingStart, timingEnd)}\nglobalThis.mixed = hasMixedTiming('1 položka používá akci začínající během příštích sedmi dnů.');\nglobalThis.current = hasMixedTiming('Všechny položky mají nalezenou cenu.');`, { filename:'shopping-insight-timing-test.js' }).runInNewContext(timingContext);
+new Script(`${insightGuard.slice(statusStart, statusEnd)}
+  globalThis.mixed = hasMixedTiming('1 položka používá akci začínající během příštích sedmi dnů.');
+  globalThis.current = hasMixedTiming('Všechny položky mají nalezenou cenu.');
+  globalThis.successCurrent = isSuccessHint('Všechny položky mají nalezenou cenu.');
+  globalThis.successMissing = isSuccessHint('U 1 položky se nepodařilo najít platnou ani brzy začínající cenu.');
+  globalThis.successUpcoming = isSuccessHint('2 položky používá akci začínající během příštích sedmi dnů.');
+  globalThis.successEmptyList = isSuccessHint('Přidej položky do seznamu a odhad se vypočítá automaticky.');
+  globalThis.errorFetch = isSuccessHint('Failed to fetch');
+  globalThis.errorGeneric = isSuccessHint('Odhad nákupu se nepodařilo vypočítat.');
+`, { filename:'shopping-insight-status-test.js' }).runInNewContext(timingContext);
 assert.equal(timingContext.mixed, true, 'Budoucí akce se neoznačí jako mixed-date orientační odhad.');
 assert.equal(timingContext.current, false, 'Čistě aktuální odhad se chybně označí jako mixed-date.');
+assert.equal(timingContext.successCurrent, true, 'Úspěšný kompletní odhad není rozpoznán.');
+assert.equal(timingContext.successMissing, true, 'Úspěšný částečný odhad s chybějící cenou není rozpoznán.');
+assert.equal(timingContext.successUpcoming, true, 'Úspěšný odhad s budoucí akcí není rozpoznán.');
+assert.equal(timingContext.successEmptyList, true, 'Prázdný seznam není rozpoznán jako validní stav.');
+assert.equal(timingContext.errorFetch, false, 'Síťová chyba se nesmí vydávat za úspěšný odhad.');
+assert.equal(timingContext.errorGeneric, false, 'Chyba výpočtu se nesmí vydávat za úspěšný odhad.');
 
 const plannerUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']+/)?.[0] || '';
 const summaryUrl = html.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0] || '';
@@ -142,4 +165,4 @@ assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-sum
 assert.ok(worker.includes(`'/${mobileCssUrl}'`), 'PWA necachuje přesný mobilní optimizer CSS ze seznam.html.');
 assert.ok(worker.includes(`'/${insightGuardUrl}'`), 'PWA necachuje mixed-date insights guard ze seznam.html.');
 
-console.log('Day-consistent shopping planner, mixed-date insight semantics, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');
+console.log('Day-consistent shopping planner, mixed-date insight semantics, bounded retry safety, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');
