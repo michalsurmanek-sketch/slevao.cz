@@ -159,8 +159,8 @@ function createBootstrapScenario({ shared = false } = {}) {
     },
   };
   const location = {
-    search: shared ? '?share=shared-token' : '',
-    hash: '',
+    search: '',
+    hash: shared ? '#share=shared-token' : '',
     reload() { reloads += 1; },
   };
   const window = {
