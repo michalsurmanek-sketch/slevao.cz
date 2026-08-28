@@ -8,9 +8,8 @@
   const SHARED_ADD_GUARD_URL = 'assets/shopping-shared-add-submit-guard.js?v=20260828-1';
   const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260828-1';
-  const sharedParams = new URLSearchParams(location.search);
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
-  const sharedMode = Boolean(sharedParams.get('share') || sharedHash.get('share'));
+  const sharedMode = Boolean(sharedHash.get('share'));
   const db = window.SlevaoSupabase?.getClient?.();
   let bootedUserId = null;
   let ownerCustomAddLoaded = false;
