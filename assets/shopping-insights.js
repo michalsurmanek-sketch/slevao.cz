@@ -210,12 +210,12 @@
     return (current.length ? current : candidates).slice().sort((a, b) => Number(a.price || 0) - Number(b.price || 0))[0] || null;
   }
 
-  async function calculate() {
+  async function calculateRows(targetRows) {
     const today = pragueDate();
     const upcomingTo = addCalendarDays(today, 7);
-    const active = rows.filter((row) => !row.completed && !row.is_completed);
-    const ids = [...new Set(active.map((row) => row.product_id).filter(Boolean).map(String))];
-    const customQueries = [...new Set(active
+    const selected = Array.isArray(targetRows) ? targetRows : [];
+    const ids = [...new Set(selected.map((row) => row.product_id).filter(Boolean).map(String))];
+    const customQueries = [...new Set(selected
       .filter((row) => !row.product_id)
       .map((row) => String(row.custom_name || row.name || '').trim())
       .filter(Boolean))];
@@ -252,9 +252,9 @@
 
     const next = blankMetrics();
     const stores = new Set();
-    next.itemCount = active.length;
+    next.itemCount = selected.length;
 
-    for (const row of active) {
+    for (const row of selected) {
       const quantity = Math.max(0.01, Number(row.quantity || 1));
       const base = {
         product_id: row.product_id || null,
@@ -311,7 +311,11 @@
     next.total = Number(next.total.toFixed(2));
     next.referenceTotal = Number(next.referenceTotal.toFixed(2));
     next.savings = Number(Math.max(0, next.referenceTotal - next.total).toFixed(2));
-    metrics = next;
+    return next;
+  }
+
+  async function calculate() {
+    metrics = await calculateRows(rows.filter((row) => !row.completed && !row.is_completed));
   }
 
   function renderBudget() {
@@ -357,9 +361,9 @@
     if (metrics.missingCount) hints.push(`U ${itemCountText(metrics.missingCount)} se nepodařilo najít platnou ani brzy začínající cenu.`);
     if (metrics.upcomingCount) hints.push(`${itemCountText(metrics.upcomingCount)} používá akci začínající během příštích sedmi dnů.`);
     if (!hints.length && metrics.itemCount) hints.push('Všechny položky mají nalezenou cenu.');
-    if (!metrics.itemCount) hints.push('Přidej položky do seznamu a odhad se vypočítá automaticky.');
+    if (!metrics.itemCount) hints.push(rows.length ? 'Všechny položky jsou odškrtnuté. Dokončením je můžeš uložit do historie.' : 'Přidej položky do seznamu a odhad se vypočítá automaticky.');
     $('shoppingInsightsHint').textContent = hints.join(' ');
-    $('completeShopping').disabled = sharedMode || !metrics.itemCount || busy;
+    $('completeShopping').disabled = sharedMode || !rows.length || busy;
     $('completeShopping').title = sharedMode ? 'Sdílený nákup může dokončit pouze vlastník seznamu.' : '';
     renderBudget();
   }
@@ -415,33 +419,62 @@
     window.SlevaoPublic?.toast?.(budget ? 'Rozpočet byl uložen.' : 'Rozpočet byl zrušen.');
   }
 
-  function purchasePayload() {
+  function purchasePayload(sourceMetrics = metrics) {
     return {
       id: crypto.randomUUID?.() || `local-${Date.now()}`,
       name: `Nákup ${formatDate(new Date().toISOString())}`,
-      planned_total: metrics.total,
-      reference_total: metrics.referenceTotal,
-      savings: metrics.savings,
+      planned_total: sourceMetrics.total,
+      reference_total: sourceMetrics.referenceTotal,
+      savings: sourceMetrics.savings,
       budget: budget || null,
-      stores_count: metrics.storesCount,
-      item_count: metrics.itemCount,
-      items: metrics.snapshots,
+      stores_count: sourceMetrics.storesCount,
+      item_count: sourceMetrics.itemCount,
+      items: sourceMetrics.snapshots,
       completed_at: new Date().toISOString()
     };
   }
 
+  function completionSelection() {
+    const completedRows = rows.filter((row) => Boolean(row.completed || row.is_completed));
+    return {
+      rows: completedRows.length ? completedRows : rows.slice(),
+      checkedOnly: completedRows.length > 0
+    };
+  }
+
   async function completeShopping() {
-    if (sharedMode || busy || !metrics.itemCount) return;
-    const unpricedCount = Math.max(0, metrics.itemCount - metrics.linkedCount);
-    const confirmation = unpricedCount
-      ? `Uložit nákup do historie a vyčistit seznam? Odhad ${money(metrics.total)} Kč zahrnuje cenu u ${metrics.linkedCount} z ${metrics.itemCount} položek; ${itemCountText(unpricedCount)} zatím cenu nemá.`
-      : `Uložit nákup za přibližně ${money(metrics.total)} Kč do historie a vyčistit seznam?`;
-    if (!window.confirm(confirmation)) return;
+    if (sharedMode || busy || !rows.length) return;
     busy = true;
     renderMetrics();
 
     try {
-      const purchase = purchasePayload();
+      const selection = completionSelection();
+      const completionMetrics = await calculateRows(selection.rows);
+      if (!completionMetrics.itemCount) throw new Error('Nákup neobsahuje položky k uložení.');
+
+      const unpricedCount = Math.max(0, completionMetrics.itemCount - completionMetrics.linkedCount);
+      const remainingCount = Math.max(0, rows.length - selection.rows.length);
+      let confirmation;
+      if (selection.checkedOnly) {
+        confirmation = remainingCount
+          ? `Uložit do historie označené koupené položky (${completionMetrics.itemCount})? V seznamu zůstane ${itemCountText(remainingCount)}.`
+          : `Uložit do historie všechny označené koupené položky (${completionMetrics.itemCount}) a vyčistit seznam?`;
+      } else {
+        confirmation = `Uložit celý nákup (${completionMetrics.itemCount} položek) do historie a vyčistit seznam?`;
+      }
+      if (unpricedCount) {
+        confirmation += ` Odhad ${money(completionMetrics.total)} Kč zahrnuje cenu u ${completionMetrics.linkedCount} z ${completionMetrics.itemCount} položek; ${itemCountText(unpricedCount)} zatím cenu nemá.`;
+      } else {
+        confirmation += ` Odhad nákupu je přibližně ${money(completionMetrics.total)} Kč.`;
+      }
+
+      if (!window.confirm(confirmation)) {
+        busy = false;
+        renderMetrics();
+        return;
+      }
+
+      const purchase = purchasePayload(completionMetrics);
       if (session) {
         const { data, error } = await db.from('shopping_list_purchases').insert({
           user_id: session.user.id,
@@ -458,19 +491,19 @@
         }).select('id').single();
         if (error) throw error;
         purchase.id = data.id;
-        if (list?.id) {
-          const { error: deleteError } = await db.from('shopping_list_items').delete().eq('shopping_list_id', list.id);
-          if (deleteError) throw deleteError;
-          try { await db.rpc('revoke_shopping_list_shares', { p_list_id: list.id }); } catch {}
-        }
       } else {
         history = [purchase, ...localHistory()].slice(0, 30);
         saveHistory();
       }
 
-      localStorage.setItem(LIST_KEY, '[]');
+      const selectedIds = new Set(selection.rows.map((row) => row.local_id).filter(Boolean));
+      const remainingRows = selection.checkedOnly
+        ? rows.filter((row) => !selectedIds.has(row.local_id))
+        : [];
+      rows = remainingRows;
+      localStorage.setItem(LIST_KEY, JSON.stringify(remainingRows));
       window.SlevaoPublic?.updateNavCount?.();
-      window.SlevaoPublic?.toast?.('Nákup byl uložen do historie.');
+      window.SlevaoPublic?.toast?.(remainingRows.length ? 'Koupené položky byly uloženy do historie.' : 'Nákup byl uložen do historie.');
       window.setTimeout(() => location.reload(), 450);
     } catch (error) {
       busy = false;
