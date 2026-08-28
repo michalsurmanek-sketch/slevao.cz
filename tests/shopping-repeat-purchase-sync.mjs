@@ -99,10 +99,12 @@ assert.equal(JSON.parse(storage.get('slevao-shopping-list-v1')).length, 3, 'Gues
 
 await api.repeatCloudPurchase('11111111-1111-1111-1111-111111111111');
 assert.equal(rpcCalls.length, 1, 'Cloud repeat zavolal neočekávaný počet RPC.');
-assert.deepEqual(rpcCalls[0], [
-  'repeat_shopping_purchase',
-  { p_purchase_id:'11111111-1111-1111-1111-111111111111' }
-], 'Cloud repeat nepoužil atomickou repeat_shopping_purchase RPC.');
+assert.equal(rpcCalls[0][0], 'repeat_shopping_purchase', 'Cloud repeat zavolal špatnou RPC.');
+assert.equal(
+  JSON.stringify(rpcCalls[0][1]),
+  JSON.stringify({ p_purchase_id:'11111111-1111-1111-1111-111111111111' }),
+  'Cloud repeat neposlal správné p_purchase_id.'
+);
 
 const assetUrl = html.match(/assets\/shopping-repeat-purchase-sync\.js\?v=[^"']+/)?.[0] || '';
 assert.match(assetUrl, /^assets\/shopping-repeat-purchase-sync\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný repeat-purchase bridge.');
