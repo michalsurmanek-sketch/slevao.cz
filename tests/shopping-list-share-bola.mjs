@@ -2,7 +2,8 @@ import fs from 'node:fs';
 
 const bolaPath = 'supabase/migrations/20260818203243_fix_shopping_list_share_update_bola.sql';
 const serializationPath = 'supabase/migrations/20260828152611_serialize_shopping_list_share_creation.sql';
-for (const path of [bolaPath, serializationPath]) {
+const triggerAclPath = 'supabase/migrations/20260828152759_restrict_shopping_trigger_function_execute.sql';
+for (const path of [bolaPath, serializationPath, triggerAclPath]) {
   if (!fs.existsSync(path)) throw new Error(`Missing migration: ${path}`);
 }
 
@@ -69,4 +70,16 @@ if (/grant\s+execute[\s\S]*\b(?:public|anon)\b/i.test(serialization)) {
   throw new Error('Anonymous/public role must not execute create_shopping_list_share.');
 }
 
-console.log('Shopping list share BOLA and serialized replacement token guards OK');
+const triggerAcl = fs.readFileSync(triggerAclPath, 'utf8');
+for (const fn of ['guard_shopping_list_selected_offer()', 'validate_shopping_purchase_snapshot()']) {
+  const escaped = fn.replace(/[()]/g, '\\$&');
+  const revoke = new RegExp(`revoke\\s+all\\s+on\\s+function\\s+public\\.${escaped}\\s+from\\s+public,\\s*anon,\\s*authenticated`, 'i');
+  const grant = new RegExp(`grant\\s+execute\\s+on\\s+function\\s+public\\.${escaped}\\s+to\\s+postgres,\\s*service_role`, 'i');
+  if (!revoke.test(triggerAcl)) throw new Error(`Public execute not revoked from trigger function: ${fn}`);
+  if (!grant.test(triggerAcl)) throw new Error(`Trusted execute not retained for trigger function: ${fn}`);
+}
+if (/grant\s+execute[\s\S]*\b(?:anon|authenticated|public)\b/i.test(triggerAcl)) {
+  throw new Error('Shopping trigger ACL migration must not grant direct execute to public client roles.');
+}
+
+console.log('Shopping list share BOLA, serialized replacement token, and trigger ACL guards OK');
