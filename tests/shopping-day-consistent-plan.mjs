@@ -4,6 +4,8 @@ import { Script } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-day-consistent-plan.js', root), 'utf8');
+const html = readFileSync(new URL('seznam.html', root), 'utf8');
+const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-day-consistent-plan.js' });
 
 for (const needle of [
@@ -63,4 +65,12 @@ assert.equal(context.plan?.total, 32, 'Day-consistent cena má být 12 + 20 = 32
 assert.equal(context.none, null, 'Planner vytvořil košík, i když nabídky nemají žádný společný den.');
 assert.equal(context.quantityPlan?.total, 21, 'Planner nenásobí cenu skutečným množstvím.');
 
-console.log('Day-consistent shopping planner OK');
+const plannerUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']+/)?.[0] || '';
+const summaryUrl = html.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0] || '';
+assert.match(plannerUrl, /^assets\/shopping-day-consistent-plan\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný day-consistent planner.');
+assert.match(summaryUrl, /^assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný price summary.');
+assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent planner se musí načíst před price-summary runtime.');
+assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
+assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
+
+console.log('Day-consistent shopping planner and runtime wiring OK');
