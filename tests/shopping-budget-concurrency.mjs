@@ -177,10 +177,10 @@ assert.ok(runtimeIndex > syncIndex, 'Shopping runtimy se načítají před cloud
 const guardUrl = html.match(/assets\/shopping-budget-concurrency\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(guardUrl, 'assets/shopping-budget-concurrency.js?v=20260828-2', 'seznam.html nemá očekávanou cold-load verzi budget guardu.');
-assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-5', 'seznam.html nemá očekávanou cloud-budget bootstrap verzi.');
+assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-6', 'seznam.html nemá očekávanou cloud-budget/cold-sync bootstrap verzi.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný shopping bootstrap ze seznam.html.');
-assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-58'/, 'PWA shell nebyl po cold-load budget fixu posunut na verzi 58.');
+assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-59'/, 'PWA shell nebyl po cold-sync integraci posunut na verzi 59.');
 
 console.log('Shopping budget concurrency and cloud-authoritative cold-load guard OK');
