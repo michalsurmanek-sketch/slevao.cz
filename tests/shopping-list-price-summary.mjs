@@ -72,13 +72,20 @@ for (const needle of [
   "const bucket = prices.get(normalize(name)) || [];",
   'const subtotal = Number(bucket.shift() || 0);',
   "count >= 2 && count <= 4 ? 'položky' : 'položek'",
+  'function syncPriceNode(article, className, html)',
+  'if (price.className !== className) price.className = className;',
+  'if (price.innerHTML !== html) price.innerHTML = html;',
+  'if (summary.innerHTML !== summaryHtml) summary.innerHTML = summaryHtml;',
 ]) {
-  assert.ok(source.includes(needle), `Chybí cenový timing kontrakt: ${needle}`);
+  assert.ok(source.includes(needle), `Chybí cenový timing/render kontrakt: ${needle}`);
 }
+
+assert.ok(!source.includes("article.querySelector('.sfItemPrice')?.remove();"), 'Price summary nesmí při každém renderu odstranit a znovu vložit cenu; spouštělo by to observer smyčku.');
+assert.ok(!source.includes('summary.innerHTML = `<span><b>Celkem</b>'), 'Souhrn nesmí být bezpodmínečně přepisovaný při každém observer průchodu.');
 
 assert.ok(mobileCss.includes('#optimizer .sfResultBox.hasUpcomingPrice::after'), 'Mobilní optimizer neukazuje kompaktní upozornění na budoucí cenu.');
 assert.ok(mobileCss.includes('Část cen začne během 7 dnů'), 'Mobilní upozornění na budoucí cenu nemá srozumitelný text.');
 assert.ok(html.includes('assets/mobile-optimizer-compact.css?v=20260828-1'), 'seznam.html nenačítá aktuální mobilní timing CSS.');
 assert.ok(html.includes('assets/shopping-list-price-summary.js?v=20260828-1'), 'seznam.html nenačítá aktuální cenový timing runtime.');
 
-console.log('Shopping list price summary and upcoming timing labels OK');
+console.log('Shopping list price summary timing and idempotent render OK');
