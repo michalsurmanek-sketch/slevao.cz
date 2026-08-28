@@ -53,6 +53,7 @@
         .select('id,product_id,store_id,price,old_price,valid_from,valid_to,stores(name,slug)')
         .in('product_id', ids)
         .eq('status', 'published')
+        .gt('price', 0)
         .lte('valid_from', today)
         .gte('valid_to', today)
         .limit(5000);
@@ -68,7 +69,7 @@
       const key = String(offer.product_id || '');
       if (!key) return;
       const price = Number(offer.price || 0);
-      if (!(price >= 0)) return;
+      if (!(Number.isFinite(price) && price > 0)) return;
       const current = byProduct.get(key);
       if (!current || price < Number(current.price || 0)) byProduct.set(key, offer);
     });
@@ -83,8 +84,9 @@
       if (!row.product_id) return;
       const offer = byProduct.get(String(row.product_id));
       if (!offer) return;
-      const quantity = Math.max(0.01, Number(row.quantity || 1));
-      const price = Math.max(0, Number(offer.price || 0));
+      const rawQuantity = Number(row.quantity ?? 1);
+      const quantity = Number.isFinite(rawQuantity) && rawQuantity > 0 ? Math.max(0.01, rawQuantity) : 1;
+      const price = Number(offer.price || 0);
       const oldPrice = Number(offer.old_price || 0);
       total += price * quantity;
       if (oldPrice > price) {
