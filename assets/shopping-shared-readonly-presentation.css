@@ -1,7 +1,9 @@
 body.sfSharedReadonly .sfAddRow,
 body.sfSharedReadonly #clearCompleted,
 body.sfSharedReadonly .sfListLayout > .sfPanel:first-child .sfSectionHead > a.sfButton,
-body.sfSharedReadonly .sfListItem [data-delete]{
+body.sfSharedReadonly .sfListItem [data-delete],
+body.sfSharedList #completeShopping,
+body.sfSharedList #shoppingHistorySection{
   display:none!important;
 }
 
