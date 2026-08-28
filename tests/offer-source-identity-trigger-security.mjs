@@ -45,3 +45,4 @@ for (const candidate of [sql, albertSql]) {
 }
 
 console.log('Offer source identity trigger execution privileges OK');
+await import('./readonly-public-view-privileges.mjs');
