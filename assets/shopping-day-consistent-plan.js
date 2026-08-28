@@ -13,6 +13,7 @@
   const sharedToken = hash.get('share') || query.get('share') || '';
   const sharedMode = Boolean(sharedToken);
   let refreshing = false;
+  let rerunRequested = false;
   let queued = 0;
   let lastSignature = '';
   let lastRefreshAt = 0;
@@ -202,7 +203,11 @@
   }
 
   async function refresh({ force = false } = {}) {
-    if (refreshing || document.hidden) return;
+    if (refreshing) {
+      rerunRequested = true;
+      return;
+    }
+    if (document.hidden) return;
     refreshing = true;
     try {
       const today = pragueDate();
@@ -238,6 +243,10 @@
       console.debug('Day-consistent shopping plan failed:', error);
     } finally {
       refreshing = false;
+      if (rerunRequested) {
+        rerunRequested = false;
+        schedule();
+      }
     }
   }
 
