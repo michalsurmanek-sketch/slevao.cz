@@ -13,3 +13,4 @@ assert.ok(!sql.includes('update public.offers'));
 assert.ok(!sql.includes('delete from public.offers'));
 
 console.log('FLOP success health classification regression checks passed');
+await import('./flop-full-payload-reuse.mjs');
