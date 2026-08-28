@@ -164,7 +164,7 @@
     summary.hidden = false;
     const complete = pricedCount === articles.length;
     const coverage = complete ? `za ${articles.length} ${itemLabel(articles.length)}` : `cena nalezena u ${pricedCount} z ${articles.length}`;
-    const timing = absoluteUpcoming ? ' · část cen začne během 7 dnů' : '';
+    const timing = absoluteUpcoming ? ' · ceny nemusí platit ve stejný den' : '';
     const ambiguity = ambiguousKeys.size ? ' · stejné názvy bez rozpisu' : '';
     const summaryHtml = `<span><b>Celkem</b><small>${coverage}${timing}${ambiguity}</small></span><strong>${pricedCount ? money(total) : '—'}</strong>`;
     if (summary.innerHTML !== summaryHtml) summary.innerHTML = summaryHtml;
