@@ -19,11 +19,13 @@ for (const needle of [
   "toggle.id = 'shoppingLegacyPlansToggle';",
   "toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');",
   "`Další možnosti (${legacy.length})`",
+  'if (toggle.textContent !== nextText) toggle.textContent = nextText;',
 ]) assert.ok(source.includes(needle), `Chybí mobile optimizer collapse kontrakt: ${needle}`);
 
 assert.ok(css.includes('#optimizer .sfResultBox[hidden]'), 'CSS neumí skrýt sbalené legacy karty.');
 assert.ok(css.includes('#shoppingLegacyPlansToggle'), 'CSS neobsahuje kompaktní toggle dalších možností.');
 assert.ok(!source.includes('exact.hidden'), 'Přesný jednodenní plán se nesmí skrývat.');
+assert.ok(!source.includes("toggle.textContent = expanded\n"), 'Toggle text se nesmí bezpodmínečně přepisovat při každém observer syncu.');
 
 const cssUrl = html.match(/assets\/shopping-optimizer-mobile-collapse\.css\?v=[^"']+/)?.[0] || '';
 const jsUrl = html.match(/assets\/shopping-optimizer-mobile-collapse\.js\?v=[^"']+/)?.[0] || '';
