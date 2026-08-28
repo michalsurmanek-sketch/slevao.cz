@@ -16,6 +16,12 @@
     return new URLSearchParams(location.search).get('route') === '1';
   }
 
+  function ownerGateReady() {
+    const bootstrap = document.querySelector('script[src*="shopping-insights-bootstrap.js"]');
+    if (!bootstrap) return true;
+    return Boolean(document.querySelector('script[src*="shopping-list.js"]'));
+  }
+
   function applyPlannerSettings() {
     const brief = readBrief();
     if (!brief) return;
@@ -27,6 +33,7 @@
 
   function run() {
     if (!requested()) return true;
+    if (!ownerGateReady()) return false;
     const button = document.getElementById('srCalculate');
     const status = document.getElementById('srStatus');
     if (!button) return false;
