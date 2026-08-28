@@ -3,8 +3,10 @@ import fs from 'node:fs';
 const bolaPath = 'supabase/migrations/20260818203243_fix_shopping_list_share_update_bola.sql';
 const serializationPath = 'supabase/migrations/20260828152611_serialize_shopping_list_share_creation.sql';
 const triggerAclPath = 'supabase/migrations/20260828152759_restrict_shopping_trigger_function_execute.sql';
-for (const path of [bolaPath, serializationPath, triggerAclPath]) {
-  if (!fs.existsSync(path)) throw new Error(`Missing migration: ${path}`);
+const directWriteAclPath = 'supabase/migrations/20260828153552_restrict_direct_shopping_share_writes.sql';
+const shoppingRuntimePath = 'assets/shopping-list.js';
+for (const path of [bolaPath, serializationPath, triggerAclPath, directWriteAclPath, shoppingRuntimePath]) {
+  if (!fs.existsSync(path)) throw new Error(`Missing file: ${path}`);
 }
 
 const sql = fs.readFileSync(bolaPath, 'utf8');
@@ -82,4 +84,24 @@ if (/grant\s+execute[\s\S]*\b(?:anon|authenticated|public)\b/i.test(triggerAcl))
   throw new Error('Shopping trigger ACL migration must not grant direct execute to public client roles.');
 }
 
-console.log('Shopping list share BOLA, serialized replacement token, and trigger ACL guards OK');
+const directWriteAcl = fs.readFileSync(directWriteAclPath, 'utf8');
+for (const privilege of ['insert', 'update', 'delete', 'truncate', 'references', 'trigger']) {
+  if (!new RegExp(`revoke[\\s\\S]*\\b${privilege}\\b[\\s\\S]*on\\s+table\\s+public\\.shopping_list_shares[\\s\\S]*from\\s+authenticated`, 'i').test(directWriteAcl)) {
+    throw new Error(`Authenticated direct shopping share privilege is not revoked: ${privilege}`);
+  }
+}
+if (/revoke[\s\S]*\bselect\b/i.test(directWriteAcl)) {
+  throw new Error('Direct-write hardening must preserve shopping_list_shares SELECT compatibility.');
+}
+
+const runtime = fs.readFileSync(shoppingRuntimePath, 'utf8');
+for (const rpc of ['create_shopping_list_share', 'get_shared_shopping_list', 'get_shared_shopping_list_revision', 'mutate_shared_shopping_list']) {
+  if (!new RegExp(`\\.rpc\\(['\"]${rpc}['\"]`, 'i').test(runtime)) {
+    throw new Error(`Shopping runtime no longer uses required share RPC: ${rpc}`);
+  }
+}
+if (/\.from\(['\"]shopping_list_shares['\"]\)/i.test(runtime)) {
+  throw new Error('Shopping runtime must not bypass share RPCs with direct shopping_list_shares table access.');
+}
+
+console.log('Shopping list share BOLA, serialized token replacement, RPC-only writes, and trigger ACL guards OK');
