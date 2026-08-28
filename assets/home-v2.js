@@ -19,7 +19,7 @@
   const CATEGORY_DEFS = [
     ['food','Potraviny','🥫'],['drinks','Nápoje','🥤'],['drugstore','Drogerie','🧴'],['home','Domácnost','🏠'],
     ['electronics','Elektronika','🔌'],['garden','Zahrada','🌿'],['fashion','Oblečení','👕'],['pharmacy','Lékárna','💊'],
-    ['pets','Zvířata','🐾'],['auto','Auto','🚗'],['other','Ostatní','🏷️']
+    ['school','Škola','🎒'],['pets','Zvířata','🐾'],['auto','Auto','🚗'],['other','Ostatní','🏷️']
   ];
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
@@ -29,7 +29,7 @@
   };
 
   const $ = (id) => document.getElementById(id);
-  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+  const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (char) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[char]));
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits:2 });
   const date = (value) => value ? new Intl.DateTimeFormat('cs-CZ', { day:'numeric', month:'numeric', year:'numeric' }).format(new Date(`${value}T12:00:00`)) : '–';
