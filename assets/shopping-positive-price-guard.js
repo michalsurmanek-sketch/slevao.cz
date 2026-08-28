@@ -30,7 +30,12 @@
     const originalSelect = query.select.bind(query);
     query.select = (...args) => {
       const selected = originalSelect(...args);
-      return selected && typeof selected.gt === 'function' ? selected.gt('price', 0) : selected;
+      const positive = selected && typeof selected.gt === 'function'
+        ? selected.gt('price', 0)
+        : selected;
+      return positive && typeof positive.eq === 'function'
+        ? positive.eq('is_verified', true)
+        : positive;
     };
     return query;
   };
