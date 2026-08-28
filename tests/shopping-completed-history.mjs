@@ -5,6 +5,7 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-insights.js', root), 'utf8');
 const migration = readFileSync(new URL('supabase/migrations/20260828131647_complete_checked_shopping_items.sql', root), 'utf8');
+const hardeningMigration = readFileSync(new URL('supabase/migrations/20260828134352_reject_stale_uncompleted_shopping_completion.sql', root), 'utf8');
 const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
@@ -64,20 +65,43 @@ for (const needle of [
   "and sli.is_completed = true",
   "and sli.is_completed = false",
   "v_completion_mode := 'completed';",
-  "'legacy_uncompleted'",
   "'full'",
   "if v_completion_mode = 'completed' then",
   'and sli.is_completed = true;',
   'if not exists (',
   'perform public.revoke_shopping_list_shares(new.shopping_list_id);',
-]) assert.ok(migration.includes(needle), `Chybí checked-history DB kontrakt: ${needle}`);
-const completedDelete = migration.indexOf("if v_completion_mode = 'completed' then");
-const partialDelete = migration.indexOf('and sli.is_completed = true;', completedDelete);
-const fullDelete = migration.indexOf('delete from public.shopping_list_items sli', partialDelete + 1);
-const shareCheck = migration.indexOf('if not exists (', fullDelete);
-const revoke = migration.indexOf('perform public.revoke_shopping_list_shares(new.shopping_list_id);', shareCheck);
+]) assert.ok(migration.includes(needle), `Chybí původní checked-history DB kontrakt: ${needle}`);
+
+for (const needle of [
+  'v_completed_count integer := 0;',
+  'v_completion_mode text := null;',
+  'if v_completed_count > 0 then',
+  'if v_purchase_items = v_completed_items then',
+  "v_completion_mode := 'completed';",
+  'elsif v_purchase_items = v_uncompleted_items then',
+  "v_completion_mode := 'full';",
+  "raise exception 'Nákupní seznam se mezitím změnil. Načti aktuální stav a dokončení zopakuj.';",
+  "if v_completion_mode = 'completed' then",
+  'and sli.is_completed = true;',
+  'perform public.revoke_shopping_list_shares(new.shopping_list_id);',
+]) assert.ok(hardeningMigration.includes(needle), `Chybí fail-closed checked-history DB kontrakt: ${needle}`);
+
+assert.ok(!hardeningMigration.includes('legacy_uncompleted'), 'Aktivní hardening nesmí přijmout starý unfinished-only snapshot, když už existují odškrtnuté položky.');
+const completedGuard = hardeningMigration.indexOf('if v_completed_count > 0 then');
+const exactCompletedSnapshot = hardeningMigration.indexOf('if v_purchase_items = v_completed_items then', completedGuard);
+const fullSnapshotBranch = hardeningMigration.indexOf('elsif v_purchase_items = v_uncompleted_items then', exactCompletedSnapshot);
+const completionMismatch = hardeningMigration.indexOf("raise exception 'Nákupní seznam se mezitím změnil. Načti aktuální stav a dokončení zopakuj.';", exactCompletedSnapshot);
+assert.ok(completedGuard >= 0 && exactCompletedSnapshot > completedGuard, 'Při existujících koupených položkách se nejdřív nevyžaduje jejich přesný snapshot.');
+assert.ok(completionMismatch > exactCompletedSnapshot && completionMismatch < fullSnapshotBranch, 'Stale unfinished-only klient není odmítnut dřív, než se povolí full-list větev.');
+assert.ok(fullSnapshotBranch > completedGuard, 'Full-list větev musí být dostupná jen tehdy, když žádná položka není odškrtnutá.');
+
+const completedDelete = hardeningMigration.indexOf("if v_completion_mode = 'completed' then");
+const partialDelete = hardeningMigration.indexOf('and sli.is_completed = true;', completedDelete);
+const fullDelete = hardeningMigration.indexOf('delete from public.shopping_list_items sli', partialDelete + 1);
+const shareCheck = hardeningMigration.indexOf('if not exists (', fullDelete);
+const revoke = hardeningMigration.indexOf('perform public.revoke_shopping_list_shares(new.shopping_list_id);', shareCheck);
 assert.ok(completedDelete >= 0 && partialDelete > completedDelete, 'Completed mode nemaže jen koupené položky.');
-assert.ok(fullDelete > partialDelete, 'Full/legacy cleanup větev chybí.');
+assert.ok(fullDelete > partialDelete, 'Full cleanup větev chybí.');
 assert.ok(shareCheck > fullDelete && revoke > shareCheck, 'Share se má revokovat až po ověření, že seznam je skutečně prázdný.');
 
 const insightsUrl = bootstrap.match(/const INSIGHTS_URL = '([^']+)'/)?.[1] || '';
@@ -89,4 +113,4 @@ assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný checked
 const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
 assert.ok(shellVersion >= 65, 'PWA shell nebyl po checked-history fixu posunut na verzi 65+.');
 
-console.log('Checked shopping items are saved to history while unfinished items are preserved');
+console.log('Checked shopping history is fail-closed against stale unfinished-only completion snapshots');
