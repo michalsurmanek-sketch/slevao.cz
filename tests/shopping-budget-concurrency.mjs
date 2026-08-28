@@ -177,7 +177,8 @@ assert.ok(runtimeIndex > syncIndex, 'Shopping runtimy se načítají před cloud
 const guardUrl = html.match(/assets\/shopping-budget-concurrency\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(guardUrl, 'assets/shopping-budget-concurrency.js?v=20260828-2', 'seznam.html nemá očekávanou cold-load verzi budget guardu.');
-assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-6', 'seznam.html nemá očekávanou cloud-budget/cold-sync bootstrap verzi.');
+const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
+assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný shopping bootstrap ze seznam.html.');
