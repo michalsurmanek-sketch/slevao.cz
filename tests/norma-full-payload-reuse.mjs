@@ -52,12 +52,20 @@ assert.match(source, /const legacyHash=`norma-spatial-safe-v2-\$\{src\.id\}`/,
   'První v3 běh musí umět bezpečně rozpoznat aktuální v2 import.');
 assert.match(source, /legacy\?\.status==='published'&&await storedImportMatches/,
   'Legacy v2 import se smí reuseovat jen po exact payload porovnání.');
+assert.match(source, /const alreadyVerified=legacy\.metadata\?\.full_payload_hash_version==='norma-spatial-safe-v3'&&legacy\.metadata\?\.full_payload_sha256===fullPayloadSha256/,
+  'Legacy NORMA import musí poznat už ověřený stejný v3 payload bez opakovaného zápisu.');
 assert.match(source, /full_payload_hash_version:'norma-spatial-safe-v3'/,
-  'Ověřený NORMA import musí dostat explicitní verzi full-payload hashe.');
+  'Ověřený NORMA import musí dostat explicitní verzi full-payload hashe v metadata.');
 assert.match(source, /full_payload_sha256:fullPayloadSha256/,
   'NORMA hash musí být uložen v metadata a vracen v diagnostice.');
-assert.match(source, /update\(\{source_hash:hash,metadata\}\)/,
-  'Exact legacy reuse má pouze povýšit identitu importu, ne spouštět publish-imports.');
+assert.match(source, /update\(\{metadata\}\)\.eq\('id',legacy\.id\)/,
+  'Exact legacy reuse smí doplnit pouze metadata a nesmí měnit identitu importu.');
+assert.doesNotMatch(source, /update\(\{source_hash:hash,metadata\}\)/,
+  'Existující NORMA source_hash je immutable a nesmí se při legacy povýšení přepisovat.');
+assert.match(source, /legacy_source_hash_retained:true/,
+  'Diagnostika musí explicitně přiznat zachování původního immutable source_hash.');
+assert.match(source, /migrated_legacy_hash:!alreadyVerified/,
+  'První metadata backfill má být rozlišitelný od běžného opakovaného reuse.');
 assert.match(source, /throw new Error\('NORMA v3 payload hash odpovídá importu, ale publikované položky se liší/,
   'Kolize nebo drift existujícího v3 importu musí skončit fail-closed.');
 assert.match(source, /if\(body\.dry_run!==false\)[\s\S]*full_payload_sha256:fullPayloadSha256/,
