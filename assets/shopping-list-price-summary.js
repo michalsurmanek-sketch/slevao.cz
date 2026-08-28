@@ -53,6 +53,13 @@
     return Number.isFinite(value) && value > 0 ? value : 1;
   }
 
+  function unitLabel(article) {
+    const quantityInput = article.querySelector('[data-quantity]');
+    const raw = String(quantityInput?.dataset?.unit || article?.dataset?.unit || '').trim().toLowerCase();
+    if (!raw) return 'jednotku';
+    return /^[a-z0-9á-ž.%/-]{1,12}$/i.test(raw) ? raw : 'jednotku';
+  }
+
   function syncPriceNode(article, className, html) {
     let price = article.querySelector('.sfItemPrice');
     if (!price) {
@@ -103,10 +110,11 @@
         syncPriceNode(article, 'sfItemPrice missing', '<strong>Viz<br>souhrn</strong>');
       } else if (subtotal > 0) {
         const unit = qty > 1 ? subtotal / qty : 0;
+        const label = unitLabel(article);
         syncPriceNode(
           article,
           'sfItemPrice',
-          `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ks</small>` : ''}`
+          `<strong>${money(subtotal)}</strong>${qty > 1 ? `<small>${money(unit)} / ${label}</small>` : ''}`
         );
       } else {
         syncPriceNode(article, 'sfItemPrice missing', '<strong>Cena<br>nenalezena</strong>');
@@ -142,7 +150,7 @@
     requestAnimationFrame(() => { queued = false; renderPrices(); });
   };
 
-  new MutationObserver(schedule).observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['value'] });
+  new MutationObserver(schedule).observe(list, { childList: true, subtree: true, attributes: true, attributeFilter: ['value', 'data-unit'] });
   new MutationObserver(schedule).observe(optimizer, { childList: true, subtree: true, attributes: true, attributeFilter: ['title'] });
   list.addEventListener('change', schedule);
   schedule();
