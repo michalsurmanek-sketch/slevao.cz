@@ -33,4 +33,11 @@ assert.match(base, /validationError = errorMessage\(error\)/, 'per-product valid
 assert.match(base, /const message = errorMessage\(error\)/, 'top-level discovery errors must use safe serialization.');
 assert.doesNotMatch(base, /const message = error instanceof Error \? error\.message : String\(error\)/, 'top-level discovery must not collapse object errors to [object Object].');
 
+assert.match(base, /data: imports, error: importsError/, 'leaflet import lookup must capture database errors.');
+assert.match(base, /if \(importsError\) throw importsError;/, 'leaflet import lookup must fail closed on database errors.');
+assert.match(base, /data: offers, error: offersError/, 'stored offer lookup must capture database errors.');
+assert.match(base, /if \(offersError\) throw offersError;/, 'stored offer lookup must fail closed on database errors.');
+assert.match(base, /async function blockedUrls[\s\S]*?const \{ data, error \} = await db\.from\("product_image_candidates"\)[\s\S]*?if \(error\) throw error;/, 'blocked image lookup must fail closed on database errors.');
+assert.match(base, /if \(!validationError\) \{[\s\S]*?error: checkedError[\s\S]*?if \(checkedError\) throw checkedError;/, 'image_checked_at must only be written after a completed validation and database errors must surface.');
+
 console.log('Image discovery auth and error boundary OK');
