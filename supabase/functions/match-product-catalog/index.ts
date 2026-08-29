@@ -5,6 +5,8 @@ const SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON_SECRET = Deno.env.get('CRON_SECRET') || '';
 const MAX_RUN_MS = 85_000;
 const AUTO_MATCH_THRESHOLD = 0.92;
+const EXACT_LOOKUP_CHUNK = 20;
+const EXACT_LOOKUP_PAGE_SIZE = 500;
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
 });
@@ -14,6 +16,9 @@ const CORS_HEADERS = {
   'access-control-allow-headers': 'authorization, apikey, content-type, x-cron-secret',
   'access-control-allow-methods': 'POST, OPTIONS',
 };
+
+const PRODUCT_SELECT = 'id,name,normalized_name,brand,ean,quantity_text,image_url,image_quality,image_verified';
+const ALIAS_SELECT = 'product_id,alias,normalized_alias,brand,quantity_text,source_store_id,confidence';
 
 type Product = {
   id: string;
@@ -114,9 +119,15 @@ function titleSimilarity(leftValue: unknown, rightValue: unknown): number {
 
 function quantityState(offerTitle: string, candidateQuantity: string | null, candidateName: string): Evaluation['quantityState'] {
   const offerQuantity = extractQuantity(offerTitle);
-  const productQuantity = extractQuantity(candidateQuantity || candidateName);
-  if (offerQuantity && productQuantity) return offerQuantity === productQuantity ? 'same' : 'mismatch';
-  if (offerQuantity || productQuantity) return 'missing';
+  const productQuantities = [
+    extractQuantity(candidateQuantity),
+    extractQuantity(candidateName),
+  ].filter((value): value is string => Boolean(value));
+
+  if (offerQuantity && productQuantities.length) {
+    return productQuantities.includes(offerQuantity) ? 'same' : 'mismatch';
+  }
+  if (offerQuantity || productQuantities.length) return 'missing';
   return 'none';
 }
 
@@ -133,13 +144,14 @@ function evaluateText(offerTitle: string, product: Product, sourceText: string, 
   const brandMatch = Boolean(brand && normalize(offerTitle).includes(brand));
   const exact = normalize(offerTitle) === normalize(sourceText);
   const exactMultiToken = exact && tokenArray(sourceText).length >= 2;
+  const brandCompatible = !brand || brandMatch || exactMultiToken;
   const specific = isSpecificTitle(offerTitle) && isSpecificTitle(sourceText);
 
   let score = similarity;
   if (qState === 'same') score += 0.15;
   else if (qState === 'mismatch') score -= 0.4;
   else if (qState === 'missing') score -= 0.22;
-  if (brand) score += brandMatch ? 0.1 : -0.1;
+  if (brand) score += brandMatch ? 0.1 : exactMultiToken ? 0 : -0.1;
   score = Math.max(0, Math.min(score, 1));
 
   let evidence = 0;
@@ -152,13 +164,13 @@ function evaluateText(offerTitle: string, product: Product, sourceText: string, 
   if (!specific) reasons.push('generic_title');
   if (qState === 'mismatch') reasons.push('quantity_mismatch');
   if (qState === 'missing') reasons.push('quantity_missing_on_one_side');
-  if (brand && !brandMatch) reasons.push('brand_missing');
+  if (brand && !brandMatch && !exactMultiToken) reasons.push('brand_missing');
   if (evidence < 2) reasons.push('insufficient_independent_signals');
 
   const autoSafe = specific
     && qState !== 'mismatch'
     && qState !== 'missing'
-    && (!brand || brandMatch)
+    && brandCompatible
     && evidence >= 2
     && score >= AUTO_MATCH_THRESHOLD;
 
@@ -184,6 +196,12 @@ function isApprovedImage(product: Product | null): boolean {
   return Boolean(product?.image_url && product.image_verified && Number(product.image_quality || 0) >= 70);
 }
 
+function chunks<T>(values: T[], size: number): T[][] {
+  const result: T[][] = [];
+  for (let index = 0; index < values.length; index += size) result.push(values.slice(index, index + size));
+  return result;
+}
+
 async function authorize(request: Request): Promise<boolean> {
   const authHeader = request.headers.get('authorization') || '';
   const cronHeader = request.headers.get('x-cron-secret') || '';
@@ -196,7 +214,7 @@ async function authorize(request: Request): Promise<boolean> {
 
 async function loadProducts(): Promise<Product[]> {
   const { data, error } = await db.from('products')
-    .select('id,name,normalized_name,brand,ean,quantity_text,image_url,image_quality,image_verified')
+    .select(PRODUCT_SELECT)
     .limit(10_000);
   if (error) throw error;
   return (data || []) as Product[];
@@ -204,7 +222,7 @@ async function loadProducts(): Promise<Product[]> {
 
 async function loadAliases(): Promise<Alias[]> {
   const { data, error } = await db.from('product_aliases')
-    .select('product_id,alias,normalized_alias,brand,quantity_text,source_store_id,confidence')
+    .select(ALIAS_SELECT)
     .gte('confidence', 0.9)
     .limit(20_000);
   if (error) throw error;
@@ -213,7 +231,7 @@ async function loadAliases(): Promise<Alias[]> {
 
 async function loadOffers(limit: number, offerId?: string): Promise<Offer[]> {
   let query = db.from('offers')
-    .select('id,product_id,store_id,title,image_url,published_at,products(id,name,normalized_name,brand,ean,quantity_text,image_url,image_quality,image_verified)')
+    .select(`id,product_id,store_id,title,image_url,published_at,products(${PRODUCT_SELECT})`)
     .eq('status', 'published')
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(limit);
@@ -222,6 +240,57 @@ async function loadOffers(limit: number, offerId?: string): Promise<Offer[]> {
   const { data, error } = await query;
   if (error) throw error;
   return (data || []) as unknown as Offer[];
+}
+
+async function loadExactCandidateData(offers: Offer[]): Promise<{ products: Product[]; aliases: Alias[] }> {
+  const normalizedTitles = [...new Set(offers.map((offer) => normalize(offer.title)).filter(Boolean))];
+  const productById = new Map<string, Product>();
+  const aliasByKey = new Map<string, Alias>();
+
+  for (const offer of offers) {
+    if (offer.products) productById.set(offer.products.id, offer.products);
+  }
+
+  for (const titleChunk of chunks(normalizedTitles, EXACT_LOOKUP_CHUNK)) {
+    for (let from = 0; ; from += EXACT_LOOKUP_PAGE_SIZE) {
+      const { data, error } = await db.from('products')
+        .select(PRODUCT_SELECT)
+        .in('normalized_name', titleChunk)
+        .order('id', { ascending: true })
+        .range(from, from + EXACT_LOOKUP_PAGE_SIZE - 1);
+      if (error) throw error;
+      const rows = (data || []) as Product[];
+      for (const product of rows) productById.set(product.id, product);
+      if (rows.length < EXACT_LOOKUP_PAGE_SIZE) break;
+    }
+
+    for (let from = 0; ; from += EXACT_LOOKUP_PAGE_SIZE) {
+      const { data, error } = await db.from('product_aliases')
+        .select(ALIAS_SELECT)
+        .in('normalized_alias', titleChunk)
+        .gte('confidence', 0.9)
+        .order('normalized_alias', { ascending: true })
+        .order('product_id', { ascending: true })
+        .range(from, from + EXACT_LOOKUP_PAGE_SIZE - 1);
+      if (error) throw error;
+      const rows = (data || []) as Alias[];
+      for (const alias of rows) aliasByKey.set(`${alias.product_id}:${alias.normalized_alias}`, alias);
+      if (rows.length < EXACT_LOOKUP_PAGE_SIZE) break;
+    }
+  }
+
+  const missingProductIds = [...new Set([...aliasByKey.values()].map((alias) => alias.product_id))]
+    .filter((productId) => !productById.has(productId));
+
+  for (const idChunk of chunks(missingProductIds, 100)) {
+    const { data, error } = await db.from('products')
+      .select(PRODUCT_SELECT)
+      .in('id', idChunk);
+    if (error) throw error;
+    for (const product of (data || []) as Product[]) productById.set(product.id, product);
+  }
+
+  return { products: [...productById.values()], aliases: [...aliasByKey.values()] };
 }
 
 async function upsertAlias(productId: string, offer: Offer, product: Product, confidence: number) {
@@ -338,9 +407,18 @@ function candidateIdsFor(title: string, exact: Map<string, Set<string>>, tokenIn
 
 async function processCatalog(limit: number, offerId?: string) {
   const startedAt = Date.now();
-  const [products, aliases, offers] = await Promise.all([loadProducts(), loadAliases(), loadOffers(limit, offerId)]);
-  const productById = new Map(products.map((product) => [product.id, product]));
-  const { exact, tokenIndex, aliasesByProduct } = buildIndexes(products, aliases);
+  const [baselineProducts, baselineAliases, offers] = await Promise.all([loadProducts(), loadAliases(), loadOffers(limit, offerId)]);
+  const exactCandidates = await loadExactCandidateData(offers);
+
+  const productById = new Map<string, Product>();
+  for (const product of [...baselineProducts, ...exactCandidates.products]) productById.set(product.id, product);
+
+  const aliasByKey = new Map<string, Alias>();
+  for (const alias of [...baselineAliases, ...exactCandidates.aliases]) {
+    aliasByKey.set(`${alias.product_id}:${normalize(alias.normalized_alias || alias.alias)}`, alias);
+  }
+
+  const { exact, tokenIndex, aliasesByProduct } = buildIndexes([...productById.values()], [...aliasByKey.values()]);
 
   let checked = 0;
   let matched = 0;
@@ -358,7 +436,10 @@ async function processCatalog(limit: number, offerId?: string) {
     checked++;
     try {
       let best: Evaluation | null = null;
-      for (const productId of candidateIdsFor(offer.title, exact, tokenIndex)) {
+      const candidateIds = new Set(candidateIdsFor(offer.title, exact, tokenIndex));
+      if (offer.product_id && productById.has(offer.product_id)) candidateIds.add(offer.product_id);
+
+      for (const productId of candidateIds) {
         const product = productById.get(productId);
         if (!product) continue;
         const evaluation = evaluateCandidate(offer.title, product, aliasesByProduct.get(productId) || []);
@@ -391,8 +472,10 @@ async function processCatalog(limit: number, offerId?: string) {
       }
     } catch (error) {
       failed++;
+      const message = error instanceof Error ? error.message : String(error);
+      console.error(`catalog match failed for offer ${offer.id}: ${message}`);
       try { await markOffer(offer.id, 'failed', null); } catch {}
-      results.push({ offer_id: offer.id, status: 'failed', error: error instanceof Error ? error.message : String(error) });
+      results.push({ offer_id: offer.id, status: 'failed', error: message });
     }
   }
 
