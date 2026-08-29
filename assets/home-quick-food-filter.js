@@ -8,6 +8,33 @@
   ];
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+  function guardInitialHomepagePosition() {
+    const navigation = performance.getEntriesByType?.('navigation')?.[0];
+    const navigationType = navigation?.type || 'navigate';
+    if (navigationType === 'back_forward') return;
+
+    const internalSectionHashes = new Set([
+      '#top', '#categoriesSection', '#storesSection', '#leafletsSection', '#dealsSection'
+    ]);
+    if (internalSectionHashes.has(location.hash)) {
+      history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+    }
+
+    let userInteracted = false;
+    const markUserInteraction = () => { userInteracted = true; };
+    window.addEventListener('pointerdown', markUserInteraction, { once:true, capture:true });
+    window.addEventListener('keydown', markUserInteraction, { once:true, capture:true });
+    window.addEventListener('wheel', markUserInteraction, { once:true, capture:true, passive:true });
+    window.addEventListener('touchstart', markUserInteraction, { once:true, capture:true, passive:true });
+
+    const canRestoreScroll = 'scrollRestoration' in history;
+    if (canRestoreScroll) history.scrollRestoration = 'manual';
+    window.addEventListener('load', () => {
+      if (!userInteracted) window.scrollTo({ top:0, left:0, behavior:'auto' });
+      if (canRestoreScroll) history.scrollRestoration = 'auto';
+    }, { once:true });
+  }
+
   function ensureFreshStyles() {
     const version = '20260829-2';
     if (document.querySelector(`link[data-sq-food-fresh="${version}"]`)) return;
@@ -145,6 +172,7 @@
     window.setTimeout(() => observer.disconnect(), 10000);
   }
 
+  guardInitialHomepagePosition();
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once:true });
   else init();
 })();
