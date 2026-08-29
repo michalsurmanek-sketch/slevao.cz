@@ -107,12 +107,23 @@ assert.ok(shareCheck > fullDelete && revoke > shareCheck, 'Share se má revokova
 const insightsUrl = bootstrap.match(/const INSIGHTS_URL = '([^']+)'/)?.[1] || '';
 assert.equal(insightsUrl, 'assets/shopping-insights.js?v=20260828-1', 'Bootstrap nemá checked-history shopping-insights v1.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
-assert.match(bootstrapUrl, /^assets\/shopping-insights-bootstrap\.js\?v=20260828-(\d+)$/, 'seznam.html nemá verzovaný checked-history bootstrap.');
-const bootstrapRevision = Number(bootstrapUrl.match(/20260828-(\d+)$/)?.[1] || 0);
-assert.ok(bootstrapRevision >= 8, 'Checked-history bootstrap nesmí klesnout pod revizi 8.');
+const bootstrapMatch = bootstrapUrl.match(/v=(\d{8})-(\d+)$/);
+assert.ok(bootstrapMatch, 'seznam.html nemá verzovaný checked-history bootstrap.');
+const bootstrapDate = Number(bootstrapMatch[1]);
+const bootstrapRevision = Number(bootstrapMatch[2]);
+assert.ok(
+  bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 8),
+  'Checked-history bootstrap nesmí klesnout pod baseline 20260828-8.',
+);
 assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje přesný checked-history insights asset.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný checked-history bootstrap asset.');
-const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
-assert.ok(shellVersion >= 65, 'PWA shell nebyl po checked-history fixu posunut na verzi 65+.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 65),
+  'PWA shell se nesmí vrátit pod checked-history baseline 20260828-65.',
+);
 
 console.log('Checked shopping history is fail-closed against stale unfinished-only completion snapshots');
