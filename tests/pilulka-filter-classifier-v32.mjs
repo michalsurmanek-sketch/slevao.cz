@@ -32,9 +32,12 @@ assert.match(v32, /sandwich francouzke bylinky/i,
 assert.doesNotMatch(v32, /sandwich francouzske bylinky/i,
   'v32 replay must not regress to the misspelled normalized Sandwich pattern.');
 
-const v31Call = v32.indexOf('infer_product_filter_group_pilulka_v31');
-const v32Call = v32.indexOf('infer_product_filter_group_pilulka_v32');
-const autoCall = v32.indexOf('infer_product_filter_group_auto');
+const autoBodyStart = v32.indexOf('create or replace function public.auto_assign_product_filter_group()');
+assert.ok(autoBodyStart >= 0, 'v32 must redefine the auto assignment trigger.');
+const autoBody = v32.slice(autoBodyStart);
+const v31Call = autoBody.indexOf('infer_product_filter_group_pilulka_v31');
+const v32Call = autoBody.indexOf('infer_product_filter_group_pilulka_v32');
+const autoCall = autoBody.indexOf('infer_product_filter_group_auto');
 assert.ok(v31Call >= 0 && v32Call > v31Call && autoCall > v32Call,
   'Pilulka source-aware helpers must run before the generic auto fallback.');
 
