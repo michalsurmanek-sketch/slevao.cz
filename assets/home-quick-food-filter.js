@@ -46,9 +46,20 @@
       top: Math.max(0, targetTop),
       behavior: 'smooth'
     });
+  }
 
-    if (window.location.hash !== '#dealsSection') {
-      history.replaceState(null, '', '#dealsSection');
+  function clearLegacyDealsHashOnReload() {
+    let isReload = false;
+    try {
+      const nav = performance.getEntriesByType?.('navigation')?.[0];
+      isReload = nav?.type === 'reload';
+    } catch {}
+
+    if (isReload && window.location.hash === '#dealsSection') {
+      history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
     }
   }
 
@@ -188,6 +199,7 @@
   }
 
   function init() {
+    clearLegacyDealsHashOnReload();
     ensureFreshStyles();
     createDock();
     if (!document.querySelector('.sqFoodDock')) {
