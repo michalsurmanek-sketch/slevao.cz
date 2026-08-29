@@ -19,9 +19,47 @@
   <title>Slevao.cz – najdi, kde dnes nakoupíš nejlevněji</title>
   <style id="slevaoHomeBootStyle">
     html.slevaoHomeBooting body{visibility:hidden}
+    html,body{overflow-anchor:none!important}
   </style>
   <script>
     (() => {
+      const internalHashes = new Set(['#top','#categoriesSection','#storesSection','#leafletsSection','#dealsSection']);
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      if (internalHashes.has(location.hash)) history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+
+      if (!window.__slevaoHomepageScrollGuardInstalled) {
+        window.__slevaoHomepageScrollGuardInstalled = true;
+        let allowProgrammaticScrollUntil = 0;
+        const markUserClick = (event) => {
+          if (event?.isTrusted) allowProgrammaticScrollUntil = performance.now() + 4000;
+        };
+        const userAllowedScroll = () => performance.now() <= allowProgrammaticScrollUntil;
+        document.addEventListener('click', markUserClick, true);
+
+        const nativeScrollTo = window.scrollTo.bind(window);
+        const nativeScroll = typeof window.scroll === 'function' ? window.scroll.bind(window) : nativeScrollTo;
+        const nativeScrollBy = window.scrollBy.bind(window);
+        window.scrollTo = (...args) => userAllowedScroll() ? nativeScrollTo(...args) : undefined;
+        window.scroll = (...args) => userAllowedScroll() ? nativeScroll(...args) : undefined;
+        window.scrollBy = (...args) => userAllowedScroll() ? nativeScrollBy(...args) : undefined;
+
+        const nativeScrollIntoView = Element.prototype.scrollIntoView;
+        if (typeof nativeScrollIntoView === 'function') {
+          Element.prototype.scrollIntoView = function (...args) {
+            return userAllowedScroll() ? nativeScrollIntoView.apply(this, args) : undefined;
+          };
+        }
+
+        const nativeFocus = HTMLElement.prototype.focus;
+        if (typeof nativeFocus === 'function') {
+          HTMLElement.prototype.focus = function (options) {
+            if (userAllowedScroll()) return nativeFocus.call(this, options);
+            if (options && typeof options === 'object') return nativeFocus.call(this, { ...options, preventScroll:true });
+            return nativeFocus.call(this, { preventScroll:true });
+          };
+        }
+      }
+
       const reveal = () => document.documentElement.classList.remove('slevaoHomeBooting');
       window.addEventListener('load', () => requestAnimationFrame(reveal), { once:true });
       window.setTimeout(reveal, 2000);
@@ -334,14 +372,14 @@
   <script src="assets/home-all-stores.js?v=20260826-2" defer></script>
   <script src="assets/home-leaflet-covers.js?v=20260821-2" defer></script>
   <script src="assets/home-overview.js?v=20260821-2" defer></script>
-  <script src="assets/home-quick-food-filter.js?v=20260829-3" defer></script>
+  <script src="assets/home-quick-food-filter.js?v=20260829-4" defer></script>
   <script src="assets/home-semantic-filters.js?v=20260826-8" defer></script>
   <script src="assets/home-filter-range-guard.js?v=20260826-1" defer></script>
-  <script src="assets/public-nav-upgrade.js?v=20260822-2" defer></script>
+  <script src="assets/public-nav-upgrade.js?v=20260829-1" defer></script>
   <script src="assets/public-features.js?v=20260828-2" defer></script>
-  <script src="assets/home-autopilot.js?v=20260822-1" defer></script>
+  <script src="assets/home-autopilot.js?v=20260829-1" defer></script>
   <script src="assets/home-footer-redesign.js?v=20260816-9" defer></script>
-  <script src="assets/mobile-navigation.js?v=20260818-2" defer></script>
+  <script src="assets/mobile-navigation.js?v=20260829-1" defer></script>
   <script src="assets/product-card-desktop.js?v=20260828-1" defer></script>
   <script src="assets/home-radius-select.js?v=20260809-3" defer></script>
   <script src="assets/mobile-leaflet-nav-position.js?v=20260816-10" defer></script>
