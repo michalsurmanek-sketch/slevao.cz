@@ -2,11 +2,14 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
 
-async function readShell(request) {
+async function readWorker(request) {
   const response = await request.get(`${BASE_URL}/service-worker.js`);
   expect(response.ok()).toBeTruthy();
+  return response.text();
+}
 
-  const source = await response.text();
+async function readShell(request) {
+  const source = await readWorker(request);
   const shellBody = source.match(/const SHELL = \[([\s\S]*?)\];/)?.[1] || '';
   expect(shellBody).not.toBe('');
   return [...shellBody.matchAll(/'([^']+)'/g)].map((match) => match[1]);
@@ -40,4 +43,17 @@ test('every PWA shell entry resolves successfully', async ({ request }) => {
   }
 
   expect(failures, `PWA shell contains missing or broken entries: ${JSON.stringify(failures)}`).toEqual([]);
+});
+
+test('PWA install fails closed instead of activating a partial shell cache', async ({ request }) => {
+  const source = await readWorker(request);
+  const installStart = source.indexOf("self.addEventListener('install'");
+  const activateStart = source.indexOf("self.addEventListener('activate'", installStart);
+  expect(installStart).toBeGreaterThanOrEqual(0);
+  expect(activateStart).toBeGreaterThan(installStart);
+
+  const installBlock = source.slice(installStart, activateStart);
+  expect(installBlock).toContain("await cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));" );
+  expect(installBlock).not.toContain('Promise.all(SHELL.map');
+  expect(installBlock).not.toMatch(/cache\.add\([^)]*\)[\s\S]*catch\s*\{\s*\}/);
 });
