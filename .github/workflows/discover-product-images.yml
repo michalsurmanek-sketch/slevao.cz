@@ -46,13 +46,20 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LIMIT: ${{ github.event.inputs.limit || '30' }}
         run: |
-          curl --fail-with-body --silent --show-error \
+          response="$(curl --fail-with-body --silent --show-error \
             --request POST \
             --url "$SUPABASE_URL/functions/v1/discover-product-images" \
             --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             --header "Content-Type: application/json" \
-            --data "{\"limit\":$LIMIT}"
+            --data "{\"limit\":$LIMIT}")"
+          printf '%s\n' "$response"
+          blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
+          if [[ -n "$blocked_reason" ]]; then
+            retry_after="$(jq -r '.retry_after // empty' <<<"$response")"
+            echo "::warning title=Hledání produktových fotografií pozastaveno::$blocked_reason${retry_after:+; retry_after=$retry_after}"
+            printf '### ⚠️ Hledání produktových fotografií pozastaveno\n- Důvod: `%s`\n- Další pokus po: `%s`\n' "$blocked_reason" "${retry_after:-neuvedeno}" >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Zpracovat bezpečnou dávku neznačkových produktů
         shell: bash
@@ -61,10 +68,17 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GENERIC_LIMIT: ${{ github.event.inputs.generic_limit || '5' }}
         run: |
-          curl --fail-with-body --silent --show-error \
+          response="$(curl --fail-with-body --silent --show-error \
             --request POST \
             --url "$SUPABASE_URL/functions/v1/generate-generic-product-images" \
             --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             --header "Content-Type: application/json" \
-            --data "{\"limit\":$GENERIC_LIMIT}"
+            --data "{\"limit\":$GENERIC_LIMIT}")"
+          printf '%s\n' "$response"
+          blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
+          if [[ -n "$blocked_reason" ]]; then
+            retry_after="$(jq -r '.retry_after // empty' <<<"$response")"
+            echo "::warning title=Generování produktových fotografií pozastaveno::$blocked_reason${retry_after:+; retry_after=$retry_after}"
+            printf '### ⚠️ Generování produktových fotografií pozastaveno\n- Důvod: `%s`\n- Další pokus po: `%s`\n' "$blocked_reason" "${retry_after:-neuvedeno}" >> "$GITHUB_STEP_SUMMARY"
+          fi
