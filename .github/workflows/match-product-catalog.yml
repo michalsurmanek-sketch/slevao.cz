@@ -4,9 +4,13 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: Maximální počet nabídek (1–80)
+        description: Maximální počet nabídek v jedné dávce (1–80)
         required: false
         default: '80'
+      max_batches:
+        description: Maximální počet dávek v jednom běhu (1–8)
+        required: false
+        default: '8'
   schedule:
     - cron: '27 */3 * * *'
 
@@ -34,6 +38,7 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           CATALOG_LIMIT: ${{ github.event.inputs.limit || '80' }}
+          MAX_BATCHES: ${{ github.event.inputs.max_batches || '8' }}
         run: |
           set -euo pipefail
 
@@ -48,27 +53,85 @@ jobs:
             CATALOG_LIMIT=80
           fi
 
+          if ! [[ "$MAX_BATCHES" =~ ^[0-9]+$ ]]; then
+            echo "Neplatný počet dávek: $MAX_BATCHES"
+            exit 1
+          fi
+          if (( MAX_BATCHES < 1 )); then
+            MAX_BATCHES=1
+          elif (( MAX_BATCHES > 8 )); then
+            echo "Počet dávek $MAX_BATCHES je vyšší než bezpečné maximum; používám 8."
+            MAX_BATCHES=8
+          fi
+
           response_file="$(mktemp)"
           trap 'rm -f "$response_file"' EXIT
 
-          http_code=$(curl --silent --show-error \
-            --output "$response_file" \
-            --write-out '%{http_code}' \
-            -X POST "$SUPABASE_URL/functions/v1/match-product-catalog" \
-            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            -H "Content-Type: application/json" \
-            --data "{\"limit\":$CATALOG_LIMIT}")
+          total_checked=0
+          total_matched=0
+          total_retained=0
+          total_needs_review=0
+          total_failed=0
 
-          cat "$response_file"
-          echo
+          for (( batch=1; batch<=MAX_BATCHES; batch++ )); do
+            echo "=== Dávka $batch/$MAX_BATCHES (limit $CATALOG_LIMIT) ==="
 
-          if (( http_code < 200 || http_code >= 300 )); then
-            echo "Edge Function vrátila HTTP $http_code"
-            exit 1
-          fi
+            http_code=$(curl --silent --show-error \
+              --connect-timeout 15 \
+              --max-time 100 \
+              --output "$response_file" \
+              --write-out '%{http_code}' \
+              -X POST "$SUPABASE_URL/functions/v1/match-product-catalog" \
+              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+              -H "Content-Type: application/json" \
+              --data "{\"limit\":$CATALOG_LIMIT}")
 
-          if ! jq -e '.ok == true' "$response_file" >/dev/null; then
-            echo 'Edge Function nevrátila validní JSON s ok=true'
+            cat "$response_file"
+            echo
+
+            if (( http_code < 200 || http_code >= 300 )); then
+              echo "Edge Function vrátila HTTP $http_code"
+              exit 1
+            fi
+
+            if ! jq -e '.ok == true' "$response_file" >/dev/null; then
+              echo 'Edge Function nevrátila validní JSON s ok=true'
+              exit 1
+            fi
+
+            requested=$(jq -r '.requested // 0' "$response_file")
+            checked=$(jq -r '.checked // 0' "$response_file")
+            matched=$(jq -r '.matched // 0' "$response_file")
+            retained=$(jq -r '.retained // 0' "$response_file")
+            needs_review=$(jq -r '.needs_review // 0' "$response_file")
+            failed=$(jq -r '.failed // 0' "$response_file")
+
+            total_checked=$((total_checked + checked))
+            total_matched=$((total_matched + matched))
+            total_retained=$((total_retained + retained))
+            total_needs_review=$((total_needs_review + needs_review))
+            total_failed=$((total_failed + failed))
+
+            if (( checked == 0 )); then
+              echo 'Žádné další nezpracované nabídky.'
+              break
+            fi
+
+            if (( requested < CATALOG_LIMIT )); then
+              echo 'Fronta nezpracovaných nabídek je pro tento běh vyčerpaná.'
+              break
+            fi
+          done
+
+          echo '=== Souhrn běhu ==='
+          echo "Zkontrolováno: $total_checked"
+          echo "Spárováno: $total_matched"
+          echo "Ponecháno: $total_retained"
+          echo "K revizi: $total_needs_review"
+          echo "Chyby: $total_failed"
+
+          if (( total_failed > 0 )); then
+            echo 'Běh dokončen, ale některé nabídky skončily chybou.'
             exit 1
           fi
