@@ -114,9 +114,22 @@ const assetUrl = html.match(/assets\/shopping-guest-product-fallback\.js\?v=[^"'
 assert.equal(assetUrl, 'assets/shopping-guest-product-fallback.js?v=20260828-1', 'seznam.html nemá guest product fallback v1.');
 assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA shell necachuje přesný guest product fallback asset.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9]{8})-([0-9]+)/)?.[0] || '';
-const bootstrapVersion = Number(html.match(/assets\/shopping-insights-bootstrap\.js\?v=20260828-([0-9]+)/)?.[1] || 0);
-assert.ok(bootstrapVersion >= 7, 'Bootstrap po guest fallback integraci nesmí klesnout pod v7.');
+const bootstrapMatch = bootstrapUrl.match(/v=(\d{8})-(\d+)$/);
+assert.ok(bootstrapMatch, 'Shopping insights bootstrap nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const bootstrapDate = Number(bootstrapMatch[1]);
+const bootstrapRevision = Number(bootstrapMatch[2]);
+assert.ok(
+  bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 7),
+  'Bootstrap po guest fallback integraci nesmí klesnout pod baseline 20260828-7.',
+);
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA shell musí cacheovat přesně stejnou verzi shopping insights bootstrapu jako seznam.html.');
-assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-(?:6[4-9]|[7-9][0-9]|[1-9][0-9]{2,})'/, 'PWA shell nebyl po guest fallback integraci posunut nad verzi 63.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 64),
+  'PWA shell se nesmí vrátit pod guest fallback baseline 20260828-64.',
+);
 
 console.log('Guest shopping rows safely fallback missing catalog products before cloud merge');
