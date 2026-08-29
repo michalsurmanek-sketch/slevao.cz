@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const migration = read('supabase/migrations/20260807171000_generic_product_image_generation.sql');
 const generator = read('supabase/functions/generate-generic-product-images/index.ts');
 const config = read('supabase/functions/generate-generic-product-images/config.toml');
+const workflow = read('.github/workflows/discover-product-images.yml');
 const admin = read('admin-generovani-fotografii.html');
 
 for (const text of ['product_image_generation_runs','product_image_generation_jobs','missing_image','queued_for_generation','generating','generated','assigned','needs_manual_review','skipped_branded']) assert(migration.includes(text), `Migrace postrádá ${text}.`);
@@ -20,6 +21,11 @@ for (const pattern of [/String\(product\.brand \|\| ''\)\.trim\(\)/,/BRAND_GUARD
 assert.doesNotMatch(generator,/const\s+CRON_SECRET\s*=\s*['"][^'"]+['"]/,'CRON secret nesmí být natvrdo v kódu.');
 assert.doesNotMatch(generator,/SUPABASE_SERVICE_ROLE_KEY[^\n]+['"][A-Za-z0-9._-]{30,}['"]/,'Service role key nesmí být natvrdo v kódu.');
 assert.match(config,/verify_jwt\s*=\s*false/,'Funkce s vlastní autorizací musí umožnit CRON secret.');
+
+assert.match(workflow,/blocked_reason="\$\(jq -r '\.blocked_reason \/\/ empty'/,'Image workflow must inspect successful cooldown responses.');
+assert.match(workflow,/::warning title=Hledání produktových fotografií pozastaveno/,'Discovery cooldown must be visible as a GitHub warning.');
+assert.match(workflow,/::warning title=Generování produktových fotografií pozastaveno/,'Generator cooldown must be visible as a GitHub warning.');
+assert.match(workflow,/GITHUB_STEP_SUMMARY/,'Image workflow cooldown must be written to the job summary.');
 
 for (const id of ['sMissing','sQueued','sGenerating','sAssigned','sManual','sBranded','batchSize','generate','recent']) assert(admin.includes(`id="${id}"`),`Admin přehled postrádá ${id}.`);
 assert.match(admin,/<option value="20">20 produktů<\/option>/,'Admin nemá dávku 20.');
