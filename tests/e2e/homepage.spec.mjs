@@ -67,6 +67,26 @@ test('homepage loads the canonical mobile UX stylesheet only once', async ({ pag
   expect(await page.locator('link[href*="mobile-ux.css"]').count()).toBe(1);
 });
 
+test('fresh homepage ignores stale section hash and restored deals scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  await page.goto(`${BASE_URL}/index.html#dealsSection`, { waitUntil: 'load' });
+  await expect.poll(async () => page.evaluate(() => window.scrollY), {
+    timeout: 3_000,
+    message: 'Fresh homepage entry must stay at the top even with a stale internal hash.'
+  }).toBeLessThan(5);
+  expect(new URL(page.url()).hash).toBe('');
+
+  await page.evaluate(() => document.getElementById('dealsSection')?.scrollIntoView());
+  await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+
+  await page.reload({ waitUntil: 'load' });
+  await expect.poll(async () => page.evaluate(() => window.scrollY), {
+    timeout: 3_000,
+    message: 'Reloading the homepage must not restore the deals-section scroll position.'
+  }).toBeLessThan(5);
+});
+
 test('homepage sends one initial facets request', async ({ page }) => {
   const requests = [];
   page.on('request', (request) => {
