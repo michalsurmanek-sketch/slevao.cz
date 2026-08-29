@@ -5,11 +5,12 @@ const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const SOURCE = 'https://www.takko.com/cs-cz/vyprodej/alles-anzeigen/';
 const GRID_SOURCE = 'https://www.takko.com/on/demandware.store/Sites-DE-Site/cs_CZ/Search-UpdateGrid?cgid=sale&start=0&sz=1000';
-const ADAPTER = 'takko-official-sale-html-v2';
+const ADAPTER = 'takko-official-sale-html-v3';
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
 
 function json(value: unknown, status = 200) { return new Response(JSON.stringify(value), { status, headers: HEADERS }); }
+function errorMessage(value: unknown) { return value instanceof Error ? value.message : String(value); }
 async function allowed(request: Request) {
   const token = (request.headers.get('authorization') || '').replace(/^Bearer\s+/i, '').trim();
   if (token === SERVICE || (CRON && request.headers.get('x-cron-secret') === CRON)) return true;
@@ -41,25 +42,35 @@ function parseProducts(html: string, today: string) {
   for (const [index, block] of blocks.entries()) {
     const rawInfo = block.match(/data-information="([^"]+)"/)?.[1];
     const saleText = block.match(/<div class="sales[^"]*"[^>]*>[\s\S]*?<span class="value" content="([0-9.]+)"/)?.[1];
-    const oldText = block.match(/<div class="strike-through list"[^>]*>[\s\S]*?<span class="value" content="([0-9.]+)"/)?.[1];
+    const oldText = block.match(/<div class="strike-through list"[^>]*>[\s\S]*?<span class="value" content="([0-9.]+)"/)?.[1] || null;
     const href = decodeHtml(block.match(/class="product-tile-link" href="([^"]+)"/)?.[1] || '');
-    if (!rawInfo || !saleText || !oldText) continue;
+    if (!rawInfo || !saleText) continue;
     let info: any;
     try { info = JSON.parse(decodeHtml(rawInfo)); } catch { continue; }
     const id = String(info.dimension8 || '');
     const title = decodeHtml(String(info.name || '')).replace(/\s+/g, ' ').trim();
     const image = decodeHtml(String(info.dimension47 || ''));
     const price = Number(saleText);
-    const oldPrice = Number(oldText);
     const trackedPrice = Number(info.price);
+    const parsedOldPrice = oldText ? Number(oldText) : null;
+    const oldPrice = parsedOldPrice !== null && Number.isFinite(parsedOldPrice) && parsedOldPrice > price && parsedOldPrice <= 10000 ? parsedOldPrice : null;
     if (!/^[0-9-]{8,}$/.test(id) || title.length < 4 || title.length > 160) continue;
     if (!href.startsWith('https://www.takko.com/cs-cz/') || !image.startsWith('https://www.takko.com/on/demandware.static/')) continue;
-    if (info.dimension6 !== 'reduziert' || !Number.isFinite(price) || !Number.isFinite(oldPrice) || trackedPrice !== price) continue;
-    if (price < 20 || price > 5000 || oldPrice <= price || oldPrice > 10000) continue;
+    if (info.dimension6 !== 'reduziert' || !Number.isFinite(price) || trackedPrice !== price) continue;
+    if (price < 20 || price > 5000) continue;
+    const discountMetricRaw = Number(info.metric3);
     rows.push({
       external_id: `takko:${id}`, title, normalized_title: normalize(title), price, old_price: oldPrice, quantity_text: null,
       valid_from: today, valid_to: addDays(today, 1), source_url: href, source_page: Math.floor(index / 24) + 1, product_id: null, image_url: image, confidence: 0.99,
-      metadata: { adapter: ADAPTER, parser_version: ADAPTER, takko_variation_id: id, source_page: Math.floor(index / 24) + 1, evidence: { official_status: 'reduziert', displayed_sale_price: price, displayed_regular_price: oldPrice, conditional_promotion_ignored: true } },
+      metadata: {
+        adapter: ADAPTER, parser_version: ADAPTER, takko_variation_id: id, source_page: Math.floor(index / 24) + 1,
+        evidence: {
+          official_status: 'reduziert', displayed_sale_price: price, analytics_sale_price: trackedPrice,
+          displayed_regular_price: oldPrice, regular_price_source: oldPrice ? 'strike-through' : 'not_exposed',
+          discount_metric_raw: Number.isFinite(discountMetricRaw) ? discountMetricRaw : null,
+          conditional_promotion_ignored: true,
+        },
+      },
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
@@ -71,16 +82,18 @@ Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response('ok', { headers: HEADERS });
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
+  let storeId: string | null = null;
   try {
     const body = await request.json().catch(() => ({}));
+    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'takko').single();
+    if (storeError || !store) throw storeError || new Error('Takko nebyl nalezen.');
+    storeId = String(store.id);
     const response = await fetch(GRID_SOURCE, { headers: { 'user-agent': 'Mozilla/5.0', accept: 'text/html', 'accept-language': 'cs-CZ,cs;q=0.9' }, redirect: 'follow' });
     if (!response.ok) throw new Error(`Takko HTTP ${response.status}`);
     const html = await response.text();
     const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
     const rows = parseProducts(html, today);
-    const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price}|${row.valid_to}`).join('\n'));
-    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'takko').single();
-    if (storeError || !store) throw storeError || new Error('Takko nebyl nalezen.');
+    const signature = await sha256(rows.map((row) => `${row.external_id}|${row.title}|${row.price}|${row.old_price || ''}|${row.valid_to}`).join('\n'));
     const { data: existingSource } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).limit(1).maybeSingle();
     if (existingSource) {
       await db.from('leaflet_sources').update({ source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, last_checked_at: new Date().toISOString(), last_error: null, adapter_key: ADAPTER, extraction_strategy: 'structured_html' }).eq('id', existingSource.id);
@@ -88,11 +101,25 @@ Deno.serve(async (request) => {
       const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'Takko Výprodej', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_html' });
       if (error) throw error;
     }
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, html_entity_titles: rows.filter((row) => /&(?:#?[a-z0-9]+);/i.test(row.title)).length, signature, candidates: rows });
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, with_old_price: rows.filter((row) => row.old_price !== null).length, without_old_price: rows.filter((row) => row.old_price === null).length, html_entity_titles: rows.filter((row) => /&(?:#?[a-z0-9]+);/i.test(row.title)).length, signature, candidates: rows.slice(0, 40) });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', { p_store_slug: 'takko', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 500, p_max_products: 1000, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
     if (publishError) throw publishError;
-    return json({ ok: true, store: store.name, published: rows.length, signature, result });
+    const now = new Date().toISOString();
+    await db.from('store_product_sync_state').upsert({
+      store_id: store.id, last_run_at: now, last_success_at: now, last_offer_count: rows.length, expected_offer_count: rows.length,
+      minimum_offer_count: 500, last_published_count: rows.length, parser_version: ADAPTER, adapter_name: 'sync-takko-products', adapter_version: 'v3',
+      source_type: 'official-html', source_category: 'sale', last_error: null, last_parser_error: null, health_status: 'ok',
+      health_reason: `Takko: ${rows.length} aktuálních výprodejových produktů ověřeno z oficiálního HTML.`, is_running: false, run_started_at: null, updated_at: now,
+    }, { onConflict: 'store_id' });
+    return json({ ok: true, store: store.name, published: rows.length, with_old_price: rows.filter((row) => row.old_price !== null).length, signature, result });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error), code: 'TAKKO_PRODUCTS_SYNC_FAILED' }, 500);
+    const message = errorMessage(error).slice(0, 1500);
+    const now = new Date().toISOString();
+    if (storeId) await db.from('store_product_sync_state').upsert({
+      store_id: storeId, last_run_at: now, last_error: message, last_parser_error: message, health_status: 'degraded',
+      health_reason: `Takko sync selhal: ${message}`.slice(0, 500), is_running: false, run_started_at: null, updated_at: now,
+      adapter_name: 'sync-takko-products', adapter_version: 'v3', parser_version: ADAPTER,
+    }, { onConflict: 'store_id' });
+    return json({ error: message, code: 'TAKKO_PRODUCTS_SYNC_FAILED' }, 500);
   }
 });
