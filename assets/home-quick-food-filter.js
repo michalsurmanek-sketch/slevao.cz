@@ -48,19 +48,26 @@
     });
   }
 
-  function clearLegacyDealsHashOnReload() {
+  function stabilizeHomepageReloadAtTop() {
     let isReload = false;
     try {
       const nav = performance.getEntriesByType?.('navigation')?.[0];
       isReload = nav?.type === 'reload';
     } catch {}
+    if (!isReload) return;
 
-    if (isReload && window.location.hash === '#dealsSection') {
-      history.replaceState(history.state, '', `${location.pathname}${location.search}`);
-      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
-      window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-      requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: 'auto' }));
-    }
+    const homePath = location.pathname === '/' || /\/index\.html$/i.test(location.pathname);
+    if (!homePath) return;
+
+    if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+    if (location.hash) history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+
+    const forceTop = () => window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    forceTop();
+    requestAnimationFrame(forceTop);
+    [50,150,350,700,1200,1800].forEach((delay) => window.setTimeout(forceTop, delay));
+    window.addEventListener('load', forceTop, { once:true });
+    window.addEventListener('pageshow', forceTop, { once:true });
   }
 
   function syncActive(dock) {
@@ -199,7 +206,7 @@
   }
 
   function init() {
-    clearLegacyDealsHashOnReload();
+    stabilizeHomepageReloadAtTop();
     ensureFreshStyles();
     createDock();
     if (!document.querySelector('.sqFoodDock')) {
