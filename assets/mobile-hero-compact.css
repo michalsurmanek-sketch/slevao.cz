@@ -76,6 +76,11 @@
     font-size:7.2px!important;
     letter-spacing:-.22px!important;
   }
+
+  /* Redundantní textové tlačítko Oblíbit je pryč; horní srdce .saveOffer zůstává. */
+  html body #dealGrid .dealCard [data-favorite]:not(.saveOffer){
+    display:none!important;
+  }
 }
 @media(max-width:390px){
   html body #dealGrid[data-card-view="mini"] .dealCard h3,
