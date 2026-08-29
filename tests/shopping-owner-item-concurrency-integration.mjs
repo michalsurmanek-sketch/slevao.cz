@@ -23,8 +23,14 @@ assert.ok(
 );
 assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje owner item semantic CAS bridge.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
-const shellVersion = Number(worker.match(/const CACHE_NAME = 'slevao-shell-20260828-(\d+)';/)?.[1] || 0);
-assert.ok(shellVersion >= 60, 'PWA shell se nesmí vrátit pod owner item CAS verzi 60.');
+const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 60),
+  'PWA shell se nesmí vrátit pod owner item CAS baseline 20260828-60.',
+);
 assert.ok(source.includes("if (sharedMode || !document.querySelector('.sfListLayout')) return;"), 'CAS bridge není bezpečně vypnutý ve shared režimu.');
 assert.ok(source.includes("if (String(table) !== 'shopping_list_items') return base;"), 'CAS bridge neomezuje Supabase proxy jen na shopping_list_items.');
 
