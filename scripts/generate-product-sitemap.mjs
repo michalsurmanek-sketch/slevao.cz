@@ -3,6 +3,8 @@ import { writeFile } from 'node:fs/promises';
 const SUPABASE_URL = 'https://uhampjdqjxmbhaptgitn.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
 const PAGE_SIZE = 1000;
+const MAX_ATTEMPTS = 4;
+const RETRYABLE_STATUS = new Set([408, 429, 500, 502, 503, 504]);
 
 function xml(value) {
   return String(value ?? '')
@@ -13,29 +15,73 @@ function xml(value) {
     .replaceAll("'", '&apos;');
 }
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchPage(afterId = '') {
+  const query = new URLSearchParams({
+    select: 'id,updated_at',
+    is_active: 'eq.true',
+    order: 'id.asc',
+    limit: String(PAGE_SIZE)
+  });
+  if (afterId) query.set('id', `gt.${afterId}`);
+
+  const url = `${SUPABASE_URL}/rest/v1/products?${query}`;
+  let lastFailure = '';
+
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    let response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          apikey: SUPABASE_KEY,
+          Authorization: `Bearer ${SUPABASE_KEY}`
+        },
+        signal: AbortSignal.timeout(30000)
+      });
+    } catch (error) {
+      lastFailure = error instanceof Error ? error.message : String(error);
+      if (attempt === MAX_ATTEMPTS) break;
+      await sleep(1000 * (2 ** (attempt - 1)));
+      continue;
+    }
+
+    if (response.ok) return response.json();
+
+    const body = await response.text();
+    lastFailure = `${response.status} ${body}`;
+    const statementTimeout = response.status === 500 && body.includes('57014');
+    if ((!RETRYABLE_STATUS.has(response.status) && !statementTimeout) || attempt === MAX_ATTEMPTS) break;
+    await sleep(1000 * (2 ** (attempt - 1)));
+  }
+
+  throw new Error(`Supabase products request failed after ${MAX_ATTEMPTS} attempts: ${lastFailure}`);
+}
+
 async function fetchProducts() {
   const products = [];
-  for (let from = 0; ; from += PAGE_SIZE) {
-    const query = new URLSearchParams({
-      select: 'id,updated_at',
-      is_active: 'eq.true',
-      order: 'updated_at.desc.nullslast'
-    });
-    const response = await fetch(`${SUPABASE_URL}/rest/v1/products?${query}`, {
-      headers: {
-        apikey: SUPABASE_KEY,
-        Authorization: `Bearer ${SUPABASE_KEY}`,
-        Range: `${from}-${from + PAGE_SIZE - 1}`,
-        Prefer: 'count=exact'
-      }
-    });
-    if (!response.ok) {
-      throw new Error(`Supabase products request failed: ${response.status} ${await response.text()}`);
+  const seen = new Set();
+  let afterId = '';
+
+  for (;;) {
+    const rows = await fetchPage(afterId);
+    if (!Array.isArray(rows)) throw new Error('Supabase products response is not an array.');
+
+    for (const row of rows) {
+      const id = String(row?.id || '').trim();
+      if (!id || seen.has(id)) continue;
+      seen.add(id);
+      products.push(row);
     }
-    const rows = await response.json();
-    products.push(...rows);
+
     if (rows.length < PAGE_SIZE) break;
+    const nextId = String(rows.at(-1)?.id || '').trim();
+    if (!nextId || nextId === afterId) throw new Error('Product sitemap pagination did not advance.');
+    afterId = nextId;
   }
+
   return products;
 }
 
