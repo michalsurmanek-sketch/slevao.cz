@@ -285,7 +285,13 @@ assert.equal(directGuardUrl, 'assets/shopping-shared-add-submit-guard.js?v=20260
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.ok(html.indexOf(directGuardUrl) < html.indexOf(bootstrapUrl), 'Shared add bridge musí běžet před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${directGuardUrl}'`), 'PWA necachuje concurrent shared add guard v3.');
-const shellVersion = Number(worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/)?.[1] || 0);
-assert.ok(shellVersion >= 69, 'PWA shell nebyl po concurrent shared add fixu posunut na verzi 69+.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 69),
+  'PWA shell je starší než concurrent shared add fix 20260828-69.',
+);
 
 console.log('Shared custom add double-submit, concurrent retries, server idempotency, and payload binding OK');
