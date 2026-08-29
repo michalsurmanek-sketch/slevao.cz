@@ -284,7 +284,13 @@ assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(fallbackUrl), 'Share fallbac
 assert.ok(worker.includes(`'/${clipboardUrl}'`), 'PWA necachuje clipboard share bridge.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje hash-only bootstrap seznamu.');
 assert.ok(worker.includes(`'/${fallbackUrl}'`), 'PWA necachuje share fallback guard.');
-const cacheRevision = Number(worker.match(/slevao-shell-20260828-(\d+)/)?.[1] || 0);
-assert.ok(cacheRevision >= 67, 'PWA cache revize musí zahrnout hash-only share změny.');
+const cacheMatch = worker.match(/slevao-shell-(\d{8})-(\d+)/);
+assert.ok(cacheMatch, 'PWA cache musí používat formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 67),
+  'PWA cache je starší než hash-only share integrace 20260828-67.',
+);
 
 console.log('Shopping share hash-only format and legacy URL sanitization OK');
