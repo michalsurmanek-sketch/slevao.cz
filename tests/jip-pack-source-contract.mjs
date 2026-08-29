@@ -10,6 +10,7 @@ assert(sync.includes("const OCR_ENGINE = 'tesseract-cli-ces-jip-v2';"), 'JIP pub
 assert(sync.includes("const PARSER_ENDPOINT = 'debug-jip-main-price-v5';"), 'JIP production sync must call the direct-main-price parser.');
 assert(sync.includes("const PARSER = 'jip-main-price-v7-direct-decimal';"), 'JIP derived parser revision must stay explicit.');
 assert(sync.includes("const DERIVED_ADAPTER = 'jip-ocr-main-price-v7';"), 'JIP derived adapter revision must stay explicit.');
+assert(sync.includes("const PAYLOAD_CONTRACT = 'jip-main-price-full-payload-v8';"), 'JIP publication must pin the full-payload v8 reuse contract.');
 assert(sync.includes("x?.status === 'published'"), 'JIP source must itself be a published current source.');
 assert(sync.includes("images.length === SOURCE_PAGE_COUNT"), 'JIP source must provide all 12 page images.');
 assert(sync.includes('/\\/MO-\\d{1,2}-\\d{1,2}-\\d{4}\\/$/i'), 'JIP source must be the official MO-* Maloobchod flipbook.');
@@ -23,10 +24,16 @@ assert(sync.includes("Number(c?.conf?.qty || 0) < 65"), 'JIP quantity confidence
 assert(sync.includes('function ambiguousBrandOnly'), 'JIP must retain the ambiguous producer/brand-only title guard.');
 assert(sync.includes('expected 5-20 direct-price candidates'), 'JIP candidate-count guard must remain fail-closed.');
 assert(sync.includes('if (accepted < 5)'), 'JIP publication must fail if too few rows survive publish-imports.');
-assert(sync.includes('`jip-main-price-v7-${source.id}`'), 'JIP rerun identity must be stable per official source.');
-assert(sync.includes("existing?.status === 'published'"), 'JIP live reruns must reuse an already published derived import.');
+assert(sync.includes('const fullPayloadSha256=await payloadHash(candidates,source);'), 'JIP live identity must be derived from the complete verified payload.');
+assert(sync.includes('const hash=`jip-main-price-v8-${fullPayloadSha256}`;'), 'JIP v8 rerun identity must change when the verified payload changes.');
+assert(sync.includes("current.data?.status==='published'"), 'JIP v8 live reruns must recognize an already published payload hash.');
+assert(sync.includes('storedImportMatches(current.data as ExistingImport,candidates,source)'), 'JIP v8 reuse must verify the stored published rows before reuse.');
+assert(sync.includes('const legacyHash=`jip-main-price-v7-${source.id}`;'), 'JIP v8 must keep a migration path for verified legacy v7 imports.');
+assert(sync.includes("legacy.data?.status==='published' && await storedImportMatches"), 'JIP legacy reuse must also verify the exact stored payload.');
+assert(sync.includes('full_payload_hash_version:PAYLOAD_CONTRACT'), 'JIP derived import must persist the payload-contract version.');
+assert(sync.includes('full_payload_sha256:fullPayloadSha256'), 'JIP derived import must persist the full verified payload hash.');
 assert(sync.includes('reused:true'), 'JIP reused rerun state must remain explicit.');
-assert(sync.includes('partial_coverage:true'), 'JIP v7 must declare intentionally partial coverage.');
+assert(sync.includes('partial_coverage:true'), 'JIP v7 parser snapshot must declare intentionally partial coverage.');
 assert(sync.includes("health_status:'degraded'"), 'JIP partial safe snapshot must not pretend to be full healthy coverage.');
 assert(sync.includes("source_contract:'maloobchod-12-page-direct-main-price-v7'"), 'JIP derived import must preserve the direct-main-price source contract.');
 assert(!sync.includes('debug-jip-pack-parser'), 'Unsafe legacy JIP v4 pack parser must never return to the production publisher.');
@@ -64,4 +71,4 @@ assert.equal(fixtureUnitMarker('1 kg = 23,40'), true, '1 kg = unit-price lines m
 assert.equal(fixtureUnitMarker('1 kg'), false, 'Plain 1 kg must remain a valid product quantity.');
 assert.equal(fixtureUnitMarker('500 g'), false, 'Plain product weight must not be mistaken for unit-price context.');
 
-console.log('JIP direct-price v7 source-contract regression OK');
+console.log('JIP direct-price v7 parser / v8 payload-contract regression OK');
