@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       limit:
-        description: Maximální počet nabídek
+        description: Maximální počet nabídek (1–80)
         required: false
-        default: '500'
+        default: '80'
   schedule:
     - cron: '27 */3 * * *'
 
@@ -33,14 +33,42 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-          CATALOG_LIMIT: ${{ github.event.inputs.limit || '500' }}
+          CATALOG_LIMIT: ${{ github.event.inputs.limit || '80' }}
         run: |
           set -euo pipefail
-          response=$(curl --fail-with-body --silent --show-error \
+
+          if ! [[ "$CATALOG_LIMIT" =~ ^[0-9]+$ ]]; then
+            echo "Neplatný limit: $CATALOG_LIMIT"
+            exit 1
+          fi
+          if (( CATALOG_LIMIT < 1 )); then
+            CATALOG_LIMIT=1
+          elif (( CATALOG_LIMIT > 80 )); then
+            echo "Limit $CATALOG_LIMIT je vyšší než maximum Edge Function; používám 80."
+            CATALOG_LIMIT=80
+          fi
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          http_code=$(curl --silent --show-error \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
             -X POST "$SUPABASE_URL/functions/v1/match-product-catalog" \
             -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
             -H "Content-Type: application/json" \
             --data "{\"limit\":$CATALOG_LIMIT}")
-          echo "$response"
-          echo "$response" | grep -q '"ok":true'
+
+          cat "$response_file"
+          echo
+
+          if (( http_code < 200 || http_code >= 300 )); then
+            echo "Edge Function vrátila HTTP $http_code"
+            exit 1
+          fi
+
+          if ! jq -e '.ok == true' "$response_file" >/dev/null; then
+            echo 'Edge Function nevrátila validní JSON s ok=true'
+            exit 1
+          fi
