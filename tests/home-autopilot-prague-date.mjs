@@ -39,12 +39,13 @@ assert.equal(context.metrics.linked, 2, 'Nulová/záporná/nečíselná cena nes
 assert.equal(context.metrics.missing, 1, 'Položka bez kladné ceny se musí počítat jako chybějící.');
 assert.equal(context.metrics.savings, 4, 'Doložená úspora má vzniknout jen z platné ceny a vyšší old_price.');
 
-const version = '20260822-1';
-assert.match(index, new RegExp(`assets/home-autopilot\\.js\\?v=${version}`), 'Homepage nenačítá aktuální Prague-safe Autopilot.');
+const workerVersion = '20260822-1';
+const homepageVersion = '20260829-1';
+assert.match(index, new RegExp(`assets/home-autopilot\\.js\\?v=${homepageVersion}`), 'Homepage nenačítá aktuální Prague-safe Autopilot.');
 assert.ok(
-  index.indexOf(`assets/home-autopilot.js?v=${version}`) < index.indexOf('assets/home-footer-redesign.js'),
+  index.indexOf(`assets/home-autopilot.js?v=${homepageVersion}`) < index.indexOf('assets/home-footer-redesign.js'),
   'Homepage musí načíst Autopilot před footerem, aby footer nevložil starou dynamickou verzi.'
 );
-assert.match(worker, new RegExp(`assets/home-autopilot\\.js\\?v=${version}`), 'PWA shell nemá aktuální Autopilot verzi.');
+assert.match(worker, new RegExp(`assets/home-autopilot\\.js\\?v=${workerVersion}`), 'PWA shell nemá aktuální Autopilot verzi.');
 
 console.log('Homepage Autopilot Prague date, positive-price filtering and finite quantity safety OK');
