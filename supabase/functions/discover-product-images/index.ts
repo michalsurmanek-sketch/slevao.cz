@@ -397,11 +397,12 @@ async function storedCandidates(db: any, product: Product): Promise<Candidate[]>
     });
   };
 
-  const { data: imports } = await db.from("leaflet_import_items")
+  const { data: imports, error: importsError } = await db.from("leaflet_import_items")
     .select("image_url,import_id,source_page,leaflet_imports(source_document_url)")
     .eq("product_id", product.id)
     .not("image_url", "is", null)
     .limit(10);
+  if (importsError) throw importsError;
   for (const row of imports || []) {
     const importRow = Array.isArray(row.leaflet_imports) ? row.leaflet_imports[0] : row.leaflet_imports;
     add(row.image_url, importRow?.source_document_url, "retailer", {
@@ -411,11 +412,12 @@ async function storedCandidates(db: any, product: Product): Promise<Candidate[]>
     });
   }
 
-  const { data: offers } = await db.from("offers")
+  const { data: offers, error: offersError } = await db.from("offers")
     .select("image_url,stores(slug,name)")
     .eq("product_id", product.id)
     .not("image_url", "is", null)
     .limit(10);
+  if (offersError) throw offersError;
   for (const row of offers || []) {
     const store = Array.isArray(row.stores) ? row.stores[0] : row.stores;
     add(row.image_url, row.image_url, "retailer", {
@@ -429,10 +431,11 @@ async function storedCandidates(db: any, product: Product): Promise<Candidate[]>
 }
 
 async function blockedUrls(db: any, productId: string): Promise<Set<string>> {
-  const { data } = await db.from("product_image_candidates")
+  const { data, error } = await db.from("product_image_candidates")
     .select("image_url")
     .eq("product_id", productId)
     .in("status", ["rejected", "invalid"]);
+  if (error) throw error;
   return new Set((data || []).map((row: any) => String(row.image_url || "")).filter(Boolean));
 }
 
@@ -592,7 +595,12 @@ async function processProduct(db: any, product: Product, storeSlug: string, cata
     }
   }
 
-  await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", product.id);
+  if (!validationError) {
+    const { error: checkedError } = await db.from("products")
+      .update({ image_checked_at: new Date().toISOString() })
+      .eq("id", product.id);
+    if (checkedError) throw checkedError;
+  }
   return {
     product_id: product.id,
     name: repairMojibake(product.name),
