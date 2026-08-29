@@ -47,12 +47,15 @@ function isPromo(v: string) {
   const s = norm(v);
   return /(s klubem|bez klubu|při koupi|pri koupi|při nákupu|pri nakupu|pouze|aktivujte|kupon|kup[o ]?n|cena od|\bod\s+\d+\s*(ks|g)|super (středa|ctvrtek|čtvrtek|pátek|sobota|neděle|pondělí|úterý)|nálep|body navíc)/i.test(s);
 }
+function hasStandaloneUnit(v: string) {
+  return /(?:^|[\s=,;:(])(?:kg|g|ml|l)(?=$|[\s=,;:).])/i.test(clean(v));
+}
 function badTitle(v: string) {
   const s = clean(v);
   const z = norm(s);
   if (s.length < 3 || s.length > 110 || letters(s) < 3) return true;
   if (/^(top cena|super cena|cenová bomba|z pultu|čerstvé každý den|ovoce a zelenina|lahůdky|maso|akce|novinka)$/i.test(z)) return true;
-  if (/^-?\d+\s*%$/.test(s) || /^\d/.test(s) || /kč|1\s*(kg|l)\s*=|\b(kg|g|ml|l)\b/i.test(s)) return true;
+  if (/^-?\d+\s*%$/.test(s) || /^\d/.test(s) || /kč|1\s*(kg|l)\s*=/i.test(s) || hasStandaloneUnit(s)) return true;
   return isPromo(s);
 }
 function parseQuantity(v: string) {
@@ -151,7 +154,7 @@ function parsePage(page: Page): Candidate[] {
       source_page:page.page,
       confidence:0.99,
       raw_data:{
-        parser:'flop-pdf-spatial-unit-price-v3',
+        parser:'flop-pdf-spatial-unit-price-v4',
         deterministic:true,
         verification:'printed_unit_price_math',
         unit_price:unitToken.parsed.value,
@@ -255,7 +258,7 @@ async function payloadHash(candidates: Candidate[], src: any, validity: Validity
   const rows = stableSort(candidates.map(parserRow));
   return await sha256Hex({
     payload_contract:'flop-pdf-spatial-safe-v4',
-    parser_contract:'flop-pdf-spatial-unit-price-v3',
+    parser_contract:'flop-pdf-spatial-unit-price-v4',
     source_import_id:String(src.id),
     source_document_url:String(src.source_document_url || ''),
     valid_from:validity.from,
@@ -337,7 +340,7 @@ Deno.serve(async (req) => {
     const fullPayloadSha256 = await payloadHash(candidates,src,validity);
     if (body.dry_run !== false) return json({
       ok:true,dry_run:true,source_import_id:src.id,source_document_url:src.source_document_url,
-      parser:'flop-pdf-spatial-unit-price-v3',payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
+      parser:'flop-pdf-spatial-unit-price-v4',payload_contract:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
       candidate_count:candidates.length,validity,candidates:candidates.slice(0,100),
     });
     if (candidates.length < 25) throw new Error(`Flop spatial parser found only ${candidates.length} deterministic products; publication stopped`);
@@ -380,7 +383,7 @@ Deno.serve(async (req) => {
         source_hash:hash,status:'queued',coverage_scope:'store',store_location_name:'FLOP TOP',
         detected_valid_from:validity.from,detected_valid_to:validity.to,confidence:0.99,
         metadata:{
-          parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,
+          parser:'flop-pdf-spatial-unit-price-v4',adapter:'flop-pdf-spatial-unit-price-v4',deterministic:true,
           verified_pipeline:true,source_import_id:src.id,partial_coverage:true,
           payload_contract:'flop-pdf-spatial-safe-v4',full_payload_hash_version:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
         },
@@ -397,7 +400,7 @@ Deno.serve(async (req) => {
     const upd = await db.from('leaflet_imports').update({
       status:'review',product_count:candidates.length,confidence:0.99,error_message:null,finished_at:new Date().toISOString(),
       metadata:{
-        ...(oldV4?.metadata || {}),parser:'flop-pdf-spatial-unit-price-v3',adapter:'flop-pdf-spatial-unit-price-v3',deterministic:true,
+        ...(oldV4?.metadata || {}),parser:'flop-pdf-spatial-unit-price-v4',adapter:'flop-pdf-spatial-unit-price-v4',deterministic:true,
         verified_pipeline:true,source_import_id:src.id,partial_coverage:true,
         payload_contract:'flop-pdf-spatial-safe-v4',full_payload_hash_version:'flop-pdf-spatial-safe-v4',full_payload_sha256:fullPayloadSha256,
       },
