@@ -127,7 +127,7 @@ update public.products
 set metadata = coalesce(metadata,'{}'::jsonb) || jsonb_build_object('filter_group_source','auto_classifier')
 where lower(coalesce(metadata->>'source_store_slug',''))='pilulka'
   and filter_group='pharmacy'
-  and normalized_name ~ '(^| )(bio konopny olej|bio losos se zeleninou|biopekarna spaldove krekry|dynova seminka|jumbo arasidy|king s mix|omega 3 orechovy mix|piniove orisky|prazene arasidy|sandwich francouzske bylinky|sezam loupany|studentska smes orechu a rozinek|ugo slane krekry|upgraded protein oatmeal|vanilka dezert|vegan protein vanilka|velka krupava malina|probiodrink bitter herbal|soja zero sugar|combo spot on pro psy|duck bonas kosticky|intensive pro collagen kosmeticky set|my skin bb krem|odlicovaci a cistici gel|telove maslo)( |$)';
+  and normalized_name ~ '(^| )(bio konopny olej|bio losos se zeleninou|biopekarna spaldove krekry|dynova seminka|jumbo arasidy|king s mix|omega 3 orechovy mix|piniove orisky|prazene arasidy|sandwich francouzke bylinky|sezam loupany|studentska smes orechu a rozinek|ugo slane krekry|upgraded protein oatmeal|vanilka dezert|vegan protein vanilka|velka krupava malina|probiodrink bitter herbal|soja zero sugar|combo spot on pro psy|duck bonas kosticky|intensive pro collagen kosmeticky set|my skin bb krem|odlicovaci a cistici gel|telove maslo)( |$)';
 
 update public.products
 set classification_source='auto_classifier_v32',
@@ -136,4 +136,4 @@ set classification_source='auto_classifier_v32',
 where lower(coalesce(metadata->>'source_store_slug',''))='pilulka'
   and coalesce(metadata->>'filter_group_source','')='auto_classifier'
   and coalesce((metadata->>'filter_group_classifier_version')::integer,0)=32
-  and normalized_name ~ '(^| )(bio konopny olej|bio losos se zeleninou|biopekarna spaldove krekry|dynova seminka|jumbo arasidy|king s mix|omega 3 orechovy mix|piniove orisky|prazene arasidy|sandwich francouzske bylinky|sezam loupany|studentska smes orechu a rozinek|ugo slane krekry|upgraded protein oatmeal|vanilka dezert|vegan protein vanilka|velka krupava malina|probiodrink bitter herbal|soja zero sugar|combo spot on pro psy|duck bonas kosticky|intensive pro collagen kosmeticky set|my skin bb krem|odlicovaci a cistici gel|telove maslo)( |$)';
+  and normalized_name ~ '(^| )(bio konopny olej|bio losos se zeleninou|biopekarna spaldove krekry|dynova seminka|jumbo arasidy|king s mix|omega 3 orechovy mix|piniove orisky|prazene arasidy|sandwich francouzke bylinky|sezam loupany|studentska smes orechu a rozinek|ugo slane krekry|upgraded protein oatmeal|vanilka dezert|vegan protein vanilka|velka krupava malina|probiodrink bitter herbal|soja zero sugar|combo spot on pro psy|duck bonas kosticky|intensive pro collagen kosmeticky set|my skin bb krem|odlicovaci a cistici gel|telove maslo)( |$)';
