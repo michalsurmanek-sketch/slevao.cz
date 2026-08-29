@@ -4,7 +4,7 @@
 @media(max-width:720px){
   :root{--sl-bottom-nav-height:76px}
   body{padding-bottom:calc(var(--sl-bottom-nav-height) + env(safe-area-inset-bottom))!important}
-  .footer{padding-bottom:18px!important}
+  .footer{padding-bottom:0!important}
 
   .slevaoBottomNav{
     left:10px!important;right:10px!important;bottom:0!important;width:auto!important;
@@ -31,8 +31,8 @@
   .slevaoBottomNav [data-sf-list-count]{position:absolute;top:2px;left:calc(50% + 7px);min-width:18px;height:18px;padding:0 5px;display:grid;place-items:center;border:2px solid #fff;border-radius:999px;color:#fff;background:#079d92;font-size:9px;line-height:1;font-weight:900}
   .slevaoBottomNav [data-sf-list-count][hidden]{display:none!important}
 
-  .footerMain{padding-bottom:8px!important}
-  .footerWatch{padding:20px 14px 8px!important;border-radius:22px!important;gap:0!important;overflow:hidden}
+  .footerMain{padding-bottom:0!important}
+  .footerWatch{padding:20px 14px 4px!important;border-radius:22px!important;gap:0!important;overflow:hidden}
   .footerWatchHead{align-items:flex-start!important;gap:13px!important}
   .footerBell{width:54px!important;height:54px!important;flex-basis:54px!important;font-size:24px!important}
   .footerWatch h3{font-size:23px!important;letter-spacing:-.35px}
@@ -41,7 +41,7 @@
   .footerWatchForm input{height:52px!important;padding-left:44px!important;background-color:rgba(0,25,29,.38)!important;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3 6h18v12H3zM3 7l9 7 9-7' fill='none' stroke='%2394b4b0' stroke-width='1.7' stroke-linejoin='round'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:14px center!important;background-size:21px!important}
   .footerWatchForm button{height:54px!important;color:#fff!important;font-size:15px!important;background:linear-gradient(135deg,#21c9b8,#159e94)!important}
   .footerWatchHint{display:none!important}.footerWatchStatus:empty{display:none}.footerWatchStatus{min-height:0!important}
-  .footerWatchPromises{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:18px -4px 16px;padding-bottom:16px;border-bottom:1px solid rgba(145,224,216,.14)}
+  .footerWatchPromises{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:14px -4px 10px;padding-bottom:8px;border-bottom:0!important}
   .footerWatchPromises>span{min-width:0;display:grid;justify-items:center;align-content:start;text-align:center}
   .footerWatchPromises i{width:35px;height:35px;display:grid;place-items:center;margin-bottom:7px;border-radius:50%;color:#35d7c5;background:rgba(29,174,162,.13);font-size:17px;font-style:normal}
   .footerWatchPromises b{color:#fff;font-size:10px;line-height:1.25}.footerWatchPromises small{margin-top:3px;color:#a9c2bf;font-size:9px;line-height:1.3}
@@ -54,9 +54,9 @@
   .footerWatchReasons li span{min-width:0;display:grid;gap:3px}.footerWatchReasons li b{color:#fff;font-size:12px;line-height:1.25}.footerWatchReasons li small{color:#a9c2bf;font-size:10px;line-height:1.3}
 
   /* Výhody jsou už v bloku Hlídání slev; starou druhou sadu na mobilu nezobrazovat. */
-  .footerBottom{min-height:24px!important;margin:0 12px 2px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
+  .footerBottom{min-height:20px!important;margin:0 12px!important;padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important;overflow:visible!important}
   .footerBottomInner{display:none!important}
-  .footerBottom::after{content:"© 2026 Slevao.cz"!important;position:static!important;min-height:24px!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-align:center!important;color:#a9c2bf!important;font-size:10px!important;line-height:1.2!important}
+  .footerBottom::after{content:"© 2026 Slevao.cz"!important;position:static!important;min-height:20px!important;display:flex!important;align-items:center!important;justify-content:center!important;padding:0!important;text-align:center!important;color:#a9c2bf!important;font-size:10px!important;line-height:1.2!important}
 }
 
 @media(max-width:360px){
