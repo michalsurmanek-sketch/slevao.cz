@@ -43,7 +43,9 @@ for (const [path, source] of consumers) {
 }
 
 const navVersion = '20260822-2';
-for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
+const homepageNavVersion = '20260829-1';
+assert.match(index, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${homepageNavVersion}`), 'index.html nemá nasazený owner bridge.');
+for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nemá nasazený owner bridge.`);
 }
 for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
