@@ -45,6 +45,35 @@
     overflow-wrap:break-word!important;
     word-break:normal!important;
   }
+
+  /* Mini karta: jednotková cena musí být vždy celá viditelná (např. "cena za 1 kg"). */
+  html body #dealGrid[data-card-view="mini"] .dealChips{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:4px!important;
+    width:100%!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-width:0!important;
+    width:100%!important;
+    padding:0 3px!important;
+    box-sizing:border-box!important;
+    font-size:7.5px!important;
+    line-height:1!important;
+    letter-spacing:-.18px!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span:first-child{
+    font-size:7.2px!important;
+    letter-spacing:-.22px!important;
+  }
 }
 @media(max-width:390px){
   html body #dealGrid[data-card-view="mini"] .dealCard h3,
@@ -53,6 +82,13 @@
     max-height:38px!important;
     font-size:10.8px!important;
     line-height:1.16!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span{
+    font-size:7px!important;
+    padding-inline:2px!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span:first-child{
+    font-size:6.8px!important;
   }
 }
 @media(max-width:360px){
