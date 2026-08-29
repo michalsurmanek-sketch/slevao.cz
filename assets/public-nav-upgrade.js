@@ -6,6 +6,7 @@
   const LEGACY_LIST_KEY = 'slevao-shopping-list-v1';
   const LIST_KEY_PREFIX = 'slevao-shopping-list-v2:';
   const ACTIVE_USER_KEY = 'slevao-active-user-v1';
+  const SEARCH_JUMP_KEY = 'slevao-search-jump-to-results';
   const isHomePage = () => {
     const path = location.pathname.replace(/\/+$/, '');
     return path === '' || path === '/' || path.endsWith('/index.html');
@@ -279,6 +280,42 @@
     window.setTimeout(() => align('auto'), reducedMotion ? 0 : 380);
   }
 
+  function installCrossPageSearchJump() {
+    const accountSearch = document.querySelector('form.accountSearch');
+    if (accountSearch) {
+      accountSearch.addEventListener('submit', (event) => {
+        const input = accountSearch.querySelector('input[name="q"]');
+        const query = String(input?.value || '').trim();
+        if (!query) return;
+        event.preventDefault();
+        try { sessionStorage.setItem(SEARCH_JUMP_KEY, '1'); } catch {}
+        window.location.assign(`index.html?q=${encodeURIComponent(query)}`);
+      });
+    }
+
+    if (!isHomePage()) return;
+    const query = String(new URLSearchParams(location.search).get('q') || '').trim();
+    if (!query) return;
+
+    let shouldJump = false;
+    try {
+      shouldJump = sessionStorage.getItem(SEARCH_JUMP_KEY) === '1';
+      if (shouldJump) sessionStorage.removeItem(SEARCH_JUMP_KEY);
+    } catch {}
+    if (!shouldJump) return;
+
+    const jump = () => {
+      const target = document.getElementById('dealsSection');
+      if (!target) return;
+      if (location.hash !== '#dealsSection') location.hash = 'dealsSection';
+    };
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => window.setTimeout(jump, 80), { once:true });
+    } else {
+      window.setTimeout(jump, 80);
+    }
+  }
+
   document.addEventListener('click', (event) => {
     const link = event.target.closest('.slevaoBottomNav a');
     if (!link) return;
@@ -307,6 +344,7 @@
   loadStoreArrivalTest();
   loadHomePersonalDeals();
   installMobileNavVisualFix();
+  installCrossPageSearchJump();
 
   if (upgrade()) return;
   const observer = new MutationObserver(() => {
