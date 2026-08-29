@@ -11,6 +11,14 @@
   html body .heroCard .heroStats{width:100%!important;margin:10px 0 0!important}
   html body .heroCard .heroStats>span{min-height:52px!important}
   html body .heroNearbyPanel.is-nearby-collapsed{margin-top:10px!important}
+
+  /* Pouze zmenšení vertikálních mezer mezi hlavními bloky homepage.
+     Vnitřní rozměry, typografie, karty i obsah zůstávají beze změny. */
+  html body main>.section{padding-top:10px!important;padding-bottom:10px!important}
+  html body #categoriesSection{padding-top:10px!important;padding-bottom:6px!important}
+  html body #storesSection,
+  html body #leafletsSection,
+  html body #dealsSection{padding-top:10px!important;padding-bottom:10px!important}
 }
 @media(max-width:360px){
   html body .heroCard{padding-inline:12px!important;background-position:56% center!important}
