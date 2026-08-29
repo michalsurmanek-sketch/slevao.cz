@@ -5,7 +5,7 @@
   const LEGACY_BUDGET_KEY = 'slevao-shopping-budget-v1';
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
   const OWNER_CUSTOM_ADD_URL = 'assets/shopping-owner-custom-add-bridge.js?v=20260828-3';
-  const SHARED_ADD_GUARD_URL = 'assets/shopping-shared-add-submit-guard.js?v=20260828-1';
+  const SHARED_ADD_GUARD_URL = 'assets/shopping-shared-add-submit-guard.js?v=20260828-3';
   const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260828-1';
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
