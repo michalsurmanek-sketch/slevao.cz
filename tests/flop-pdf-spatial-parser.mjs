@@ -3,7 +3,9 @@ import fs from 'node:fs';
 
 const source = fs.readFileSync('supabase/functions/sync-flop-pdf-products/index.ts', 'utf8');
 
-assert(source.includes("parser:'flop-pdf-spatial-unit-price-v3'"), 'Flop parser version v3 is missing');
+assert(source.includes("parser:'flop-pdf-spatial-unit-price-v4'"), 'Flop parser version v4 is missing');
+assert(source.includes("payload_contract:'flop-pdf-spatial-safe-v4'"), 'Flop payload contract v4 is missing');
+assert(source.includes("parser_contract:'flop-pdf-spatial-unit-price-v4'"), 'Flop parser payload contract must match v4');
 assert(source.includes("verification:'printed_unit_price_math'"), 'Flop offers must be mathematically verified against printed unit price');
 assert(source.includes('if (delta <= 0.06)'), 'Flop printed-price tolerance must stay bounded');
 assert(source.includes('if (localPromo(tokens, q, printed.y)) continue;'), 'Conditional/local promo offers must be rejected');
@@ -17,4 +19,4 @@ assert(!source.includes('source_url.neq.'), 'Flop publication must not broadly e
 assert(source.includes("status:'approved'"), 'Only approved deterministic candidates should enter publish-imports');
 assert(source.includes('confidence:0.99'), 'Deterministic candidates must retain high confidence');
 
-console.log('Flop spatial PDF parser contract OK');
+console.log('Flop spatial PDF parser v4 contract OK');
