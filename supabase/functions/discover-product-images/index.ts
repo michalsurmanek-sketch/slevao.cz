@@ -71,6 +71,27 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: CORS });
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const row = error as Record<string, unknown>;
+    const parts = [
+      typeof row.message === "string" ? row.message.trim() : "",
+      typeof row.details === "string" ? row.details.trim() : "",
+      typeof row.hint === "string" ? row.hint.trim() : "",
+      typeof row.code === "string" && row.code.trim() ? `code=${row.code.trim()}` : "",
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" | ");
+    try {
+      return JSON.stringify(error);
+    } catch {
+      // Fall through to the safest string conversion below.
+    }
+  }
+  return String(error);
+}
+
 function repairMojibake(value: unknown): string {
   const input = String(value ?? "");
   if (!/[ÃÅÄ]/.test(input)) return input;
@@ -566,7 +587,7 @@ async function processProduct(db: any, product: Product, storeSlug: string, cata
         accepted.push({ image_url: candidate.image_url, tier: reviewTier(review) });
       }
     } catch (error) {
-      validationError = error instanceof Error ? error.message : String(error);
+      validationError = errorMessage(error);
       break;
     }
   }
@@ -680,7 +701,7 @@ Deno.serve(async (request) => {
       results,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return json({ ok: false, error: message }, message === "Unauthorized" ? 401 : 500);
   }
 });
