@@ -10,7 +10,7 @@ assert.match(navigation, /const mobileUxVersion = '20260815-21';/, 'mobile-navig
 assert.match(navigation, /querySelector\('link\[href\*="mobile-ux\.css"\]'\)/, 'mobile-navigation must detect any already-loaded mobile-ux stylesheet instead of a stale version marker.');
 assert.doesNotMatch(navigation, /link\[data-mobile-ux-version=.*mobileUxVersion/, 'Legacy version-marker duplicate detection must not return.');
 assert.doesNotMatch(leafletDirect, /canonicalMobileUx|20260809-8/, 'Temporary mobile CSS compatibility guard must be removed after the source loader fix.');
-assert.match(index, /assets\/mobile-navigation\.js\?v=20260818-2/, 'Homepage must cache-bust the fixed mobile-navigation runtime.');
+assert.match(index, /assets\/mobile-navigation\.js\?v=20260829-1/, 'Homepage must cache-bust the current mobile-navigation runtime.');
 assert.match(index, /assets\/home-leaflet-direct\.js\?v=20260821-2/, 'Homepage must load the current cache-busted leaflet-direct runtime.');
 
 console.log('mobile CSS loader single-source regression guard passed');
