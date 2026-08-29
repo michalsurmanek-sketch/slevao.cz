@@ -58,4 +58,51 @@
     padding:0 8px;
     font-size:9.5px;
   }
+
+  /* Jen tlačítko „Přidat z akcí“ v sekci Položky. */
+  .sfListLayout > .sfPanel:first-child .sfSectionHead > .sfButton{
+    min-height:42px;
+    padding:0 14px;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    border:0;
+    border-radius:999px;
+    background:linear-gradient(135deg,#087b75,#13aaa0);
+    color:#fff;
+    font-size:11px;
+    font-weight:900;
+    line-height:1;
+    text-decoration:none;
+    white-space:nowrap;
+    box-shadow:0 8px 18px rgba(13,143,134,.22);
+  }
+
+  .sfListLayout > .sfPanel:first-child .sfSectionHead > .sfButton::before{
+    content:"%";
+    width:20px;
+    height:20px;
+    display:grid;
+    place-items:center;
+    flex:0 0 20px;
+    border-radius:7px;
+    background:rgba(255,255,255,.18);
+    color:#fff;
+    font-size:11px;
+    font-weight:950;
+  }
+
+  .sfListLayout > .sfPanel:first-child .sfSectionHead > .sfButton:hover,
+  .sfListLayout > .sfPanel:first-child .sfSectionHead > .sfButton:focus-visible{
+    color:#fff;
+    border:0;
+    background:linear-gradient(135deg,#076e69,#0f9f97);
+    box-shadow:0 10px 22px rgba(13,143,134,.28);
+  }
+
+  .sfListLayout > .sfPanel:first-child .sfSectionHead > .sfButton:active{
+    transform:translateY(1px);
+    box-shadow:0 5px 12px rgba(13,143,134,.2);
+  }
 }
