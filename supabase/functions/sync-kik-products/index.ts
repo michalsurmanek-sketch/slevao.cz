@@ -91,6 +91,17 @@ function pragueDate() {
 function clean(line) {
     return line.replace(/\s+/g, ' ').replace(/[,:;]+$/u, '').trim();
 }
+function validFromFromText(text) {
+    const lines = String(text || '').split(/\r?\n/u).map(clean).filter(Boolean);
+    for (const line of lines) {
+        if (!/PLATNOST OD/iu.test(line))
+            continue;
+        const validFrom = isoFromCz(line);
+        if (validFrom)
+            return validFrom;
+    }
+    return null;
+}
 const ARTICLE = /^\d{6,8}$/u;
 const PRICE = /^\d{2,4}$/u;
 const UNIT_PRICE = /^\d+(?:[,.]\d+)?\s*\/\s*(?:ks|kg|litr|l|m|100\s*g|100\s*ml)\b/iu;
@@ -144,14 +155,7 @@ function findTitle(lines, descriptorIndex) {
 }
 function parsePage(text, page, today) {
     const lines = String(text || '').split(/\r?\n/u).map(clean).filter(Boolean);
-    let validFrom = null;
-    for (const line of lines) {
-        if (/PLATNOST OD/iu.test(line)) {
-            validFrom = isoFromCz(line);
-            if (validFrom)
-                break;
-        }
-    }
+    const validFrom = validFromFromText(text);
     if (!validFrom || validFrom > today)
         return [];
     const rows = [];
@@ -182,11 +186,16 @@ function parsePage(text, page, today) {
 async function buildRows(document, viewer, spreads, today) {
     const publicationId = String(document.metadata?.publication_id || '');
     const parsed = [];
+    const futureValidFromDates = [];
     let pages = 0;
     for (const spread of spreads) {
         for (const page of Array.isArray(spread?.pages) ? spread.pages : []) {
             pages++;
-            parsed.push(...parsePage(String(page?.text || ''), Number(page?.number || pages), today));
+            const pageText = String(page?.text || '');
+            const pageValidFrom = validFromFromText(pageText);
+            if (pageValidFrom && pageValidFrom > today)
+                futureValidFromDates.push(pageValidFrom);
+            parsed.push(...parsePage(pageText, Number(page?.number || pages), today));
         }
     }
     const best = new Map();
@@ -217,7 +226,8 @@ async function buildRows(document, viewer, spreads, today) {
             is_from_price: row.is_from_price,
         };
     }
-    return { rows, raw: parsed.length, pages };
+    const nextValidFrom = [...new Set(futureValidFromDates)].sort()[0] || null;
+    return { rows, raw: parsed.length, pages, nextValidFrom };
 }
 Deno.serve(async (request) => {
     if (request.method === 'OPTIONS')
@@ -260,6 +270,38 @@ Deno.serve(async (request) => {
         if (!Array.isArray(spreads) || !spreads.length)
             throw new Error('KiK Publitas nevrátil stránky.');
         const built = await buildRows(document, viewer, spreads, today);
+        if (built.rows.length === 0 && built.nextValidFrom) {
+            const now = new Date().toISOString();
+            const healthReason = `Nový KiK leták začne platit ${built.nextValidFrom}; současné veřejné nabídky zůstávají beze změny.`;
+            if (!dryRun) {
+                await db.from('store_product_sync_state').update({
+                    last_run_at: now,
+                    last_error: null,
+                    last_parser_error: null,
+                    health_status: 'ok',
+                    health_reason: healthReason,
+                    is_running: false,
+                    updated_at: now,
+                }).eq('store_id', store.id);
+                await db.from('leaflet_sources').update({
+                    last_checked_at: now,
+                    last_success_at: now,
+                    last_error: null,
+                }).eq('id', source.id);
+            }
+            return json({
+                ok: true,
+                no_changes: true,
+                future_publication: true,
+                store: 'KiK',
+                pages: built.pages,
+                raw_candidates: built.raw,
+                publishable: 0,
+                valid_from: built.nextValidFrom,
+                today,
+                reason: 'publication_not_started',
+            });
+        }
         if (built.rows.length < MIN_SAFE || built.rows.length > MAX_SAFE)
             throw new Error(`KiK parser vytvořil ${built.rows.length} nabídek; bezpečný rozsah je ${MIN_SAFE}–${MAX_SAFE}.`);
         const signature = await sha256(`${document.source_hash}|${cacheToken}|${PARSER}`);
