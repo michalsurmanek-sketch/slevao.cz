@@ -148,8 +148,8 @@ for (const pattern of [/function resolveSelectedProduct\(\)/,/await productsRead
 assert.match(photoAdmin, /type="file" accept="image\/jpeg,image\/png,image\/webp,image\/avif"/, 'Nahrání fotografie nepovoluje bezpečné formáty.');
 
 const redirects = {
-  'login.html':'admin.html', 'moderation.html':'admin.html', 'account.html':'./', 'collections.html':'./',
-  'detail.html':'./', 'reels.html':'./', 'submit.html':'./', 'index2.html':'./',
+  'login.html':'admin.html', 'moderation.html':'admin.html', 'account.html':'ucet.html', 'collections.html':'./',
+  'detail.html':'produkt.html', 'reels.html':'./', 'submit.html':'./', 'index2.html':'./',
 };
 for (const [path,target] of Object.entries(redirects)) {
   const source = read(path);
