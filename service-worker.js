@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260829-3';
+const CACHE_NAME = 'slevao-shell-20260829-4';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -94,9 +94,7 @@ const SHELL = [
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
     const cache = await caches.open(CACHE_NAME);
-    await Promise.all(SHELL.map(async (url) => {
-      try { await cache.add(new Request(url, { cache: 'reload' })); } catch {}
-    }));
+    await cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
