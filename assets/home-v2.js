@@ -19,7 +19,7 @@
   const CATEGORY_DEFS = [
     ['food','Potraviny','🥫'],['drinks','Nápoje','🥤'],['drugstore','Drogerie','🧴'],['home','Domácnost','🏠'],
     ['electronics','Elektronika','🔌'],['garden','Zahrada','🌿'],['fashion','Oblečení','👕'],['pharmacy','Lékárna','💊'],
-    ['school','Škola','🎒'],['pets','Zvířata','🐾'],['auto','Auto','🚗'],['other','Ostatní','🏷️']
+    ['school','Škola','🎒'],['sports','Sport','⚽'],['toys','Hračky','🧸'],['pets','Zvířata','🐾'],['auto','Auto','🚗'],['other','Ostatní','🏷️']
   ];
   const LOCAL_LOGOS = { penny:'assets/logos/penny.svg?v=4', 'eso-market':'assets/logos/eso-market.svg?v=1' };
   const STORE_DOMAINS = {
