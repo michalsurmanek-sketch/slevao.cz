@@ -25,4 +25,12 @@ for (const [name, source] of [['base', base], ['web', web]]) {
   assert.match(source, /\['admin', 'editor'\]|\["admin", "editor"\]/, `${name} discovery must retain admin/editor authorization.`);
 }
 
-console.log('Image discovery auth boundary OK');
+assert.match(base, /function errorMessage\(error: unknown\): string/, 'base discovery must centralize safe error serialization.');
+assert.match(base, /row\.details/, 'base discovery must preserve PostgREST error details.');
+assert.match(base, /row\.hint/, 'base discovery must preserve PostgREST error hint.');
+assert.match(base, /code=\$\{row\.code\.trim\(\)\}/, 'base discovery must preserve PostgREST error code.');
+assert.match(base, /validationError = errorMessage\(error\)/, 'per-product validation errors must use safe serialization.');
+assert.match(base, /const message = errorMessage\(error\)/, 'top-level discovery errors must use safe serialization.');
+assert.doesNotMatch(base, /const message = error instanceof Error \? error\.message : String\(error\)/, 'top-level discovery must not collapse object errors to [object Object].');
+
+console.log('Image discovery auth and error boundary OK');
