@@ -7,11 +7,11 @@
   .footer{padding-bottom:18px!important}
 
   .slevaoBottomNav{
-    left:10px!important;right:10px!important;bottom:8px!important;width:auto!important;
+    left:10px!important;right:10px!important;bottom:0!important;width:auto!important;
     height:var(--sl-bottom-nav-height)!important;min-height:var(--sl-bottom-nav-height)!important;
     padding:5px 7px calc(5px + env(safe-area-inset-bottom))!important;
     display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;
-    overflow:visible!important;border:1px solid rgba(28,66,64,.09)!important;border-radius:22px!important;
+    overflow:visible!important;border:1px solid rgba(28,66,64,.09)!important;border-radius:22px 22px 0 0!important;
     background:rgba(255,255,255,.98)!important;box-shadow:0 12px 36px rgba(7,39,37,.16)!important;
     backdrop-filter:blur(18px);isolation:isolate
   }
