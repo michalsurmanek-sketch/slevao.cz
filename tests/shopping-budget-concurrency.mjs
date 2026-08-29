@@ -182,8 +182,13 @@ assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
 assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
 assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný shopping bootstrap ze seznam.html.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-20260828-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát pro cold-sync ochranu.');
-assert.ok(Number(cacheMatch[1]) >= 59, 'PWA shell je starší než cold-sync integrace verze 59.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision pro cold-sync ochranu.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 59),
+  'PWA shell je starší než cold-sync integrace 20260828-59.',
+);
 
 console.log('Shopping budget concurrency and cloud-authoritative cold-load guard OK');
