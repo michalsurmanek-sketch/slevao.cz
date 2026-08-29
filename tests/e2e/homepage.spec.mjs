@@ -67,6 +67,19 @@ test('homepage loads the canonical mobile UX stylesheet only once', async ({ pag
   expect(await page.locator('link[href*="mobile-ux.css"]').count()).toBe(1);
 });
 
+test('homepage does not scroll itself during delayed startup work', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
+
+  await expect.poll(async () => page.evaluate(() => window.scrollY), {
+    timeout: 1_000,
+    message: 'Homepage must start at the top.'
+  }).toBeLessThan(5);
+
+  await page.waitForTimeout(3_000);
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(5);
+});
+
 test('fresh homepage ignores stale section hash and restored deals scroll', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -77,7 +90,7 @@ test('fresh homepage ignores stale section hash and restored deals scroll', asyn
   }).toBeLessThan(5);
   expect(new URL(page.url()).hash).toBe('');
 
-  await page.evaluate(() => document.getElementById('dealsSection')?.scrollIntoView());
+  await page.mouse.wheel(0, 2400);
   await expect.poll(async () => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
 
   await page.reload({ waitUntil: 'load' });
@@ -85,6 +98,19 @@ test('fresh homepage ignores stale section hash and restored deals scroll', asyn
     timeout: 3_000,
     message: 'Reloading the homepage must not restore the deals-section scroll position.'
   }).toBeLessThan(5);
+});
+
+test('quick purchase scroll happens only after a real click', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await openHomepage(page);
+  await expect(page.locator('.sqFoodDock [data-sq-food]').first()).toBeVisible();
+  expect(await page.evaluate(() => window.scrollY)).toBeLessThan(5);
+
+  await page.locator('.sqFoodDock [data-sq-food]').first().click();
+  await expect.poll(async () => page.evaluate(() => window.scrollY), {
+    timeout: 3_000,
+    message: 'A trusted quick-purchase click should be allowed to scroll to results.'
+  }).toBeGreaterThan(100);
 });
 
 test('homepage sends one initial facets request', async ({ page }) => {
