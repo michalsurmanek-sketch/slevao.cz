@@ -19,6 +19,19 @@ assert.match(smart, /authorization:\s*`Bearer \$\{KEY\}`/, 'smart orchestrator m
 assert.match(smart, /call\('discover-product-images'/, 'smart orchestrator must call base discovery endpoint.');
 assert.match(smart, /call\('discover-product-images-web'/, 'smart orchestrator must call web discovery endpoint.');
 assert.match(smart, /LEGACY_CRON_SHA256/, 'smart custom-auth exception must remain tied to explicit legacy cron compatibility.');
+assert.match(smart, /function errorMessage\(error: unknown\): string/, 'smart orchestrator must preserve structured errors.');
+assert.match(smart, /throw new Error\(errorMessage\(payload\?\.error \|\| `\$\{name\} \$\{response\.status\}`\)\)/, 'smart child-call failures must preserve structured error details.');
+assert.match(smart, /error = errorMessage\(caught\)/, 'smart per-product failures must preserve structured errors.');
+assert.match(smart, /update\(\{ image_checked_at: null \}\)/, 'smart orchestrator must requeue products after transient child errors.');
+assert.match(smart, /retry_marker_failed/, 'smart orchestrator must surface retry marker database failures.');
+assert.doesNotMatch(smart, /update\(\{\s*image_checked_at:\s*new Date\(/, 'smart orchestrator must not mark a product checked independently of child success.');
+assert.match(smart, /data: settings, error: settingsError/, 'smart settings lookup must capture database errors.');
+assert.match(smart, /if \(settingsError\) throw settingsError;/, 'smart settings lookup must fail closed.');
+assert.match(smart, /count, error: runningError/, 'smart active-run lookup must capture database errors.');
+assert.match(smart, /if \(runningError\) throw runningError;/, 'smart active-run lookup must fail closed.');
+assert.match(smart, /error: completeError[\s\S]*?if \(completeError\) throw completeError;/, 'smart completion persistence must surface database errors.');
+assert.match(smart, /status: 'failed'/, 'smart background task failures must move the run to failed.');
+assert.match(smart, /product_image_search_run_failure_update_failed/, 'smart failed-run persistence errors must be visible in logs.');
 
 for (const [name, source] of [['base', base], ['web', web]]) {
   assert.match(source, /token === serviceKey/, `${name} discovery must accept service-role Bearer token.`);
