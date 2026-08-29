@@ -20,3 +20,4 @@ assert.doesNotMatch(migration, /\b(?:grant|revoke)\b/i, 'Search-path hardening m
 assert.doesNotMatch(migration, /\b(?:drop|create|delete|update|insert)\b/i, 'Search-path hardening migration must not mutate unrelated schema or data.');
 
 console.log('Product filter classifier search_path hardening OK');
+await import('./pilulka-filter-classifier-v32.mjs');
