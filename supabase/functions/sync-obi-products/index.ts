@@ -120,7 +120,7 @@ async function fetchProduct(sku: string) {
 async function resolveProduct(sku: string, title: string, imageUrl: string) {
   const { data: existing, error: findError } = await db.from('products').select('id,metadata').contains('metadata', { obi_article_number: sku }).maybeSingle();
   if (findError) throw findError;
-  const metadata = { ...(existing?.metadata || {}), obi_article_number: sku, official_product_url: `https://www.obi.cz/p/${sku}`, structured_source: 'obi-product-page-v1' };
+  const metadata = { ...(existing?.metadata || {}), source_store_slug: 'obi', obi_article_number: sku, official_product_url: `https://www.obi.cz/p/${sku}`, structured_source: 'obi-product-page-v1' };
   if (existing?.id) {
     const { error } = await db.from('products').update({ name: title, image_url: imageUrl, image_source: 'official_obi_product_page', image_quality: 95, image_verified: true, is_verified: true, metadata }).eq('id', existing.id);
     if (error) throw error;
