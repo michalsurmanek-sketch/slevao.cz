@@ -21,15 +21,17 @@
   html body #dealsSection{padding-top:10px!important;padding-bottom:10px!important}
 
   /* Definitivní override názvu mobilní mini karty.
-     Tento soubor se načítá až po mobile-deals-heading-fix.css, takže starší
-     14px/2řádkové pravidlo už nemůže název znovu zvětšit a uříznout. */
+     Pevně rezervuje prostor pro celé 3 řádky, aby flex layout název nesrazil. */
   html body #dealGrid[data-card-view="mini"] .dealCard h3,
   html body #dealGrid[data-card-view="mini"] .dealCard .dealInfo h3,
   html body #dealGrid[data-card-view="mini"] .dealCard .dealBody h3{
     width:100%!important;
     min-width:0!important;
-    min-height:0!important;
-    max-height:40px!important;
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    flex:0 0 44px!important;
+    box-sizing:border-box!important;
     margin:0 0 6px!important;
     padding:0!important;
     font-size:11.5px!important;
@@ -79,7 +81,10 @@
   html body #dealGrid[data-card-view="mini"] .dealCard h3,
   html body #dealGrid[data-card-view="mini"] .dealCard .dealInfo h3,
   html body #dealGrid[data-card-view="mini"] .dealCard .dealBody h3{
-    max-height:38px!important;
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    flex-basis:42px!important;
     font-size:10.8px!important;
     line-height:1.16!important;
   }
