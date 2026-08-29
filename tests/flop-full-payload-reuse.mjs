@@ -4,11 +4,11 @@ import { readFileSync } from 'node:fs';
 const source = readFileSync('supabase/functions/sync-flop-pdf-products/index.ts','utf8');
 
 assert.match(source, /payload_contract:'flop-pdf-spatial-safe-v4'/,
-  'FLOP v3 parser musí mít samostatně verzovaný v4 payload/reuse kontrakt.');
+  'FLOP v4 parser musí mít samostatně verzovaný v4 payload/reuse kontrakt.');
 assert.match(source, /crypto\.subtle\.digest\('SHA-256'/,
   'FLOP reuse fingerprint musí používat SHA-256.');
 for (const needle of [
-  "parser_contract:'flop-pdf-spatial-unit-price-v3'",
+  "parser_contract:'flop-pdf-spatial-unit-price-v4'",
   'source_import_id:String(src.id)',
   "source_document_url:String(src.source_document_url || '')",
   'valid_from:validity.from',
