@@ -61,6 +61,27 @@ function json(body: unknown, status = 200): Response {
   return Response.json(body, { status, headers: CORS });
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object") {
+    const row = error as Record<string, unknown>;
+    const parts = [
+      typeof row.message === "string" ? row.message.trim() : "",
+      typeof row.details === "string" ? row.details.trim() : "",
+      typeof row.hint === "string" ? row.hint.trim() : "",
+      typeof row.code === "string" && row.code.trim() ? `code=${row.code.trim()}` : "",
+    ].filter(Boolean);
+    if (parts.length) return parts.join(" | ");
+    try {
+      return JSON.stringify(error);
+    } catch {
+      // Fall through to the safest string conversion below.
+    }
+  }
+  return String(error);
+}
+
 function normalize(value: unknown): string {
   return String(value ?? "")
     .normalize("NFD")
@@ -125,7 +146,7 @@ function validHttpsUrl(value: unknown): value is string {
 }
 
 function genericImage(value: unknown): boolean {
-  return /placeholder|no[-_ ]?image|default-image|favicon|sprite|logo|opengraph|social|banner|header|footer|icon(?:[\/_.-]|$)|\.svg(?:\?|$)/i.test(String(value || ""));
+  return /placeholder|no[-_ ]?image|default-image|favicon|sprite|logo|opengraph|social|banner|header|footer|icon(?:[\/_-]|$)|\.svg(?:\?|$)/i.test(String(value || ""));
 }
 
 function validImageUrl(value: unknown): value is string {
@@ -448,10 +469,11 @@ function reviewTier(review: VisualReview): "clean" | "usable_manual" {
 }
 
 async function blockedUrls(db: any, productId: string): Promise<Set<string>> {
-  const { data } = await db.from("product_image_candidates")
+  const { data, error } = await db.from("product_image_candidates")
     .select("image_url")
     .eq("product_id", productId)
     .in("status", ["pending", "approved", "rejected", "invalid"]);
+  if (error) throw error;
   return new Set((data || []).map((row: any) => String(row.image_url || "")).filter(Boolean));
 }
 
@@ -518,11 +540,16 @@ async function processProduct(db: any, product: Product) {
         rejected++;
       }
     } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
+      errors.push(errorMessage(error));
     }
   }
 
-  await db.from("products").update({ image_checked_at: new Date().toISOString() }).eq("id", product.id);
+  if (!errors.length) {
+    const { error: checkedError } = await db.from("products")
+      .update({ image_checked_at: new Date().toISOString() })
+      .eq("id", product.id);
+    if (checkedError) throw checkedError;
+  }
   return {
     product_id: product.id,
     name: product.name,
@@ -572,7 +599,7 @@ Deno.serve(async (request) => {
       results,
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     return json({ ok: false, error: message }, message === "Unauthorized" ? 401 : 500);
   }
 });
