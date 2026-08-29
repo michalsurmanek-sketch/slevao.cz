@@ -135,7 +135,13 @@ assert.equal(guest.getReloads(), 1, 'Změna guest historie nevyvolala reload.');
 const assetUrl = html.match(/assets\/shopping-history-freshness\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-history-freshness.js?v=20260828-1', 'seznam.html nenačítá history freshness guard v1.');
 assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA necachuje přesný history freshness guard ze seznam.html.');
-const shellVersion = Number(worker.match(/const CACHE_NAME = 'slevao-shell-20260828-(\d+)';/)?.[1] || 0);
-assert.ok(shellVersion >= 62, 'PWA shell se po history freshness fixu musí posunout alespoň na verzi 62.');
+const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 62),
+  'PWA shell se nesmí vrátit pod history freshness baseline 20260828-62.',
+);
 
 console.log('Shopping history freshness detects cross-device history changes without polling');
