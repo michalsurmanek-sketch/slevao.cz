@@ -15,6 +15,16 @@
 
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+  function ensureFreshStyles() {
+    const href = 'assets/home-quick-food-filter.css?v=20260829-2';
+    if (document.querySelector(`link[data-sq-food-fresh="20260829-2"]`)) return;
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    link.dataset.sqFoodFresh = '20260829-2';
+    document.head.appendChild(link);
+  }
+
   function setExistingSearch(value) {
     const sideSearch = document.getElementById('sideSearch');
     if (!sideSearch) return false;
@@ -158,8 +168,6 @@
       const current = fold(document.getElementById('sideSearch')?.value || '');
       setExistingSearch(current === fold(term) ? '' : term);
       syncActive(dock);
-      // Počkáme na překreslení nadpisu a sémantických filtrů. Cíl je vždy
-      // začátek výsledků pod pevnou horní lištou, i když jsou quickTabs skryté.
       window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
         window.setTimeout(scrollToQuickPurchaseResults, 20);
       }));
@@ -180,6 +188,7 @@
   }
 
   function init() {
+    ensureFreshStyles();
     createDock();
     if (!document.querySelector('.sqFoodDock')) {
       const observer = new MutationObserver(() => {
