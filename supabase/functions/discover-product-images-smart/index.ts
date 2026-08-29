@@ -1,17 +1,244 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-const URL=Deno.env.get('SUPABASE_URL')||'';
-const KEY=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')||'';
-const CRON=Deno.env.get('CRON_SECRET')||'';
-const LEGACY_CRON_SHA256='9d1f101cd00ca63ac32ec40e79c56f9d38e0c79d359f61a3d1a74803b4f9073b';
-const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,apikey,content-type,x-cron-secret','access-control-allow-methods':'POST,OPTIONS'};
-const db=createClient(URL,KEY,{auth:{persistSession:false,autoRefreshToken:false}});
-const json=(x:any,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{...CORS,'content-type':'application/json'}});
-const BILLING_ERROR=/no credits remaining|insufficient[_ -]?quota|billing[_ -]?(?:hard[_ -]?limit)?|quota exceeded/i;
-function isBillingError(value:unknown){return BILLING_ERROR.test(String(value||''))}
-async function sha256Text(value:string){const bytes=new TextEncoder().encode(value);const digest=new Uint8Array(await crypto.subtle.digest('SHA-256',bytes));return [...digest].map(x=>x.toString(16).padStart(2,'0')).join('')}
-async function recentBillingBlock(){const since=new Date(Date.now()-30*60000).toISOString();const {data,error}=await db.from('product_image_search_runs').select('finished_at,error_count,results').eq('status','completed').gt('error_count',0).gte('finished_at',since).order('finished_at',{ascending:false}).limit(1).maybeSingle();if(error)throw error;const results=Array.isArray(data?.results)?data.results:[];return results.some((row:any)=>isBillingError(row?.error))}
-async function auth(req:Request){const cronHeader=req.headers.get('x-cron-secret')||'';if(CRON&&cronHeader===CRON)return 'cron';if(cronHeader&&await sha256Text(cronHeader)===LEGACY_CRON_SHA256)return 'cron';const h=req.headers.get('authorization')||'';if(!h.startsWith('Bearer '))throw new Error('Unauthorized');const token=h.slice(7);if(token===KEY)return 'service-role';const {data,error}=await db.auth.getUser(token);const role=String(data.user?.app_metadata?.role||'');if(error||!data.user||!['admin','editor'].includes(role))throw new Error('Unauthorized');return data.user.id}
-async function call(name:string,body:any,timeout=50000){const c=new AbortController();const t=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(`${URL}/functions/v1/${name}`,{method:'POST',headers:{authorization:`Bearer ${KEY}`,apikey:KEY,'content-type':'application/json'},body:JSON.stringify(body),signal:c.signal});const p=await r.json().catch(()=>({}));if(!r.ok||!p.ok)throw new Error(p.error||`${name} ${r.status}`);return p}finally{clearTimeout(t)}}
-function score(x:any){let s=Number(x.active_offer_count||0)*20;const days=Math.max(0,Math.ceil((new Date(x.nearest_valid_to).getTime()-Date.now())/86400000));s+=Math.max(0,14-days)*500;if(/^\d{8,14}$/.test(String(x.ean||'').replace(/\D/g,'')))s+=1200;if(String(x.brand||'').trim())s+=700;if(String(x.quantity_text||'').trim())s+=150;if(!x.image_checked_at)s+=400;return s}
-async function one(p:any){let created=0,rejected=0,error=null;try{const a=await call('discover-product-images',{product_id:String(p.id),limit:1},45000);created+=Number(a.created||0);rejected+=Number(a.visually_rejected||0);if(!created){const b=await call('discover-product-images-web',{product_ids:[String(p.id)]},100000);created+=Number(b.created||0);rejected+=Number(b.rejected||0)}}catch(e){error=e instanceof Error?e.message:String(e)}await db.from('products').update({image_checked_at:new Date().toISOString()}).eq('id',p.id);return{product_id:p.id,name:p.name,created,rejected,error,priority:score(p)}}
-Deno.serve(async req=>{if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});if(req.method!=='POST')return json({ok:false,error:'Method not allowed'},405);try{const who=await auth(req);const body=await req.json().catch(()=>({}));const {data:settings}=await db.from('product_image_automation_settings').select('enabled,batch_size').eq('id',true).maybeSingle();if(who==='cron'&&settings?.enabled===false)return json({ok:true,accepted:false,message:'Automatické hledání je vypnuté.'});if(who==='cron'&&await recentBillingBlock())return json({ok:true,accepted:false,blocked_reason:'openai_billing',message:'OpenAI API nemá dostupný kredit. Automatický pokus je na 30 minut pozastaven.'});const limit=Math.max(1,Math.min(Number(body.limit||settings?.batch_size||8),12));const since=new Date(Date.now()-20*60000).toISOString();const {count}=await db.from('product_image_search_runs').select('id',{count:'exact',head:true}).in('status',['queued','processing']).gte('created_at',since);if((count||0)>0)return json({ok:true,accepted:false,message:'Předchozí dávka ještě běží.'});const {data:rows,error}=await db.from('products_missing_images_priority').select('*').limit(600);if(error)throw error;const selected=(rows||[]).sort((a:any,b:any)=>score(b)-score(a)).slice(0,limit);if(!selected.length)return json({ok:true,accepted:false,message:'Nejsou produkty bez fotografie.'});const {data:run,error:re}=await db.from('product_image_search_runs').insert({requested_by:who==='cron'?null:who,status:'processing',requested_count:selected.length,started_at:new Date().toISOString(),message:'Automatické hledání fotografií běží.',results:selected.map((x:any)=>({product_id:x.id,name:x.name,priority:score(x)}))}).select('id').single();if(re)throw re;const task=(async()=>{const results=[];let billingBlocked=false;for(let i=0;i<selected.length;i+=4){const chunk=await Promise.all(selected.slice(i,i+4).map(one));results.push(...chunk);if(chunk.some((row:any)=>isBillingError(row?.error))){billingBlocked=true;break}}const created=results.reduce((n:number,x:any)=>n+x.created,0),rejected=results.reduce((n:number,x:any)=>n+x.rejected,0),errors=results.filter((x:any)=>x.error).length;const message=billingBlocked?`OpenAI API nemá dostupný kredit. Dávka zastavena po ${results.length} produktech.`:`Prověřeno ${results.length}, nalezeno ${created}.`;await db.from('product_image_search_runs').update({status:'completed',processed_count:results.length,created_count:created,rejected_count:rejected,error_count:errors,results,message,finished_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',run.id)})();const rt=(globalThis as any).EdgeRuntime;if(rt?.waitUntil)rt.waitUntil(task);else task.catch(console.error);return json({ok:true,accepted:true,run_id:run.id,selected_count:selected.length,automatic:who==='cron'},202)}catch(e){const m=e instanceof Error?e.message:String(e);return json({ok:false,error:m},m==='Unauthorized'?401:500)}});
+
+const URL = Deno.env.get('SUPABASE_URL') || '';
+const KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+const CRON = Deno.env.get('CRON_SECRET') || '';
+const LEGACY_CRON_SHA256 = '9d1f101cd00ca63ac32ec40e79c56f9d38e0c79d359f61a3d1a74803b4f9073b';
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
+  'access-control-allow-methods': 'POST,OPTIONS',
+};
+const db = createClient(URL, KEY, { auth: { persistSession: false, autoRefreshToken: false } });
+const json = (x: any, s = 200) => new Response(JSON.stringify(x), { status: s, headers: { ...CORS, 'content-type': 'application/json' } });
+const BILLING_ERROR = /no credits remaining|insufficient[_ -]?quota|billing[_ -]?(?:hard[_ -]?limit)?|quota exceeded/i;
+
+function errorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const row = error as Record<string, unknown>;
+    const parts = [
+      typeof row.message === 'string' ? row.message.trim() : '',
+      typeof row.details === 'string' ? row.details.trim() : '',
+      typeof row.hint === 'string' ? row.hint.trim() : '',
+      typeof row.code === 'string' && row.code.trim() ? `code=${row.code.trim()}` : '',
+    ].filter(Boolean);
+    if (parts.length) return parts.join(' | ');
+    try {
+      return JSON.stringify(error);
+    } catch {
+      // Fall through to the safest conversion below.
+    }
+  }
+  return String(error);
+}
+
+function isBillingError(value: unknown) {
+  return BILLING_ERROR.test(String(value || ''));
+}
+
+async function sha256Text(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  const digest = new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+  return [...digest].map((x) => x.toString(16).padStart(2, '0')).join('');
+}
+
+async function recentBillingBlock() {
+  const since = new Date(Date.now() - 30 * 60000).toISOString();
+  const { data, error } = await db.from('product_image_search_runs')
+    .select('finished_at,error_count,results')
+    .eq('status', 'completed')
+    .gt('error_count', 0)
+    .gte('finished_at', since)
+    .order('finished_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  const results = Array.isArray(data?.results) ? data.results : [];
+  return results.some((row: any) => isBillingError(row?.error));
+}
+
+async function auth(req: Request) {
+  const cronHeader = req.headers.get('x-cron-secret') || '';
+  if (CRON && cronHeader === CRON) return 'cron';
+  if (cronHeader && await sha256Text(cronHeader) === LEGACY_CRON_SHA256) return 'cron';
+  const h = req.headers.get('authorization') || '';
+  if (!h.startsWith('Bearer ')) throw new Error('Unauthorized');
+  const token = h.slice(7);
+  if (token === KEY) return 'service-role';
+  const { data, error } = await db.auth.getUser(token);
+  const role = String(data.user?.app_metadata?.role || '').toLowerCase();
+  if (error || !data.user || !['admin', 'editor'].includes(role)) throw new Error('Unauthorized');
+  return data.user.id;
+}
+
+async function call(name: string, body: any, timeout = 50000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(`${URL}/functions/v1/${name}`, {
+      method: 'POST',
+      headers: {
+        authorization: `Bearer ${KEY}`,
+        apikey: KEY,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok || !payload.ok) {
+      throw new Error(errorMessage(payload?.error || `${name} ${response.status}`));
+    }
+    return payload;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function score(x: any) {
+  let s = Number(x.active_offer_count || 0) * 20;
+  const days = Math.max(0, Math.ceil((new Date(x.nearest_valid_to).getTime() - Date.now()) / 86400000));
+  s += Math.max(0, 14 - days) * 500;
+  if (/^\d{8,14}$/.test(String(x.ean || '').replace(/\D/g, ''))) s += 1200;
+  if (String(x.brand || '').trim()) s += 700;
+  if (String(x.quantity_text || '').trim()) s += 150;
+  if (!x.image_checked_at) s += 400;
+  return s;
+}
+
+async function one(p: any) {
+  let created = 0;
+  let rejected = 0;
+  let error: string | null = null;
+  try {
+    const base = await call('discover-product-images', { product_id: String(p.id), limit: 1 }, 45000);
+    created += Number(base.created || 0);
+    rejected += Number(base.visually_rejected || 0);
+    if (!created) {
+      const web = await call('discover-product-images-web', { product_ids: [String(p.id)] }, 100000);
+      created += Number(web.created || 0);
+      rejected += Number(web.rejected || 0);
+    }
+  } catch (caught) {
+    error = errorMessage(caught);
+    const { error: retryError } = await db.from('products')
+      .update({ image_checked_at: null })
+      .eq('id', p.id);
+    if (retryError) error = `${error} | retry_marker_failed: ${errorMessage(retryError)}`;
+  }
+  return { product_id: p.id, name: p.name, created, rejected, error, priority: score(p) };
+}
+
+Deno.serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return json({ ok: false, error: 'Method not allowed' }, 405);
+
+  try {
+    const who = await auth(req);
+    const body = await req.json().catch(() => ({}));
+
+    const { data: settings, error: settingsError } = await db.from('product_image_automation_settings')
+      .select('enabled,batch_size')
+      .eq('id', true)
+      .maybeSingle();
+    if (settingsError) throw settingsError;
+    if (who === 'cron' && settings?.enabled === false) {
+      return json({ ok: true, accepted: false, message: 'Automatické hledání je vypnuté.' });
+    }
+    if (who === 'cron' && await recentBillingBlock()) {
+      return json({
+        ok: true,
+        accepted: false,
+        blocked_reason: 'openai_billing',
+        message: 'OpenAI API nemá dostupný kredit. Automatický pokus je na 30 minut pozastaven.',
+      });
+    }
+
+    const limit = Math.max(1, Math.min(Number(body.limit || settings?.batch_size || 8), 12));
+    const since = new Date(Date.now() - 20 * 60000).toISOString();
+    const { count, error: runningError } = await db.from('product_image_search_runs')
+      .select('id', { count: 'exact', head: true })
+      .in('status', ['queued', 'processing'])
+      .gte('created_at', since);
+    if (runningError) throw runningError;
+    if ((count || 0) > 0) return json({ ok: true, accepted: false, message: 'Předchozí dávka ještě běží.' });
+
+    const { data: rows, error } = await db.from('products_missing_images_priority').select('*').limit(600);
+    if (error) throw error;
+    const selected = (rows || []).sort((a: any, b: any) => score(b) - score(a)).slice(0, limit);
+    if (!selected.length) return json({ ok: true, accepted: false, message: 'Nejsou produkty bez fotografie.' });
+
+    const { data: run, error: runError } = await db.from('product_image_search_runs').insert({
+      requested_by: who === 'cron' ? null : who,
+      status: 'processing',
+      requested_count: selected.length,
+      started_at: new Date().toISOString(),
+      message: 'Automatické hledání fotografií běží.',
+      results: selected.map((x: any) => ({ product_id: x.id, name: x.name, priority: score(x) })),
+    }).select('id').single();
+    if (runError) throw runError;
+
+    const task = (async () => {
+      const results: any[] = [];
+      try {
+        let billingBlocked = false;
+        for (let i = 0; i < selected.length; i += 4) {
+          const chunk = await Promise.all(selected.slice(i, i + 4).map(one));
+          results.push(...chunk);
+          if (chunk.some((row: any) => isBillingError(row?.error))) {
+            billingBlocked = true;
+            break;
+          }
+        }
+        const created = results.reduce((n: number, x: any) => n + x.created, 0);
+        const rejected = results.reduce((n: number, x: any) => n + x.rejected, 0);
+        const errors = results.filter((x: any) => x.error).length;
+        const message = billingBlocked
+          ? `OpenAI API nemá dostupný kredit. Dávka zastavena po ${results.length} produktech.`
+          : `Prověřeno ${results.length}, nalezeno ${created}.`;
+        const { error: completeError } = await db.from('product_image_search_runs').update({
+          status: 'completed',
+          processed_count: results.length,
+          created_count: created,
+          rejected_count: rejected,
+          error_count: errors,
+          results,
+          message,
+          finished_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }).eq('id', run.id);
+        if (completeError) throw completeError;
+      } catch (caught) {
+        const failure = errorMessage(caught);
+        const created = results.reduce((n: number, x: any) => n + Number(x.created || 0), 0);
+        const rejected = results.reduce((n: number, x: any) => n + Number(x.rejected || 0), 0);
+        const knownErrors = results.filter((x: any) => x.error).length;
+        const now = new Date().toISOString();
+        const { error: failError } = await db.from('product_image_search_runs').update({
+          status: 'failed',
+          processed_count: results.length,
+          created_count: created,
+          rejected_count: rejected,
+          error_count: Math.max(1, knownErrors),
+          results,
+          message: `Automatické hledání fotografií selhalo: ${failure}`.slice(0, 1000),
+          finished_at: now,
+          updated_at: now,
+        }).eq('id', run.id);
+        if (failError) console.error('product_image_search_run_failure_update_failed', errorMessage(failError));
+        console.error('discover_product_images_smart_task_failed', failure);
+      }
+    })();
+
+    const runtime = (globalThis as any).EdgeRuntime;
+    if (runtime?.waitUntil) runtime.waitUntil(task);
+    else task.catch((caught) => console.error('discover_product_images_smart_task_unhandled', errorMessage(caught)));
+
+    return json({ ok: true, accepted: true, run_id: run.id, selected_count: selected.length, automatic: who === 'cron' }, 202);
+  } catch (caught) {
+    const message = errorMessage(caught);
+    return json({ ok: false, error: message }, message === 'Unauthorized' ? 401 : 500);
+  }
+});
