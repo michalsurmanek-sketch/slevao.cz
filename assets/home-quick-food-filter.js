@@ -8,6 +8,62 @@
   ];
   const fold = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
 
+  function installHomepageScrollGuard() {
+    if (window.__slevaoHomepageScrollGuardInstalled) return;
+    window.__slevaoHomepageScrollGuardInstalled = true;
+
+    const USER_SCROLL_WINDOW_MS = 4000;
+    let allowProgrammaticScrollUntil = 0;
+    const markUserScrollIntent = (event) => {
+      if (!event?.isTrusted) return;
+      allowProgrammaticScrollUntil = performance.now() + USER_SCROLL_WINDOW_MS;
+    };
+    const userAllowedScroll = () => performance.now() <= allowProgrammaticScrollUntil;
+
+    document.addEventListener('click', markUserScrollIntent, true);
+
+    const style = document.createElement('style');
+    style.id = 'slevaoHomepageNoScrollAnchor';
+    style.textContent = 'html,body{overflow-anchor:none!important}';
+    document.head.appendChild(style);
+
+    const originalScrollTo = window.scrollTo.bind(window);
+    const originalScroll = typeof window.scroll === 'function' ? window.scroll.bind(window) : originalScrollTo;
+    const originalScrollBy = window.scrollBy.bind(window);
+
+    window.scrollTo = (...args) => {
+      if (!userAllowedScroll()) return;
+      return originalScrollTo(...args);
+    };
+    window.scroll = (...args) => {
+      if (!userAllowedScroll()) return;
+      return originalScroll(...args);
+    };
+    window.scrollBy = (...args) => {
+      if (!userAllowedScroll()) return;
+      return originalScrollBy(...args);
+    };
+
+    const originalScrollIntoView = Element.prototype.scrollIntoView;
+    if (typeof originalScrollIntoView === 'function') {
+      Element.prototype.scrollIntoView = function guardedScrollIntoView(...args) {
+        if (!userAllowedScroll()) return;
+        return originalScrollIntoView.apply(this, args);
+      };
+    }
+
+    const originalFocus = HTMLElement.prototype.focus;
+    if (typeof originalFocus === 'function') {
+      HTMLElement.prototype.focus = function guardedFocus(options) {
+        if (userAllowedScroll()) return originalFocus.call(this, options);
+        if (options && typeof options === 'object') return originalFocus.call(this, { ...options, preventScroll:true });
+        return originalFocus.call(this, { preventScroll:true });
+      };
+    }
+  }
+
+  installHomepageScrollGuard();
+
   const INTERNAL_SECTION_HASHES = new Set([
     '#top', '#categoriesSection', '#storesSection', '#leafletsSection', '#dealsSection'
   ]);
