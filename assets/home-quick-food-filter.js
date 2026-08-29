@@ -17,8 +17,9 @@
     history.replaceState(history.state, '', `${location.pathname}${location.search}`);
   }
 
-  // Homepage must never move itself on load/reload. We only remove stale internal
-  // section hashes so the browser cannot reuse them on a later navigation.
+  // Never restore an old vertical position automatically on the homepage.
+  // This does not block manual scrolling and does not move the page itself.
+  if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
   clearInternalSectionHash();
   document.addEventListener('click', () => {
     window.setTimeout(clearInternalSectionHash, 0);
