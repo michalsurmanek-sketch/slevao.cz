@@ -151,3 +151,31 @@
   #dealGrid[data-card-view="classic"] .miniAdAction,
   #dealGrid[data-card-view="leaflet"] .miniAdAction{min-width:0}
 }
+
+/* Mobilní mini karty: název produktu musí zůstat čitelný v úzkém dvousloupcovém zobrazení. */
+@media(max-width:800px){
+  #dealGrid[data-card-view="mini"] .dealInfo h3{
+    min-height:30px!important;
+    max-height:30px!important;
+    margin:0 0 7px!important;
+    font-size:13px!important;
+    line-height:1.15!important;
+    letter-spacing:-.18px!important;
+    font-weight:850!important;
+    display:-webkit-box!important;
+    -webkit-line-clamp:2!important;
+    -webkit-box-orient:vertical!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    overflow-wrap:anywhere!important;
+  }
+}
+
+@media(max-width:390px){
+  #dealGrid[data-card-view="mini"] .dealInfo h3{
+    min-height:28px!important;
+    max-height:28px!important;
+    font-size:12px!important;
+    line-height:1.16!important;
+  }
+}
