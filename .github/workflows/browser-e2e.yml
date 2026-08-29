@@ -5,6 +5,8 @@ on:
     branches: ['main']
     paths:
       - 'index.html'
+      - 'account.html'
+      - 'detail.html'
       - 'produkt.html'
       - 'seznam.html'
       - 'ucet.html'
@@ -18,6 +20,8 @@ on:
   pull_request:
     paths:
       - 'index.html'
+      - 'account.html'
+      - 'detail.html'
       - 'produkt.html'
       - 'seznam.html'
       - 'ucet.html'
