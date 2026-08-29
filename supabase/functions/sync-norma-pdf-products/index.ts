@@ -19,14 +19,15 @@ function norm(v:unknown){return clean(v).normalize('NFD').replace(/[\u0300-\u036
 function number(v:string){return Number(v.replace(',','.'))}
 function cx(t:Token){return t.x+t.width/2}
 function promo(s:string){
-  return /(při koupi|kupte|kupon|aplikac|karta|věrnost|super (čtvrtek|pátek|sobota|neděle)|pouze|od \d+\s*ks|cena od|od pátku|záloha)/i.test(norm(s));
+  return /(pri koupi|kupte|kupon|aplikac|karta|vernost|super (ctvrtek|patek|sobota|nedele)|pouze|od \d+\s*ks|cena od|od patku|zaloha)/i.test(norm(s));
 }
 function badTitle(s:string){
   const n=norm(s);
   const words=s.split(/\s+/);
   return s.length<4||s.length>80||!/^[A-ZÁ-Ž]/.test(s)||promo(s)||
-    /(různé druhy|najdete|boxu|super cena|levnější|cena od)/i.test(n)||
-    /^(plech|pivo|bílý|vícezrnný|grigio|knedlíkem|pinot)$/i.test(n)||
+    /(ruzne druhy|najdete|boxu|super cena|levnejsi|cena od)/i.test(n)||
+    /^(plech|pivo|bily|vicezrnny|grigio|knedlikem|pinot)$/i.test(n)||
+    /^(?:mramorove\s*\/\s*tradicni|kremzska\s*\/\s*plnotucna)$/i.test(n)||
     (words.length===1&&s.length<9);
 }
 function parsePage(page:Page):Candidate[]{
