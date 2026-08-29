@@ -34,6 +34,18 @@ function json(payload: unknown, status = 200) {
   });
 }
 
+function errorText(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+    return [value.message, value.details, value.hint, value.code]
+      .filter(Boolean)
+      .map(String)
+      .join(' | ') || JSON.stringify(value);
+  }
+  return String(error || 'Neznámá chyba');
+}
+
 function normalize(value: unknown): string {
   return String(value || '')
     .normalize('NFD')
@@ -184,8 +196,8 @@ async function applyTrustedImage(offer: any, match: Match) {
     image_url: match.url,
     image_verified: true,
     image_quality: quality,
-    image_source_url: match.sourceUrl || match.url,
-    image_updated_at: now,
+    image_source: match.source,
+    image_checked_at: now,
   }).eq('id', offer.product_id);
   if (productError) throw productError;
 
@@ -278,7 +290,7 @@ async function enrich(storeId?: string, limit = 100) {
       bySource[match.source] = (bySource[match.source] || 0) + 1;
     } catch (e) {
       failed++;
-      results.push({ offer_id: offer.id, title: offer.title, status: 'failed', error: e instanceof Error ? e.message : String(e) });
+      results.push({ offer_id: offer.id, title: offer.title, status: 'failed', error: errorText(e) });
     }
   }
 
@@ -314,6 +326,6 @@ Deno.serve(async (request) => {
     const body = await request.json().catch(() => ({}));
     return json({ ok: true, ...(await enrich(body.store_id, body.limit)) });
   } catch (e) {
-    return json({ error: e instanceof Error ? e.message : String(e) }, 500);
+    return json({ error: errorText(e) }, 500);
   }
 });
