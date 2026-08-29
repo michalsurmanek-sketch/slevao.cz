@@ -18,7 +18,11 @@ assert.equal(
   false,
   'mobile-store-row-fix.css must not reintroduce the section-divider @import',
 );
-assert.match(storeRow, /Slevao\.cz – subtilní oddělovače sekcí/);
+assert.match(storeRow, /main#top > #homeNearbyMobile::before/);
+assert.match(storeRow, /main#top > #homeAutopilot::after/);
+assert.match(storeRow, /main#top > #categoriesSection::after/);
+assert.match(storeRow, /background:repeating-linear-gradient\(90deg/);
+assert.match(storeRow, /background-color:#12a69b!important/);
 
 assert.equal(
   deals.includes('mobile-category-scroll-arrow.css'),
