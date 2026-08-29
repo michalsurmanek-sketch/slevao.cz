@@ -52,11 +52,12 @@
     background:#fff;
   }
   #listItems .sfListItem{
-    min-height:82px;
+    min-height:112px;
     margin:0;
-    padding:10px 10px;
-    grid-template-columns:22px 54px minmax(0,1fr) 50px 38px 86px;
-    gap:8px;
+    padding:10px;
+    grid-template-columns:22px 54px 50px 38px minmax(76px,1fr);
+    grid-template-rows:auto auto auto;
+    gap:6px 8px;
     align-items:center;
     border:0;
     border-bottom:1px solid #e1ebe9;
@@ -64,13 +65,42 @@
     box-shadow:none;
   }
   #listItems .sfListItem:last-child{border-bottom:0}
-  #listItems .sfItemThumb{width:54px;height:54px;border-radius:12px}
-  #listItems .sfItemCopy{align-self:center}
-  #listItems .sfItemName{font-size:13px;line-height:1.18;font-weight:850}
-  #listItems .sfItemMeta{margin-top:3px;font-size:10px;line-height:1.2}
-  #listItems .sfListItem .sfInput{width:50px;min-height:42px;padding:0 5px;font-size:13px}
-  #listItems .sfIconButton{width:38px;height:42px}
-  #listItems .sfItemPrice{position:static;right:auto;bottom:auto;min-width:0;margin:0;text-align:right}
+  #listItems .sfItemCopy{display:contents}
+  #listItems .sfItemName{
+    grid-column:1/-1;
+    grid-row:1;
+    min-width:0;
+    margin:0 2px 3px;
+    font-size:14px;
+    line-height:1.2;
+    font-weight:850;
+  }
+  #listItems .sfItemMeta{
+    grid-column:3/5;
+    grid-row:3;
+    min-width:0;
+    margin:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+    font-size:9.5px;
+    line-height:1.2;
+  }
+  #listItems .sfCheck{grid-column:1;grid-row:2/4;align-self:center}
+  #listItems .sfItemThumb{grid-column:2;grid-row:2/4;width:54px;height:54px;border-radius:12px;align-self:center}
+  #listItems .sfListItem .sfInput{grid-column:3;grid-row:2;width:50px;min-height:42px;padding:0 5px;font-size:13px}
+  #listItems .sfIconButton{grid-column:4;grid-row:2;width:38px;height:42px}
+  #listItems .sfItemPrice{
+    grid-column:5;
+    grid-row:2/4;
+    position:static;
+    right:auto;
+    bottom:auto;
+    min-width:0;
+    margin:0;
+    align-self:center;
+    text-align:right;
+  }
   #listItems .sfItemPrice strong{font-size:14px}
   #listItems .sfItemPrice small{font-size:9px}
   #listItems .sfItemPrice.missing strong{font-size:10px;white-space:normal;line-height:1.15}
@@ -81,14 +111,14 @@
 
 @media(max-width:430px){
   #listItems .sfListItem{
-    grid-template-columns:20px 50px minmax(0,1fr) 48px 36px 78px;
+    grid-template-columns:20px 50px 48px 36px minmax(72px,1fr);
     gap:6px;
-    min-height:80px;
+    min-height:108px;
     padding:9px 8px;
   }
   #listItems .sfItemThumb{width:50px;height:50px}
-  #listItems .sfItemName{font-size:12.5px}
-  #listItems .sfItemMeta{font-size:9px}
+  #listItems .sfItemName{font-size:13px}
+  #listItems .sfItemMeta{font-size:8.8px}
   #listItems .sfListItem .sfInput{width:48px;min-height:40px}
   #listItems .sfIconButton{width:36px;height:40px}
   #listItems .sfItemPrice strong{font-size:12.5px}
@@ -99,28 +129,23 @@
 
 @media(max-width:370px){
   #listItems .sfListItem{
-    grid-template-columns:18px 44px minmax(0,1fr) 44px 32px 70px;
+    grid-template-columns:18px 44px 44px 32px minmax(66px,1fr);
     gap:5px;
     padding-left:6px;
     padding-right:6px;
   }
   #listItems .sfItemThumb{width:44px;height:44px}
+  #listItems .sfItemName{font-size:12.5px}
   #listItems .sfItemPrice strong{font-size:11px}
 }
 
 @media(max-width:350px){
-  /* At very narrow widths, keep the useful controls and give the item name room. */
-  #listItems .sfListItem{
-    grid-template-columns:22px minmax(0,1fr) 46px 38px 70px;
-    gap:5px;
-    min-height:72px;
-    padding:8px 6px;
-  }
-  #listItems .sfItemThumb{display:none}
   #listItems .sfItemMeta{display:none}
-  #listItems .sfCheck{width:22px;height:22px}
-  #listItems .sfItemName{font-size:13px;line-height:1.2}
-  #listItems .sfListItem .sfInput{width:46px;min-height:42px}
-  #listItems .sfIconButton{width:38px;height:42px}
-  #listItems .sfItemPrice strong{font-size:11.5px}
+  #listItems .sfListItem{
+    min-height:100px;
+    grid-template-rows:auto auto;
+  }
+  #listItems .sfCheck,
+  #listItems .sfItemThumb,
+  #listItems .sfItemPrice{grid-row:2}
 }
