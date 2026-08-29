@@ -183,6 +183,13 @@ assert.equal(storage.has('slevao-shopping-repeat-pending-v1'), false, 'Nový pot
 const assetUrl = html.match(/assets\/shopping-repeat-purchase-sync\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-repeat-purchase-sync.js?v=20260828-2', 'seznam.html nemá retry-safe repeat bridge verzi 2.');
 assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA necachuje přesný repeat-purchase bridge ze seznam.html.');
-assert.match(worker, /CACHE_NAME = 'slevao-shell-20260828-(?:6[1-9]|[7-9][0-9]|[1-9][0-9]{2,})'/, 'PWA shell nebyl po repeat retry fixu posunut nad verzi 60.');
+const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+const cacheDate = Number(cacheMatch[1]);
+const cacheRevision = Number(cacheMatch[2]);
+assert.ok(
+  cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 61),
+  'PWA shell je starší než repeat retry fix 20260828-61.',
+);
 
 console.log('Shopping repeat purchase is atomic, retry-idempotent, survives missing catalog products and preserves guest merge semantics');
