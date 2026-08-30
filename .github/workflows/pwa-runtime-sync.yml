@@ -5,21 +5,25 @@ on:
     branches: ['main']
     paths:
       - 'index.html'
+      - 'seznam.html'
       - 'service-worker.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/home-autopilot.js'
       - 'assets/home-autopilot.css'
       - 'assets/mobile-leaflet-nav-position.js'
+      - 'assets/shopping-list-mobile-focus.css'
       - 'tests/pwa-homepage-runtime-sync.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   pull_request:
     paths:
       - 'index.html'
+      - 'seznam.html'
       - 'service-worker.js'
       - 'assets/home-footer-redesign.js'
       - 'assets/home-autopilot.js'
       - 'assets/home-autopilot.css'
       - 'assets/mobile-leaflet-nav-position.js'
+      - 'assets/shopping-list-mobile-focus.css'
       - 'tests/pwa-homepage-runtime-sync.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   workflow_dispatch:
@@ -36,5 +40,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Ověřit shodu homepage a PWA runtime
+      - name: Ověřit shodu veřejných stránek a PWA runtime
         run: node tests/pwa-homepage-runtime-sync.mjs
