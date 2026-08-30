@@ -42,9 +42,8 @@ for (const [path, source] of consumers) {
   assert.match(source, /slevao-shopping-list-v1/, `${path} už nepoužívá jednotný bridgovaný legacy klíč.`);
 }
 
-const navVersion = '20260822-2';
-const homepageNavVersion = '20260829-1';
-assert.match(index, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${homepageNavVersion}`), 'index.html nemá nasazený owner bridge.');
+const navVersion = '20260829-1';
+assert.match(index, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'index.html nemá nasazený owner bridge.');
 for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nemá nasazený owner bridge.`);
 }
@@ -54,13 +53,13 @@ for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtm
     `${name} musí nainstalovat owner bridge před prvním public-features čtením.`
   );
 }
-assert.match(storeBottomNav, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'Store loader nemá aktuální owner bridge.');
-assert.ok(storeBottomNav.indexOf('public-nav-upgrade.js?v=20260822-2') < storeBottomNav.indexOf('public-features.js?v=20260828-2'), 'Store loader musí vložit bridge před public-features.');
+assert.match(storeBottomNav, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'Store loader nemá aktuální owner bridge.');
+assert.ok(storeBottomNav.indexOf(`public-nav-upgrade.js?v=${navVersion}`) < storeBottomNav.indexOf('public-features.js?v=20260828-2'), 'Store loader musí vložit bridge před public-features.');
 assert.match(storeBottomNav, /navScript\.async = false;/, 'Store public-nav loader nemá vynucené pořadí.');
 assert.match(storeBottomNav, /script\.async = false;/, 'Store public-features loader nemá vynucené pořadí.');
 const accountVersion = accountHtml.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(accountVersion, 'Účet nenačítá verzovaný owner-aware account runtime.');
-assert.match(worker, /assets\/public-nav-upgrade\.js\?v=20260822-2/, 'PWA nemá owner bridge.');
+assert.match(worker, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'PWA nemá owner bridge.');
 assert.ok(worker.includes(`'/assets/account.js?v=${accountVersion}'`), 'PWA nemá stejný owner-aware account runtime jako účet.');
 
 const bridgeStart = nav.indexOf('  function installShoppingListOwnerBridge()');
