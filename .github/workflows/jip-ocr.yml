@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - 'scripts/jip_ocr_sync.py'
+      - 'scripts/jip_ocr_runner.py'
       - '.github/workflows/jip-ocr.yml'
   schedule:
     - cron: '25 1,7,13,19 * * *'
@@ -45,4 +46,4 @@ jobs:
           tesseract --list-langs
 
       - name: OCR chybějících JIP stran
-        run: python3 scripts/jip_ocr_sync.py
+        run: python3 scripts/jip_ocr_runner.py
