@@ -9,31 +9,15 @@
     }
   ],
   "jwt_required_debug_functions": [
-    "debug-auto-kelly-source",
-    "debug-hornbach-source",
     "debug-intersport-source",
     "debug-jip-main-price-v5",
     "debug-jip-pack-parser",
-    "debug-jip-page-html",
     "debug-jysk-source",
-    "debug-kosik-api",
-    "debug-makro-article-chunks",
-    "debug-makro-evaluate-prices",
     "debug-makro-final-guard",
-    "debug-makro-find-module",
     "debug-makro-full-dryrun",
-    "debug-makro-legacy-price",
-    "debug-makro-price-mode",
-    "debug-makro-price-service",
-    "debug-makro-public-source",
-    "debug-makro-session",
     "debug-makro-source",
-    "debug-penny-hydration-images",
     "debug-pepco-source",
-    "debug-terno-ocr-quality",
-    "debug-terno-parser-v4",
     "debug-terno-source",
-    "debug-teta-source",
-    "debug-zabka-html"
+    "debug-teta-source"
   ]
 }
