@@ -1,0 +1,2 @@
+[functions.sync-official-leaflet-sources]
+verify_jwt = true
