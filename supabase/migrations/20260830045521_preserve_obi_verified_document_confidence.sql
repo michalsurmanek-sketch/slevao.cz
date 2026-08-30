@@ -15,7 +15,7 @@ begin
      and new.detected_valid_to is not null
      and coalesce(new.metadata->>'official_viewer_url','') like 'https://www.obi.cz/nabidky/aktualni-letak?brochureId=%'
      and coalesce(new.metadata->>'brochure_id','') ~ '^[0-9a-fA-F-]{36}$'
-     and coalesce(new.metadata->>'page_count','') ~ '^[0-9]+'
+     and coalesce(new.metadata->>'page_count','') ~ '^[0-9]+$'
      and (new.metadata->>'page_count')::integer > 0
      and coalesce(new.source_document_url,'') ~ '^https://aws-ops-bonial-biz-production-published-content-pdf[.]s3-eu-west-1[.]amazonaws[.]com/[0-9a-fA-F-]{36}/[0-9a-fA-F-]{36}[.]pdf$'
      and exists (
