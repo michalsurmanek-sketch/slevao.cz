@@ -1,6 +1,12 @@
 name: JIP OCR
 
 on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'scripts/jip_ocr_sync.py'
+      - '.github/workflows/jip-ocr.yml'
   schedule:
     - cron: '25 1,7,13,19 * * *'
   workflow_dispatch:
