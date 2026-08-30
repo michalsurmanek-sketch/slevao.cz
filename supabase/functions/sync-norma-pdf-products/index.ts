@@ -24,13 +24,33 @@ function promo(s:string){
 function badTitle(s:string){
   const n=norm(s);
   const words=s.split(/\s+/);
-  return s.length<4||s.length>80||!/^[A-ZÁ-Ž]/.test(s)||promo(s)||
+  return s.length<4||s.length>100||!/^[A-ZÁ-Ž]/.test(s)||promo(s)||
     /(ruzne druhy|najdete|boxu|super cena|levnejsi|cena od)/i.test(n)||
     /^(plech|pivo|bily|vicezrnny|grigio|knedlikem|pinot)$/i.test(n)||
     /^(?:mramorove\s*\/\s*tradicni|kremzska\s*\/\s*plnotucna)$/i.test(n)||
     (words.length===1&&s.length<9);
 }
-function parsePage(page:Page):Candidate[]{
+function multilineNoise(s:string){
+  const n=norm(s);
+  return promo(s)||/^(?:najdete|boxu|v chladicim|pack|ruzne druhy)$/i.test(n)||/super cena|levnejsi|cena od/i.test(n)||/^[+\-]?\s*\d+\s*[º°o]?\s*c$/i.test(clean(s));
+}
+function mergeTitleLines(lines:Token[]){
+  const reversed=[...lines].sort((a,b)=>b.y-a.y).map(x=>clean(x.text)).filter(Boolean);
+  let parts:string[]=[];
+  for(const line of reversed){
+    const n=norm(line);
+    if(!n||multilineNoise(line))continue;
+    const combined=norm(parts.join(' '));
+    if(parts.some(p=>norm(p)===n))continue;
+    if(combined&&(combined.endsWith(' '+n)||combined.startsWith(n+' ')))continue;
+    if(combined&&(n.endsWith(' '+combined)||n.startsWith(combined+' '))){parts=[line];continue;}
+    if(combined&&n.startsWith(combined+' ')){parts=[line];continue;}
+    if(combined&&combined.startsWith(n+' '))continue;
+    parts.push(line);
+  }
+  return clean(parts.join(' '));
+}
+function parsePage(page:Page,multilineTitles=false):Candidate[]{
   const tokens=(page.tokens||[]).map(t=>({text:clean(t.text),x:Number(t.x),y:Number(t.y),width:Number(t.width),height:Number(t.height)}))
     .filter(t=>t.text&&[t.x,t.y,t.width,t.height].every(Number.isFinite));
   const dedup=[...new Map(tokens.map(t=>[`${t.text}|${t.x}|${t.y}|${t.width}|${t.height}`,t])).values()];
@@ -50,12 +70,14 @@ function parsePage(page:Page):Candidate[]{
     const p=prices[0];
     const local=dedup.filter(t=>Math.abs(cx(t)-cx(q))<=65&&t.y>=p.t.y-80&&t.y<=q.y+25).map(t=>t.text).join(' ');
     if(promo(local))continue;
-    const titles=dedup.filter(t=>t.y>q.y&&t.y-q.y<=38&&t.y-q.y>=1&&Math.abs(cx(t)-cx(q))<45&&!/^\d/.test(t.text)&&/[A-Za-zÁ-ž]/.test(t.text))
-      .sort((a,b)=>Math.abs(q.y-a.y)-Math.abs(q.y-b.y));
-    const title=clean(titles[0]?.text);
+    const titleLines=dedup.filter(t=>t.y>q.y&&t.y-q.y<=38&&t.y-q.y>=1&&Math.abs(cx(t)-cx(q))<45&&!/^\d/.test(t.text)&&/[A-Za-zÁ-ž]/.test(t.text));
+    const nearest=[...titleLines].sort((a,b)=>Math.abs(q.y-a.y)-Math.abs(q.y-b.y));
+    const multiline=titleLines.filter(t=>t.height>=8&&!multilineNoise(t.text)).slice(0,6);
+    const title=multilineTitles?mergeTitleLines(multiline):clean(nearest[0]?.text);
+    if(multilineTitles&&title&&!/^\p{Lu}/u.test(title))continue;
     if(badTitle(title))continue;
     out.push({title,price:p.value,quantity_text:`${m[1]} ${m[2]}`,source_page:page.page,confidence:0.98,raw_data:{
-      parser:'norma-pdf-spatial-unit-price-v2',unit_price:unitPrice,unit_price_basis:m[3],expected_price:expected,
+      parser:'norma-pdf-spatial-unit-price-v2',title_parser:multilineTitles?'norma-title-multiline-v2':undefined,unit_price:unitPrice,unit_price_basis:m[3],expected_price:expected,
       printed_price:p.t.text,price_delta:Math.round(Math.abs(p.value-expected)*100)/100,quantity_token:q.text,
       price_coordinates:{x:p.t.x,y:p.t.y},quantity_coordinates:{x:q.x,y:q.y},deterministic:true
     }});
@@ -65,6 +87,7 @@ function parsePage(page:Page):Candidate[]{
 function canonicalRaw(raw:any){
   return {
     parser:clean(raw?.parser),
+    ...(clean(raw?.title_parser)?{title_parser:clean(raw?.title_parser)}:{}),
     unit_price:Number(raw?.unit_price),
     unit_price_basis:clean(raw?.unit_price_basis),
     expected_price:Number(raw?.expected_price),
@@ -151,13 +174,24 @@ Deno.serve(async(req)=>{
   try{
     const body=await req.json().catch(()=>({}));
     const ext=await extraction(body.import_id?String(body.import_id):undefined);
-    const raw=(Array.isArray(ext.pages)?ext.pages:[]).flatMap((p:Page)=>parsePage(p));
+    const {data:src,error:ie}=await db.from('leaflet_imports').select('*').eq('id',ext.import_id).single();if(ie)throw ie;
+    const issue=String(src.source_document_url||'').match(/\/(\d{4})-(\d{2})_CZ\.pdf(?:\?|$)/i);
+    const multilineTitles=Boolean(issue&&Number(issue[2])>=37);
+
+    if(!multilineTitles&&body.dry_run===false){
+      const {data:frozen,error:fe}=await db.from('leaflet_imports').select('id,status,product_count,metadata')
+        .eq('store_id',src.store_id).eq('source_document_url',src.source_document_url).eq('status','published')
+        .eq('metadata->>source_import_id',String(src.id)).order('product_count',{ascending:false}).limit(1).maybeSingle();
+      if(fe)throw fe;
+      if(frozen)return json({ok:true,reused:true,legacy_frozen:true,source_import_id:src.id,import_id:frozen.id,product_count:frozen.product_count,title_parser:'legacy-single-line'});
+    }
+
+    const raw=(Array.isArray(ext.pages)?ext.pages:[]).flatMap((p:Page)=>parsePage(p,multilineTitles));
     const seen=new Set<string>();
     const candidates=raw.filter(c=>{const k=`${norm(c.title)}|${c.price}|${c.quantity_text}`;if(seen.has(k))return false;seen.add(k);return true});
-    const {data:src,error:ie}=await db.from('leaflet_imports').select('*').eq('id',ext.import_id).single();if(ie)throw ie;
     const fullPayloadSha256=await payloadHash(candidates,src);
     const hash=`norma-spatial-safe-v3-${fullPayloadSha256}`;
-    if(body.dry_run!==false)return json({ok:true,dry_run:true,import_id:ext.import_id,parser:'norma-pdf-spatial-unit-price-v2',payload_contract:'norma-spatial-safe-v3',candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256,candidates});
+    if(body.dry_run!==false)return json({ok:true,dry_run:true,import_id:ext.import_id,parser:'norma-pdf-spatial-unit-price-v2',title_parser:multilineTitles?'norma-title-multiline-v2':'legacy-single-line',payload_contract:'norma-spatial-safe-v3',candidate_count:candidates.length,full_payload_sha256:fullPayloadSha256,candidates});
     if(!candidates.length)throw new Error('No deterministically verified Norma products; publication stopped');
 
     const selectExisting='id,status,product_count,source_document_url,detected_valid_from,detected_valid_to,source_hash,metadata';
@@ -183,7 +217,7 @@ Deno.serve(async(req)=>{
       const {data,error}=await db.from('leaflet_imports').insert({source_id:src.source_id,store_id:src.store_id,source_document_url:src.source_document_url,
         source_hash:hash,status:'queued',coverage_scope:src.coverage_scope,region_code:src.region_code,city_name:src.city_name,
         detected_valid_from:src.detected_valid_from,detected_valid_to:src.detected_valid_to,confidence:0.98,
-        metadata:{parser:'norma-pdf-spatial-unit-price-v2',deterministic:true,verified_pipeline:true,source_import_id:src.id,full_payload_hash_version:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256}}).select('id').single();
+        metadata:{parser:'norma-pdf-spatial-unit-price-v2',title_parser:multilineTitles?'norma-title-multiline-v2':'legacy-single-line',deterministic:true,verified_pipeline:true,source_import_id:src.id,full_payload_hash_version:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256}}).select('id').single();
       if(error)throw error;id=data.id;
     }
     await db.from('leaflet_import_items').delete().eq('import_id',id).neq('status','published');
@@ -191,6 +225,6 @@ Deno.serve(async(req)=>{
       source_page:c.source_page,confidence:c.confidence,status:'approved',raw_data:c.raw_data})));if(ci)throw ci;
     const {error:ui}=await db.from('leaflet_imports').update({status:'review',product_count:candidates.length,confidence:0.98,error_message:null,finished_at:new Date().toISOString()}).eq('id',id);if(ui)throw ui;
     const result=await publish(id);
-    return json({ok:true,dry_run:false,import_id:id,source_import_id:src.id,candidate_count:candidates.length,payload_contract:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256,publish:result});
+    return json({ok:true,dry_run:false,import_id:id,source_import_id:src.id,candidate_count:candidates.length,title_parser:multilineTitles?'norma-title-multiline-v2':'legacy-single-line',payload_contract:'norma-spatial-safe-v3',full_payload_sha256:fullPayloadSha256,publish:result});
   }catch(e){return json({ok:false,error:e instanceof Error?e.message:String(e)},500)}
 });
