@@ -22,26 +22,26 @@
   }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260811-5';
+    navScript.src = 'assets/public-nav-upgrade.js?v=20260829-1';
     navScript.defer = true;
     document.head.appendChild(navScript);
   }
   if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
     const quickFoodStyle = document.createElement('link');
     quickFoodStyle.rel = 'stylesheet';
-    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260808-7';
+    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260810-1';
     document.head.appendChild(quickFoodStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
     const quickFoodScript = document.createElement('script');
-    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260808-2';
+    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260829-4';
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }
   if (!document.querySelector('link[href*="home-quick-food-personalize.css"]')) {
     const quickFoodPersonalizeStyle = document.createElement('link');
     quickFoodPersonalizeStyle.rel = 'stylesheet';
-    quickFoodPersonalizeStyle.href = 'assets/home-quick-food-personalize.css?v=20260811-1';
+    quickFoodPersonalizeStyle.href = 'assets/home-quick-food-personalize.css?v=20260811-2';
     document.head.appendChild(quickFoodPersonalizeStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-personalize.js"]')) {
@@ -58,7 +58,7 @@
   }
   if (!document.querySelector('script[src*="home-autopilot.js"]')) {
     const autopilotScript = document.createElement('script');
-    autopilotScript.src = 'assets/home-autopilot.js?v=20260810-1';
+    autopilotScript.src = 'assets/home-autopilot.js?v=20260829-1';
     autopilotScript.defer = true;
     document.head.appendChild(autopilotScript);
   }
@@ -82,7 +82,7 @@
   }
   if (!document.querySelector('script[src*="location-service.js"]')) {
     const locationScript = document.createElement('script');
-    locationScript.src = 'assets/location-service.js?v=20260811-4';
+    locationScript.src = 'assets/location-service.js?v=20260821-1';
     locationScript.defer = true;
     document.head.appendChild(locationScript);
   }
