@@ -81,8 +81,8 @@ assert.match(source, /throw new Error\('JIP v8 payload hash odpovídá importu, 
   'Kolize nebo drift existujícího v8 importu musí skončit fail-closed.');
 assert.match(source, /if \(dryRun\) return J\(summary\)/,
   'Dry-run musí skončit před jakýmkoli publish zápisem.');
-assert.match(source, /adapter_version:'v8'/,
-  'Health stav musí reportovat aktuální JIP v8 publisher kontrakt.');
+assert.match(source, /adapter_version:'v9'/,
+  'Health stav musí reportovat aktuální JIP v9 publisher kontrakt se refreshí zdraví při verified reuse.');
 assert.match(source, /function ok\(r: Request\)[\s\S]*Bearer \$\{K\}[\s\S]*x-cron-secret/,
   'verify_jwt=false je bezpečné pouze při zachované vlastní service-role/cron autentizaci.');
 
