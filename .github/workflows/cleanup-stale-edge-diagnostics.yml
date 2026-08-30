@@ -1,0 +1,172 @@
+name: Cleanup stale Edge diagnostics
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/cleanup-stale-edge-diagnostics.yml'
+
+concurrency:
+  group: cleanup-stale-edge-diagnostics
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PROJECT_REF: uhampjdqjxmbhaptgitn
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - name: Ověřit přístupový token
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
+            exit 1
+          }
+
+      - name: Smazat pouze ověřené stale debug/probe funkce
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          keep=(
+            debug-kaufland-source
+            debug-intersport-source
+            debug-jip-main-price-v5
+            debug-jip-pack-parser
+            debug-jysk-source
+            debug-makro-final-guard
+            debug-makro-full-dryrun
+            debug-makro-source
+            debug-pepco-source
+            debug-terno-source
+            debug-teta-source
+          )
+
+          stale=(
+            debug-zabka-html
+            debug-kosik-api
+            debug-makro-public-source
+            debug-auto-kelly-source
+            debug-hornbach-source
+            debug-makro-price-mode
+            debug-makro-article-chunks
+            debug-makro-find-module
+            debug-makro-evaluate-prices
+            debug-makro-price-service
+            debug-makro-session
+            debug-makro-legacy-price
+            debug-jip-page-html
+            debug-terno-parser-v4
+            debug-terno-ocr-quality
+            debug-penny-hydration-images
+            debug-tesco-apollo-structure
+            debug-jip-math-price-v6
+            debug-jip-v5-trace
+            debug-makro-pdf-layout
+            debug-makro-pdf-candidates
+            debug-makro-pdf-cell
+            debug-makro-code-search
+            debug-makro-current-chunks
+            debug-makro-api-builders
+            debug-makro-search-call
+            debug-makro-modules
+            debug-makro-articlesearch-live
+            debug-makro-betty-metadata
+            debug-makro-pdf-find
+            debug-makro-publitas-page
+            debug-makro-title-price-dryrun
+            debug-makro-code-list
+            debug-jip-flipbook-assets
+            debug-jip-pdf-text
+            debug-jip-price-diagnostics
+            debug-jip-inline-pack-v1
+            probe-tesco-pdf-price-layout
+            probe-tesco-layout-v11
+            probe-tesco-apollo-object
+            probe-tesco-layout-v12
+            probe-tesco-layout-v13
+            probe-tesco-layout-v14
+            probe-jip-image-size
+            probe-jip-tesseract
+            probe-jip-downloads
+          )
+
+          for slug in "${stale[@]}"; do
+            [[ "$slug" == debug-* || "$slug" == probe-* ]] || {
+              echo "Refusing non-diagnostic slug: $slug"
+              exit 1
+            }
+            for protected in "${keep[@]}"; do
+              if [[ "$slug" == "$protected" ]]; then
+                echo "Refusing protected baseline slug: $slug"
+                exit 1
+              fi
+            done
+          done
+
+          remote_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions")"
+
+          for slug in "${stale[@]}"; do
+            if ! printf '%s' "$remote_json" | jq -e --arg slug "$slug" '.[] | select(.slug == $slug)' >/dev/null; then
+              echo "Already absent: $slug"
+              continue
+            fi
+
+            echo "Deleting stale diagnostic: $slug"
+            curl --fail --silent --show-error \
+              --request DELETE \
+              --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+              "https://api.supabase.com/v1/projects/$PROJECT_REF/functions/$slug" >/dev/null
+          done
+
+      - name: Ověřit přesný produkční diagnostic baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          remote_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions")"
+
+          actual="$(printf '%s' "$remote_json" | jq -r '.[] | select((.slug | startswith("debug-")) or (.slug | startswith("probe-"))) | .slug' | sort)"
+          expected="$(printf '%s\n' \
+            debug-intersport-source \
+            debug-jip-main-price-v5 \
+            debug-jip-pack-parser \
+            debug-jysk-source \
+            debug-kaufland-source \
+            debug-makro-final-guard \
+            debug-makro-full-dryrun \
+            debug-makro-source \
+            debug-pepco-source \
+            debug-terno-source \
+            debug-teta-source | sort)"
+
+          if [[ "$actual" != "$expected" ]]; then
+            echo 'Production diagnostic baseline mismatch.'
+            echo 'Expected:'
+            printf '%s\n' "$expected"
+            echo 'Actual:'
+            printf '%s\n' "$actual"
+            exit 1
+          fi
+
+          public_unexpected="$(printf '%s' "$remote_json" | jq -r '.[] | select((.slug | startswith("debug-")) or (.slug | startswith("probe-"))) | select(.verify_jwt == false and .slug != "debug-kaufland-source") | .slug')"
+          test -z "$public_unexpected" || {
+            echo 'Unexpected public diagnostic functions:'
+            printf '%s\n' "$public_unexpected"
+            exit 1
+          }
+
+          echo 'Production diagnostic baseline is exact and protected.'
