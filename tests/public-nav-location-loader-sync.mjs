@@ -13,8 +13,7 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 
-const navVersion = '20260822-2';
-const homepageNavVersion = '20260829-1';
+const navVersion = '20260829-1';
 const locationVersion = '20260821-1';
 const publicFeaturesVersion = '20260828-2';
 
@@ -25,8 +24,7 @@ assert.ok(
   'Location service se musí spustit před store-arrival runtime.'
 );
 
-assert.match(index, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${homepageNavVersion}`), 'index.html nepoužívá aktuální homepage public-nav cache verzi.');
-for (const [name, source] of [['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
+for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nepoužívá aktuální public-nav verzi.`);
 }
 
@@ -36,7 +34,7 @@ for (const [name, source] of [['index.html', index], ['produkt.html', product], 
 assert.match(footer, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), 'Homepage footer loader nepoužívá sjednocenou public-features verzi.');
 
 assert.ok(
-  index.indexOf(`assets/public-nav-upgrade.js?v=${homepageNavVersion}`) < index.indexOf('assets/home-footer-redesign.js'),
+  index.indexOf(`assets/public-nav-upgrade.js?v=${navVersion}`) < index.indexOf('assets/home-footer-redesign.js'),
   'Homepage musí načíst public nav před footer runtime, aby nevznikla stará dynamická kopie.'
 );
 assert.match(worker, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'PWA shell nemá aktuální public-nav verzi.');
