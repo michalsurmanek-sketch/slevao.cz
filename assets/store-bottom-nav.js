@@ -33,8 +33,6 @@
     return { merged, storeChanged };
   }
 
-  // Homepage and store-feed historically used two keys for the same offer IDs.
-  // Reconcile by union so neither side can erase favorites saved only on the other.
   try {
     const initial = reconcileFavoriteKeys();
 
@@ -42,10 +40,7 @@
       const nativeGetItem = Storage.prototype.getItem;
       const nativeSetItem = Storage.prototype.setItem;
       const nativeRemoveItem = Storage.prototype.removeItem;
-      Object.defineProperty(Storage.prototype, '__slevaoFavoriteSyncPatched', {
-        value: true,
-        configurable: true,
-      });
+      Object.defineProperty(Storage.prototype, '__slevaoFavoriteSyncPatched', { value:true, configurable:true });
       Storage.prototype.setItem = function setItem(key, value) {
         nativeSetItem.call(this, key, value);
         if (this !== window.localStorage) return;
@@ -76,9 +71,8 @@
     window.addEventListener('storage', (event) => {
       if (event.storageArea && event.storageArea !== localStorage) return;
       if (event.key !== HOME_FAVORITES_KEY && event.key !== STORE_FAVORITES_KEY) return;
-      if (event.newValue === null) {
-        localStorage.removeItem(event.key);
-      } else {
+      if (event.newValue === null) localStorage.removeItem(event.key);
+      else {
         const parsed = parseFavoriteList(event.newValue);
         if (parsed === null) return;
         localStorage.setItem(event.key, JSON.stringify(parsed));
@@ -87,9 +81,7 @@
       favoriteStorageReloadPending = true;
       window.setTimeout(() => location.reload(), 0);
     });
-  } catch {
-    // localStorage/sessionStorage can be disabled; navigation must keep working.
-  }
+  } catch {}
 
   if (!document.querySelector('link[href*="public-features.css"]')) {
     const style = document.createElement('link');
@@ -105,7 +97,7 @@
   }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260829-1';
+    navScript.src = 'assets/public-nav-upgrade.js?v=20260830-1';
     navScript.async = false;
     document.head.appendChild(navScript);
   }
