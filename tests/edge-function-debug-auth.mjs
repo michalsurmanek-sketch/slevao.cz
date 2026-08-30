@@ -28,7 +28,17 @@ for (const slug of ['debug-jip-pack-parser','debug-jip-page-html','debug-terno-p
 const functionsDir = path.join('supabase', 'functions');
 const debugDirs = fs.readdirSync(functionsDir, { withFileTypes: true })
   .filter((entry) => entry.isDirectory() && entry.name.startsWith('debug-'))
-  .map((entry) => entry.name);
+  .map((entry) => entry.name)
+  .sort();
+
+const classified = [...new Set([
+  ...required,
+  ...customAuth.map((entry) => String(entry?.slug || '')).filter(Boolean),
+])].sort();
+const unclassified = debugDirs.filter((slug) => !classified.includes(slug));
+const staleBaseline = classified.filter((slug) => !debugDirs.includes(slug));
+if (unclassified.length) fail(`unclassified debug Edge Functions: ${unclassified.join(', ')}`);
+if (staleBaseline.length) fail(`security baseline references missing debug Edge Functions: ${staleBaseline.join(', ')}`);
 
 for (const slug of debugDirs) {
   const configPath = path.join(functionsDir, slug, 'config.toml');
