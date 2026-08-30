@@ -1,5 +1,5 @@
 {
-  "updated_at": "2026-08-18",
+  "updated_at": "2026-08-30",
   "policy": "All debug-* Edge Functions require platform JWT unless explicitly allowlisted for a documented custom-auth production dependency. No debug-* function may expose an unauthenticated operational route.",
   "public_debug_exceptions": [],
   "custom_auth_debug_functions": [
@@ -12,13 +12,16 @@
     "debug-auto-kelly-source",
     "debug-hornbach-source",
     "debug-intersport-source",
+    "debug-jip-main-price-v5",
     "debug-jip-pack-parser",
     "debug-jip-page-html",
     "debug-jysk-source",
     "debug-kosik-api",
     "debug-makro-article-chunks",
     "debug-makro-evaluate-prices",
+    "debug-makro-final-guard",
     "debug-makro-find-module",
+    "debug-makro-full-dryrun",
     "debug-makro-legacy-price",
     "debug-makro-price-mode",
     "debug-makro-price-service",
