@@ -1,6 +1,13 @@
 (() => {
   'use strict';
 
+  if (!document.querySelector('script[src*="footer-section-jumps.js"]')) {
+    const sectionJumpScript = document.createElement('script');
+    sectionJumpScript.src = 'assets/footer-section-jumps.js?v=20260830-1';
+    sectionJumpScript.defer = true;
+    document.head.appendChild(sectionJumpScript);
+  }
+
   if (!document.querySelector('link[href*="public-features.css"]')) {
     const style = document.createElement('link');
     style.rel = 'stylesheet';
