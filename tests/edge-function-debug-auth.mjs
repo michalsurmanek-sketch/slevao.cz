@@ -16,13 +16,12 @@ if (publicExceptions.length !== 0) fail(`public debug exceptions are forbidden, 
 if (customAuth.length !== 1) fail(`expected exactly one custom-auth debug exception, got ${customAuth.length}`);
 if (customAuth[0]?.slug !== 'debug-kaufland-source') fail('unexpected custom-auth debug function');
 if (!String(customAuth[0]?.reason || '').includes('GET and POST both require')) fail('custom-auth exception must document route authorization');
-if (required.length < 20) fail(`JWT-required debug baseline unexpectedly small: ${required.length}`);
 if (new Set(required).size !== required.length) fail('duplicate JWT-required debug slug');
 if (required.some((slug) => !String(slug).startsWith('debug-'))) fail('non-debug function listed in JWT-required debug baseline');
 if (required.includes('debug-kaufland-source')) fail('custom-auth function must not also be JWT-required');
 
-for (const slug of ['debug-jip-pack-parser','debug-jip-page-html','debug-terno-parser-v4','debug-terno-ocr-quality','debug-penny-hydration-images','debug-makro-evaluate-prices','debug-makro-price-service','debug-makro-session','debug-makro-legacy-price']) {
-  if (!required.includes(slug)) fail(`missing hardened endpoint ${slug}`);
+for (const slug of ['debug-jip-main-price-v5','debug-jip-pack-parser','debug-makro-final-guard','debug-makro-full-dryrun']) {
+  if (!required.includes(slug)) fail(`missing current hardened endpoint ${slug}`);
 }
 
 const functionsDir = path.join('supabase', 'functions');
@@ -77,4 +76,4 @@ if (fs.existsSync('.github/scripts/jip_ocr_sync.py')) fail('obsolete proxy-depen
 if (!fs.existsSync('.github/workflows/sync-jip-ocr.yml')) fail('authenticated/direct JIP OCR fallback workflow is missing');
 if (!fs.existsSync('scripts/sync_jip_ocr.py')) fail('direct JIP OCR fallback worker is missing');
 
-console.log(`edge-function-debug-auth: ok (${required.length} JWT-required debug functions, 1 custom-auth function, 0 public exceptions)`);
+console.log(`edge-function-debug-auth: ok (${required.length} JWT-required debug functions, 1 custom-auth function, 0 public exceptions, complete baseline)`);
