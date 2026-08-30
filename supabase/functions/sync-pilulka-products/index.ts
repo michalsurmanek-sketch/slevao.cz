@@ -186,21 +186,29 @@ Deno.serve(async (request) => {
       pages.push(parsePage(await response.text(), today, page));
     }
     let rows = [...new Map(pages.flat().map((row) => [row.external_id, row])).values()];
-    if (rows.length < 30 || rows.length > 80) throw new Error(`Pilulka parser našel ${rows.length} bezpečných produktů; očekáváno 30–80.`);
+    if (rows.length < 30 || rows.length > 120) throw new Error(`Pilulka parser našel ${rows.length} bezpečných produktů; absolutní bezpečný rozsah je 30–120.`);
+
+    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'pilulka').single();
+    if (storeError || !store) throw new Error(storeError?.message || 'Pilulka nebyla nalezena.');
+    const { count: previousCount, error: previousError } = await db.from('offers').select('id', { count: 'exact', head: true })
+      .eq('store_id', store.id).eq('status', 'published').lte('valid_from', today).gte('valid_to', today);
+    if (previousError) throw new Error(previousError.message);
+    const previous = Number(previousCount || 0);
+    const adaptiveMax = previous >= 30 ? Math.min(120, Math.max(90, Math.ceil(previous * 1.35))) : 120;
+    if (rows.length > adaptiveMax) throw new Error(`Pilulka parser našel ${rows.length} bezpečných produktů; proti poslední aktuální sadě ${previous} je adaptivní maximum ${adaptiveMax}.`);
+
     rows = await enrichSourceCategories(rows);
     const signature = await sha256(rows.map((row) => `${row.external_id}|${row.price}|${row.old_price}|${row.valid_to}|${row.metadata.source_category_path}`).join('\n'));
-    const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'pilulka').single();
-    if (storeError || !store) throw storeError || new Error('Pilulka nebyla nalezena.');
     const { data: source } = await db.from('leaflet_sources').select('id').eq('store_id', store.id).eq('source_url', SOURCE).maybeSingle();
     if (source) await db.from('leaflet_sources').update({ source_type: 'html', is_active: true, auto_publish: false, last_checked_at: new Date().toISOString(), last_error: null, adapter_key: ADAPTER, extraction_strategy: 'structured_html' }).eq('id', source.id);
     else {
       const { error } = await db.from('leaflet_sources').insert({ store_id: store.id, name: 'Pilulka krátká expirace', source_url: SOURCE, source_type: 'html', is_active: true, auto_publish: false, adapter_key: ADAPTER, extraction_strategy: 'structured_html' });
-      if (error) throw error;
+      if (error) throw new Error(error.message);
     }
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, pages: 5, publishable: rows.length, signature, categories_complete: true, candidates: rows });
-    const { data: result, error } = await db.rpc('publish_structured_store_offers_with_source_category', { p_store_slug: 'pilulka', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 30, p_max_products: 80, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
-    if (error) throw error;
-    return json({ ok: true, store: store.name, published: rows.length, signature, categories_complete: true, result });
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, pages: 5, previous_count: previous, adaptive_max: adaptiveMax, publishable: rows.length, signature, categories_complete: true, candidates: rows });
+    const { data: result, error } = await db.rpc('publish_structured_store_offers_with_source_category', { p_store_slug: 'pilulka', p_adapter: ADAPTER, p_signature: signature, p_rows: rows, p_min_products: 30, p_max_products: 120, p_source_document_url: SOURCE, p_parser_version: ADAPTER });
+    if (error) throw new Error(error.message);
+    return json({ ok: true, store: store.name, previous_count: previous, adaptive_max: adaptiveMax, published: rows.length, signature, categories_complete: true, result });
   } catch (error) {
     return json({ error: error instanceof Error ? error.message : String(error), code: 'PILULKA_PRODUCTS_SYNC_FAILED' }, 500);
   }
