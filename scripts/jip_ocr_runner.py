@@ -6,6 +6,17 @@ import sys
 import jip_ocr_sync as sync
 
 
+_original_dict_reader = sync.csv.DictReader
+
+
+def tsv_dict_reader(*args, **kwargs):
+    kwargs.setdefault("quoting", sync.csv.QUOTE_NONE)
+    return _original_dict_reader(*args, **kwargs)
+
+
+sync.csv.DictReader = tsv_dict_reader
+
+
 def curl_query(sql: str, read_only: bool = False):
     payload = json.dumps({"query": sql, "read_only": read_only})
     result = subprocess.run(
