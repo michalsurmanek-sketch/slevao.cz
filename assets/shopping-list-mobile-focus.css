@@ -106,3 +106,19 @@
     box-shadow:0 5px 12px rgba(13,143,134,.2);
   }
 }
+
+/* Na nejuzsim podporovanem mobilu ma prednost citelny nazev a ovladani. */
+@media (max-width:350px){
+  #listItems .sfListItem{
+    grid-template-columns:18px minmax(0,1fr) 48px 32px;
+  }
+
+  #listItems .sfItemThumb,
+  #listItems .sfItemMeta{
+    display:none!important;
+  }
+
+  #listItems .sfItemCopy{
+    min-width:0;
+  }
+}
