@@ -14,6 +14,10 @@ for (const needle of [
   '#accountStatus',
   '#accountStatus:empty',
   '.listHeroSide .sfButton',
+  '@media (max-width:350px)',
+  '#listItems .sfItemThumb',
+  '#listItems .sfItemMeta',
+  'display:none!important',
 ]) assert.ok(css.includes(needle), `Chybí mobile-focus kontrakt: ${needle}`);
 
 assert.ok(!css.includes('#accountStatus{display:none'), 'Stav účtu se na mobilu nesmí bezpodmínečně skrýt.');
@@ -24,9 +28,9 @@ assert.ok(!css.includes('.listHeroSide{display:none'), 'Souhrn seznamu se na mob
 const focusUrl = html.match(/assets\/shopping-list-mobile-focus\.css\?v=[^"']+/)?.[0] || '';
 const redesignUrl = html.match(/assets\/shopping-list-redesign\.css\?v=[^"']+/)?.[0] || '';
 const summaryUrl = html.match(/assets\/shopping-list-price-summary-v2\.css\?v=[^"']+/)?.[0] || '';
-assert.match(focusUrl, /^assets\/shopping-list-mobile-focus\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný mobile-focus CSS.');
+assert.match(focusUrl, /^assets\/shopping-list-mobile-focus\.css\?v=\d{8}-\d+$/, 'seznam.html nenačítá verzovaný mobile-focus CSS.');
 assert.ok(html.indexOf(redesignUrl) < html.indexOf(focusUrl), 'Mobile-focus CSS musí přepsat základní redesign až po jeho načtení.');
 assert.ok(html.indexOf(summaryUrl) < html.indexOf(focusUrl), 'Mobile-focus CSS musí být poslední list layout override.');
 assert.ok(worker.includes(`'/${focusUrl}'`), 'PWA shell necachuje mobile-focus CSS.');
 
-console.log('Shopping list mobile hero keeps controls while removing marketing height');
+console.log('Shopping list mobile hero and 320px focus layout OK');
