@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260830-6';
+const CACHE_NAME = 'slevao-shell-20260830-7';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -69,6 +69,20 @@ const SHELL = [
   '/assets/home-in-store-actions.js?v=20260807-1',
   '/assets/home-in-store-list.css?v=20260807-1',
   '/assets/home-in-store-list.js?v=20260807-1',
+
+  // Leaflets catalogue shell.
+  '/assets/leaflets-page.css?v=20260816-5',
+  '/assets/leaflets-store-search.css?v=20260809-1',
+  '/assets/leaflets-scroll-top.css?v=20260809-1',
+  '/assets/leaflets-page.js?v=20260809-1',
+  '/assets/leaflets-ikea-fix.js?v=20260809-3',
+  '/assets/leaflets-browser-viewer.js?v=20260809-1',
+  '/assets/leaflets-store-search.js?v=20260809-4',
+  '/assets/leaflets-main-stores-v2.js?v=20260809-1',
+  '/assets/leaflets-globus-logo.js?v=20260809-2',
+  '/assets/leaflets-brnenka-logo.js?v=20260809-1',
+  '/assets/leaflets-mobile-search-scroll.js?v=20260810-2',
+  '/assets/leaflets-scroll-top.js?v=20260809-1',
 
   // Shared public runtime.
   '/assets/home-favorite-offer-sync.js?v=20260827-1',
