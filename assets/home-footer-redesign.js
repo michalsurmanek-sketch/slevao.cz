@@ -3,7 +3,7 @@
 
   if (!document.querySelector('script[src*="footer-section-jumps.js"]')) {
     const sectionJumpScript = document.createElement('script');
-    sectionJumpScript.src = 'assets/footer-section-jumps.js?v=20260830-1';
+    sectionJumpScript.src = 'assets/footer-section-jumps.js?v=20260830-2';
     sectionJumpScript.defer = true;
     document.head.appendChild(sectionJumpScript);
   }
