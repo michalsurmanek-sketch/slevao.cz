@@ -72,17 +72,18 @@ jobs:
           - pilulka
           - auto-kelly
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Ověřit Supabase secret
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: test -n "$SUPABASE_SERVICE_ROLE_KEY"
 
       - name: Najít aktuální oficiální leták
         env:
           STORE_SLUG: ${{ matrix.store }}
           SUPABASE_URL: https://uhampjdqjxmbhaptgitn.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
-          SUPABASE_PUBLISHABLE_KEY="$(sed -n "s/.*const KEY = '\([^']*\)'.*/\1/p" assets/store-feed.js | head -n 1)"
-          test -n "$SUPABASE_PUBLISHABLE_KEY"
 
           response_file="$(mktemp)"
           http_code="$(curl --silent --show-error --location \
@@ -92,8 +93,8 @@ jobs:
             --output "$response_file" \
             --write-out '%{http_code}' \
             --request POST \
-            --header "apikey: $SUPABASE_PUBLISHABLE_KEY" \
-            --header "Authorization: Bearer $SUPABASE_PUBLISHABLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
             --header 'Content-Type: application/json' \
             --data "{\"store_slug\":\"$STORE_SLUG\",\"limit\":1}" \
             "$SUPABASE_URL/functions/v1/sync-official-leaflet-sources")"
