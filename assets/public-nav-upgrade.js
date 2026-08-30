@@ -123,7 +123,7 @@
     if (!document.querySelector('link[href*="product-personalization.css"]')) {
       const style = document.createElement('link');
       style.rel = 'stylesheet';
-      style.href = 'assets/product-personalization.css?v=20260804-2';
+      style.href = 'assets/product-personalization.css?v=20260816-4';
       document.head.appendChild(style);
     }
     if (document.querySelector('script[src*="product-personalization.js"]')) return;
