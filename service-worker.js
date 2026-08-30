@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260830-4';
+const CACHE_NAME = 'slevao-shell-20260830-5';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -34,6 +34,7 @@ const SHELL = [
   '/assets/shopping-list-copy-guard.js?v=20260828-1',
   '/assets/shopping-clipboard-share-bridge.js?v=20260828-2',
   '/assets/shopping-share-fallback-guard.js?v=20260828-1',
+  '/assets/shopping-list-redesign.css?v=20260816-3',
   '/assets/mobile-optimizer-compact.css?v=20260828-3',
   '/assets/shopping-list-mobile-focus.css?v=20260830-1',
   '/assets/shopping-optimizer-mobile-collapse.css?v=20260828-1',
@@ -87,8 +88,12 @@ const SHELL = [
   '/assets/shopping-route-freshness.js?v=20260828-1',
   '/assets/shopping-route-today-label.js?v=20260828-1',
   '/assets/shopping-route-autostart.js?v=20260807-1',
+  '/assets/account-redesign.css?v=20260816-11',
+  '/assets/account-mobile-hero-card.css?v=20260829-1',
   '/assets/account-notification-seen-guard.js?v=20260822-1',
-  '/assets/account.js?v=20260822-3'
+  '/assets/account.js?v=20260822-3',
+  '/assets/web-push.js?v=20260822-2',
+  '/assets/account-recovery.js?v=20260817-1'
 ];
 
 self.addEventListener('install', (event) => {
