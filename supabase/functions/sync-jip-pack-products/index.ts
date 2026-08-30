@@ -188,6 +188,38 @@ async function storedImportMatches(row:ExistingImport, candidates:any[], source:
   if((q.data||[]).some((item:any)=>item.status!=='published')) return false;
   return sameStoredPayload(q.data||[],candidates);
 }
+async function markVerifiedReuse(storeId:string, importId:string, source:any, expectedCount:number, businessDate:string){
+  const now=new Date().toISOString();
+  const { count, error }=await db.from('offers').select('id',{count:'exact',head:true})
+    .eq('store_id',storeId).eq('status','published').lte('valid_from',businessDate).gte('valid_to',businessDate);
+  if(error) throw error;
+  const totalPublished=Number(count||0);
+  const { error: healthError }=await db.from('store_product_sync_state').upsert({
+    store_id:storeId,
+    last_run_at:now,
+    last_success_at:now,
+    last_offer_count:totalPublished,
+    expected_offer_count:expectedCount,
+    last_published_count:totalPublished,
+    last_valid_from:source.detected_valid_from,
+    last_valid_to:source.detected_valid_to,
+    parser_version:PARSER,
+    adapter_name:'sync-jip-pack-products',
+    adapter_version:'v9',
+    source_type:'official-ocr',
+    source_category:'current-leaflet',
+    last_error:null,
+    last_parser_error:null,
+    health_status:'degraded',
+    health_reason:`JIP: ${totalPublished} bezpečně publikovaných direct-price nabídek; payload znovu ověřen, pokrytí záměrně částečné bez OCR odhadů cen.`,
+    is_running:false,
+    run_started_at:null,
+    updated_at:now,
+    last_import_id:importId,
+  },{onConflict:'store_id'});
+  if(healthError) throw healthError;
+  return totalPublished;
+}
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: H });
@@ -236,7 +268,8 @@ Deno.serve(async (req) => {
     if(current.error) throw current.error;
     if(current.data?.status==='published'){
       if(!await storedImportMatches(current.data as ExistingImport,candidates,source)) throw new Error('JIP v8 payload hash odpovídá importu, ale publikované položky se liší; reuse zastaven.');
-      return J({ ...summary, dry_run:false, reused:true, import_id:current.data.id });
+      const totalPublished=await markVerifiedReuse(store.id,current.data.id,source,candidates.length,d);
+      return J({ ...summary, dry_run:false, reused:true, verified_reuse:true, total_published:totalPublished, import_id:current.data.id });
     }
 
     const legacyHash=`jip-main-price-v7-${source.id}`;
@@ -249,7 +282,8 @@ Deno.serve(async (req) => {
         const backfill=await db.from('leaflet_imports').update({metadata}).eq('id',legacy.data.id);
         if(backfill.error) throw backfill.error;
       }
-      return J({ ...summary, dry_run:false, reused:true, migrated_legacy_hash:!alreadyVerified, legacy_source_hash_retained:true, import_id:legacy.data.id });
+      const totalPublished=await markVerifiedReuse(store.id,legacy.data.id,source,candidates.length,d);
+      return J({ ...summary, dry_run:false, reused:true, verified_reuse:true, total_published:totalPublished, migrated_legacy_hash:!alreadyVerified, legacy_source_hash_retained:true, import_id:legacy.data.id });
     }
 
     let id = current.data?.id || null;
@@ -298,7 +332,7 @@ Deno.serve(async (req) => {
     await db.from('store_product_sync_state').upsert({ store_id:store.id, last_run_at:new Date().toISOString(), last_success_at:new Date().toISOString(),
       last_offer_count:totalPublished, expected_offer_count:rows.length, last_published_count:totalPublished,
       last_valid_from:source.detected_valid_from, last_valid_to:source.detected_valid_to, parser_version:PARSER,
-      adapter_name:'sync-jip-pack-products', adapter_version:'v8', source_type:'official-ocr', source_category:'current-leaflet',
+      adapter_name:'sync-jip-pack-products', adapter_version:'v9', source_type:'official-ocr', source_category:'current-leaflet',
       last_error:null, last_parser_error:null, health_status:'degraded',
       health_reason:`JIP: ${totalPublished} bezpečně publikovaných direct-price nabídek; záměrně částečné pokrytí bez OCR odhadů cen.`,
       is_running:false, run_started_at:null, updated_at:new Date().toISOString(), last_import_id:id }, { onConflict:'store_id' });
