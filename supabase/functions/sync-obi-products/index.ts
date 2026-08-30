@@ -20,6 +20,11 @@ type Token = { text: string; x: number; y: number; width: number; height: number
 type Page = { page: number; tokens: Token[] };
 
 function json(body: unknown, status = 200) { return new Response(JSON.stringify(body), { status, headers: CORS }); }
+function errorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  if (error && typeof error === 'object' && 'message' in error && typeof (error as any).message === 'string') return (error as any).message;
+  try { return JSON.stringify(error); } catch { return String(error); }
+}
 
 async function allowed(request: Request) {
   const authorization = request.headers.get('authorization') || '';
@@ -127,7 +132,7 @@ async function resolveProduct(sku: string, title: string, imageUrl: string) {
     return existing.id;
   }
   const { data: created, error } = await db.from('products').insert({ name: title, image_url: imageUrl, image_source: 'official_obi_product_page', image_quality: 95, image_verified: true, is_verified: true, metadata }).select('id').single();
-  if (error || !created) throw error || new Error('Produkt se nepodařilo uložit.');
+  if (error || !created) throw new Error(error?.message || 'Produkt se nepodařilo uložit.');
   return created.id;
 }
 
@@ -146,7 +151,7 @@ async function upsertOffer(storeId: string, importRow: any, item: any, product: 
     return existing.id;
   }
   const { data: created, error } = await db.from('offers').insert(payload).select('id').single();
-  if (error || !created) throw error || new Error('Nabídku se nepodařilo uložit.');
+  if (error || !created) throw new Error(error?.message || 'Nabídku se nepodařilo uložit.');
   return created.id;
 }
 
@@ -155,16 +160,53 @@ Deno.serve(async (request) => {
   if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   try {
+    const body = await request.json().catch(() => ({}));
     const today = new Date().toISOString().slice(0, 10);
     const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'obi').single();
-    if (storeError || !store) throw storeError || new Error('OBI nebylo nalezeno.');
-    const { data: importRow, error: importError } = await db.from('leaflet_imports').select('*').eq('store_id', store.id).eq('metadata->>adapter', 'obi-bonial-v1').gte('detected_valid_to', today).order('detected_valid_from', { ascending: false }).order('created_at', { ascending: false }).limit(1).single();
-    if (importError || !importRow) throw importError || new Error('Aktuální OBI leták nebyl nalezen.');
-    const { data: extracted, error: textError } = await db.from('leaflet_extracted_text').select('parser,pages').eq('import_id', importRow.id).single();
-    if (textError || !extracted || extracted.parser !== 'pdf-text-v3') throw textError || new Error('Chybí textová vrstva OBI letáku.');
-    const parsed = extract(extracted.pages as Page[], String(importRow.detected_valid_from), String(importRow.detected_valid_to), String(importRow.metadata?.viewer_url || importRow.source_document_url));
-    const candidates = new Map<string, any>(parsed.rows.map((item: any) => [item.metadata.obi_sku, item]));
-    if (!candidates.size) throw new Error('V OBI letáku nebyly nalezeny jednoznačné výrobky s cenou.');
+    if (storeError || !store) throw new Error(storeError?.message || 'OBI nebylo nalezeno.');
+
+    const { data: imports, error: importsError } = await db.from('leaflet_imports').select('*')
+      .eq('store_id', store.id)
+      .eq('metadata->>adapter', 'obi-bonial-v1')
+      .lte('detected_valid_from', today)
+      .gte('detected_valid_to', today)
+      .order('detected_valid_from', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(6);
+    if (importsError) throw new Error(importsError.message);
+    if (!imports?.length) throw new Error('Aktuální OBI leták nebyl nalezen.');
+
+    let importRow: any = null;
+    let parsed: any = null;
+    let candidates: Map<string, any> | null = null;
+    const diagnostics: any[] = [];
+
+    for (const row of imports) {
+      const { data: extracted, error: textError } = await db.from('leaflet_extracted_text').select('parser,pages,updated_at').eq('import_id', row.id).maybeSingle();
+      if (textError || !extracted || extracted.parser !== 'pdf-text-v3') {
+        diagnostics.push({ import_id: row.id, title: row.metadata?.title || null, valid_from: row.detected_valid_from, valid_to: row.detected_valid_to, reason: textError?.message || 'missing_pdf_text_v3' });
+        continue;
+      }
+      const candidateParse = extract(extracted.pages as Page[], String(row.detected_valid_from), String(row.detected_valid_to), String(row.metadata?.viewer_url || row.source_document_url));
+      const candidateMap = new Map<string, any>(candidateParse.rows.map((item: any) => [item.metadata.obi_sku, item]));
+      diagnostics.push({ import_id: row.id, title: row.metadata?.title || null, valid_from: row.detected_valid_from, valid_to: row.detected_valid_to, candidates: candidateMap.size, rejected: candidateParse.rejected.length });
+      if (!candidateMap.size) {
+        await db.from('leaflet_imports').update({
+          metadata: { ...(row.metadata || {}), structured_product_checked_at: new Date().toISOString(), structured_product_candidate_count: 0, structured_product_skip_reason: 'no_deterministic_sku_price_pairs', structured_product_attempted_extraction_at: extracted.updated_at },
+        }).eq('id', row.id);
+        continue;
+      }
+      importRow = row;
+      parsed = candidateParse;
+      candidates = candidateMap;
+      break;
+    }
+
+    if (!importRow || !parsed || !candidates) throw new Error('Žádný aktuální OBI Bonial PDF leták neobsahuje jednoznačné výrobky s cenou.');
+
+    if (body.dry_run === true) {
+      return json({ ok: true, dry_run: true, selected_import_id: importRow.id, title: importRow.metadata?.title || null, valid_from: importRow.detected_valid_from, valid_to: importRow.detected_valid_to, candidates: candidates.size, rejected: parsed.rejected.length, diagnostics });
+    }
 
     const entries = [...candidates.entries()];
     const products: any[] = [];
@@ -175,13 +217,12 @@ Deno.serve(async (request) => {
       settled.forEach((result, index) => {
         const sku = batch[index][0];
         if (result.status === 'fulfilled') products.push(result.value);
-        else failures.push({ sku, error: result.reason instanceof Error ? result.reason.message : String(result.reason) });
+        else failures.push({ sku, error: errorMessage(result.reason) });
       });
     }
 
     if (!products.length) throw new Error('Nepodařilo se ověřit žádný OBI produkt.');
 
-    // Replace the previous OBI result only after official pages were successfully verified.
     const { error: deleteError } = await db.from('offers').delete().eq('store_id', store.id).eq('metadata->>import_id', importRow.id);
     if (deleteError) throw deleteError;
 
@@ -193,7 +234,7 @@ Deno.serve(async (request) => {
         const productId = await resolveProduct(product.sku, product.title, product.imageUrl);
         await upsertOffer(store.id, importRow, item, product, productId);
         published++; publishedSkus.push(product.sku);
-      } catch (error) { failures.push({ sku: product.sku, error: error instanceof Error ? error.message : String(error) }); }
+      } catch (error) { failures.push({ sku: product.sku, error: errorMessage(error) }); }
     }
     if (!published) throw new Error('Nepodařilo se ověřit a zveřejnit žádný OBI produkt.');
 
@@ -202,6 +243,6 @@ Deno.serve(async (request) => {
       metadata: { ...(importRow.metadata || {}), structured_product_adapter: 'obi-spatial-official-v1', structured_product_count: published, structured_product_failures: failures.length, structured_product_rejected: parsed.rejected.length, structured_product_synced_at: new Date().toISOString() },
     }).eq('id', importRow.id);
 
-    return json({ ok: true, import_id: importRow.id, candidates: candidates.size, rejected: parsed.rejected.length, published, failed: failures.length, published_skus: publishedSkus, failures });
-  } catch (error) { return json({ error: error instanceof Error ? error.message : String(error) }, 500); }
+    return json({ ok: true, import_id: importRow.id, title: importRow.metadata?.title || null, candidates: candidates.size, rejected: parsed.rejected.length, published, failed: failures.length, published_skus: publishedSkus, failures, diagnostics });
+  } catch (error) { return json({ error: errorMessage(error) }, 500); }
 });
