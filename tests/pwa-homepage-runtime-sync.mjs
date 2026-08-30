@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const index = readFileSync(new URL('index.html', root), 'utf8');
+const leaflets = readFileSync(new URL('letaky.html', root), 'utf8');
 const list = readFileSync(new URL('seznam.html', root), 'utf8');
 const product = readFileSync(new URL('produkt.html', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
@@ -16,6 +17,7 @@ const versionedAssets = (source) => [...new Set(
 
 const requiredAssets = new Set([
   ...versionedAssets(index),
+  ...versionedAssets(leaflets),
   ...versionedAssets(list),
   ...versionedAssets(product),
   ...versionedAssets(account),
@@ -55,6 +57,6 @@ assert.deepEqual(
   `PWA shell nesmí precachovat více verzí stejného assetu:\n${duplicateVersions.join('\n')}`
 );
 
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260830-6';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260830-7';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
 
 console.log(`PWA public-page runtime sync OK (${requiredAssets.size} dependencies)`);
