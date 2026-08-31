@@ -3,7 +3,7 @@
 
   const ITEMS = [
     { href:'#homeNearbyMobile', fallback:'.heroNearbyPanel', label:'Poblíž mě', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s6-5.1 6-11a6 6 0 1 0-12 0c0 5.9 6 11 6 11Z"/><circle cx="12" cy="10" r="2.2"/></svg>' },
-    { href:'#homeAutopilot', label:'Největší slevy', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.45 4.25a4.5 4.5 0 0 0 2.85 2.85l4.25 1.45-4.25 1.45a4.5 4.5 0 0 0-2.85 2.85L12 20l-1.45-4.25a4.5 4.5 0 0 0-2.85-2.85l-4.25-1.45 4.25-1.45a4.5 4.5 0 0 0 2.85-2.85L12 3Z"/></svg>' },
+    { href:'#homeAutopilot', label:'Největší slevy', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l1.45 4.25a4.5 4.5 0 0 0 2.85 2.85l4.25 1.45-4.25 1.45a4.5 4.5 0 0 0-2.85 2.85L12 20l-1.45-4.25a4.5 4.5 0 0 0-2.85-2.85l-4.25-1.45 4.25-1.45a4.5 4.5 0 0 0 2.85-2.85l-4.25-1.45 4.25-1.45a4.5 4.5 0 0 0 2.85-2.85L12 3Z"/></svg>' },
     { href:'#categoriesSection', label:'Kategorie', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="6" height="6" rx="1.2"/><rect x="14" y="4" width="6" height="6" rx="1.2"/><rect x="4" y="14" width="6" height="6" rx="1.2"/><rect x="14" y="14" width="6" height="6" rx="1.2"/></svg>' },
     { href:'#storesSection', label:'Obchody', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16v10H4zM3 10l2-5h14l2 5M8 20v-6h4v6"/><path d="M3 10c0 1.3 1 2.3 2.3 2.3S7.7 11.3 7.7 10c0 1.3 1 2.3 2.3 2.3s2.3-1 2.3-2.3c0 1.3 1 2.3 2.3 2.3s2.3-1 2.3-2.3c0 1.3 1 2.3 2.3 2.3S21 11.3 21 10"/></svg>' },
     { href:'#leafletsSection', label:'Letáky', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8 7h8M8 10.5h8M8 14h8M8 17.5h5"/></svg>' },
@@ -31,7 +31,7 @@
       .footerColumnUseful{position:relative!important}
       .footerUsefulDesktopHead{display:block;width:100%;margin-bottom:12px}
       .footerUsefulDesktopHead>h3{margin:0!important}
-      .footerDesktopAccount{position:absolute;right:0;top:166px;width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:14px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025);box-sizing:border-box}
+      .footerDesktopAccount{position:absolute;left:148px;top:0;width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:14px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025);box-sizing:border-box}
       .footerDesktopAccount:hover{border-color:#49dfcf;background:rgba(255,255,255,.10)}
       .footerDesktopAccount svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       @media(max-width:620px){
