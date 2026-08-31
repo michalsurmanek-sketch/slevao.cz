@@ -11,7 +11,7 @@
     { href:'#dealsSection', label:'Slevové kódy', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M18.5 4.5 5.5 19.5"/></svg>' },
     { href:'#dealsSection', label:'Hledej', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>' },
     { href:'seznam.html', label:'Seznam', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>' },
-    { href:'ucet.html', label:'Můj účet', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>' }
+    { href:'ucet.html', label:'Můj účet', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>', mobileOnly:true }
   ];
 
   const styleId = 'footerSectionJumpStyle';
@@ -21,6 +21,7 @@
     style.textContent = `
       .footerQuickIcons.footerSectionJumpIcons{display:flex!important;flex-wrap:wrap!important;gap:10px!important;max-width:420px}
       .footerQuickIcons.footerSectionJumpIcons>a{width:64px!important;min-height:76px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;flex:0 0 64px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff!important;text-decoration:none!important;box-shadow:none!important;transition:transform .16s ease!important}
+      .footerQuickIcons.footerSectionJumpIcons>a[data-mobile-only="1"]{display:none!important}
       .footerQuickIcons.footerSectionJumpIcons .footerJumpIcon{width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:14px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
       .footerQuickIcons.footerSectionJumpIcons .footerJumpLabel{display:block;color:#dce9e7;font-size:10px;line-height:1.15;text-align:center;white-space:normal}
       .footerQuickIcons.footerSectionJumpIcons>a:hover{transform:translateY(-2px)}
@@ -37,6 +38,7 @@
         .footerDesktopAccount{display:none!important}
         .footerQuickIcons.footerSectionJumpIcons{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px 8px!important;max-width:none!important;width:100%!important}
         .footerQuickIcons.footerSectionJumpIcons>a{width:auto!important;min-width:0!important;min-height:82px!important;flex-basis:auto!important;gap:7px!important}
+        .footerQuickIcons.footerSectionJumpIcons>a[data-mobile-only="1"]{display:flex!important}
         .footerQuickIcons.footerSectionJumpIcons .footerJumpIcon{width:52px;height:52px;border-radius:13px}
         .footerQuickIcons.footerSectionJumpIcons .footerJumpLabel{font-size:9.5px;line-height:1.2}
         .footerQuickIcons.footerSectionJumpIcons svg{width:25px;height:25px}
@@ -90,7 +92,7 @@
     if (!host) return;
     host.dataset.sectionJumps = '1';
     host.classList.add('footerSectionJumpIcons');
-    host.innerHTML = ITEMS.map((item) => `<a href="${item.href}" aria-label="${item.label}" title="${item.label}" data-footer-jump="1"><span class="footerJumpIcon">${item.icon}</span><span class="footerJumpLabel">${item.label}</span></a>`).join('');
+    host.innerHTML = ITEMS.map((item) => `<a href="${item.href}" aria-label="${item.label}" title="${item.label}" data-footer-jump="1"${item.mobileOnly ? ' data-mobile-only="1"' : ''}><span class="footerJumpIcon">${item.icon}</span><span class="footerJumpLabel">${item.label}</span></a>`).join('');
 
     host.addEventListener('click', (event) => {
       const link = event.target.closest('a[data-footer-jump="1"]');
