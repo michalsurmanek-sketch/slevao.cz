@@ -27,7 +27,14 @@
       .footerQuickIcons.footerSectionJumpIcons>a:hover .footerJumpIcon{border-color:#49dfcf;background:rgba(255,255,255,.10)}
       .footerQuickIcons.footerSectionJumpIcons svg{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       .footerQuickIcons.footerSectionJumpIcons a:nth-child(2) svg,.footerQuickIcons.footerSectionJumpIcons a:nth-child(3) svg{fill:currentColor;stroke:none}
+      .footerUsefulDesktopHead{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+      .footerUsefulDesktopHead>h3{margin:0!important}
+      .footerDesktopAccount{width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:11px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025)}
+      .footerDesktopAccount:hover{border-color:#49dfcf;background:rgba(255,255,255,.10)}
+      .footerDesktopAccount svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       @media(max-width:620px){
+        .footerUsefulDesktopHead{display:block;margin-bottom:0}
+        .footerDesktopAccount{display:none!important}
         .footerQuickIcons.footerSectionJumpIcons{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr))!important;gap:12px 8px!important;max-width:none!important;width:100%!important}
         .footerQuickIcons.footerSectionJumpIcons>a{width:auto!important;min-width:0!important;min-height:82px!important;flex-basis:auto!important;gap:7px!important}
         .footerQuickIcons.footerSectionJumpIcons .footerJumpIcon{width:52px;height:52px;border-radius:13px}
@@ -50,6 +57,23 @@
     });
   }
 
+  function installDesktopAccount() {
+    const section = document.querySelector('.footerColumnUseful');
+    const heading = section?.querySelector(':scope > h3');
+    if (!section || !heading || section.querySelector('.footerDesktopAccount')) return;
+    const head = document.createElement('div');
+    head.className = 'footerUsefulDesktopHead';
+    heading.before(head);
+    head.appendChild(heading);
+    const account = document.createElement('a');
+    account.className = 'footerDesktopAccount';
+    account.href = 'ucet.html';
+    account.setAttribute('aria-label', 'Můj účet');
+    account.title = 'Můj účet';
+    account.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>';
+    head.appendChild(account);
+  }
+
   function resolve(item) {
     let target = null;
     if (item.href.startsWith('#')) {
@@ -61,6 +85,7 @@
 
   function install() {
     removeDiscountAlertFeature();
+    installDesktopAccount();
     const host = document.querySelector('.footerQuickIcons');
     if (!host) return;
     host.dataset.sectionJumps = '1';
