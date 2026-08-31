@@ -8,7 +8,7 @@ const edge = readFileSync(new URL('supabase/functions/web-push/index.ts', root),
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
-assert.match(account, /assets\/web-push\.js\?v=20260831-1&push=3/, 'Účet musí načítat aktuální Web Push runtime s fallbackem.');
+assert.match(account, /assets\/web-push\.js\?v=20260831-1&push=4/, 'Účet musí načítat aktuální Web Push runtime s fallbackem a preflight diagnostikou.');
 
 assert.match(client, /const SW_URL = '\/push-service-worker\.js';/, 'Push musí primárně používat samostatný service worker bez závislosti na PWA precache.');
 assert.match(client, /const SW_SCOPE = '\/push\/';/, 'Samostatný push worker musí používat oddělený scope.');
@@ -35,6 +35,9 @@ assert.match(client, /event\.target\.closest\?\.\('#enableBrowserAlerts'\)/, 'We
 assert.match(client, /event\.stopImmediatePropagation\(\)/, 'Aktivace push musí zastavit případné staré click handlery.');
 assert.match(client, /enableFromUser\(\)/, 'Kliknutí musí vést přes plný serverově ověřený aktivační tok.');
 assert.match(client, /document\.readyState === 'loading'/, 'Web Push boot musí fungovat i při již dokončeném DOMContentLoaded.');
+assert.match(client, /const publicKey = await fetchPublicKey\(\);[\s\S]*let permission = Notification\.permission;/, 'Uživatelský klik musí být viditelný v Edge logu ještě před lokální permission/worker větví.');
+assert.match(client, /Notification\.permission === 'denied'[\s\S]*node\.disabled = false;/, 'Blokované oprávnění nesmí uživatele uvěznit v mrtvém disabled tlačítku.');
+assert.match(client, /Oznámení jsou v prohlížeči zablokovaná/, 'Blokované oprávnění musí mít konkrétní obnovovací instrukci.');
 
 assert.match(pushWorker, /self\.addEventListener\('push'/, 'Izolovaný worker musí zpracovávat push event.');
 assert.match(pushWorker, /self\.registration\.showNotification/, 'Izolovaný worker musí zobrazit systémovou notifikaci.');
