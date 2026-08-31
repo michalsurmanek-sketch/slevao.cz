@@ -14,9 +14,9 @@
   if (!document.querySelector('meta[name="mobile-web-app-capable"]')) document.head.appendChild(mobileCapable);
 
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/service-worker.js', { scope:'/' }).catch(() => {});
-    }, { once:true });
+    const registerServiceWorker = () => navigator.serviceWorker.register('/service-worker.js', { scope:'/' }).catch(() => null);
+    if (document.readyState === 'complete') registerServiceWorker();
+    else window.addEventListener('load', registerServiceWorker, { once:true });
   }
 
   let installEvent = null;
