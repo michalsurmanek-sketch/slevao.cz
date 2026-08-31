@@ -28,9 +28,10 @@
       .footerQuickIcons.footerSectionJumpIcons>a:hover .footerJumpIcon{border-color:#49dfcf;background:rgba(255,255,255,.10)}
       .footerQuickIcons.footerSectionJumpIcons svg{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       .footerQuickIcons.footerSectionJumpIcons a:nth-child(2) svg,.footerQuickIcons.footerSectionJumpIcons a:nth-child(3) svg{fill:currentColor;stroke:none}
-      .footerUsefulDesktopHead{display:flex;align-items:center;justify-content:space-between;width:100%;gap:14px;margin-bottom:12px}
+      .footerColumnUseful{position:relative!important}
+      .footerUsefulDesktopHead{display:block;width:100%;margin-bottom:12px}
       .footerUsefulDesktopHead>h3{margin:0!important}
-      .footerDesktopAccount{width:38px;height:38px;display:grid;place-items:center;flex:0 0 38px;margin-left:auto;border:1px solid rgba(75,221,207,.42);border-radius:11px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025)}
+      .footerDesktopAccount{position:absolute;right:0;top:0;width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:11px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025)}
       .footerDesktopAccount:hover{border-color:#49dfcf;background:rgba(255,255,255,.10)}
       .footerDesktopAccount svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       @media(max-width:620px){
