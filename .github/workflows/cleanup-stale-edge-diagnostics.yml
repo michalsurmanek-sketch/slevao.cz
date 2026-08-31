@@ -130,6 +130,27 @@ jobs:
               "https://api.supabase.com/v1/projects/$PROJECT_REF/functions/$slug" >/dev/null
           done
 
+      - name: Smazat orphan smart image orchestrator
+        shell: bash
+        run: |
+          set -euo pipefail
+          slug='discover-product-images-smart'
+
+          remote_json="$(curl --fail --silent --show-error \
+            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions")"
+
+          if ! printf '%s' "$remote_json" | jq -e --arg slug "$slug" '.[] | select(.slug == $slug)' >/dev/null; then
+            echo "Already absent: $slug"
+            exit 0
+          fi
+
+          echo "Deleting verified orphan function: $slug"
+          curl --fail --silent --show-error \
+            --request DELETE \
+            --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+            "https://api.supabase.com/v1/projects/$PROJECT_REF/functions/$slug" >/dev/null
+
       - name: Ověřit přesný produkční diagnostic baseline
         shell: bash
         run: |
@@ -138,6 +159,11 @@ jobs:
           remote_json="$(curl --fail --silent --show-error \
             --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$PROJECT_REF/functions")"
+
+          if printf '%s' "$remote_json" | jq -e '.[] | select(.slug == "discover-product-images-smart")' >/dev/null; then
+            echo 'Orphan discover-product-images-smart is still deployed.'
+            exit 1
+          fi
 
           actual="$(printf '%s' "$remote_json" | jq -r '.[] | select((.slug | startswith("debug-")) or (.slug | startswith("probe-"))) | .slug' | sort)"
           expected="$(printf '%s\n' \
@@ -169,4 +195,4 @@ jobs:
             exit 1
           }
 
-          echo 'Production diagnostic baseline is exact and protected.'
+          echo 'Production diagnostic baseline is exact and protected; orphan image orchestrator is absent.'
