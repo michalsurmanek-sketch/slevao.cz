@@ -102,14 +102,20 @@ if (!/verify_jwt\s*=\s*false/.test(edgeConfig)) throw new Error('Web Push custom
 for (const needle of [
   "const SW_URL = '/push-service-worker.js'",
   "const SW_SCOPE = '/push/'",
-  'navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })',
-  'navigator.serviceWorker.getRegistration(SW_SCOPE)',
-  'const expected = new URL(SW_URL, location.origin).href',
+  "const ROOT_SW_URL = '/service-worker.js'",
+  "const ROOT_SW_SCOPE = '/'",
+  'async function ensureRegistration(url, scope)',
+  'navigator.serviceWorker.register(url, { scope })',
+  'navigator.serviceWorker.getRegistration(scope)',
+  'const expected = new URL(url, location.origin).href',
   'current?.active?.scriptURL',
   'current?.waiting?.scriptURL',
   'current?.installing?.scriptURL',
   'currentScript !== expected',
   'waitForActiveRegistration(current, expected)',
+  'return await ensureRegistration(SW_URL, SW_SCOPE)',
+  'return ensureRegistration(ROOT_SW_URL, ROOT_SW_SCOPE)',
+  "console.warn('slevao_push_worker_fallback'",
   'current.pushManager.subscribe({',
   'userVisibleOnly: true',
   'applicationServerKey: base64UrlToUint8Array(publicKey)',
@@ -138,9 +144,12 @@ for (const needle of [
   "self.addEventListener('install'",
   "self.addEventListener('activate'",
   "self.addEventListener('fetch'",
+  "self.addEventListener('push'",
+  'self.registration.showNotification',
+  "self.addEventListener('notificationclick'",
   "const CACHE_NAME = 'slevao-shell-",
 ]) {
-  if (!sw.includes(needle)) throw new Error(`Missing PWA Service Worker behavior: ${needle}`);
+  if (!sw.includes(needle)) throw new Error(`Missing root PWA/Push Service Worker behavior: ${needle}`);
 }
 
 for (const needle of [
