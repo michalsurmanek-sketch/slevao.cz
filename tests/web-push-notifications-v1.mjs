@@ -7,9 +7,10 @@ const edgeConfigPath = 'supabase/functions/web-push/config.toml';
 const clientPath = 'assets/web-push.js';
 const pwaPath = 'assets/pwa-install.js';
 const swPath = 'service-worker.js';
+const pushSwPath = 'push-service-worker.js';
 const accountPath = 'ucet.html';
 
-for (const path of [migrationPath, hardeningMigrationPath, edgePath, edgeConfigPath, clientPath, pwaPath, swPath, accountPath]) {
+for (const path of [migrationPath, hardeningMigrationPath, edgePath, edgeConfigPath, clientPath, pwaPath, swPath, pushSwPath, accountPath]) {
   if (!fs.existsSync(path)) throw new Error(`Missing Web Push file: ${path}`);
 }
 
@@ -20,6 +21,7 @@ const edgeConfig = fs.readFileSync(edgeConfigPath, 'utf8');
 const client = fs.readFileSync(clientPath, 'utf8');
 const pwa = fs.readFileSync(pwaPath, 'utf8');
 const sw = fs.readFileSync(swPath, 'utf8');
+const pushSw = fs.readFileSync(pushSwPath, 'utf8');
 const account = fs.readFileSync(accountPath, 'utf8');
 
 for (const needle of [
@@ -98,14 +100,16 @@ if (/privateKey\s*[:=][^\n]*['\"][A-Za-z0-9_-]{30,}/.test(edge)) {
 if (!/verify_jwt\s*=\s*false/.test(edgeConfig)) throw new Error('Web Push custom-auth deployment must stay explicit.');
 
 for (const needle of [
-  "const SW_URL = '/service-worker.js'",
-  "navigator.serviceWorker.register(SW_URL, { scope: '/' })",
-  "navigator.serviceWorker.getRegistration('/')",
+  "const SW_URL = '/push-service-worker.js'",
+  "const SW_SCOPE = '/push/'",
+  'navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE })',
+  'navigator.serviceWorker.getRegistration(SW_SCOPE)',
   'const expected = new URL(SW_URL, location.origin).href',
   'current?.active?.scriptURL',
   'current?.waiting?.scriptURL',
   'current?.installing?.scriptURL',
   'currentScript !== expected',
+  'waitForActiveRegistration(current, expected)',
   'current.pushManager.subscribe({',
   'userVisibleOnly: true',
   'applicationServerKey: base64UrlToUint8Array(publicKey)',
@@ -122,10 +126,11 @@ for (const needle of [
   if (!client.includes(needle)) throw new Error(`Missing Web Push client guard: ${needle}`);
 }
 if (client.includes('/sw.js')) throw new Error('Web Push client must not register the legacy /sw.js root worker.');
+if (client.includes('navigator.serviceWorker.ready')) throw new Error('Push activation must not depend on the root PWA worker becoming ready.');
 if (/private[_-]?key/i.test(client)) throw new Error('Client Web Push module must never reference a VAPID private key.');
 
 if (!pwa.includes("navigator.serviceWorker.register('/service-worker.js', { scope:'/' })")) {
-  throw new Error('PWA must register the same unified /service-worker.js root worker.');
+  throw new Error('PWA must keep its /service-worker.js root worker.');
 }
 if (pwa.includes("register('/sw.js")) throw new Error('PWA must never register the legacy /sw.js worker.');
 
@@ -133,21 +138,31 @@ for (const needle of [
   "self.addEventListener('install'",
   "self.addEventListener('activate'",
   "self.addEventListener('fetch'",
+  "const CACHE_NAME = 'slevao-shell-",
+]) {
+  if (!sw.includes(needle)) throw new Error(`Missing PWA Service Worker behavior: ${needle}`);
+}
+
+for (const needle of [
+  "self.addEventListener('install'",
+  "self.addEventListener('activate'",
   "self.addEventListener('push'",
   'self.registration.showNotification',
   "self.addEventListener('notificationclick'",
-  "self.clients.matchAll({ type:'window', includeUncontrolled:true })",
+  "self.clients.matchAll({ type: 'window', includeUncontrolled: true })",
   "url.pathname.endsWith('/ucet.html')",
   "client.visibilityState === 'visible'",
   'if (visibleAccount) return',
   'self.clients.openWindow(target)',
 ]) {
-  if (!sw.includes(needle)) throw new Error(`Missing unified Service Worker behavior: ${needle}`);
+  if (!pushSw.includes(needle)) throw new Error(`Missing isolated Push Service Worker behavior: ${needle}`);
 }
-if (!sw.includes("const CACHE_NAME = 'slevao-shell-")) throw new Error('Unified service worker lost PWA shell caching.');
+if (/cache\.addAll|caches\.open/.test(pushSw)) {
+  throw new Error('Isolated Push Service Worker must not depend on PWA precache.');
+}
 
-if (!/assets\/web-push\.js\?v=[a-z0-9-]+/i.test(account)) {
-  throw new Error('ucet.html must load the current unified Web Push client module.');
+if (!/assets\/web-push\.js\?v=[a-z0-9-]+(?:&push=\d+)?/i.test(account)) {
+  throw new Error('ucet.html must load the current Web Push client module.');
 }
 
 console.log('Web Push notification pipeline guards OK');
