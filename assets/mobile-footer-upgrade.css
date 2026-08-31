@@ -66,3 +66,42 @@
 }
 
 @media(prefers-reduced-motion:reduce){.slevaoBottomNav a,.footerWatchForm button{transition:none!important}}
+
+/* 2026-08-31: Mobilní minimalizace úvodní části patičky bez změny vzhledu. */
+@media(max-width:620px){
+  .footerMain{padding-top:24px!important;padding-left:18px!important;padding-right:18px!important}
+  .footer .footerBrand{width:220px!important;height:54px!important;margin-bottom:12px!important}
+  .footerLead{max-width:none!important;margin-bottom:16px!important;font-size:13px!important;line-height:1.45!important}
+  .footerFeatures{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+    gap:7px!important;
+    margin:0!important;
+  }
+  .footerFeature{
+    min-width:0!important;
+    min-height:98px!important;
+    padding:10px 4px 8px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    justify-content:flex-start!important;
+    gap:7px!important;
+    border:1px solid rgba(145,224,216,.14)!important;
+    border-radius:14px!important;
+    text-align:center!important;
+    font-size:9.5px!important;
+    line-height:1.2!important;
+  }
+  .footerFeatureIcon{
+    width:44px!important;height:44px!important;flex:0 0 44px!important;
+    margin:0 auto!important;border-radius:13px!important;font-size:21px!important;
+  }
+  .footerFeature>span:last-child{display:block;min-width:0;overflow-wrap:anywhere}
+  .footerColumnSlevao{margin-top:10px!important}
+}
+
+@media(max-width:380px){
+  .footerMain{padding-left:14px!important;padding-right:14px!important}
+  .footerFeatures{gap:5px!important}
+  .footerFeature{min-height:94px!important;padding-inline:3px!important;font-size:8.8px!important}
+  .footerFeatureIcon{width:40px!important;height:40px!important;flex-basis:40px!important;font-size:19px!important}
+}
