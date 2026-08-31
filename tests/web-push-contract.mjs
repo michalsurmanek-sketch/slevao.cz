@@ -7,7 +7,7 @@ const edge = readFileSync(new URL('supabase/functions/web-push/index.ts', root),
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
-assert.match(account, /assets\/web-push\.js\?v=20260822-2/, 'Účet musí načítat aktuální web-push runtime.');
+assert.match(account, /assets\/web-push\.js\?v=20260831-1/, 'Účet musí načítat aktuální web-push runtime.');
 
 assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího service workeru.');
 assert.match(client, /Notification\.permission !== 'granted'/, 'Automatická oprava nesmí sama vyvolávat permission prompt.');
