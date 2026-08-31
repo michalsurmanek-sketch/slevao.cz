@@ -5,6 +5,8 @@
   const PUSH_URL = `${SUPABASE_URL}/functions/v1/web-push`;
   const SW_URL = '/push-service-worker.js';
   const SW_SCOPE = '/push/';
+  const ROOT_SW_URL = '/service-worker.js';
+  const ROOT_SW_SCOPE = '/';
   const db = window.SlevaoSupabase.getClient();
   let subscribed = false;
   let syncing = false;
@@ -77,28 +79,44 @@
       });
     }
 
-    const latest = await navigator.serviceWorker.getRegistration(SW_SCOPE) || current;
+    const latest = await navigator.serviceWorker.getRegistration(current.scope) || current;
     if (!latest.active) throw new Error('Push Service Worker není aktivní.');
     return latest;
   }
 
+  async function ensureRegistration(url, scope) {
+    let current = await navigator.serviceWorker.getRegistration(scope);
+    const expected = new URL(url, location.origin).href;
+    const currentScript = current?.active?.scriptURL
+      || current?.waiting?.scriptURL
+      || current?.installing?.scriptURL
+      || '';
+    if (!current || currentScript !== expected) {
+      current = await navigator.serviceWorker.register(url, { scope });
+    } else {
+      await current.update().catch(() => {});
+    }
+    return waitForActiveRegistration(current, expected);
+  }
+
   async function registration(create = false) {
     if (!supported()) return null;
-    let current = await navigator.serviceWorker.getRegistration(SW_SCOPE);
-    if (create) {
-      const expected = new URL(SW_URL, location.origin).href;
-      const currentScript = current?.active?.scriptURL
-        || current?.waiting?.scriptURL
-        || current?.installing?.scriptURL
-        || '';
-      if (!current || currentScript !== expected) {
-        current = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
-      } else {
-        await current.update().catch(() => {});
+
+    if (!create) {
+      const isolated = await navigator.serviceWorker.getRegistration(SW_SCOPE);
+      if (isolated) {
+        const isolatedSub = await isolated.pushManager.getSubscription().catch(() => null);
+        if (isolatedSub) return isolated;
       }
-      current = await waitForActiveRegistration(current, expected);
+      return (await navigator.serviceWorker.getRegistration(ROOT_SW_SCOPE)) || isolated || null;
     }
-    return current;
+
+    try {
+      return await ensureRegistration(SW_URL, SW_SCOPE);
+    } catch (isolatedError) {
+      console.warn('slevao_push_worker_fallback', isolatedError);
+      return ensureRegistration(ROOT_SW_URL, ROOT_SW_SCOPE);
+    }
   }
 
   async function currentSubscription() {
