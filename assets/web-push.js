@@ -92,7 +92,11 @@
       }),
     });
     const body = await response.json().catch(() => ({}));
-    if (!response.ok) throw new Error(body?.error || 'Push subscription se nepodařilo uložit.');
+    if (!response.ok) {
+      const error = new Error(body?.error || 'Push subscription se nepodařilo uložit.');
+      error.status = response.status;
+      throw error;
+    }
     return body;
   }
 
@@ -202,17 +206,25 @@
     try {
       result = await saveSubscription(sub, true);
     } catch (error) {
-      await removeSubscription(sub);
+      // A temporary server/push-provider failure must not destroy a valid browser
+      // subscription. A 409 is the one recoverable ownership conflict where a new
+      // browser endpoint is required.
+      if (Number(error?.status || 0) === 409) await removeSubscription(sub);
       throw error;
     }
-    if (result?.subscribed !== true || result?.test_sent !== true) {
-      await removeSubscription(sub);
-      throw new Error('Testovací oznámení se nepodařilo doručit. Zkus oznámení zapnout znovu.');
+
+    if (result?.subscribed !== true) {
+      if (result?.gone === true) await removeSubscription(sub);
+      throw new Error('Push subscription se nepodařilo aktivovat. Zkus oznámení zapnout znovu.');
     }
 
     subscribed = true;
     renderState();
-    showMessage('Push upozornění jsou aktivní. Testovací oznámení bylo odesláno.');
+    if (result?.test_sent === true) {
+      showMessage('Push upozornění jsou aktivní. Testovací oznámení bylo odesláno.');
+    } else {
+      showMessage('Push upozornění jsou aktivní. Test se teď nepodařilo doručit, ale zařízení zůstává přihlášené.', true);
+    }
   }
 
   async function signOutFromUser() {
