@@ -9,12 +9,15 @@ const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
 assert.match(account, /assets\/web-push\.js\?v=20260822-2/, 'Účet musí načítat aktuální web-push runtime.');
 
-assert.match(client, /const browserReady = Boolean\(sub && Notification\.permission === 'granted'\)/, 'Klient musí oddělit lokální browser subscription od serverového potvrzení.');
-assert.match(client, /subscribed = result\?\.subscribed === true;/, 'Background sync smí hlásit aktivní stav jen po potvrzení serverem.');
-assert.match(client, /result = await saveSubscription\(sub, false\);/, 'Explicitní aktivace musí uložit subscription bez závislosti na okamžitém testovacím pushi.');
+assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího service workeru.');
+assert.match(client, /Notification\.permission !== 'granted'/, 'Automatická oprava nesmí sama vyvolávat permission prompt.');
+assert.match(client, /if \(!sub\) sub = await createBrowserSubscription\(current\);/, 'Při již uděleném povolení musí účet umět automaticky obnovit chybějící browser subscription.');
+assert.match(client, /async function activateServerSubscription\(current, sub\)/, 'Klient musí sdílet jeden serverově potvrzený aktivační tok.');
+assert.match(client, /let result = await saveSubscription\(sub, false\);/, 'Aktivace musí uložit subscription bez závislosti na okamžitém testovacím pushi.');
 assert.doesNotMatch(client, /saveSubscription\(sub, true\)/, 'Aktivace zařízení nesmí být podmíněná okamžitým testovacím push doručením.');
 assert.match(client, /if \(result\?\.requires_test\)/, 'Klient musí rozpoznat starý neaktivní endpoint.');
 assert.match(client, /await removeSubscription\(sub\);[\s\S]*sub = await createBrowserSubscription\(current\);[\s\S]*result = await saveSubscription\(sub, false\);/, 'Starý neaktivní endpoint se musí jednou recyklovat na čerstvou subscription bez testovací brány.');
+assert.match(client, /subscribed = activated\.result\?\.subscribed === true;/, 'Background auto-repair smí hlásit aktivní stav jen po potvrzení serverem.');
 assert.match(client, /Number\(error\?\.status \|\| 0\) === 409/, 'Automatické odstranění subscription při chybě smí být omezené na konflikt vlastnictví endpointu.');
 assert.match(client, /result\?\.gone === true/, 'Definitivně zaniklý endpoint musí být možné bezpečně uklidit.');
 assert.match(client, /event\.target\.closest\?\.\('#enableBrowserAlerts'\)/, 'Web Push runtime musí vlastnit kliknutí na aktivační tlačítko.');
