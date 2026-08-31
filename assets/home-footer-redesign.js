@@ -159,7 +159,8 @@
     const socialStyle = document.createElement('style');
     socialStyle.id = socialStyleId;
     socialStyle.textContent = `
-      .footerSocial{margin-top:22px;padding-top:18px;border-top:1px dashed rgba(145,224,216,.2)}
+      .footerSocial{margin-top:18px;padding-top:16px;border-top:1px dashed rgba(145,224,216,.2)}
+      .footerWatch .footerSocial{width:100%;box-sizing:border-box}
       .footerSocialTitle{margin:0 0 12px;color:#fff;font-size:15px;font-weight:950}
       .footerSocialLinks{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
       .footerSocialLink{width:44px;height:44px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:13px;color:#fff;background:rgba(255,255,255,.035);text-decoration:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.04);transition:transform .16s ease,border-color .16s ease,background .16s ease,box-shadow .16s ease}
@@ -173,8 +174,10 @@
     document.head.appendChild(socialStyle);
   }
 
-  const footerUseful = [...document.querySelectorAll('.footerColumn')].find((column) => column.querySelector('h3')?.textContent.trim() === 'Užitečné');
-  if (footerUseful && !footerUseful.querySelector('.footerSocial')) {
+  const footerWatch = document.querySelector('.footerWatch');
+  if (footerWatch && !footerWatch.querySelector('.footerSocial')) {
+    const oldSocial = document.querySelector('.footerColumnUseful .footerSocial');
+    if (oldSocial) oldSocial.remove();
     const social = document.createElement('div');
     social.className = 'footerSocial';
     social.innerHTML = `
@@ -195,7 +198,7 @@
       </div>
       <small class="footerSocialNote">Nové akce, tipy a slevy každý den.</small>
     `;
-    footerUseful.appendChild(social);
+    footerWatch.appendChild(social);
   }
 
   const form = document.getElementById('footerAlertsForm');
