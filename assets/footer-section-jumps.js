@@ -9,7 +9,10 @@
     { href:'#storesSection', label:'Obchody', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 10h16v10H4zM3 10l2-5h14l2 5M8 20v-6h4v6"/><path d="M3 10c0 1.3 1 2.3 2.3 2.3S7.7 11.3 7.7 10c0 1.3 1 2.3 2.3 2.3s2.3-1 2.3-2.3c0 1.3 1 2.3 2.3 2.3s2.3-1 2.3-2.3c0 1.3 1 2.3 2.3 2.3S21 11.3 21 10"/></svg>' },
     { href:'#leafletsSection', label:'Letáky a nabídky', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3.5" width="14" height="17" rx="1.5"/><path d="M8 7h8M8 10.5h8M8 14h8M8 17.5h5"/></svg>' },
     { href:'#quickTabs', fallback:'.sqFoodDock', label:'Rychlý nákup', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 5h2l2.1 9.1a2 2 0 0 0 2 1.5h7.8a2 2 0 0 0 1.9-1.4L21 8H6"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="17.5" cy="19" r="1.4"/></svg>' },
-    { href:'#dealsSection', label:'Aktuální ceny', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M18.5 4.5 5.5 19.5"/></svg>' }
+    { href:'#dealsSection', label:'Aktuální ceny', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="7" cy="7" r="2.2"/><circle cx="17" cy="17" r="2.2"/><path d="M18.5 4.5 5.5 19.5"/></svg>' },
+    { href:'#dealsSection', label:'Hledat', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>' },
+    { href:'seznam.html', label:'Seznam', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12"/><circle cx="4" cy="6" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="18" r="1"/></svg>' },
+    { href:'ucet.html', label:'Můj účet', icon:'<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>' }
   ];
 
   const styleId = 'footerSectionJumpStyle';
@@ -47,8 +50,8 @@
     host.addEventListener('click', (event) => {
       const link = event.target.closest('a[data-footer-jump="1"]');
       if (!link) return;
-      const item = ITEMS.find((entry) => entry.href === link.getAttribute('href'));
-      if (!item) return;
+      const item = ITEMS.find((entry) => entry.href === link.getAttribute('href') && entry.label === link.getAttribute('aria-label'));
+      if (!item || !item.href.startsWith('#')) return;
       const target = resolve(item);
       if (!target) return;
       event.preventDefault();
