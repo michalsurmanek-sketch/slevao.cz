@@ -204,11 +204,10 @@
 
     let result;
     try {
-      result = await saveSubscription(sub, true);
+      // Activation must not depend on a test delivery. A temporary push-provider
+      // outage must never unregister a valid browser subscription.
+      result = await saveSubscription(sub, false);
     } catch (error) {
-      // A temporary server/push-provider failure must not destroy a valid browser
-      // subscription. A 409 is the one recoverable ownership conflict where a new
-      // browser endpoint is required.
       if (Number(error?.status || 0) === 409) await removeSubscription(sub);
       throw error;
     }
@@ -220,11 +219,7 @@
 
     subscribed = true;
     renderState();
-    if (result?.test_sent === true) {
-      showMessage('Push upozornění jsou aktivní. Testovací oznámení bylo odesláno.');
-    } else {
-      showMessage('Push upozornění jsou aktivní. Test se teď nepodařilo doručit, ale zařízení zůstává přihlášené.', true);
-    }
+    showMessage('Push upozornění jsou aktivní.');
   }
 
   async function signOutFromUser() {
