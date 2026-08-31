@@ -53,8 +53,11 @@
         || '';
       if (!current || currentScript !== expected) {
         current = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
+      } else {
+        await current.update().catch(() => {});
       }
       await navigator.serviceWorker.ready;
+      current = await navigator.serviceWorker.getRegistration('/') || current;
     }
     return current;
   }
@@ -125,6 +128,16 @@
     });
   }
 
+  async function activateServerSubscription(current, sub) {
+    let result = await saveSubscription(sub, false);
+    if (result?.requires_test) {
+      await removeSubscription(sub);
+      sub = await createBrowserSubscription(current);
+      result = await saveSubscription(sub, false);
+    }
+    return { sub, result };
+  }
+
   function renderState() {
     const node = button();
     if (!node) return;
@@ -153,21 +166,23 @@
       renderState();
       return;
     }
-    const sub = await currentSubscription().catch(() => null);
-    const browserReady = Boolean(sub && Notification.permission === 'granted');
-    if (!browserReady) {
+
+    if (Notification.permission !== 'granted') {
       subscribed = false;
       renderState();
       return;
     }
+
     if (!syncServer) {
-      subscribed = true;
+      const sub = await currentSubscription().catch(() => null);
+      subscribed = Boolean(sub);
       renderState();
       return;
     }
+
     if (syncing) return;
-    const current = await session();
-    if (!current) {
+    const currentSession = await session();
+    if (!currentSession) {
       subscribed = false;
       renderState();
       return;
@@ -177,14 +192,22 @@
     subscribed = false;
     renderState();
     try {
-      const result = await saveSubscription(sub, false);
-      subscribed = result?.subscribed === true;
-      if (!subscribed && result?.requires_test) {
-        showMessage('Oznámení je potřeba znovu potvrdit tlačítkem.', true);
+      const current = await registration(true);
+      if (!current) throw new Error('Service Worker se nepodařilo zaregistrovat.');
+
+      let sub = await current.pushManager.getSubscription();
+      if (!sub) sub = await createBrowserSubscription(current);
+
+      const activated = await activateServerSubscription(current, sub);
+      sub = activated.sub;
+      subscribed = activated.result?.subscribed === true;
+      if (!subscribed) {
+        showMessage('Oznámení se nepodařilo automaticky dokončit. Použij tlačítko znovu.', true);
       }
     } catch (error) {
       subscribed = false;
       console.warn('slevao_web_push_sync_failed', error);
+      showMessage('Oznámení se nepodařilo automaticky dokončit. Použij tlačítko znovu.', true);
     } finally {
       syncing = false;
       renderState();
@@ -208,16 +231,9 @@
     try {
       // Activation must not depend on a test delivery. A temporary push-provider
       // outage must never unregister a valid browser subscription.
-      result = await saveSubscription(sub, false);
-
-      // A server-side inactive endpoint must not trap the browser forever. Remove
-      // the stale endpoint once and create a fresh subscription without requiring
-      // an immediate provider round-trip.
-      if (result?.requires_test) {
-        await removeSubscription(sub);
-        sub = await createBrowserSubscription(current);
-        result = await saveSubscription(sub, false);
-      }
+      const activated = await activateServerSubscription(current, sub);
+      sub = activated.sub;
+      result = activated.result;
     } catch (error) {
       if (Number(error?.status || 0) === 409) await removeSubscription(sub);
       throw error;
