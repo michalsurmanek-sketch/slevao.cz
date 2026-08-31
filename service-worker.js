@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260830-8';
+const CACHE_NAME = 'slevao-shell-20260831-1';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -169,7 +169,7 @@ const SHELL = [
   '/assets/account-mobile-hero-card.css?v=20260829-1',
   '/assets/account-notification-seen-guard.js?v=20260822-1',
   '/assets/account.js?v=20260822-3',
-  '/assets/web-push.js?v=20260822-2',
+  '/assets/web-push.js?v=20260831-1',
   '/assets/account-recovery.js?v=20260817-1'
 ];
 
