@@ -177,11 +177,11 @@
     await subscription.unsubscribe().catch(() => {});
   }
 
-  async function createBrowserSubscription(current) {
-    const publicKey = await fetchPublicKey();
+  async function createBrowserSubscription(current, publicKey = '') {
+    const key = publicKey || await fetchPublicKey();
     return current.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: base64UrlToUint8Array(publicKey),
+      applicationServerKey: base64UrlToUint8Array(key),
     });
   }
 
@@ -204,8 +204,8 @@
       return;
     }
     if (Notification.permission === 'denied') {
-      node.textContent = 'Oznámení jsou blokována';
-      node.disabled = true;
+      node.textContent = 'Povolit oznámení v prohlížeči';
+      node.disabled = false;
       return;
     }
     if (subscribed) {
@@ -275,7 +275,14 @@
     if (!supported()) throw new Error('Tento prohlížeč nepodporuje Web Push upozornění.');
     if (!(await session())) throw new Error('Pro push upozornění se nejdřív přihlas.');
 
+    // User click preflight: fetch the public VAPID key before touching browser
+    // permission/worker state. This makes client-side failures visible in Edge logs.
+    const publicKey = await fetchPublicKey();
+
     let permission = Notification.permission;
+    if (permission === 'denied') {
+      throw new Error('Oznámení jsou v prohlížeči zablokovaná. V oprávnění tohoto webu nastav Oznámení na Povolit a klikni znovu.');
+    }
     if (permission === 'default') permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Bez povolení oznámení nelze push upozornění zapnout.');
 
@@ -283,7 +290,7 @@
     const current = await registration(true);
     if (!current) throw new Error('Push Service Worker se nepodařilo zaregistrovat.');
     let sub = await current.pushManager.getSubscription();
-    if (!sub) sub = await createBrowserSubscription(current);
+    if (!sub) sub = await createBrowserSubscription(current, publicKey);
 
     let result;
     try {
