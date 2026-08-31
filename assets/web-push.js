@@ -3,7 +3,8 @@
 
   const { url: SUPABASE_URL, key: SUPABASE_KEY } = window.SlevaoSupabase;
   const PUSH_URL = `${SUPABASE_URL}/functions/v1/web-push`;
-  const SW_URL = '/service-worker.js';
+  const SW_URL = '/push-service-worker.js';
+  const SW_SCOPE = '/push/';
   const db = window.SlevaoSupabase.getClient();
   let subscribed = false;
   let syncing = false;
@@ -42,9 +43,48 @@
     return data?.session || null;
   }
 
+  async function waitForActiveRegistration(current, expected) {
+    if (!current) return null;
+    if (current.active?.scriptURL === expected) return current;
+
+    const worker = [current.installing, current.waiting, current.active]
+      .find((candidate) => candidate?.scriptURL === expected)
+      || current.installing
+      || current.waiting;
+    if (!worker) throw new Error('Push Service Worker se nepodařilo aktivovat.');
+    if (worker.state !== 'activated') {
+      await new Promise((resolve, reject) => {
+        let timer = 0;
+        const cleanup = () => {
+          if (timer) clearTimeout(timer);
+          worker.removeEventListener('statechange', onState);
+        };
+        const onState = () => {
+          if (worker.state === 'activated') {
+            cleanup();
+            resolve();
+          } else if (worker.state === 'redundant') {
+            cleanup();
+            reject(new Error('Push Service Worker se nepodařilo aktivovat.'));
+          }
+        };
+        timer = window.setTimeout(() => {
+          cleanup();
+          reject(new Error('Aktivace Push Service Workeru trvá příliš dlouho.'));
+        }, 10000);
+        worker.addEventListener('statechange', onState);
+        onState();
+      });
+    }
+
+    const latest = await navigator.serviceWorker.getRegistration(SW_SCOPE) || current;
+    if (!latest.active) throw new Error('Push Service Worker není aktivní.');
+    return latest;
+  }
+
   async function registration(create = false) {
     if (!supported()) return null;
-    let current = await navigator.serviceWorker.getRegistration('/');
+    let current = await navigator.serviceWorker.getRegistration(SW_SCOPE);
     if (create) {
       const expected = new URL(SW_URL, location.origin).href;
       const currentScript = current?.active?.scriptURL
@@ -52,12 +92,11 @@
         || current?.installing?.scriptURL
         || '';
       if (!current || currentScript !== expected) {
-        current = await navigator.serviceWorker.register(SW_URL, { scope: '/' });
+        current = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
       } else {
         await current.update().catch(() => {});
       }
-      await navigator.serviceWorker.ready;
-      current = await navigator.serviceWorker.getRegistration('/') || current;
+      current = await waitForActiveRegistration(current, expected);
     }
     return current;
   }
@@ -193,7 +232,7 @@
     renderState();
     try {
       const current = await registration(true);
-      if (!current) throw new Error('Service Worker se nepodařilo zaregistrovat.');
+      if (!current) throw new Error('Push Service Worker se nepodařilo zaregistrovat.');
 
       let sub = await current.pushManager.getSubscription();
       if (!sub) sub = await createBrowserSubscription(current);
@@ -207,7 +246,7 @@
     } catch (error) {
       subscribed = false;
       console.warn('slevao_web_push_sync_failed', error);
-      showMessage('Oznámení se nepodařilo automaticky dokončit. Použij tlačítko znovu.', true);
+      showMessage(error?.message || 'Oznámení se nepodařilo automaticky dokončit. Použij tlačítko znovu.', true);
     } finally {
       syncing = false;
       renderState();
@@ -222,15 +261,14 @@
     if (permission === 'default') permission = await Notification.requestPermission();
     if (permission !== 'granted') throw new Error('Bez povolení oznámení nelze push upozornění zapnout.');
 
+    showMessage('Aktivuji push upozornění…');
     const current = await registration(true);
-    if (!current) throw new Error('Service Worker se nepodařilo zaregistrovat.');
+    if (!current) throw new Error('Push Service Worker se nepodařilo zaregistrovat.');
     let sub = await current.pushManager.getSubscription();
     if (!sub) sub = await createBrowserSubscription(current);
 
     let result;
     try {
-      // Activation must not depend on a test delivery. A temporary push-provider
-      // outage must never unregister a valid browser subscription.
       const activated = await activateServerSubscription(current, sub);
       sub = activated.sub;
       result = activated.result;
@@ -285,9 +323,12 @@
     });
   }, true);
 
-  document.addEventListener('DOMContentLoaded', () => {
-    refresh().catch(() => { subscribed = false; renderState(); });
-  }, { once: true });
+  const boot = () => refresh().catch(() => { subscribed = false; renderState(); });
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot, { once: true });
+  } else {
+    boot();
+  }
 
   db?.auth?.onAuthStateChange?.((event) => {
     if (event === 'SIGNED_OUT') {
