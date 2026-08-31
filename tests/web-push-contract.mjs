@@ -8,13 +8,19 @@ const edge = readFileSync(new URL('supabase/functions/web-push/index.ts', root),
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
-assert.match(account, /assets\/web-push\.js\?v=20260831-1&push=2/, 'Účet musí načítat aktuální izolovaný web-push runtime.');
+assert.match(account, /assets\/web-push\.js\?v=20260831-1&push=3/, 'Účet musí načítat aktuální Web Push runtime s fallbackem.');
 
-assert.match(client, /const SW_URL = '\/push-service-worker\.js';/, 'Push musí používat samostatný service worker bez závislosti na PWA precache.');
+assert.match(client, /const SW_URL = '\/push-service-worker\.js';/, 'Push musí primárně používat samostatný service worker bez závislosti na PWA precache.');
 assert.match(client, /const SW_SCOPE = '\/push\/';/, 'Samostatný push worker musí používat oddělený scope.');
+assert.match(client, /const ROOT_SW_URL = '\/service-worker\.js';/, 'Push aktivace musí mít fallback na hlavní service worker.');
+assert.match(client, /const ROOT_SW_SCOPE = '\/';/, 'Fallback hlavního workeru musí používat root scope.');
+assert.match(client, /async function ensureRegistration\(url, scope\)/, 'Registrace workeru musí používat sdílený bezpečný helper.');
+assert.match(client, /return await ensureRegistration\(SW_URL, SW_SCOPE\);/, 'Primární aktivace musí nejdřív zkusit izolovaný push worker.');
+assert.match(client, /return ensureRegistration\(ROOT_SW_URL, ROOT_SW_SCOPE\);/, 'Při selhání izolovaného workeru musí aktivace přejít na root worker.');
+assert.match(client, /slevao_push_worker_fallback/, 'Fallback workeru musí být diagnostikovatelný v konzoli.');
 assert.match(client, /waitForActiveRegistration/, 'Aktivační tok musí počkat na aktivní push worker bez navigator.serviceWorker.ready.');
-assert.doesNotMatch(client, /navigator\.serviceWorker\.ready/, 'Push aktivace nesmí čekat na root PWA worker.');
-assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího push workeru.');
+assert.doesNotMatch(client, /navigator\.serviceWorker\.ready/, 'Push aktivace nesmí čekat na root PWA worker přes ready.');
+assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího workeru.');
 assert.match(client, /Notification\.permission !== 'granted'/, 'Automatická oprava nesmí sama vyvolávat permission prompt.');
 assert.match(client, /if \(!sub\) sub = await createBrowserSubscription\(current\);/, 'Při již uděleném povolení musí účet umět automaticky obnovit chybějící browser subscription.');
 assert.match(client, /async function activateServerSubscription\(current, sub\)/, 'Klient musí sdílet jeden serverově potvrzený aktivační tok.');
