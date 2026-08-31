@@ -117,6 +117,14 @@
     await subscription.unsubscribe().catch(() => {});
   }
 
+  async function createBrowserSubscription(current) {
+    const publicKey = await fetchPublicKey();
+    return current.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey: base64UrlToUint8Array(publicKey),
+    });
+  }
+
   function renderState() {
     const node = button();
     if (!node) return;
@@ -194,19 +202,22 @@
     const current = await registration(true);
     if (!current) throw new Error('Service Worker se nepodařilo zaregistrovat.');
     let sub = await current.pushManager.getSubscription();
-    if (!sub) {
-      const publicKey = await fetchPublicKey();
-      sub = await current.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: base64UrlToUint8Array(publicKey),
-      });
-    }
+    if (!sub) sub = await createBrowserSubscription(current);
 
     let result;
     try {
       // Activation must not depend on a test delivery. A temporary push-provider
       // outage must never unregister a valid browser subscription.
       result = await saveSubscription(sub, false);
+
+      // A server-side inactive endpoint must not trap the browser forever. Remove
+      // the stale endpoint once and create a fresh subscription without requiring
+      // an immediate provider round-trip.
+      if (result?.requires_test) {
+        await removeSubscription(sub);
+        sub = await createBrowserSubscription(current);
+        result = await saveSubscription(sub, false);
+      }
     } catch (error) {
       if (Number(error?.status || 0) === 409) await removeSubscription(sub);
       throw error;
