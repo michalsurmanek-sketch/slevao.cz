@@ -1,9 +1,17 @@
 (() => {
   'use strict';
 
+  const footerBootStyleId = 'slevaoFooterBootGuard';
+  if (!document.getElementById(footerBootStyleId)) {
+    const footerBootStyle = document.createElement('style');
+    footerBootStyle.id = footerBootStyleId;
+    footerBootStyle.textContent = '.footerQuickIcons:not([data-section-jumps="1"]){visibility:hidden!important}.footerDesktopAccount{display:none!important}';
+    document.head.appendChild(footerBootStyle);
+  }
+
   if (!document.querySelector('script[src*="footer-section-jumps.js"]')) {
     const sectionJumpScript = document.createElement('script');
-    sectionJumpScript.src = 'assets/footer-section-jumps.js?v=20260831-6';
+    sectionJumpScript.src = 'assets/footer-section-jumps.js?v=20260831-8';
     sectionJumpScript.defer = true;
     document.head.appendChild(sectionJumpScript);
   }
