@@ -56,6 +56,16 @@
     document.querySelectorAll('.footerDesktopAccount').forEach((item) => item.remove());
   }
 
+  function moveSocialUnderWatch() {
+    const watch = document.querySelector('.footerWatch');
+    if (!watch) return;
+    const socials = [...document.querySelectorAll('.footerSocial')];
+    if (!socials.length) return;
+    const keep = watch.querySelector('.footerSocial') || socials[0];
+    if (keep.parentElement !== watch) watch.appendChild(keep);
+    socials.forEach((item) => { if (item !== keep) item.remove(); });
+  }
+
   function resolve(item) {
     let target = null;
     if (item.href.startsWith('#')) {
@@ -68,6 +78,7 @@
   function install() {
     removeDiscountAlertFeature();
     removeDesktopAccount();
+    moveSocialUnderWatch();
     const host = document.querySelector('.footerQuickIcons');
     if (!host) return;
     host.dataset.sectionJumps = '1';
@@ -85,6 +96,16 @@
       target.scrollIntoView({ behavior:'smooth', block:'start' });
       history.replaceState(history.state, '', `${location.pathname}${location.search}`);
     });
+
+    const footer = document.querySelector('.footer');
+    if (footer) {
+      const observer = new MutationObserver(moveSocialUnderWatch);
+      observer.observe(footer, { childList:true, subtree:true });
+      window.setTimeout(() => observer.disconnect(), 5000);
+    }
+    window.setTimeout(moveSocialUnderWatch, 0);
+    window.setTimeout(moveSocialUnderWatch, 250);
+    window.setTimeout(moveSocialUnderWatch, 1000);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once:true });
