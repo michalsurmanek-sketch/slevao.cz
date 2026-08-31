@@ -31,9 +31,9 @@
       .footerColumnUseful{position:relative!important}
       .footerUsefulDesktopHead{display:block;width:100%;margin-bottom:12px}
       .footerUsefulDesktopHead>h3{margin:0!important}
-      .footerDesktopAccount{position:absolute;right:0;top:0;width:38px;height:38px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:11px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025)}
+      .footerDesktopAccount{position:absolute;right:0;top:166px;width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:14px;color:#fff;text-decoration:none;background:rgba(255,255,255,.025);box-sizing:border-box}
       .footerDesktopAccount:hover{border-color:#49dfcf;background:rgba(255,255,255,.10)}
-      .footerDesktopAccount svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+      .footerDesktopAccount svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       @media(max-width:620px){
         .footerUsefulDesktopHead{display:block;margin-bottom:0}
         .footerDesktopAccount{display:none!important}
@@ -74,7 +74,7 @@
     account.setAttribute('aria-label', 'Můj účet');
     account.title = 'Můj účet';
     account.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M5 21a7 7 0 0 1 14 0"/></svg>';
-    head.appendChild(account);
+    section.appendChild(account);
   }
 
   function resolve(item) {
