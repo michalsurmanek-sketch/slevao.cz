@@ -21,10 +21,10 @@
     style.textContent = `
       .footerQuickIcons.footerSectionJumpIcons{display:flex!important;flex-wrap:wrap!important;gap:10px!important;max-width:420px}
       .footerQuickIcons.footerSectionJumpIcons>a{width:64px!important;min-height:76px!important;display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:6px!important;flex:0 0 64px!important;padding:0!important;border:0!important;background:transparent!important;color:#fff!important;text-decoration:none!important;box-shadow:none!important;transition:transform .16s ease!important}
-      .footerQuickIcons.footerSectionJumpIcons .footerJumpIcon{width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(255,255,255,.30);border-radius:14px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
+      .footerQuickIcons.footerSectionJumpIcons .footerJumpIcon{width:54px;height:54px;display:grid;place-items:center;border:1px solid rgba(75,221,207,.42);border-radius:14px;background:rgba(255,255,255,.025);box-shadow:inset 0 1px 0 rgba(255,255,255,.04)}
       .footerQuickIcons.footerSectionJumpIcons .footerJumpLabel{display:block;color:#dce9e7;font-size:10px;line-height:1.15;text-align:center;white-space:normal}
       .footerQuickIcons.footerSectionJumpIcons>a:hover{transform:translateY(-2px)}
-      .footerQuickIcons.footerSectionJumpIcons>a:hover .footerJumpIcon{border-color:#fff;background:rgba(255,255,255,.10)}
+      .footerQuickIcons.footerSectionJumpIcons>a:hover .footerJumpIcon{border-color:#49dfcf;background:rgba(255,255,255,.10)}
       .footerQuickIcons.footerSectionJumpIcons svg{width:27px;height:27px;display:block;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
       .footerQuickIcons.footerSectionJumpIcons a:nth-child(2) svg,.footerQuickIcons.footerSectionJumpIcons a:nth-child(3) svg{fill:currentColor;stroke:none}
       @media(max-width:620px){
