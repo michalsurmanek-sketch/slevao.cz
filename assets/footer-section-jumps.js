@@ -46,9 +46,11 @@
     document.head.appendChild(style);
   }
 
-  function removeDiscountAlertFeature() {
-    document.querySelectorAll('.footerFeatures>.footerFeature').forEach((item) => {
-      if ((item.textContent || '').includes('Upozornění na slevy')) item.remove();
+  function keepOnlyThreeFeatures() {
+    const list = document.querySelector('.footerFeatures');
+    if (!list) return;
+    Array.from(list.children).forEach((item, index) => {
+      if (index >= 3 || (item.textContent || '').includes('Upozornění na slevy')) item.remove();
     });
   }
 
@@ -76,7 +78,7 @@
   }
 
   function install() {
-    removeDiscountAlertFeature();
+    keepOnlyThreeFeatures();
     removeDesktopAccount();
     moveSocialUnderWatch();
     const host = document.querySelector('.footerQuickIcons');
@@ -99,10 +101,15 @@
 
     const footer = document.querySelector('.footer');
     if (footer) {
-      const observer = new MutationObserver(moveSocialUnderWatch);
+      const observer = new MutationObserver(() => {
+        keepOnlyThreeFeatures();
+        moveSocialUnderWatch();
+      });
       observer.observe(footer, { childList:true, subtree:true });
-      window.setTimeout(() => observer.disconnect(), 5000);
     }
+    window.setTimeout(keepOnlyThreeFeatures, 0);
+    window.setTimeout(keepOnlyThreeFeatures, 250);
+    window.setTimeout(keepOnlyThreeFeatures, 1000);
     window.setTimeout(moveSocialUnderWatch, 0);
     window.setTimeout(moveSocialUnderWatch, 250);
     window.setTimeout(moveSocialUnderWatch, 1000);
