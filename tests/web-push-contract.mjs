@@ -3,13 +3,18 @@ import { readFileSync } from 'node:fs';
 
 const root = new URL('../', import.meta.url);
 const client = readFileSync(new URL('assets/web-push.js', root), 'utf8');
+const pushWorker = readFileSync(new URL('push-service-worker.js', root), 'utf8');
 const edge = readFileSync(new URL('supabase/functions/web-push/index.ts', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const accountRuntime = readFileSync(new URL('assets/account.js', root), 'utf8');
 
-assert.match(account, /assets\/web-push\.js\?v=20260831-1/, 'Účet musí načítat aktuální web-push runtime.');
+assert.match(account, /assets\/web-push\.js\?v=20260831-1&push=2/, 'Účet musí načítat aktuální izolovaný web-push runtime.');
 
-assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího service workeru.');
+assert.match(client, /const SW_URL = '\/push-service-worker\.js';/, 'Push musí používat samostatný service worker bez závislosti na PWA precache.');
+assert.match(client, /const SW_SCOPE = '\/push\/';/, 'Samostatný push worker musí používat oddělený scope.');
+assert.match(client, /waitForActiveRegistration/, 'Aktivační tok musí počkat na aktivní push worker bez navigator.serviceWorker.ready.');
+assert.doesNotMatch(client, /navigator\.serviceWorker\.ready/, 'Push aktivace nesmí čekat na root PWA worker.');
+assert.match(client, /await current\.update\(\)\.catch\(\(\) => \{\}\)/, 'Aktivační tok musí vynutit kontrolu aktualizace existujícího push workeru.');
 assert.match(client, /Notification\.permission !== 'granted'/, 'Automatická oprava nesmí sama vyvolávat permission prompt.');
 assert.match(client, /if \(!sub\) sub = await createBrowserSubscription\(current\);/, 'Při již uděleném povolení musí účet umět automaticky obnovit chybějící browser subscription.');
 assert.match(client, /async function activateServerSubscription\(current, sub\)/, 'Klient musí sdílet jeden serverově potvrzený aktivační tok.');
@@ -23,6 +28,12 @@ assert.match(client, /result\?\.gone === true/, 'Definitivně zaniklý endpoint 
 assert.match(client, /event\.target\.closest\?\.\('#enableBrowserAlerts'\)/, 'Web Push runtime musí vlastnit kliknutí na aktivační tlačítko.');
 assert.match(client, /event\.stopImmediatePropagation\(\)/, 'Aktivace push musí zastavit případné staré click handlery.');
 assert.match(client, /enableFromUser\(\)/, 'Kliknutí musí vést přes plný serverově ověřený aktivační tok.');
+assert.match(client, /document\.readyState === 'loading'/, 'Web Push boot musí fungovat i při již dokončeném DOMContentLoaded.');
+
+assert.match(pushWorker, /self\.addEventListener\('push'/, 'Izolovaný worker musí zpracovávat push event.');
+assert.match(pushWorker, /self\.registration\.showNotification/, 'Izolovaný worker musí zobrazit systémovou notifikaci.');
+assert.match(pushWorker, /self\.addEventListener\('notificationclick'/, 'Izolovaný worker musí obsloužit kliknutí na notifikaci.');
+assert.doesNotMatch(pushWorker, /cache\.addAll|caches\.open/, 'Push worker nesmí být závislý na precache statických assetů.');
 
 assert.doesNotMatch(accountRuntime, /function updateBrowserAlertButton\(/, 'Account runtime už nesmí samostatně odvozovat stav push jen z Notification.permission.');
 assert.doesNotMatch(accountRuntime, /\$\('enableBrowserAlerts'\)\?\.addEventListener/, 'Account runtime nesmí mít druhý click handler aktivačního tlačítka.');
