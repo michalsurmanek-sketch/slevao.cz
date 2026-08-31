@@ -11,9 +11,12 @@ assert.match(account, /assets\/web-push\.js\?v=20260822-2/, 'Účet musí načí
 
 assert.match(client, /const browserReady = Boolean\(sub && Notification\.permission === 'granted'\)/, 'Klient musí oddělit lokální browser subscription od serverového potvrzení.');
 assert.match(client, /subscribed = result\?\.subscribed === true;/, 'Background sync smí hlásit aktivní stav jen po potvrzení serverem.');
-assert.match(client, /result\?\.subscribed !== true \|\| result\?\.test_sent !== true/, 'Explicitní aktivace musí vyžadovat serverové potvrzení i testovací push.');
-assert.match(client, /await removeSubscription\(sub\);/, 'Neúspěšná explicitní aktivace musí uklidit lokální i serverovou subscription.');
-assert.match(client, /result\?\.requires_test/, 'Klient musí umět nabídnout opětovné potvrzení mrtvé subscription.');
+assert.match(client, /result = await saveSubscription\(sub, false\);/, 'Explicitní aktivace musí uložit subscription bez závislosti na okamžitém testovacím pushi.');
+assert.doesNotMatch(client, /saveSubscription\(sub, true\)/, 'Aktivace zařízení nesmí být podmíněná okamžitým testovacím push doručením.');
+assert.match(client, /if \(result\?\.requires_test\)/, 'Klient musí rozpoznat starý neaktivní endpoint.');
+assert.match(client, /await removeSubscription\(sub\);[\s\S]*sub = await createBrowserSubscription\(current\);[\s\S]*result = await saveSubscription\(sub, false\);/, 'Starý neaktivní endpoint se musí jednou recyklovat na čerstvou subscription bez testovací brány.');
+assert.match(client, /Number\(error\?\.status \|\| 0\) === 409/, 'Automatické odstranění subscription při chybě smí být omezené na konflikt vlastnictví endpointu.');
+assert.match(client, /result\?\.gone === true/, 'Definitivně zaniklý endpoint musí být možné bezpečně uklidit.');
 assert.match(client, /event\.target\.closest\?\.\('#enableBrowserAlerts'\)/, 'Web Push runtime musí vlastnit kliknutí na aktivační tlačítko.');
 assert.match(client, /event\.stopImmediatePropagation\(\)/, 'Aktivace push musí zastavit případné staré click handlery.');
 assert.match(client, /enableFromUser\(\)/, 'Kliknutí musí vést přes plný serverově ověřený aktivační tok.');
@@ -23,16 +26,16 @@ assert.doesNotMatch(accountRuntime, /\$\('enableBrowserAlerts'\)\?\.addEventList
 assert.doesNotMatch(accountRuntime, /Notification\.requestPermission\(\)/, 'Account runtime nesmí obcházet serverově ověřený Web Push aktivační tok.');
 assert.match(accountRuntime, /function deliverBrowserNotification\(row\)/, 'Foreground zobrazení už doručených DB notifikací musí zůstat zachované.');
 
-assert.match(edge, /const sendTest = body\?\.send_test === true;/, 'Edge Function musí rozlišovat explicitní test od background synchronizace.');
-assert.match(edge, /existing && existing\.is_active === false && !sendTest/, 'Background sync nesmí reaktivovat dříve deaktivovaný endpoint.');
-assert.match(edge, /subscribed: false, requires_test: true/, 'Mrtvý endpoint musí vyžadovat nový explicitní test.');
-assert.match(edge, /if \(!result\.sent\)/, 'Neúspěšný test musí mít explicitní větev.');
-assert.match(edge, /update\(\{ is_active: false, updated_at:/, 'Neúspěšný test musí subscription ponechat neaktivní.');
-assert.match(edge, /subscribed: false, test_sent: false, requires_test: true/, 'Neúspěšný test nesmí být reportován jako aktivní subscription.');
+assert.match(edge, /const sendTest = body\?\.send_test === true;/, 'Edge Function musí stále podporovat oddělený diagnostický testovací režim.');
+assert.match(edge, /existing && existing\.is_active === false && !sendTest/, 'Background sync nesmí automaticky reaktivovat dříve deaktivovaný endpoint.');
+assert.match(edge, /subscribed: false, requires_test: true/, 'Neaktivní endpoint musí klientovi umožnit řízenou obnovu.');
+assert.match(edge, /if \(!result\.sent\)/, 'Diagnostický test musí mít explicitní větev pro selhání doručení.');
+assert.match(edge, /update\(\{ is_active: false, updated_at:/, 'Selhaný diagnostický test musí subscription ponechat neaktivní.');
+assert.match(edge, /subscribed: false, test_sent: false, requires_test: true/, 'Selhaný diagnostický test nesmí být reportován jako aktivní subscription.');
 
 const testPos = edge.indexOf('if (sendTest)');
 const capPos = edge.indexOf('await enforceSubscriptionCap', testPos);
-assert.ok(testPos >= 0 && capPos > testPos, 'Limit zařízení se smí aplikovat až po úspěšném testu nové subscription.');
+assert.ok(testPos >= 0 && capPos > testPos, 'Limit zařízení se smí v diagnostickém testovacím toku aplikovat až po úspěšném testu nové subscription.');
 
 assert.match(edge, /isDirectPrivateOrLocalHost/, 'SSRF ochrana push endpointů musí zůstat zachovaná.');
 assert.match(edge, /x-cron-secret/, 'Interní dispatch musí zůstat chráněný cron secretem.');
