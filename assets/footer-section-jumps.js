@@ -44,27 +44,10 @@
     document.head.appendChild(style);
   }
 
-  const fourthFeatureStyle = document.createElement('style');
-  fourthFeatureStyle.textContent = `
-    @media(max-width:620px){
-      .footerFeatures>.footerFeature:nth-child(4){display:flex!important;flex-direction:column!important;align-items:center!important;justify-content:flex-start!important;gap:7px!important;text-align:center!important;overflow:hidden!important}
-      .footerFeatures>.footerFeature:nth-child(4)>.footerFeatureIcon{display:grid!important;place-items:center!important;order:1!important;margin:0 auto!important;position:static!important;transform:none!important}
-      .footerFeatures>.footerFeature:nth-child(4)>.footerFeatureLabel{order:2!important;display:block!important;width:100%!important;max-width:100%!important;margin:0!important;padding:0 2px!important;position:static!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;transform:none!important;text-align:center!important;white-space:normal!important;overflow-wrap:anywhere!important;font-size:9px!important;line-height:1.15!important}
-    }
-  `;
-  document.head.appendChild(fourthFeatureStyle);
-
-  function ensureFourthFooterFeature() {
-    const list = document.querySelector('.footerFeatures');
-    if (!list) return;
-    let item = list.children[3];
-    if (!item) {
-      item = document.createElement('li');
-      item.className = 'footerFeature';
-      list.appendChild(item);
-    }
-    item.className = 'footerFeature';
-    item.innerHTML = '<span class="footerFeatureIcon" aria-hidden="true">♧</span><span class="footerFeatureLabel">Upozornění na slevy</span>';
+  function removeDiscountAlertFeature() {
+    document.querySelectorAll('.footerFeatures>.footerFeature').forEach((item) => {
+      if ((item.textContent || '').includes('Upozornění na slevy')) item.remove();
+    });
   }
 
   function resolve(item) {
@@ -77,7 +60,7 @@
   }
 
   function install() {
-    ensureFourthFooterFeature();
+    removeDiscountAlertFeature();
     const host = document.querySelector('.footerQuickIcons');
     if (!host) return;
     host.dataset.sectionJumps = '1';
@@ -97,15 +80,6 @@
     });
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      install();
-      setTimeout(ensureFourthFooterFeature, 250);
-      setTimeout(ensureFourthFooterFeature, 1000);
-    }, { once:true });
-  } else {
-    install();
-    setTimeout(ensureFourthFooterFeature, 250);
-    setTimeout(ensureFourthFooterFeature, 1000);
-  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once:true });
+  else install();
 })();
