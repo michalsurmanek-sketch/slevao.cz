@@ -1,0 +1,63 @@
+name: One-shot inline homepage footer CSS
+
+on:
+  push:
+    branches:
+      - perf/footer-css-request-20260901
+    paths:
+      - .github/workflows/inline-home-footer-css-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  inline-footer-css:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/footer-css-request-20260901
+          fetch-depth: 0
+
+      - name: Inline homepage-only footer cascade
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          home = Path('assets/home-footer-redesign.css')
+          trust = Path('assets/footer-trust-upgrade.css')
+          generated = Path('assets/footer-generated-bg.css')
+          index = Path('index.html')
+
+          home_text = home.read_text(encoding='utf-8')
+          trust_text = trust.read_text(encoding='utf-8').strip()
+          generated_text = generated.read_text(encoding='utf-8')
+          generated_text = generated_text.replace('@import url("footer-trust-upgrade.css?v=20260811-2");\n\n', '', 1).strip()
+
+          marker = '/* Homepage footer cascade inlined to remove two stylesheet requests. */'
+          if marker in home_text:
+              raise SystemExit('Footer cascade marker already present')
+
+          home.write_text(home_text.rstrip() + '\n\n' + marker + '\n' + trust_text + '\n\n' + generated_text + '\n', encoding='utf-8')
+
+          index_text = index.read_text(encoding='utf-8')
+          old = '  <link rel="stylesheet" href="assets/footer-generated-bg.css?v=20260808-6">\n'
+          if index_text.count(old) != 1:
+              raise SystemExit(f'Expected one footer-generated link, found {index_text.count(old)}')
+          index.write_text(index_text.replace(old, '', 1), encoding='utf-8')
+          PY
+          git diff --check
+          grep -F "Homepage footer cascade inlined" assets/home-footer-redesign.css
+          ! grep -F "footer-generated-bg.css" index.html
+
+      - name: Commit exact replacement and remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/inline-home-footer-css-once.yml
+          git add index.html assets/home-footer-redesign.css
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Inline homepage footer CSS cascade"
+          git push origin HEAD:perf/footer-css-request-20260901
