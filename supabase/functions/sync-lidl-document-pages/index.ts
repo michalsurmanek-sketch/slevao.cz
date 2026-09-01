@@ -79,6 +79,13 @@ function requireHttpsHost(value: unknown, host: string, label: string) {
   return url.toString();
 }
 
+function optionalHttpsHost(value: unknown, host: string, label: string) {
+  const text = String(value || '').trim();
+  if (!text) return null;
+  try { return requireHttpsHost(text, host, label); }
+  catch { return null; }
+}
+
 async function fetchJson(url: string, timeoutMs = 30_000) {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -107,9 +114,11 @@ function currentFlyers(overview: any): FlyerCandidate[] {
     const validTo = String(flyer?.offerEndDate || flyer?.endDate || '').slice(0, 10);
     if (flyer?.isActive === false || !/^\d{4}-\d{2}-\d{2}$/.test(validFrom) || !/^\d{4}-\d{2}-\d{2}$/.test(validTo)) return null;
     if (validTo < today || validFrom > horizon) return null;
-    const pdfUrl = requireHttpsHost(flyer?.pdfUrl, 'assets.leaflets.schwarz', 'pdfUrl');
-    if (!/\/Akcni-letak-OD-/i.test(new URL(pdfUrl).pathname)) return null;
-    const flyerJson = requireHttpsHost(flyer?.flyerJson, 'endpoints.leaflets.schwarz', 'flyerJson');
+
+    const pdfUrl = optionalHttpsHost(flyer?.pdfUrl, 'assets.leaflets.schwarz', 'pdfUrl');
+    const flyerJson = optionalHttpsHost(flyer?.flyerJson, 'endpoints.leaflets.schwarz', 'flyerJson');
+    if (!pdfUrl || !flyerJson || !/\/Akcni-letak-OD-/i.test(new URL(pdfUrl).pathname)) return null;
+
     return {
       id: String(flyer?.id || ''),
       pdfUrl,
@@ -137,9 +146,13 @@ function positiveInteger(value: unknown) {
 function normalizePages(payload: any, candidate: FlyerCandidate): PagePayload[] {
   const flyer = payload?.flyer;
   if (!flyer || !Array.isArray(flyer.pages)) throw new Error('Lidl pages: flyer JSON has no pages array.');
-  if (String(flyer.pdfUrl || '') && new URL(String(flyer.pdfUrl)).pathname !== new URL(candidate.pdfUrl).pathname) {
-    throw new Error('Lidl pages: flyer JSON PDF identity does not match overview.');
+  if (String(flyer.pdfUrl || '')) {
+    const payloadPdf = requireHttpsHost(flyer.pdfUrl, 'assets.leaflets.schwarz', 'flyer JSON pdfUrl');
+    if (new URL(payloadPdf).pathname !== new URL(candidate.pdfUrl).pathname) {
+      throw new Error('Lidl pages: flyer JSON PDF identity does not match overview.');
+    }
   }
+
   const pages = flyer.pages;
   if (pages.length < 1 || pages.length > 200) throw new Error(`Lidl pages: invalid page count ${pages.length}.`);
 
@@ -178,7 +191,7 @@ async function syncCandidate(storeId: string, candidate: FlyerCandidate) {
   const payload = await fetchJson(candidate.flyerJson);
   const pages = normalizePages(payload, candidate);
 
-  const { data: replaced, error: replaceError } = await db.schema('private').rpc('replace_leaflet_document_pages', {
+  const { data: replaced, error: replaceError } = await db.rpc('replace_leaflet_document_pages_internal', {
     p_store_id: storeId,
     p_source_document_url: candidate.pdfUrl,
     p_source_kind: SOURCE_KIND,
