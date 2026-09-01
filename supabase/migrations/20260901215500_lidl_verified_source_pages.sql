@@ -169,7 +169,12 @@ as $function$
 begin
   if new.status='published'
      and new.metadata->>'adapter'='lidl-verified-pdf-text-v1'
-     and (tg_op='INSERT' or old.status is distinct from new.status) then
+     and (
+       tg_op='INSERT'
+       or old.status is distinct from new.status
+       or old.metadata->>'page_identity_synced_at' is distinct from new.metadata->>'page_identity_synced_at'
+       or old.metadata->>'page_identity_available' is distinct from new.metadata->>'page_identity_available'
+     ) then
     perform private.backfill_lidl_verified_source_pages(new.id);
   end if;
   return new;
@@ -180,6 +185,6 @@ revoke all on function private.backfill_lidl_source_pages_after_publish() from p
 
 drop trigger if exists trg_lidl_verified_source_pages_after_publish on public.leaflet_imports;
 create trigger trg_lidl_verified_source_pages_after_publish
-after insert or update of status on public.leaflet_imports
+after insert or update of status, metadata on public.leaflet_imports
 for each row
 execute function private.backfill_lidl_source_pages_after_publish();
