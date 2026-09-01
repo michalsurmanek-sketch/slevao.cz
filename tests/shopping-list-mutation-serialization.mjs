@@ -35,7 +35,9 @@ assert.ok(
 const versionMatch = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/);
 assert.ok(versionMatch, 'Identity bootstrap nemá verzovaný shopping-list runtime.');
 assert.doesNotMatch(listHtml, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít identity bootstrap přímým shopping-list loaderem.');
-assert.match(worker, new RegExp(`assets/shopping-list\\.js\\?v=${versionMatch[1]}`), 'PWA nemá stejnou shopping-list runtime verzi jako identity bootstrap.');
+assert.doesNotMatch(worker, new RegExp(`assets/shopping-list\\.js\\?v=${versionMatch[1]}`), 'shopping-list.js se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("cache: 'reload'"), 'Shopping-list runtime musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Shopping-list runtime musí být po úspěšném načtení uložitelný do runtime cache.');
 
 const helperStart = source.indexOf('  function mutationKey(row)');
 const helperEnd = source.indexOf('\n  function productSignature', helperStart);
