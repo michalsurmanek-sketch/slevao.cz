@@ -8,6 +8,10 @@ on:
         description: Maximální počet produktů pro hledání existujících fotografií
         required: false
         default: '30'
+      lidl_limit:
+        description: Prioritní dávka aktuálních Lidl produktů bez ověřené fotografie
+        required: false
+        default: '10'
       generic_limit:
         description: Maximální počet neznačkových produktů pro generování
         required: false
@@ -59,6 +63,33 @@ jobs:
             retry_after="$(jq -r '.retry_after // empty' <<<"$response")"
             echo "::warning title=Hledání produktových fotografií pozastaveno::$blocked_reason${retry_after:+; retry_after=$retry_after}"
             printf '### ⚠️ Hledání produktových fotografií pozastaveno\n- Důvod: `%s`\n- Další pokus po: `%s`\n' "$blocked_reason" "${retry_after:-neuvedeno}" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Prioritně zkontrolovat aktuální Lidl produkty
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LIDL_LIMIT: ${{ github.event.inputs.lidl_limit || '10' }}
+        run: |
+          response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "$SUPABASE_URL/functions/v1/discover-product-images" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"limit\":$LIDL_LIMIT,\"store_slug\":\"lidl\"}")"
+          printf '%s\n' "$response"
+          blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
+          if [[ -n "$blocked_reason" ]]; then
+            retry_after="$(jq -r '.retry_after // empty' <<<"$response")"
+            echo "::warning title=Lidl fotografie pozastaveny::$blocked_reason${retry_after:+; retry_after=$retry_after}"
+            printf '### ⚠️ Prioritní Lidl image discovery pozastaveno\n- Důvod: `%s`\n- Další pokus po: `%s`\n' "$blocked_reason" "${retry_after:-neuvedeno}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            checked="$(jq -r '.checked // 0' <<<"$response")"
+            created="$(jq -r '.created // 0' <<<"$response")"
+            without_match="$(jq -r '.without_match // 0' <<<"$response")"
+            printf '### Lidl image discovery\n- Zkontrolováno: `%s`\n- Kandidátů: `%s`\n- Bez shody: `%s`\n' "$checked" "$created" "$without_match" >> "$GITHUB_STEP_SUMMARY"
           fi
 
       - name: Zpracovat bezpečnou dávku neznačkových produktů
