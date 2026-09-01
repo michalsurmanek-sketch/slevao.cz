@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
-const CSS_BUDGET = 36;
+const CSS_BUDGET = 35;
 const JS_BUDGET = 41;
 
 test('homepage stays within real CSS and JavaScript request budget', async ({ page }) => {
