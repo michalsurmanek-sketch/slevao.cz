@@ -153,10 +153,10 @@ function normalizePages(payload: any, candidate: FlyerCandidate): PagePayload[] 
     }
   }
 
-  const pages = flyer.pages;
+  const pages: any[] = flyer.pages;
   if (pages.length < 1 || pages.length > 200) throw new Error(`Lidl pages: invalid page count ${pages.length}.`);
 
-  const normalized = pages.map((page: any): PagePayload => {
+  const normalized: PagePayload[] = pages.map((page: any): PagePayload => {
     const pageNumber = positiveInteger(page?.number);
     if (!pageNumber || pageNumber > 200) throw new Error('Lidl pages: invalid page number.');
     const imageUrl = requireHttpsHost(page?.image, 'imgproxy.leaflets.schwarz', `page ${pageNumber} image`);
@@ -178,9 +178,9 @@ function normalizePages(payload: any, candidate: FlyerCandidate): PagePayload[] 
         official_flyer_json_url: candidate.flyerJson,
       },
     };
-  }).sort((a, b) => a.page_number - b.page_number);
+  }).sort((a: PagePayload, b: PagePayload) => a.page_number - b.page_number);
 
-  const numbers = normalized.map((page) => page.page_number);
+  const numbers = normalized.map((page: PagePayload) => page.page_number);
   if (new Set(numbers).size !== normalized.length || numbers[0] !== 1 || numbers[numbers.length - 1] !== normalized.length) {
     throw new Error('Lidl pages: page numbers are not unique contiguous 1..N.');
   }
