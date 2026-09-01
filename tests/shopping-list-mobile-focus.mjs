@@ -31,6 +31,8 @@ const summaryUrl = html.match(/assets\/shopping-list-price-summary-v2\.css\?v=[^
 assert.match(focusUrl, /^assets\/shopping-list-mobile-focus\.css\?v=\d{8}-\d+$/, 'seznam.html nenačítá verzovaný mobile-focus CSS.');
 assert.ok(html.indexOf(redesignUrl) < html.indexOf(focusUrl), 'Mobile-focus CSS musí přepsat základní redesign až po jeho načtení.');
 assert.ok(html.indexOf(summaryUrl) < html.indexOf(focusUrl), 'Mobile-focus CSS musí být poslední list layout override.');
-assert.ok(worker.includes(`'/${focusUrl}'`), 'PWA shell necachuje mobile-focus CSS.');
+assert.ok(!worker.includes(`'/${focusUrl}'`), 'Mobile-focus CSS se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("cache: 'reload'"), 'Mobile-focus CSS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Mobile-focus CSS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping list mobile hero and 320px focus layout OK');
