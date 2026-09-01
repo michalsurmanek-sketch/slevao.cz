@@ -249,21 +249,28 @@ async function loadOffers(limit: number, options: LoadOfferOptions = {}): Promis
   const today = new Date().toISOString().slice(0, 10);
   let query = db.from('offers')
     .select(`id,product_id,store_id,title,image_url,published_at,products(${PRODUCT_SELECT})`)
-    .eq('status', 'published')
-    .order('published_at', { ascending: false, nullsFirst: false })
-    .limit(limit);
+    .eq('status', 'published');
 
   if (options.offerId) {
-    query = query.eq('id', options.offerId).limit(1);
+    query = query
+      .eq('id', options.offerId)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(1);
   } else if (options.recheckMissingImages) {
     if (!options.storeId) throw new Error('recheck_missing_images vyžaduje store_slug.');
     query = query
       .eq('store_id', options.storeId)
       .is('image_url', null)
       .lte('valid_from', today)
-      .gte('valid_to', today);
+      .gte('valid_to', today)
+      .order('catalog_checked_at', { ascending: true, nullsFirst: true })
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(limit);
   } else {
-    query = query.is('catalog_checked_at', null);
+    query = query
+      .is('catalog_checked_at', null)
+      .order('published_at', { ascending: false, nullsFirst: false })
+      .limit(limit);
   }
 
   const { data, error } = await query;
