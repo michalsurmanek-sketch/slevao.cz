@@ -1,0 +1,66 @@
+name: Inline mobile hero CSS once
+
+on:
+  push:
+    branches:
+      - perf/mobile-hero-css-inline-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/mobile-hero-css-inline-20260901
+          fetch-depth: 0
+
+      - name: Inline mobile hero styles into adjacent mobile deals stylesheet
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          hero_path = Path('assets/mobile-hero-compact.css')
+          deals_path = Path('assets/mobile-deals-heading-fix.css')
+          index_path = Path('index.html')
+
+          hero = hero_path.read_text(encoding='utf-8').strip()
+          deals = deals_path.read_text(encoding='utf-8')
+          marker = '/* Homepage bundle: mobile hero compact */'
+          if marker in deals:
+              raise SystemExit('mobile hero CSS already bundled')
+          deals_path.write_text(deals.rstrip() + '\n\n' + marker + '\n' + hero + '\n', encoding='utf-8')
+
+          index = index_path.read_text(encoding='utf-8')
+          hero_link = '  <link rel="stylesheet" href="assets/mobile-hero-compact.css?v=20260829-1">\n'
+          if index.count(hero_link) != 1:
+              raise SystemExit(f'expected exactly one mobile hero link, got {index.count(hero_link)}')
+          index = index.replace(hero_link, '', 1)
+
+          old_deals = 'assets/mobile-deals-heading-fix.css?v=20260828-2'
+          new_deals = 'assets/mobile-deals-heading-fix.css?v=20260901-3'
+          if index.count(old_deals) != 1:
+              raise SystemExit(f'expected exactly one mobile deals CSS ref, got {index.count(old_deals)}')
+          index = index.replace(old_deals, new_deals, 1)
+          index_path.write_text(index, encoding='utf-8')
+          PY
+
+          grep -n 'Homepage bundle: mobile hero compact' assets/mobile-deals-heading-fix.css
+          grep -n 'mobile-deals-heading-fix.css?v=20260901-3' index.html
+          if grep -n 'mobile-hero-compact.css' index.html; then
+            echo 'Standalone mobile hero CSS still referenced on homepage.' >&2
+            exit 1
+          fi
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          git rm .github/workflows/inline-mobile-hero-css-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/mobile-deals-heading-fix.css index.html
+          git commit -m "Inline homepage mobile hero styles"
+          git push origin HEAD:perf/mobile-hero-css-inline-20260901
