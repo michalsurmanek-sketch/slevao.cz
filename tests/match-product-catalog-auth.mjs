@@ -19,4 +19,24 @@ assert.match(queueMigration, /x-cron-secret/, 'Queue launcher neposílá cron se
 assert.match(lockMigration, /revoke execute on function public\.queue_product_catalog_matching\(integer\) from public, anon, authenticated;/, 'Queue launcher není odebraný klientským rolím.');
 assert.match(lockMigration, /grant execute on function public\.queue_product_catalog_matching\(integer\) to service_role;/, 'Queue launcher nemá explicitní service_role grant.');
 
-console.log('Catalog matcher custom auth boundary OK');
+assert.match(fn, /const AUTO_MATCH_THRESHOLD = 0\.92;/, 'Bezpečný katalogový threshold se nesmí snížit pod 0.92.');
+assert.match(
+  fn,
+  /product\?\.image_url && product\.image_verified && Number\(product\.image_quality \|\| 0\) >= 70/,
+  'Automaticky přebíraný obrázek musí zůstat verified a s kvalitou alespoň 70.',
+);
+assert.match(fn, /recheck_missing_images/, 'Catalog matcher musí podporovat explicitní recheck chybějících obrázků.');
+assert.match(fn, /store_slug/, 'Image recheck musí být omezen konkrétním obchodem.');
+assert.match(fn, /recheck_missing_images vyžaduje store_slug/, 'Image recheck bez store_slug musí být odmítnut.');
+assert.match(fn, /\.eq\('store_id', options\.storeId\)/, 'Image recheck musí filtrovat jediný obchod.');
+assert.match(fn, /\.is\('image_url', null\)/, 'Image recheck smí vybírat jen nabídky bez obrázku.');
+assert.match(fn, /\.lte\('valid_from', today\)/, 'Image recheck musí ignorovat budoucí nabídky.');
+assert.match(fn, /\.gte\('valid_to', today\)/, 'Image recheck musí ignorovat prošlé nabídky.');
+assert.match(
+  fn,
+  /options\.recheckMissingImages && !isApprovedImage\(product\)/,
+  'V image recheck režimu nesmí být kandidátem produkt bez schváleného obrázku.',
+);
+assert.match(fn, /offer_id nelze kombinovat s recheck_missing_images/, 'Jednorázový offer_id režim se nesmí míchat s hromadným recheckem.');
+
+console.log('Catalog matcher custom auth + safe image recheck boundary OK');

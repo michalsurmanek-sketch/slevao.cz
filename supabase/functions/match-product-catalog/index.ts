@@ -62,6 +62,12 @@ type Evaluation = {
   reasons: string[];
 };
 
+type LoadOfferOptions = {
+  offerId?: string;
+  storeId?: string;
+  recheckMissingImages?: boolean;
+};
+
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
@@ -212,6 +218,16 @@ async function authorize(request: Request): Promise<boolean> {
   return ['admin', 'editor'].includes(String(data.user?.app_metadata?.role || '').toLowerCase());
 }
 
+async function resolveStoreId(storeSlug: string): Promise<string> {
+  const { data, error } = await db.from('stores')
+    .select('id')
+    .eq('slug', storeSlug)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.id) throw new Error(`Obchod ${storeSlug} nebyl nalezen.`);
+  return String(data.id);
+}
+
 async function loadProducts(): Promise<Product[]> {
   const { data, error } = await db.from('products')
     .select(PRODUCT_SELECT)
@@ -229,14 +245,27 @@ async function loadAliases(): Promise<Alias[]> {
   return (data || []) as Alias[];
 }
 
-async function loadOffers(limit: number, offerId?: string): Promise<Offer[]> {
+async function loadOffers(limit: number, options: LoadOfferOptions = {}): Promise<Offer[]> {
+  const today = new Date().toISOString().slice(0, 10);
   let query = db.from('offers')
     .select(`id,product_id,store_id,title,image_url,published_at,products(${PRODUCT_SELECT})`)
     .eq('status', 'published')
     .order('published_at', { ascending: false, nullsFirst: false })
     .limit(limit);
-  if (offerId) query = query.eq('id', offerId).limit(1);
-  else query = query.is('catalog_checked_at', null);
+
+  if (options.offerId) {
+    query = query.eq('id', options.offerId).limit(1);
+  } else if (options.recheckMissingImages) {
+    if (!options.storeId) throw new Error('recheck_missing_images vyžaduje store_slug.');
+    query = query
+      .eq('store_id', options.storeId)
+      .is('image_url', null)
+      .lte('valid_from', today)
+      .gte('valid_to', today);
+  } else {
+    query = query.is('catalog_checked_at', null);
+  }
+
   const { data, error } = await query;
   if (error) throw error;
   return (data || []) as unknown as Offer[];
@@ -405,9 +434,9 @@ function candidateIdsFor(title: string, exact: Map<string, Set<string>>, tokenIn
   return [...ids];
 }
 
-async function processCatalog(limit: number, offerId?: string) {
+async function processCatalog(limit: number, options: LoadOfferOptions = {}) {
   const startedAt = Date.now();
-  const [baselineProducts, baselineAliases, offers] = await Promise.all([loadProducts(), loadAliases(), loadOffers(limit, offerId)]);
+  const [baselineProducts, baselineAliases, offers] = await Promise.all([loadProducts(), loadAliases(), loadOffers(limit, options)]);
   const exactCandidates = await loadExactCandidateData(offers);
 
   const productById = new Map<string, Product>();
@@ -442,6 +471,7 @@ async function processCatalog(limit: number, offerId?: string) {
       for (const productId of candidateIds) {
         const product = productById.get(productId);
         if (!product) continue;
+        if (options.recheckMissingImages && !isApprovedImage(product)) continue;
         const evaluation = evaluateCandidate(offer.title, product, aliasesByProduct.get(productId) || []);
         if (!best || evaluation.score > best.score || (evaluation.score === best.score && evaluation.autoSafe && !best.autoSafe)) best = evaluation;
       }
@@ -480,6 +510,7 @@ async function processCatalog(limit: number, offerId?: string) {
   }
 
   return {
+    mode: options.recheckMissingImages ? 'recheck_missing_images' : options.offerId ? 'offer_id' : 'unchecked',
     requested: offers.length,
     checked,
     matched,
@@ -501,7 +532,24 @@ Deno.serve(async (request) => {
   try {
     const body = await request.json().catch(() => ({}));
     const limit = Math.max(1, Math.min(Number(body.limit) || 40, 80));
-    return jsonResponse({ ok: true, ...(await processCatalog(limit, body.offer_id ? String(body.offer_id) : undefined)) });
+    const offerId = body.offer_id ? String(body.offer_id).trim() : undefined;
+    const storeSlug = typeof body.store_slug === 'string' ? body.store_slug.trim().toLowerCase() : '';
+    const recheckMissingImages = body.recheck_missing_images === true;
+
+    if (offerId && recheckMissingImages) {
+      return jsonResponse({ error: 'offer_id nelze kombinovat s recheck_missing_images.' }, 400);
+    }
+    if (recheckMissingImages && !storeSlug) {
+      return jsonResponse({ error: 'recheck_missing_images vyžaduje store_slug.' }, 400);
+    }
+
+    const storeId = recheckMissingImages ? await resolveStoreId(storeSlug) : undefined;
+    return jsonResponse({
+      ok: true,
+      store_slug: storeSlug || null,
+      recheck_missing_images: recheckMissingImages,
+      ...(await processCatalog(limit, { offerId, storeId, recheckMissingImages })),
+    });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('match-product-catalog failed:', message);
