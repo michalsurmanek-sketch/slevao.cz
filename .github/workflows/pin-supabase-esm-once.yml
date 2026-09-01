@@ -1,0 +1,47 @@
+name: Pin Supabase ESM fallback once
+
+on:
+  push:
+    branches:
+      - fix/pin-supabase-esm-fallback-20260901
+    paths:
+      - .github/workflows/pin-supabase-esm-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/pin-supabase-esm-fallback-20260901
+          fetch-depth: 0
+      - name: Pin exact ESM fallback
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          path = Path('assets/public-features.js')
+          source = path.read_text(encoding='utf-8')
+          old = "https://esm.sh/@supabase/supabase-js@2"
+          new = "https://esm.sh/@supabase/supabase-js@2.112.4"
+          if source.count(old) != 1:
+              raise SystemExit(f'Expected one floating ESM fallback, found {source.count(old)}')
+          source = source.replace(old, new, 1)
+          if "https://esm.sh/@supabase/supabase-js@2')" in source:
+              raise SystemExit('Floating ESM fallback remains')
+          path.write_text(source, encoding='utf-8')
+          PY
+          git diff --check
+      - name: Commit exact pin and remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/pin-supabase-esm-once.yml
+          git add assets/public-features.js
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Pin public Supabase ESM fallback"
+          git push origin HEAD:fix/pin-supabase-esm-fallback-20260901
