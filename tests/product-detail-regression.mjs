@@ -185,13 +185,13 @@ assert.match(equivalenceCss, /\.sfEqPanel/, 'Ekvivalentní ceny nemají vlastní
 const productAssets = [...html.matchAll(/(?:src|href)="assets\/([^"]+\?v=[^"]+)"/g)].map((match) => match[1]);
 assert.ok(productAssets.length >= 10, 'produkt.html nemá očekávané verzované assety.');
 
-assert.match(serviceWorker, /const CACHE_NAME = 'slevao-shell-[^']+'/, 'Service worker nemá verzovanou cache.');
-for (const asset of productAssets) {
-  assert.ok(
-    serviceWorker.includes(`'/assets/${asset}'`),
-    `PWA cache nemá stejnou verzi assetu jako produkt.html: ${asset}.`,
-  );
-}
+assert.match(serviceWorker, /const CACHE_VERSION = '[a-z0-9-]+';/i, 'Service worker nemá verzovanou runtime cache.');
+assert.match(serviceWorker, /const CORE_CACHE_NAME = `slevao-core-\$\{CACHE_VERSION\}`;/, 'Service worker nemá oddělenou core cache.');
+assert.match(serviceWorker, /const RUNTIME_CACHE_NAME = `slevao-runtime-\$\{CACHE_VERSION\}`;/, 'Service worker nemá oddělenou runtime cache.');
+assert.match(serviceWorker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje verzované produktové assety.');
+assert.match(serviceWorker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Produktové CSS/JS nejsou v PWA network-first runtime vrstvě.');
+assert.match(serviceWorker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesné verzované produktové assety po úspěšném načtení.');
+assert.doesNotMatch(serviceWorker, /const SHELL = \[/, 'PWA se nesmí vrátit k monolitickému install-time precache.');
 
 const productPersonalizationVersion = html.match(/assets\/product-personalization\.js\?v=([0-9-]+)/)?.[1] || '';
 const accountPersonalizationVersion = accountHtml.match(/assets\/product-personalization\.js\?v=([0-9-]+)/)?.[1] || '';
@@ -199,12 +199,10 @@ const dynamicPersonalizationVersion = publicNav.match(/assets\/product-personali
 assert.ok(productPersonalizationVersion, 'Produkt nemá verzovaný personalizační runtime.');
 assert.equal(accountPersonalizationVersion, productPersonalizationVersion, 'Účet musí načítat stejnou verzi personalizace jako produkt.');
 assert.equal(dynamicPersonalizationVersion, productPersonalizationVersion, 'Dynamický public-nav loader musí načítat stejnou verzi personalizace jako produkt.');
-assert.ok(serviceWorker.includes(`'/assets/product-personalization.js?v=${productPersonalizationVersion}'`), 'PWA musí cacheovat stejnou verzi personalizace jako produkt a účet.');
 
 const productNavVersion = html.match(/assets\/public-nav-upgrade\.js\?v=([0-9-]+)/)?.[1] || '';
 const accountNavVersion = accountHtml.match(/assets\/public-nav-upgrade\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(productNavVersion, 'Produkt nemá verzovaný public-nav runtime.');
 assert.equal(accountNavVersion, productNavVersion, 'Účet musí načítat stejnou verzi public-nav runtime jako produkt.');
-assert.ok(serviceWorker.includes(`'/assets/public-nav-upgrade.js?v=${productNavVersion}'`), 'PWA musí cacheovat stejnou verzi public-nav runtime jako produkt a účet.');
 
 console.log('Detail produktu: regresní diagnostika prošla.');
