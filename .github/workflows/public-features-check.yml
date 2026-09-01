@@ -105,6 +105,7 @@ on:
       - 'tests/store-feed-data-integrity.mjs'
       - 'scripts/generate-product-sitemap.mjs'
       - '.github/workflows/public-features-check.yml'
+  pull_request:
   workflow_dispatch:
 
 permissions:
