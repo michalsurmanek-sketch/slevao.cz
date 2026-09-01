@@ -33,9 +33,9 @@ assert.equal(
 assert.match(deals, /slCategoryArrowNudge/);
 assert.match(deals, /Mobile offer view: result count left, 3 icon controls right, sorting below\./);
 
-assert.equal(
-  topTip.includes('mobile-filter-sheet-fix.css'),
-  false,
+assert.doesNotMatch(
+  topTip,
+  /@import\s+(?:url\()?['"]?mobile-filter-sheet-fix\.css/i,
   'top-tip-button.css must keep the mobile filter sheet inlined instead of adding another homepage request',
 );
 assert.match(topTip, /Inlined from mobile-filter-sheet-fix\.css/);
