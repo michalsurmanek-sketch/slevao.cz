@@ -5,7 +5,7 @@
   const SUPABASE_KEY = 'sb_publishable_2I9ronLpYyn2kdnLRcdIUA_geOMF4XU';
   const SAVED_KEY = 'slevao-saved';
   const RECENT_KEY = 'slevao-recent-searches';
-  const PAGE_SIZE = 24;
+  const PAGE_SIZE = window.matchMedia('(min-width: 801px)').matches ? 26 : 24;
   const UPCOMING_DAYS = 7;
   const pragueDateKey = (value = new Date()) => new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Europe/Prague', year: 'numeric', month: '2-digit', day: '2-digit'
@@ -488,7 +488,8 @@
     const body = encodeURIComponent([
       `Typ problému: ${$('reportType')?.value || ''}`, offer ? `Produkt: ${offer.title}` : '', offer ? `Obchod: ${offer.stores?.name || ''}` : '',
       offer ? `Cena: ${money(offer.price)} Kč` : '', offer ? `ID nabídky: ${offer.id}` : '', `Poznámka: ${$('reportNote')?.value.trim() || 'bez poznámky'}`, `Stránka: ${location.href}`
-    ].filter(Boolean).join('\n'));
+    ].filter(Boolean).join('\
+'));
     location.href = `mailto:info@slevao.cz?subject=${subject}&body=${body}`;
     closeModal('reportModal'); toast('Hlášení je připravené v e-mailu.');
   }
