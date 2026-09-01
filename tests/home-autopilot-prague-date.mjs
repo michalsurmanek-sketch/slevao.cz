@@ -45,6 +45,8 @@ assert.ok(
   index.indexOf(`assets/home-autopilot.js?v=${runtimeVersion}`) < index.indexOf('assets/home-footer-redesign.js'),
   'Homepage musí načíst Autopilot před footerem, aby footer nevložil starou dynamickou verzi.'
 );
-assert.match(worker, new RegExp(`assets/home-autopilot\\.js\\?v=${runtimeVersion}`), 'PWA shell nemá stejnou aktuální Autopilot verzi jako homepage.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje homepage Autopilot asset.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Homepage Autopilot není v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou Autopilot URL.');
 
 console.log('Homepage Autopilot Prague date, positive-price filtering and finite quantity safety OK');
