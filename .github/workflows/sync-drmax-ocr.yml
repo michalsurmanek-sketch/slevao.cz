@@ -10,6 +10,7 @@ on:
     paths:
       - 'scripts/sync_drmax_ocr.py'
       - 'scripts/sync_terno_ocr.py'
+      - 'tests/drmax-ocr-worker-regression.py'
       - '.github/workflows/sync-drmax-ocr.yml'
   push:
     branches:
@@ -17,6 +18,7 @@ on:
     paths:
       - 'scripts/sync_drmax_ocr.py'
       - 'scripts/sync_terno_ocr.py'
+      - 'tests/drmax-ocr-worker-regression.py'
       - '.github/workflows/sync-drmax-ocr.yml'
 
 permissions:
@@ -36,7 +38,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Ověřit Python syntaxi
-        run: python3 -m py_compile scripts/sync_drmax_ocr.py scripts/sync_terno_ocr.py
+        run: python3 -m py_compile scripts/sync_drmax_ocr.py scripts/sync_terno_ocr.py tests/drmax-ocr-worker-regression.py
+
+      - name: Ověřit výběr OCR cíle
+        run: python3 tests/drmax-ocr-worker-regression.py
 
   ocr:
     name: OCR aktuálního Dr. Max letáku
