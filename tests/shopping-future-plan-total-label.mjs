@@ -46,7 +46,11 @@ const plannerUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']
 const summaryUrl = html.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0] || '';
 assert.match(plannerUrl, /^assets\/shopping-day-consistent-plan\.js\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný přesný planner.');
 assert.match(summaryUrl, /^assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný cenový souhrn.');
-assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA nemá stejnou verzi přesného planneru jako HTML.');
-assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA nemá stejnou verzi cenového souhrnu jako HTML.');
+for (const runtimeUrl of [plannerUrl, summaryUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Planner a cenový souhrn musí být obsloužené jako kritické runtime assety.');
+assert.ok(worker.includes("cache: 'reload'"), 'Planner a cenový souhrn musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Planner a cenový souhrn musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Future exact shopping plan is clearly labeled in list total');
