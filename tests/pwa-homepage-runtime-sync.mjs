@@ -9,6 +9,7 @@ const product = readFileSync(new URL('produkt.html', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const footer = readFileSync(new URL('assets/home-footer-redesign.js', root), 'utf8');
 const rpcBootstrap = readFileSync(new URL('assets/rpc-request-dedupe.js', root), 'utf8');
+const pwaInstall = readFileSync(new URL('assets/pwa-install.js', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 const versionedAssets = (source) => [...new Set(
@@ -52,4 +53,18 @@ assert.match(worker, /isCriticalStatic[\s\S]*cache: 'reload'/, 'Kritické CSS/JS
 assert.match(worker, /event\.waitUntil\(network\.then\(\(\) => undefined\)\)/, 'Nekritické statické soubory mají používat stale-while-revalidate.');
 assert.match(worker, /name\.startsWith\('slevao-shell-'\)/, 'Aktivace musí uklidit i starou monolitickou shell cache.');
 
-console.log(`PWA split-cache runtime OK (${publicRuntimeAssets.size} page dependencies cached on demand)`);
+// Install prompt must earn the interruption instead of appearing on a first visit.
+assert.match(pwaInstall, /eligible = visits >= 2;/, 'Instalační banner musí být automaticky způsobilý až od druhé návštěvy.');
+assert.match(pwaInstall, /const PERMANENT_DISMISS_KEY = 'slevao-install-dismissed-permanently';/, 'PWA banner musí respektovat trvalé odmítnutí.');
+assert.match(pwaInstall, /const CHOICE_COOLDOWN_MS = 30 \* 24 \* 60 \* 60 \* 1000;/, 'Odmítnutí systémového dialogu musí mít dlouhý cooldown.');
+assert.match(pwaInstall, /const SHOW_FREQUENCY_MS = 7 \* 24 \* 60 \* 60 \* 1000;/, 'Vlastní instalační banner musí mít frekvenční limit.');
+assert.match(pwaInstall, /function verifySuccessfulListAddition\(button\)/, 'První návštěva musí rozlišovat dokončené přidání do seznamu od pouhého kliknutí.');
+assert.match(pwaInstall, /classList\?\.contains\('is-added'\)/, 'Úspěšné přidání musí být ověřeno až podle dokončeného UI stavu.');
+assert.match(pwaInstall, /document\.addEventListener\('slevao:successful-action', markSuccessfulAction\)/, 'PWA banner musí mít explicitní success event pro další dokončené akce.');
+assert.doesNotMatch(pwaInstall, /#searchButton,[^\n]*markSuccessfulAction|#homeAutopilot button|#slLiveManual button/, 'Pouhé kliknutí na hlavní CTA nesmí zpřístupnit PWA banner při první návštěvě.');
+assert.match(pwaInstall, /function isPrimaryExperienceVisible\(\)/, 'Banner musí kontrolovat kolizi s hlavní zkušeností stránky.');
+assert.match(pwaInstall, /document\.querySelector\('\.heroCard'\)/, 'Banner nesmí překrýt hero CTA.');
+assert.match(pwaInstall, /document\.getElementById\('homeAutopilot'\)/, 'Banner nesmí překrýt Nákupní autopilot.');
+assert.match(pwaInstall, /safeSet\(localStorage, PERMANENT_DISMISS_KEY, '1'\)/, 'Křížek musí uložit trvalé odmítnutí.');
+
+console.log(`PWA split-cache + deferred install prompt OK (${publicRuntimeAssets.size} page dependencies cached on demand)`);
