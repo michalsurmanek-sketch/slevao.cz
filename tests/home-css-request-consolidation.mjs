@@ -8,6 +8,9 @@ const topTip = fs.readFileSync('assets/top-tip-button.css', 'utf8');
 const homeFooter = fs.readFileSync('assets/home-footer-redesign.css', 'utf8');
 const homeFooterRuntime = fs.readFileSync('assets/home-footer-redesign.js', 'utf8');
 const inStore = fs.readFileSync('assets/home-in-store.css', 'utf8');
+const publicNav = fs.readFileSync('assets/public-nav-upgrade.js', 'utf8');
+const productHtml = fs.readFileSync('produkt.html', 'utf8');
+const listHtml = fs.readFileSync('seznam.html', 'utf8');
 
 for (const path of [
   'assets/mobile-section-dividers.css',
@@ -88,6 +91,18 @@ assert.doesNotMatch(
 assert.match(inStore, /Inlined home-in-store extension styles: actions then list\./);
 assert.match(inStore, /\.slInStoreActions\{display:flex/);
 assert.match(inStore, /\.slInStoreListCoverage\{margin:14px 22px 0/);
+
+assert.match(homeFooter, /Homepage bundle: store-arrival alerts/);
+assert.match(homeFooter, /\.slArrivalToggle\{width:100%;min-height:58px;display:grid/);
+assert.match(homeFooter, /\.slArrivalSwitch\{position:relative;width:38px;height:22px/);
+assert.match(
+  publicNav,
+  /if \(!isHomePage\(\) && !document\.querySelector\('link\[href\*="store-arrival-alerts\.css"\]'\)\) \{/,
+  'homepage must not restore the standalone store-arrival stylesheet request',
+);
+assert.equal(index.includes('assets/store-arrival-alerts.css'), false, 'homepage must not directly request store-arrival-alerts.css');
+assert.match(productHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
+assert.match(listHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
 assert.equal(directCssLinks.length, 24, 'homepage should keep the consolidated 24 direct CSS links');
