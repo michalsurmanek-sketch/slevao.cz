@@ -4,7 +4,7 @@
   const HOME_FAVORITES_KEY = 'slevao-saved';
   const STORE_FAVORITES_KEY = 'slevao-favorite-offers-v1';
   const RELOAD_KEY = 'slevao-favorite-offer-sync-v2';
-  const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+  const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
   const SHARED_SUPABASE_CLIENT_URL = 'assets/supabase-client.js?v=20260825-1';
   const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260816-4';
   const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260827-3';
