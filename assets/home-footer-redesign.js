@@ -49,7 +49,7 @@
   if (!document.querySelector('link[href*="home-quick-food-personalize.css"]')) {
     const quickFoodPersonalizeStyle = document.createElement('link');
     quickFoodPersonalizeStyle.rel = 'stylesheet';
-    quickFoodPersonalizeStyle.href = 'assets/home-quick-food-personalize.css?v=20260811-2';
+    quickFoodPersonalizeStyle.href = 'assets/home-quick-food-personalize.css?v=20260901-3';
     document.head.appendChild(quickFoodPersonalizeStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-personalize.js"]')) {
