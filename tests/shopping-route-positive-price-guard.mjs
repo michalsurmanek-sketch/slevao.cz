@@ -70,7 +70,10 @@ assert.ok(html.indexOf(locationUrl) < html.indexOf(guardUrl), 'GPS price guard m
 assert.ok(html.indexOf(guardUrl) < html.indexOf(routeUrl), 'GPS price guard musí běžet před shopping-route.');
 assert.ok(html.indexOf(routeUrl) < html.indexOf(dayLabelUrl), 'GPS today label musí běžet po shopping-route runtime.');
 assert.ok(html.indexOf(dayLabelUrl) < html.indexOf(autostartUrl), 'GPS today label má být připravený před route autostartem.');
-assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje GPS positive-price guard.');
-assert.ok(worker.includes(`'/${dayLabelUrl}'`), 'PWA necachuje GPS today label ze seznam.html.');
+assert.ok(!worker.includes(`'/${guardUrl}'`), 'GPS positive-price guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(!worker.includes(`'/${dayLabelUrl}'`), 'GPS today label se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'GPS JavaScript musí být obsloužený jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'GPS JavaScript musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'GPS JavaScript musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('GPS shopping route filters invalid prices and visibly identifies the exact current shopping day');
