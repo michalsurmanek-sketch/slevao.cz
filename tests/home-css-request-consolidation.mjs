@@ -8,6 +8,7 @@ const topTip = fs.readFileSync('assets/top-tip-button.css', 'utf8');
 const homeFooter = fs.readFileSync('assets/home-footer-redesign.css', 'utf8');
 const homeFooterRuntime = fs.readFileSync('assets/home-footer-redesign.js', 'utf8');
 const inStore = fs.readFileSync('assets/home-in-store.css', 'utf8');
+const quickFoodPersonalize = fs.readFileSync('assets/home-quick-food-personalize.css', 'utf8');
 const publicNav = fs.readFileSync('assets/public-nav-upgrade.js', 'utf8');
 const productHtml = fs.readFileSync('produkt.html', 'utf8');
 const listHtml = fs.readFileSync('seznam.html', 'utf8');
@@ -104,8 +105,20 @@ assert.equal(index.includes('assets/store-arrival-alerts.css'), false, 'homepage
 assert.match(productHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
 assert.match(listHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
 
+assert.equal(
+  index.includes('assets/home-semantic-filters.css'),
+  false,
+  'homepage must keep semantic filters bundled into home-quick-food-personalize.css',
+);
+assert.match(quickFoodPersonalize, /Homepage bundle: semantic filters/);
+assert.match(quickFoodPersonalize, /\.slSemanticPanel\[hidden\]\{display:none!important\}/);
+assert.match(quickFoodPersonalize, /\.slSemanticRow button\{min-height:36px/);
+assert.match(quickFoodPersonalize, /\.dealsSection\.slSemanticActive \.filterPanel\{border-radius:26px/);
+assert.match(homeFooterRuntime, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
+assert.match(index, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
+
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 24, 'homepage should keep the consolidated 24 direct CSS links');
+assert.equal(directCssLinks.length, 23, 'homepage should keep the consolidated 23 direct CSS links');
 assert.ok(index.includes('assets/mobile-hero-compact.css?v='), 'Homepage must keep the intentional mobile hero compact layer.');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
