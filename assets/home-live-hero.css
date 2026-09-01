@@ -140,3 +140,101 @@ a.slLiveNearbyRow:hover,a.slLiveNearbyRow:focus-visible{background:rgba(255,255,
   .heroNearbyPanel .slLiveManual{grid-template-columns:1fr 72px}
   .slLiveHeroResult h2{font-size:21px}
 }
+
+/* Homepage bundle: radius selector */
+/* Slevao.cz – vlastní výběr okruhu v hero panelu */
+.heroNearbyPanel{overflow:visible}
+.heroNearbyPanel .slLiveOptions{grid-template-columns:132px minmax(0,1fr);gap:10px}
+.heroNearbyPanel .slLiveOptions>label{min-width:0}
+
+.slRadiusControl{position:relative;width:132px;max-width:100%;z-index:25}
+.slRadiusNative{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important;opacity:0!important;pointer-events:none!important}
+
+.slRadiusTrigger{width:100%;height:48px;display:grid;grid-template-columns:22px minmax(0,1fr) 18px;align-items:center;gap:7px;padding:0 11px;border:1.5px solid rgba(16,176,163,.72);border-radius:14px;background:rgba(255,255,255,.94);color:#14252d;box-shadow:0 7px 18px rgba(10,112,104,.09),inset 0 1px 0 rgba(255,255,255,.82);cursor:pointer;transition:border-color .16s ease,box-shadow .16s ease,background .16s ease,transform .16s ease}
+.slRadiusTrigger:hover{border-color:#0ca397;background:#fff;box-shadow:0 10px 24px rgba(10,112,104,.14),0 0 0 3px rgba(23,185,173,.06)}
+.slRadiusTrigger:focus-visible,.slRadiusControl.is-open .slRadiusTrigger{outline:0;border-color:#079c91;background:#fff;box-shadow:0 0 0 4px rgba(15,172,160,.14),0 12px 26px rgba(10,112,104,.13)}
+.slRadiusPin,.slRadiusChevron{display:grid;place-items:center;color:#0a9d92;line-height:0}
+.slRadiusPin{width:22px;height:22px;border-radius:8px;background:#e8faf7}
+.slRadiusPin svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.slRadiusChevron svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round;transition:transform .16s ease}
+.slRadiusControl.is-open .slRadiusChevron svg{transform:rotate(180deg)}
+.slRadiusValue{min-width:0;overflow:visible;color:#14252d;font-size:14px;font-weight:900;line-height:1;white-space:nowrap;text-align:left}
+
+.slRadiusMenu{position:fixed;left:0;top:0;width:164px;padding:7px;border:1px solid rgba(15,172,160,.2);border-radius:16px;background:rgba(255,255,255,.99);box-shadow:0 20px 48px rgba(7,71,67,.22),0 4px 12px rgba(7,71,67,.1);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);z-index:2147483647;transform-origin:top left;animation:slRadiusOpen .14s ease-out;overscroll-behavior:contain}
+.slRadiusMenu[hidden]{display:none!important}
+.slRadiusMenu[popover]{margin:0!important;inset:auto!important;border:1px solid rgba(15,172,160,.2)}
+.slRadiusMenu:popover-open{display:block}
+@keyframes slRadiusOpen{from{opacity:0;transform:translateY(-5px) scale(.985)}to{opacity:1;transform:none}}
+
+.slRadiusOption{width:100%;min-height:42px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 11px;border:0;border-radius:11px;background:transparent;color:#334542;text-align:left;font-size:13px;font-weight:800;cursor:pointer;transition:background .14s ease,color .14s ease,transform .14s ease}
+.slRadiusOption:hover,.slRadiusOption:focus-visible{outline:0;background:#edf9f7;color:#087f76}
+.slRadiusOption:active{transform:scale(.985)}
+.slRadiusOption i{width:18px;height:18px;flex:0 0 18px;border:1px solid #c8e5e1;border-radius:50%;background:#fff;position:relative}
+.slRadiusOption.is-active{background:linear-gradient(135deg,#18b9ad,#079c91);color:#fff;box-shadow:0 7px 16px rgba(7,156,145,.19)}
+.slRadiusOption.is-active i{border-color:rgba(255,255,255,.62);background:rgba(255,255,255,.16)}
+.slRadiusOption.is-active i:after{content:"";position:absolute;left:5px;top:3px;width:5px;height:8px;border:solid #fff;border-width:0 2px 2px 0;transform:rotate(45deg)}
+
+/* Mobil: okruh + poloha MUSÍ zůstat vedle sebe. Přepisuje starší pravidla z home-live-hero/mobile-ux. */
+@media(max-width:800px){
+  .heroNearbyPanel .slLiveOptions{
+    display:grid!important;
+    grid-template-columns:118px minmax(0,1fr)!important;
+    gap:8px!important;
+    align-items:end!important;
+  }
+  .heroNearbyPanel .slLiveOptions>label{
+    display:grid!important;
+    width:auto!important;
+    min-width:0!important;
+    max-width:none!important;
+    grid-column:auto!important;
+  }
+  .heroNearbyPanel .slLiveOptions .slRadiusControl{
+    width:118px!important;
+    max-width:118px!important;
+    min-width:0!important;
+  }
+  .heroNearbyPanel .slLiveOptions .slLiveLocationButton{
+    grid-column:auto!important;
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+    height:46px!important;
+    padding-inline:8px!important;
+    white-space:nowrap!important;
+    font-size:10.5px!important;
+    line-height:1.1!important;
+  }
+  .slRadiusMenu{width:150px}
+  .slRadiusTrigger{height:46px;grid-template-columns:19px minmax(0,1fr) 16px;gap:5px;padding:0 8px}
+  .slRadiusPin{width:19px;height:19px;border-radius:7px}
+  .slRadiusPin svg{width:12px;height:12px}
+  .slRadiusChevron svg{width:15px;height:15px}
+  .slRadiusValue{font-size:13px}
+}
+
+@media(max-width:380px){
+  .heroNearbyPanel .slLiveOptions{
+    grid-template-columns:106px minmax(0,1fr)!important;
+    gap:6px!important;
+  }
+  .heroNearbyPanel .slLiveOptions .slRadiusControl{width:106px!important;max-width:106px!important}
+  .slRadiusMenu{width:142px}
+  .heroNearbyPanel .slLiveOptions .slLiveLocationButton{font-size:9.8px!important;padding-inline:6px!important}
+}
+
+@media(max-width:335px){
+  .heroNearbyPanel .slLiveOptions{
+    grid-template-columns:98px minmax(0,1fr)!important;
+    gap:5px!important;
+  }
+  .heroNearbyPanel .slLiveOptions .slRadiusControl{width:98px!important;max-width:98px!important}
+  .slRadiusTrigger{padding:0 6px;grid-template-columns:17px minmax(0,1fr) 14px;gap:3px}
+  .slRadiusValue{font-size:12px}
+  .heroNearbyPanel .slLiveOptions .slLiveLocationButton{font-size:9.2px!important;padding-inline:4px!important}
+}
+
+@media(prefers-reduced-motion:reduce){
+  .slRadiusTrigger,.slRadiusChevron svg,.slRadiusOption{transition:none}
+  .slRadiusMenu{animation:none}
+}
