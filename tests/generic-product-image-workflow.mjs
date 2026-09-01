@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const migration = read('supabase/migrations/20260807171000_generic_product_image_generation.sql');
 const generator = read('supabase/functions/generate-generic-product-images/index.ts');
+const discovery = read('supabase/functions/discover-product-images/index.ts');
 const config = read('supabase/functions/generate-generic-product-images/config.toml');
 const workflow = read('.github/workflows/discover-product-images.yml');
 const admin = read('admin-generovani-fotografii.html');
@@ -22,10 +23,19 @@ assert.doesNotMatch(generator,/const\s+CRON_SECRET\s*=\s*['"][^'"]+['"]/,'CRON s
 assert.doesNotMatch(generator,/SUPABASE_SERVICE_ROLE_KEY[^\n]+['"][A-Za-z0-9._-]{30,}['"]/,'Service role key nesmí být natvrdo v kódu.');
 assert.match(config,/verify_jwt\s*=\s*false/,'Funkce s vlastní autorizací musí umožnit CRON secret.');
 
+assert.match(discovery,/const storeSlug = typeof body\.store_slug === "string"/,'Image discovery musí podporovat cílenou dávku podle store_slug.');
+assert.match(discovery,/\.eq\("status", "published"\)/,'Cílená image discovery musí vybírat publikované nabídky.');
+assert.match(discovery,/query = query\.in\("id", storeProductIds\)/,'Cílená image discovery musí omezit frontu na produkty vybraného obchodu.');
+
 assert.match(workflow,/blocked_reason="\$\(jq -r '\.blocked_reason \/\/ empty'/,'Image workflow must inspect successful cooldown responses.');
 assert.match(workflow,/::warning title=Hledání produktových fotografií pozastaveno/,'Discovery cooldown must be visible as a GitHub warning.');
 assert.match(workflow,/::warning title=Generování produktových fotografií pozastaveno/,'Generator cooldown must be visible as a GitHub warning.');
 assert.match(workflow,/GITHUB_STEP_SUMMARY/,'Image workflow cooldown must be written to the job summary.');
+assert.match(workflow,/lidl_limit:[\s\S]*default: '10'/,'Lidl prioritní dávka musí mít konzervativní výchozí limit 10.');
+assert.match(workflow,/Prioritně zkontrolovat aktuální Lidl produkty/,'Workflow musí mít samostatnou prioritní Lidl image discovery dávku.');
+assert.match(workflow,/\\"store_slug\\":\\"lidl\\"/,'Lidl dávka musí volat discovery se store_slug=lidl.');
+assert.match(workflow,/### Lidl image discovery/,'Lidl dávka musí zapisovat měřitelné výsledky do job summary.');
+assert.match(workflow,/without_match/,'Lidl dávka musí reportovat produkty bez bezpečné shody.');
 
 for (const id of ['sMissing','sQueued','sGenerating','sAssigned','sManual','sBranded','batchSize','generate','recent']) assert(admin.includes(`id="${id}"`),`Admin přehled postrádá ${id}.`);
 assert.match(admin,/<option value="20">20 produktů<\/option>/,'Admin nemá dávku 20.');
