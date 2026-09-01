@@ -20,96 +20,17 @@ jobs:
           fetch-depth: 0
 
       - name: Replace dynamic stylesheet request with inline scoped style
-        shell: bash
-        run: |
-          python - <<'PY'
-          from pathlib import Path
+        run: python .github/scripts/inline-scroll-top-css-once.py
 
-          path = Path('assets/mobile-leaflet-nav-position.js')
-          source = path.read_text(encoding='utf-8')
-          old = '''    if (!document.querySelector('link[href*="leaflets-scroll-top.css"]')) {
-      const link = document.createElement('link');
-      link.rel = 'stylesheet';
-      link.href = 'assets/leaflets-scroll-top.css?v=20260809-1';
-      document.head.appendChild(link);
-    }
-'''
-          new = '''    if (!document.getElementById('leafletsScrollTopStyle')) {
-      const style = document.createElement('style');
-      style.id = 'leafletsScrollTopStyle';
-      style.textContent = `
-        .leafletsScrollTop{display:none}
-        @media(max-width:800px){
-          .leafletsScrollTop{
-            --scroll-progress:0deg;
-            position:fixed;
-            right:14px;
-            bottom:calc(80px + env(safe-area-inset-bottom));
-            z-index:110;
-            width:48px;
-            height:48px;
-            padding:3px;
-            border:0;
-            border-radius:50%;
-            background:conic-gradient(#159e94 var(--scroll-progress),rgba(21,158,148,.16) 0);
-            box-shadow:0 10px 28px rgba(9,89,83,.22);
-            display:grid;
-            place-items:center;
-            opacity:0;
-            visibility:hidden;
-            transform:translateY(10px) scale(.92);
-            transition:opacity .18s ease,transform .18s ease,visibility .18s ease;
-            -webkit-tap-highlight-color:transparent;
-            cursor:pointer;
-          }
-          .leafletsScrollTop::before{
-            content:"";
-            position:absolute;
-            inset:3px;
-            border-radius:50%;
-            background:rgba(255,255,255,.97);
-            box-shadow:inset 0 0 0 1px rgba(21,158,148,.1);
-          }
-          .leafletsScrollTop svg{
-            position:relative;
-            z-index:1;
-            width:22px;
-            height:22px;
-            fill:none;
-            stroke:#087e75;
-            stroke-width:2.25;
-            stroke-linecap:round;
-            stroke-linejoin:round;
-          }
-          .leafletsScrollTop.is-visible{
-            opacity:1;
-            visibility:visible;
-            transform:translateY(0) scale(1);
-          }
-          .leafletsScrollTop:active{transform:scale(.94)}
-          .leafletsScrollTop:focus,.leafletsScrollTop:focus-visible{outline:0;box-shadow:0 10px 28px rgba(9,89,83,.22)}
-        }
-        @media(prefers-reduced-motion:reduce){
-          .leafletsScrollTop{transition:none}
-        }
-      `;
-      document.head.appendChild(style);
-    }
-'''
-          count = source.count(old)
-          if count != 1:
-              raise SystemExit(f'Expected exactly one dynamic scroll stylesheet block, found {count}')
-          updated = source.replace(old, new, 1)
-          if 'leaflets-scroll-top.css' in updated:
-              raise SystemExit('Dynamic leaflets-scroll-top.css reference still present')
-          path.write_text(updated, encoding='utf-8')
-          PY
+      - name: Validate exact patch
+        run: |
           git diff --check
+          ! grep -q 'leaflets-scroll-top.css' assets/mobile-leaflet-nav-position.js
+          grep -q "leafletsScrollTopStyle" assets/mobile-leaflet-nav-position.js
 
-      - name: Commit exact replacement and remove one-shot workflow
-        shell: bash
+      - name: Commit exact replacement and remove one-shot files
         run: |
-          git rm .github/workflows/inline-scroll-top-css-once.yml
+          git rm .github/workflows/inline-scroll-top-css-once.yml .github/scripts/inline-scroll-top-css-once.py
           git add assets/mobile-leaflet-nav-position.js
           git diff --cached --check
           git config user.name "github-actions[bot]"
