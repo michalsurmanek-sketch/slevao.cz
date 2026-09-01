@@ -57,6 +57,6 @@ assert.deepEqual(
   `PWA shell nesmí precachovat více verzí stejného assetu:\n${duplicateVersions.join('\n')}`
 );
 
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260901-1';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260901-2';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
 
 console.log(`PWA public-page runtime sync OK (${requiredAssets.size} dependencies)`);

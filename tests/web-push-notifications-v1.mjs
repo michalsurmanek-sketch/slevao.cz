@@ -140,6 +140,17 @@ if (!pwa.includes("navigator.serviceWorker.register('/service-worker.js', { scop
   throw new Error('PWA must keep its /service-worker.js root worker.');
 }
 if (pwa.includes("register('/sw.js")) throw new Error('PWA must never register the legacy /sw.js worker.');
+for (const needle of [
+  "const DISMISS_MS = 14 * 24 * 60 * 60 * 1000",
+  "engaged = visits >= 2",
+  "localStorage.setItem(DISMISS_UNTIL_KEY",
+  "function markEngaged()",
+  "schedulePrompt(800)",
+  "schedulePrompt();",
+]) {
+  if (!pwa.includes(needle)) throw new Error(`Missing non-intrusive PWA install behavior: ${needle}`);
+}
+if (pwa.includes("setTimeout(showPrompt, 1500)")) throw new Error('PWA install prompt must not cover the first homepage visit.');
 
 for (const needle of [
   "self.addEventListener('install'",

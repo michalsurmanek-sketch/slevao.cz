@@ -147,7 +147,7 @@
   function loadPwa() {
     if (document.querySelector('script[src*="pwa-install.js"]')) return;
     const script = document.createElement('script');
-    script.src = 'assets/pwa-install.js?v=20260804-1';
+    script.src = 'assets/pwa-install.js?v=20260901-1';
     script.defer = true;
     document.head.appendChild(script);
   }
