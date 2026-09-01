@@ -35,6 +35,15 @@ assert.match(deals, /Mobile offer view: result count left, 3 icon controls right
 
 assert.doesNotMatch(
   topTip,
+  /@import\s+(?:url\()?['"]?mobile-home-polish\.css/i,
+  'top-tip-button.css must keep mobile-home-polish inlined instead of adding another homepage request',
+);
+assert.match(topTip, /Inlined from mobile-home-polish\.css/);
+assert.match(topTip, /--sl-teal:#0b978d/);
+assert.match(topTip, /\.heroNearbyPanel\.is-nearby-collapsed/);
+
+assert.doesNotMatch(
+  topTip,
   /@import\s+(?:url\()?['"]?mobile-filter-sheet-fix\.css/i,
   'top-tip-button.css must keep the mobile filter sheet inlined instead of adding another homepage request',
 );
