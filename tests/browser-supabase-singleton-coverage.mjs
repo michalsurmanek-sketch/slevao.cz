@@ -4,6 +4,10 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const htmlFiles = readdirSync(root).filter((name) => name.endsWith('.html')).sort();
+assert.ok(
+  ['produkt.html', 'seznam.html', 'ucet.html'].every((page) => htmlFiles.includes(page)),
+  'Supabase CDN guard must include the core product, shopping-list and account HTML pages.',
+);
 const failures = [];
 const multiClientPages = [];
 
