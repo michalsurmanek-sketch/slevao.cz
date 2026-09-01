@@ -180,15 +180,18 @@ assert.equal(guardUrl, 'assets/shopping-budget-concurrency.js?v=20260828-2', 'se
 const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
 assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
-assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný budget concurrency guard ze seznam.html.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný shopping bootstrap ze seznam.html.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision pro cold-sync ochranu.');
+assert.ok(!worker.includes(`'/${guardUrl}'`), 'Budget concurrency guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(!worker.includes(`'/${bootstrapUrl}'`), 'Shopping bootstrap se nesmí vrátit do install-time PWA precache.');
+const cacheMatch = worker.match(/CACHE_VERSION = '(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision pro cold-sync ochranu.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 59),
-  'PWA shell je starší než cold-sync integrace 20260828-59.',
+  'PWA cache je starší než cold-sync integrace 20260828-59.',
 );
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Budget/bootstrap JS musí být obsloužený jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'Budget/bootstrap JS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Budget/bootstrap JS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping budget concurrency and cloud-authoritative cold-load guard OK');
