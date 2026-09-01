@@ -9,12 +9,16 @@ on:
       - main
     paths:
       - 'scripts/sync_drmax_ocr.py'
+      - 'scripts/sync_terno_ocr.py'
+      - 'tests/drmax-ocr-worker-regression.py'
       - '.github/workflows/sync-drmax-ocr.yml'
   push:
     branches:
       - main
     paths:
       - 'scripts/sync_drmax_ocr.py'
+      - 'scripts/sync_terno_ocr.py'
+      - 'tests/drmax-ocr-worker-regression.py'
       - '.github/workflows/sync-drmax-ocr.yml'
 
 permissions:
@@ -25,8 +29,23 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  validate:
+    name: Validace Dr. Max OCR workeru
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Ověřit Python syntaxi
+        run: python3 -m py_compile scripts/sync_drmax_ocr.py scripts/sync_terno_ocr.py tests/drmax-ocr-worker-regression.py
+
+      - name: Ověřit výběr OCR cíle
+        run: python3 tests/drmax-ocr-worker-regression.py
+
   ocr:
     name: OCR aktuálního Dr. Max letáku
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:

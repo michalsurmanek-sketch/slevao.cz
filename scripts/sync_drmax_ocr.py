@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-"""Dr. Max OCR worker reusing the proven Terno Tesseract implementation.\nRuns only against current official Dr. Max page images.\n"""
+"""Dr. Max OCR worker reusing the proven Terno Tesseract implementation.
+Runs only against current official Dr. Max page images.
+"""
 import json
 import os
 import urllib.parse
@@ -11,6 +13,24 @@ worker.ENGINE = "tesseract-cli-ces-drmax-v1"
 worker.SUPABASE_USER_AGENT = "slevao-github-actions-drmax-ocr/1.0"
 
 _original_api = worker.api
+
+
+def completed_ocr_pages(import_id: str, expected_pages: int) -> int:
+    if expected_pages <= 0:
+        return 0
+    params = urllib.parse.urlencode({
+        "import_id": f"eq.{import_id}",
+        "engine": f"eq.{worker.ENGINE}",
+        "select": "page_number,word_count",
+    })
+    rows = _original_api("GET", "/rest/v1/leaflet_ocr_pages?" + params) or []
+    completed = {
+        int(row["page_number"])
+        for row in rows
+        if int(row.get("word_count") or 0) > 0
+        and 1 <= int(row.get("page_number") or 0) <= expected_pages
+    }
+    return len(completed)
 
 
 def drmax_target():
@@ -47,13 +67,31 @@ def drmax_target():
             "reason": "no-current-official-flyer",
             "business_date": today,
         }
+
     metadata = preferred.get("metadata") or {}
+    page_image_urls = metadata.get("page_image_urls") or []
+    expected_pages = len(page_image_urls)
+    completed_pages = completed_ocr_pages(str(preferred["id"]), expected_pages)
+    if expected_pages > 0 and completed_pages >= expected_pages:
+        return {
+            "ok": False,
+            "reason": "ocr-already-complete",
+            "business_date": today,
+            "import_id": preferred["id"],
+            "completed_pages": completed_pages,
+            "expected_pages": expected_pages,
+            "valid_from": preferred.get("detected_valid_from"),
+            "valid_to": preferred.get("detected_valid_to"),
+        }
+
     return {
         "ok": True,
         "import_id": preferred["id"],
-        "page_image_urls": metadata["page_image_urls"],
+        "page_image_urls": page_image_urls,
         "valid_from": preferred.get("detected_valid_from"),
         "valid_to": preferred.get("detected_valid_to"),
+        "completed_pages": completed_pages,
+        "expected_pages": expected_pages,
     }
 
 
@@ -105,5 +143,7 @@ if __name__ == "__main__":
         "target": target["import_id"],
         "valid_from": target.get("valid_from"),
         "valid_to": target.get("valid_to"),
+        "completed_pages": target.get("completed_pages", 0),
+        "expected_pages": target.get("expected_pages", len(target.get("page_image_urls") or [])),
     }, ensure_ascii=False), flush=True)
     worker.main()
