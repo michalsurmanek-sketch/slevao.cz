@@ -284,14 +284,16 @@ const directGuardUrl = html.match(/assets\/shopping-shared-add-submit-guard\.js\
 assert.equal(directGuardUrl, 'assets/shopping-shared-add-submit-guard.js?v=20260828-3', 'seznam.html nenačítá concurrent shared add guard v3.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.ok(html.indexOf(directGuardUrl) < html.indexOf(bootstrapUrl), 'Shared add bridge musí běžet před shopping bootstrapem.');
-assert.ok(worker.includes(`'/${directGuardUrl}'`), 'PWA necachuje concurrent shared add guard v3.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje concurrent shared add guard.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Shared add guard není v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou shared add guard URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 69),
-  'PWA shell je starší než concurrent shared add fix 20260828-69.',
+  'PWA cache je starší než concurrent shared add fix 20260828-69.',
 );
 
 console.log('Shared custom add double-submit, concurrent retries, server idempotency, and payload binding OK');
