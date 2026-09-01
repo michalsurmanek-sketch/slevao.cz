@@ -1,0 +1,87 @@
+name: Sync public nav cache refs once
+
+on:
+  push:
+    branches:
+      - perf/store-arrival-css-inline-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/store-arrival-css-inline-20260901
+          fetch-depth: 0
+
+      - name: Sync loader and cache-bust versions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          replacements = {
+            Path('assets/home-footer-redesign.js'): [
+              ('assets/public-nav-upgrade.js?v=20260830-1', 'assets/public-nav-upgrade.js?v=20260901-2'),
+            ],
+            Path('assets/store-bottom-nav.js'): [
+              ('assets/public-nav-upgrade.js?v=20260830-1', 'assets/public-nav-upgrade.js?v=20260901-2'),
+            ],
+            Path('tests/shopping-list-owner-isolation.mjs'): [
+              ("const navVersion = '20260830-1';", "const navVersion = '20260901-2';"),
+            ],
+          }
+
+          for path, reps in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in reps:
+                  if text.count(old) != 1:
+                      raise SystemExit(f'{path}: expected exactly one {old!r}, got {text.count(old)}')
+                  text = text.replace(old, new, 1)
+              path.write_text(text, encoding='utf-8')
+
+          store_old = 'assets/store-bottom-nav.js?v=20260828-1'
+          store_new = 'assets/store-bottom-nav.js?v=20260901-1'
+          footer_old = 'assets/home-footer-redesign.js?v=20260901-1'
+          footer_new = 'assets/home-footer-redesign.js?v=20260901-2'
+          store_hits = 0
+          footer_hits = 0
+          for path in Path('.').glob('*.html'):
+              text = path.read_text(encoding='utf-8')
+              a = text.count(store_old)
+              b = text.count(footer_old)
+              if a or b:
+                  text = text.replace(store_old, store_new).replace(footer_old, footer_new)
+                  path.write_text(text, encoding='utf-8')
+                  store_hits += a
+                  footer_hits += b
+          if store_hits < 1:
+              raise SystemExit('no store-bottom-nav cache-bust references updated')
+          if footer_hits < 1:
+              raise SystemExit('no home-footer-redesign runtime cache-bust references updated')
+          print({'store_bottom_nav_refs_updated': store_hits, 'home_footer_runtime_refs_updated': footer_hits})
+          PY
+
+          if grep -RIn --exclude-dir=.git --exclude='sync-public-nav-cache-refs-once.yml' 'public-nav-upgrade\.js?v=20260830-1\|navVersion = .20260830-1.' .; then
+            echo 'Stale public-nav cache ref remains.' >&2
+            exit 1
+          fi
+          if grep -RIn --exclude-dir=.git --exclude='sync-public-nav-cache-refs-once.yml' 'store-bottom-nav\.js?v=20260828-1' .; then
+            echo 'Stale store-bottom-nav cache ref remains.' >&2
+            exit 1
+          fi
+          grep -n 'public-nav-upgrade.js?v=20260901-2' assets/home-footer-redesign.js assets/store-bottom-nav.js
+          grep -n "const navVersion = '20260901-2'" tests/shopping-list-owner-isolation.mjs
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          git rm .github/workflows/sync-public-nav-cache-refs-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/home-footer-redesign.js assets/store-bottom-nav.js tests/shopping-list-owner-isolation.mjs '*.html'
+          git commit -m "Sync public nav loader cache versions"
+          git push origin HEAD:perf/store-arrival-css-inline-20260901
