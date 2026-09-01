@@ -114,3 +114,24 @@ $function$;
 
 revoke all on function public.replace_leaflet_document_pages_internal(uuid,text,text,jsonb) from public, anon, authenticated;
 grant execute on function public.replace_leaflet_document_pages_internal(uuid,text,text,jsonb) to service_role;
+
+do $block$
+declare
+  v_job_id bigint;
+begin
+  select jobid into v_job_id
+  from cron.job
+  where jobname='sync-lidl-document-pages'
+  limit 1;
+
+  if v_job_id is not null then
+    perform cron.unschedule(v_job_id);
+  end if;
+
+  perform cron.schedule(
+    'sync-lidl-document-pages',
+    '9 * * * *',
+    $cron$select private.invoke_edge_function('sync-lidl-document-pages','{}'::jsonb,120000);$cron$
+  );
+end;
+$block$;
