@@ -34,9 +34,14 @@ assert.match(fn, /\.lte\('valid_from', today\)/, 'Image recheck musí ignorovat 
 assert.match(fn, /\.gte\('valid_to', today\)/, 'Image recheck musí ignorovat prošlé nabídky.');
 assert.match(
   fn,
+  /\.order\('catalog_checked_at', \{ ascending: true, nullsFirst: true \}\)[\s\S]*?\.order\('published_at', \{ ascending: false, nullsFirst: false \}\)/,
+  'Image recheck musí rotovat od nejdéle nekontrolovaných nabídek, ne opakovat stále stejný batch.',
+);
+assert.match(
+  fn,
   /options\.recheckMissingImages && !isApprovedImage\(product\)/,
   'V image recheck režimu nesmí být kandidátem produkt bez schváleného obrázku.',
 );
 assert.match(fn, /offer_id nelze kombinovat s recheck_missing_images/, 'Jednorázový offer_id režim se nesmí míchat s hromadným recheckem.');
 
-console.log('Catalog matcher custom auth + safe image recheck boundary OK');
+console.log('Catalog matcher custom auth + safe rotating image recheck boundary OK');
