@@ -1,0 +1,56 @@
+name: Trace homepage CSS candidates once
+
+on:
+  push:
+    branches:
+      - perf/home-next-css-trace-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/home-next-css-trace-20260901
+          fetch-depth: 0
+      - name: Inspect remaining homepage CSS candidates
+        shell: bash
+        run: |
+          printf '%-42s %10s\n' FILE BYTES
+          for f in \
+            assets/filter-background-generated.css \
+            assets/public-features.css \
+            assets/home-autopilot.css \
+            assets/home-save-today.css \
+            assets/product-personalization.css \
+            assets/home-quick-food-personalize.css \
+            assets/home-semantic-filters.css \
+            assets/home-radius-select.css \
+            assets/mobile-hero-compact.css \
+            assets/mobile-deals-heading-fix.css; do
+            printf '%-42s %10s\n' "$f" "$(wc -c < "$f")"
+          done
+          echo '--- refs/loaders ---'
+          grep -RIn --exclude-dir=.git --exclude='trace-home-css-candidates-once.yml' \
+            -e 'filter-background-generated.css' \
+            -e 'public-features.css' \
+            -e 'home-autopilot.css' \
+            -e 'home-save-today.css' \
+            -e 'product-personalization.css' \
+            -e 'home-quick-food-personalize.css' \
+            -e 'home-semantic-filters.css' \
+            -e 'home-radius-select.css' \
+            -e 'mobile-hero-compact.css' \
+            -e 'mobile-deals-heading-fix.css' \
+            index.html assets tests | head -n 250 || true
+      - name: Remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/trace-home-css-candidates-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove homepage CSS candidate trace"
+          git push origin HEAD:perf/home-next-css-trace-20260901
