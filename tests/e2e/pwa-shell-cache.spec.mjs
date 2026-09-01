@@ -8,17 +8,23 @@ async function readWorker(request) {
   return response.text();
 }
 
-async function readShell(request) {
+async function readCoreShell(request) {
   const source = await readWorker(request);
-  const shellBody = source.match(/const SHELL = \[([\s\S]*?)\];/)?.[1] || '';
+  const offlineUrl = source.match(/const OFFLINE_URL = '([^']+)'/)?.[1] || '';
+  const shellBody = source.match(/const CORE_SHELL = \[([\s\S]*?)\];/)?.[1] || '';
+  expect(offlineUrl).not.toBe('');
   expect(shellBody).not.toBe('');
-  return [...shellBody.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  const urls = [...shellBody.matchAll(/'([^']+)'/g)].map((match) => match[1]);
+  if (/\bOFFLINE_URL\b/.test(shellBody)) urls.unshift(offlineUrl);
+  return urls;
 }
 
-test('PWA shell does not precache multiple versions of the same asset', async ({ request }) => {
-  const urls = await readShell(request);
-  const byPath = new Map();
+test('PWA core install cache stays minimal and has no duplicate paths', async ({ request }) => {
+  const urls = await readCoreShell(request);
+  expect(urls.length, `PWA core cache unexpectedly grew: ${JSON.stringify(urls)}`).toBeLessThanOrEqual(5);
+  expect(urls.some((value) => value.startsWith('/assets/')), 'Versioned page assets must stay out of install-time core cache.').toBeFalsy();
 
+  const byPath = new Map();
   for (const value of urls) {
     const pathname = value.split('?')[0];
     const versions = byPath.get(pathname) || [];
@@ -30,11 +36,11 @@ test('PWA shell does not precache multiple versions of the same asset', async ({
     .filter(([, versions]) => versions.length > 1)
     .map(([pathname, versions]) => ({ pathname, versions }));
 
-  expect(duplicates, `PWA shell contains duplicate asset paths: ${JSON.stringify(duplicates)}`).toEqual([]);
+  expect(duplicates, `PWA core cache contains duplicate paths: ${JSON.stringify(duplicates)}`).toEqual([]);
 });
 
-test('every PWA shell entry resolves successfully', async ({ request }) => {
-  const urls = await readShell(request);
+test('every mandatory PWA core entry resolves successfully', async ({ request }) => {
+  const urls = await readCoreShell(request);
   const failures = [];
 
   for (const value of urls) {
@@ -42,10 +48,10 @@ test('every PWA shell entry resolves successfully', async ({ request }) => {
     if (!response.ok()) failures.push({ url:value, status:response.status() });
   }
 
-  expect(failures, `PWA shell contains missing or broken entries: ${JSON.stringify(failures)}`).toEqual([]);
+  expect(failures, `PWA core cache contains missing or broken entries: ${JSON.stringify(failures)}`).toEqual([]);
 });
 
-test('PWA install fails closed instead of activating a partial shell cache', async ({ request }) => {
+test('PWA install remains atomic for the minimal core cache', async ({ request }) => {
   const source = await readWorker(request);
   const installStart = source.indexOf("self.addEventListener('install'");
   const activateStart = source.indexOf("self.addEventListener('activate'", installStart);
@@ -53,7 +59,7 @@ test('PWA install fails closed instead of activating a partial shell cache', asy
   expect(activateStart).toBeGreaterThan(installStart);
 
   const installBlock = source.slice(installStart, activateStart);
-  expect(installBlock).toContain("await cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));" );
-  expect(installBlock).not.toContain('Promise.all(SHELL.map');
+  expect(installBlock).toContain("await cache.addAll(CORE_SHELL.map((url) => new Request(url, { cache: 'reload' })));" );
+  expect(installBlock).not.toContain('Promise.all(CORE_SHELL.map');
   expect(installBlock).not.toMatch(/cache\.add\([^)]*\)[\s\S]*catch\s*\{\s*\}/);
 });
