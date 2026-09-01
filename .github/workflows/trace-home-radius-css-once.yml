@@ -1,0 +1,37 @@
+name: Trace home radius CSS once
+
+on:
+  push:
+    branches:
+      - perf/home-radius-css-trace-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/home-radius-css-trace-20260901
+          fetch-depth: 0
+      - name: Trace radius and adjacent hero stylesheet refs
+        shell: bash
+        run: |
+          echo '--- sizes ---'
+          wc -c assets/home-live-hero.css assets/home-radius-select.css
+          echo '--- radius refs ---'
+          grep -RIn --exclude-dir=.git --exclude='trace-home-radius-css-once.yml' 'home-radius-select\.css' . || true
+          echo '--- live hero refs ---'
+          grep -RIn --exclude-dir=.git --exclude='trace-home-radius-css-once.yml' 'home-live-hero\.css' . || true
+          echo '--- index order ---'
+          grep -n 'home-live-hero\.css\|home-radius-select\.css\|home-leaflet-covers\.css' index.html
+      - name: Remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/trace-home-radius-css-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Remove home radius CSS trace workflow"
+          git push origin HEAD:perf/home-radius-css-trace-20260901
