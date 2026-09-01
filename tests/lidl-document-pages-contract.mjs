@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const migration = readFileSync(new URL('../supabase/migrations/20260901214000_leaflet_document_pages.sql', import.meta.url), 'utf8');
 const worker = readFileSync(new URL('../supabase/functions/sync-lidl-document-pages/index.ts', import.meta.url), 'utf8');
+const config = readFileSync(new URL('../supabase/functions/sync-lidl-document-pages/config.toml', import.meta.url), 'utf8');
 
 assert.match(migration, /create table if not exists public\.leaflet_document_pages/i, 'Canonical document page table is missing.');
 assert.match(migration, /unique \(source_document_url, page_number, source_kind\)/i, 'Page identity must be unique per document/source kind.');
@@ -31,5 +32,10 @@ assert.doesNotMatch(worker, /\.from\(['"]leaflet_ocr_pages['"]\)/, 'Worker must 
 assert.doesNotMatch(worker, /\.from\(['"]offers['"]\)/, 'Page sync must not mutate offers.');
 assert.doesNotMatch(worker, /\.from\(['"]products['"]\)/, 'Page sync must not mutate products.');
 assert.doesNotMatch(worker, /detected_valid_from|detected_valid_to/, 'Page sync must not rewrite offer/import validity.');
+
+assert.match(config, /^verify_jwt\s*=\s*false\s*$/m, 'Custom-auth Lidl page worker must declare verify_jwt=false for automated deployment.');
+assert.match(worker, /token === SERVICE_ROLE_KEY/, 'verify_jwt=false is only safe while the worker validates service-role bearer auth itself.');
+assert.match(worker, /x-cron-secret/, 'verify_jwt=false is only safe while the worker validates the cron secret itself.');
+assert.match(worker, /\['admin', 'editor'\]/, 'verify_jwt=false is only safe while authenticated admin/editor access is checked in the worker.');
 
 console.log('Lidl official document page contract: OK');
