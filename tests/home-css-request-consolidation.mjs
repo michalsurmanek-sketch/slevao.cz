@@ -6,6 +6,8 @@ const storeRow = fs.readFileSync('assets/mobile-store-row-fix.css', 'utf8');
 const deals = fs.readFileSync('assets/mobile-deals-heading-fix.css', 'utf8');
 const topTip = fs.readFileSync('assets/top-tip-button.css', 'utf8');
 const homeFooter = fs.readFileSync('assets/home-footer-redesign.css', 'utf8');
+const homeFooterRuntime = fs.readFileSync('assets/home-footer-redesign.js', 'utf8');
+const inStore = fs.readFileSync('assets/home-in-store.css', 'utf8');
 
 for (const path of [
   'assets/mobile-section-dividers.css',
@@ -72,6 +74,20 @@ assert.match(homeFooter, /Homepage footer cascade inlined to remove two styleshe
 assert.match(homeFooter, /content:"Upozornění na slevy"/);
 assert.match(homeFooter, /background-image:url\('footer-background\.webp\?v=20260808-1'\)!important/);
 assert.match(homeFooter, /\.footerShell::before,\s*\n\.footerShell::after\{\s*\n\s*display:none!important;/);
+
+assert.doesNotMatch(
+  homeFooterRuntime,
+  /home-in-store-actions\.css/,
+  'homepage runtime must not restore the standalone in-store actions stylesheet request',
+);
+assert.doesNotMatch(
+  homeFooterRuntime,
+  /home-in-store-list\.css/,
+  'homepage runtime must not restore the standalone in-store list stylesheet request',
+);
+assert.match(inStore, /Inlined home-in-store extension styles: actions then list\./);
+assert.match(inStore, /\.slInStoreActions\{display:flex/);
+assert.match(inStore, /\.slInStoreListCoverage\{margin:14px 22px 0/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
 assert.equal(directCssLinks.length, 24, 'homepage should keep the consolidated 24 direct CSS links');

@@ -124,23 +124,11 @@
     inStoreEquivalenceScript.defer = true;
     document.head.appendChild(inStoreEquivalenceScript);
   }
-  if (!document.querySelector('link[href*="home-in-store-actions.css"]')) {
-    const inStoreActionsStyle = document.createElement('link');
-    inStoreActionsStyle.rel = 'stylesheet';
-    inStoreActionsStyle.href = 'assets/home-in-store-actions.css?v=20260807-1';
-    document.head.appendChild(inStoreActionsStyle);
-  }
   if (!document.querySelector('script[src*="home-in-store-actions.js"]')) {
     const inStoreActionsScript = document.createElement('script');
     inStoreActionsScript.src = 'assets/home-in-store-actions.js?v=20260807-1';
     inStoreActionsScript.defer = true;
     document.head.appendChild(inStoreActionsScript);
-  }
-  if (!document.querySelector('link[href*="home-in-store-list.css"]')) {
-    const inStoreListStyle = document.createElement('link');
-    inStoreListStyle.rel = 'stylesheet';
-    inStoreListStyle.href = 'assets/home-in-store-list.css?v=20260807-1';
-    document.head.appendChild(inStoreListStyle);
   }
   if (!document.querySelector('script[src*="home-in-store-list.js"]')) {
     const inStoreListScript = document.createElement('script');
