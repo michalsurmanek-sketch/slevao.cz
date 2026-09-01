@@ -281,10 +281,10 @@ assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-9')
 assert.match(fallbackUrl, /^assets\/shopping-share-fallback-guard\.js\?v=20260828-[0-9]+$/);
 assert.ok(html.indexOf(clipboardUrl) < html.indexOf(bootstrapUrl), 'Clipboard share bridge musí běžet před bootstrapem seznamu.');
 assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(fallbackUrl), 'Share fallback guard musí běžet až po Web Share bridge bootstrapu.');
-assert.ok(worker.includes(`'/${clipboardUrl}'`), 'PWA necachuje clipboard share bridge.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje hash-only bootstrap seznamu.');
-assert.ok(worker.includes(`'/${fallbackUrl}'`), 'PWA necachuje share fallback guard.');
-const cacheMatch = worker.match(/slevao-shell-(\d{8})-(\d+)/);
+for (const runtimeUrl of [clipboardUrl, bootstrapUrl, fallbackUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+const cacheMatch = worker.match(/CACHE_VERSION = '(\d{8})-(\d+)'/);
 assert.ok(cacheMatch, 'PWA cache musí používat formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
@@ -292,5 +292,8 @@ assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 67),
   'PWA cache je starší než hash-only share integrace 20260828-67.',
 );
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Share JavaScript musí být obsloužený jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'Share JavaScript musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Share JavaScript musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping share hash-only format and legacy URL sanitization OK');
