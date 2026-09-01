@@ -117,9 +117,20 @@ assert.match(quickFoodPersonalize, /\.dealsSection\.slSemanticActive \.filterPan
 assert.match(homeFooterRuntime, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
 assert.match(index, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
 
+assert.equal(
+  index.includes('assets/mobile-hero-compact.css'),
+  false,
+  'homepage must keep mobile hero compact styles bundled into mobile-deals-heading-fix.css',
+);
+assert.match(deals, /Homepage bundle: mobile hero compact/);
+assert.match(deals, /html body \.heroCard\{padding:14px 14px 14px!important;background-image:url\('\/assets\/hero-mobile-combined\.webp\?v=20260815-1'\)!important/);
+assert.match(deals, /html body \.heroCopy>\.eyebrow\{width:max-content!important;max-width:100%!important;min-height:28px!important/);
+assert.match(deals, /html body \.heroCard \.heroStats>span\{min-height:52px!important\}/);
+assert.match(deals, /html body #dealGrid\[data-card-view="mini"\] \.dealCard h3/);
+assert.match(index, /assets\/mobile-deals-heading-fix\.css\?v=20260901-3/);
+
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 23, 'homepage should keep the consolidated 23 direct CSS links');
-assert.ok(index.includes('assets/mobile-hero-compact.css?v='), 'Homepage must keep the intentional mobile hero compact layer.');
+assert.equal(directCssLinks.length, 22, 'homepage should keep the consolidated 22 direct CSS links');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
