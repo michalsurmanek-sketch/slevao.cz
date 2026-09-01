@@ -1,0 +1,78 @@
+name: Inline homepage semantic CSS once
+
+on:
+  push:
+    branches:
+      - perf/home-semantic-css-inline-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/home-semantic-css-inline-20260901
+          fetch-depth: 0
+
+      - name: Inline semantic filter CSS and sync cache versions
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          semantic_path = Path('assets/home-semantic-filters.css')
+          quick_path = Path('assets/home-quick-food-personalize.css')
+          index_path = Path('index.html')
+          footer_runtime_path = Path('assets/home-footer-redesign.js')
+
+          semantic = semantic_path.read_text(encoding='utf-8').strip()
+          quick = quick_path.read_text(encoding='utf-8')
+          marker = '/* Homepage bundle: semantic filters */'
+          if marker in quick:
+              raise SystemExit('semantic CSS already in quick-food personalization bundle')
+          quick_path.write_text(quick.rstrip() + '\n\n' + marker + '\n' + semantic + '\n', encoding='utf-8')
+
+          index = index_path.read_text(encoding='utf-8')
+          semantic_link = '  <link rel="stylesheet" href="assets/home-semantic-filters.css?v=20260815-2">\n'
+          if index.count(semantic_link) != 1:
+              raise SystemExit(f'expected one semantic CSS link, got {index.count(semantic_link)}')
+          index = index.replace(semantic_link, '', 1)
+          old_quick = 'assets/home-quick-food-personalize.css?v=20260811-2'
+          new_quick = 'assets/home-quick-food-personalize.css?v=20260901-3'
+          if index.count(old_quick) != 1:
+              raise SystemExit(f'expected one quick CSS ref in index, got {index.count(old_quick)}')
+          index = index.replace(old_quick, new_quick, 1)
+
+          old_footer = 'assets/home-footer-redesign.js?v=20260901-2'
+          new_footer = 'assets/home-footer-redesign.js?v=20260901-3'
+          if index.count(old_footer) != 1:
+              raise SystemExit(f'expected one footer runtime ref in index, got {index.count(old_footer)}')
+          index = index.replace(old_footer, new_footer, 1)
+          index_path.write_text(index, encoding='utf-8')
+
+          footer = footer_runtime_path.read_text(encoding='utf-8')
+          if footer.count(old_quick) != 1:
+              raise SystemExit(f'expected one quick CSS fallback in footer runtime, got {footer.count(old_quick)}')
+          footer_runtime_path.write_text(footer.replace(old_quick, new_quick, 1), encoding='utf-8')
+          PY
+
+          grep -n 'Homepage bundle: semantic filters' assets/home-quick-food-personalize.css
+          grep -n 'home-quick-food-personalize.css?v=20260901-3' index.html assets/home-footer-redesign.js
+          if grep -n 'home-semantic-filters.css' index.html; then
+            echo 'Standalone semantic stylesheet still referenced by homepage.' >&2
+            exit 1
+          fi
+          grep -n 'home-footer-redesign.js?v=20260901-3' index.html
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          git rm .github/workflows/inline-home-semantic-css-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/home-quick-food-personalize.css assets/home-footer-redesign.js index.html
+          git commit -m "Inline homepage semantic filter styles"
+          git push origin HEAD:perf/home-semantic-css-inline-20260901
