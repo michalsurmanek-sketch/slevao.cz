@@ -42,7 +42,11 @@ def drmax_target():
         candidates[0] if candidates else None,
     )
     if not preferred:
-        raise RuntimeError("No current Dr. Max import with official page images")
+        return {
+            "ok": False,
+            "reason": "no-current-official-flyer",
+            "business_date": today,
+        }
     metadata = preferred.get("metadata") or {}
     return {
         "ok": True,
@@ -85,5 +89,21 @@ worker.api = api
 worker.download = direct_download
 
 if __name__ == "__main__":
-    print(json.dumps({"worker": "drmax", "engine": worker.ENGINE}), flush=True)
+    target = drmax_target()
+    if not target.get("ok"):
+        print(json.dumps({
+            "ok": True,
+            "worker": "drmax",
+            "engine": worker.ENGINE,
+            "skipped": True,
+            **target,
+        }, ensure_ascii=False), flush=True)
+        raise SystemExit(0)
+    print(json.dumps({
+        "worker": "drmax",
+        "engine": worker.ENGINE,
+        "target": target["import_id"],
+        "valid_from": target.get("valid_from"),
+        "valid_to": target.get("valid_to"),
+    }, ensure_ascii=False), flush=True)
     worker.main()

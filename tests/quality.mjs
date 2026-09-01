@@ -35,8 +35,13 @@ const index = read('index.html');
 const homeJs = read('assets/home-v2.js');
 const homeCss = read('assets/home-v2.css');
 const searchSuggest = read('assets/search-suggest.js');
+const drmaxOcr = read('scripts/sync_drmax_ocr.py');
 new Script(homeJs, { filename:'assets/home-v2.js' });
 new Script(searchSuggest, { filename:'assets/search-suggest.js' });
+
+assert.match(drmaxOcr, /"reason": "no-current-official-flyer"/, 'Dr. Max OCR neumí bezpečně čekat na nové oficiální vydání.');
+assert.doesNotMatch(drmaxOcr, /raise RuntimeError\("No current Dr\. Max import with official page images"\)/, 'Chybějící nové vydání Dr. Max nesmí shodit plánovaný OCR běh.');
+assert.match(drmaxOcr, /if not target\.get\("ok"\):[\s\S]*"skipped": True[\s\S]*raise SystemExit\(0\)/, 'Dr. Max OCR nemá úspěšný no-op pro období mezi letáky.');
 
 assert.match(index, /<link rel="canonical" href="https:\/\/slevao\.cz\/">/, 'Homepage nemá canonical URL.');
 assert.match(index, /application\/ld\+json/, 'Homepage nemá strukturovaná data.');
