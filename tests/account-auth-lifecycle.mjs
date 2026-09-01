@@ -52,7 +52,7 @@ assert.match(account, /pagehide[\s\S]*authSubscription\?\.unsubscribe\?\.\(\)[\s
 const htmlVersion = html.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(htmlVersion, 'ucet.html musí načítat verzovaný account.js.');
 assert.ok(!serviceWorker.includes(`'/assets/account.js?v=${htmlVersion}'`), 'account.js se nesmí vrátit do monolitického install-time PWA precache.');
-assert.match(serviceWorker, /function isCriticalStatic\(url\)[\s\S]*\.(?:css\|js|css\|js\|webmanifest)/, 'Service worker musí rozpoznat účetní JavaScript jako kritický statický asset.');
+assert.ok(serviceWorker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Service worker musí rozpoznat účetní JavaScript jako kritický statický asset.');
 assert.ok(serviceWorker.includes("cache: 'reload'"), 'Kritický account.js musí být network-first.');
 assert.ok(serviceWorker.includes('putRuntime(request, response)'), 'Úspěšně načtený account.js musí být uložitelný do runtime cache.');
 
