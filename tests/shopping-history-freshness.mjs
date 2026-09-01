@@ -134,14 +134,16 @@ assert.equal(guest.getReloads(), 1, 'Změna guest historie nevyvolala reload.');
 
 const assetUrl = html.match(/assets\/shopping-history-freshness\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-history-freshness.js?v=20260828-1', 'seznam.html nenačítá history freshness guard v1.');
-assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA necachuje přesný history freshness guard ze seznam.html.');
-const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje history freshness asset.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'History freshness asset není v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou history freshness URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 62),
-  'PWA shell se nesmí vrátit pod history freshness baseline 20260828-62.',
+  'PWA cache se nesmí vrátit pod history freshness baseline 20260828-62.',
 );
 
 console.log('Shopping history freshness detects cross-device history changes without polling');

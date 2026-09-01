@@ -21,15 +21,16 @@ assert.ok(
   html.indexOf(runtimeUrl) < html.indexOf(bootstrapUrl),
   'Owner item CAS bridge musí obalit Supabase klienta před shopping runtime bootstrapem.'
 );
-assert.ok(worker.includes(`'/${runtimeUrl}'`), 'PWA necachuje owner item semantic CAS bridge.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
-const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje owner item CAS bridge a bootstrap.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Owner item CAS bridge není v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou owner item CAS URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 60),
-  'PWA shell se nesmí vrátit pod owner item CAS baseline 20260828-60.',
+  'PWA cache se nesmí vrátit pod owner item CAS baseline 20260828-60.',
 );
 assert.ok(source.includes("if (sharedMode || !document.querySelector('.sfListLayout')) return;"), 'CAS bridge není bezpečně vypnutý ve shared režimu.');
 assert.ok(source.includes("if (String(table) !== 'shopping_list_items') return base;"), 'CAS bridge neomezuje Supabase proxy jen na shopping_list_items.');

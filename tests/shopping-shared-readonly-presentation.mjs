@@ -38,7 +38,7 @@ const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"'
 assert.match(cssUrl, /^assets\/shopping-shared-readonly-presentation\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzované read-only CSS.');
 assert.match(jsUrl, /^assets\/shopping-shared-readonly-presentation\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný read-only runtime.');
 assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(jsUrl), 'Read-only presentation runtime má běžet po shopping bootstrapu.');
-assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA necachuje read-only presentation CSS.');
-assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA necachuje read-only presentation runtime.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje read-only presentation assety.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesné verzované read-only presentation assety.');
 
 console.log('Shared shopping lists hide unavailable owner controls and view-only edit affordances safely');

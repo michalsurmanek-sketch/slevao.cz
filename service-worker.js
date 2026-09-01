@@ -1,191 +1,37 @@
-const CACHE_NAME = 'slevao-shell-20260901-4';
+const CACHE_VERSION = '20260901-5';
+const CORE_CACHE_NAME = `slevao-core-${CACHE_VERSION}`;
+const RUNTIME_CACHE_NAME = `slevao-runtime-${CACHE_VERSION}`;
+const CACHE_NAME = RUNTIME_CACHE_NAME;
 const OFFLINE_URL = '/offline.html';
-const SHELL = [
-  '/',
-  '/index.html',
-  '/letaky.html',
-  '/seznam.html',
-  '/ucet.html',
-  '/produkt.html',
-  '/offline.html',
+
+// Keep install atomic and tiny. Public-page assets are cached on demand by the
+// fetch handler instead of making the whole service-worker installation depend
+// on hundreds of independently versioned files.
+const CORE_SHELL = [
+  OFFLINE_URL,
   '/manifest.webmanifest',
-  '/favicon.svg',
-
-  // Homepage shell.
-  '/assets/home-v2.css?v=20260815-9',
-  '/assets/home-redesign-step1.css?v=20260802-2',
-  '/assets/home-redesign-step2.css?v=20260808-3',
-  '/assets/home-redesign-step3.css?v=20260828-1',
-  '/assets/home-live.css?v=20260808-2',
-  '/assets/home-live-hero.css?v=20260815-8',
-  '/assets/home-radius-select.css?v=20260809-4',
-  '/assets/home-leaflet-covers.css?v=20260809-4',
-  '/assets/home-overview.css?v=20260803-3',
-  '/assets/home-footer-redesign.css?v=20260811-3',
-  '/assets/footer-generated-bg.css?v=20260808-6',
-  '/assets/mobile-ux.css?v=20260815-21',
-  '/assets/mobile-store-row-fix.css?v=20260829-1',
-  '/assets/home-quick-food-filter.css?v=20260829-2',
-  '/assets/home-quick-food-personalize.css?v=20260811-2',
-  '/assets/home-semantic-filters.css?v=20260815-2',
-  '/assets/product-card-desktop.css?v=20260815-3',
-  '/assets/product-card-media-clean.css?v=20260815-2',
-  '/assets/product-card-mini.css?v=20260829-2',
-  '/assets/filter-background-generated.css?v=20260808-1',
-  '/assets/top-tip-button.css?v=20260826-1',
-  '/assets/index-mobile-final.css?v=20260816-7',
-  '/assets/mobile-deals-heading-fix.css?v=20260828-2',
-  '/assets/mobile-hero-compact.css?v=20260829-1',
-  '/assets/rpc-request-dedupe.js?v=20260901-1',
-  '/assets/home-count-semantics.js?v=20260901-1',
-  '/assets/home-v2.js?v=20260829-1',
-  '/assets/home-leaflet-direct.js?v=20260821-2',
-  '/assets/home-leaflet-viewer.js?v=20260809-1',
-  '/assets/home-all-stores.js?v=20260826-2',
-  '/assets/home-leaflet-covers.js?v=20260821-2',
-  '/assets/home-overview.js?v=20260821-2',
-  '/assets/home-quick-food-filter.js?v=20260829-4',
-  '/assets/home-semantic-filters.js?v=20260901-1',
-  '/assets/home-filter-range-guard.js?v=20260826-1',
-  '/assets/home-autopilot.css?v=20260810-5',
-  '/assets/home-autopilot.js?v=20260829-1',
-  '/assets/home-footer-redesign.js?v=20260901-1',
-  '/assets/mobile-navigation.js?v=20260829-1',
-  '/assets/product-card-desktop.js?v=20260828-1',
-  '/assets/home-radius-select.js?v=20260809-3',
-  '/assets/mobile-leaflet-nav-position.js?v=20260816-10',
-
-  // Homepage footer-loader dynamic dependencies.
-  '/assets/footer-section-jumps.js?v=20260831-8',
-  '/assets/home-quick-food-personalize.js?v=20260811-1',
-  '/assets/home-save-today.css?v=20260815-7',
-  '/assets/home-save-today.js?v=20260815-8',
-  '/assets/home-save-text-helper.js?v=20260807-1',
-  '/assets/home-live.js?v=20260901-1',
-  '/assets/home-in-store.css?v=20260807-2',
-  '/assets/home-in-store.js?v=20260807-1',
-  '/assets/home-in-store-safe.js?v=20260807-2',
-  '/assets/home-in-store-equivalence.js?v=20260807-1',
-  '/assets/home-in-store-actions.css?v=20260807-1',
-  '/assets/home-in-store-actions.js?v=20260807-1',
-  '/assets/home-in-store-list.css?v=20260807-1',
-  '/assets/home-in-store-list.js?v=20260807-1',
-
-  // Leaflets catalogue shell.
-  '/assets/leaflets-page.css?v=20260816-5',
-  '/assets/leaflets-store-search.css?v=20260809-1',
-  '/assets/leaflets-scroll-top.css?v=20260809-1',
-  '/assets/leaflets-page.js?v=20260809-1',
-  '/assets/leaflets-ikea-fix.js?v=20260809-3',
-  '/assets/leaflets-browser-viewer.js?v=20260809-1',
-  '/assets/leaflets-store-search.js?v=20260809-4',
-  '/assets/leaflets-main-stores-v2.js?v=20260809-1',
-  '/assets/leaflets-globus-logo.js?v=20260809-2',
-  '/assets/leaflets-brnenka-logo.js?v=20260809-1',
-  '/assets/leaflets-mobile-search-scroll.js?v=20260810-2',
-  '/assets/leaflets-scroll-top.js?v=20260809-1',
-
-  // Shared public runtime.
-  '/assets/home-favorite-offer-sync.js?v=20260827-1',
-  '/assets/home-product-favorites.js?v=20260822-1',
-  '/assets/public-features.css?v=20260816-5',
-  '/assets/public-features.js?v=20260828-2',
-  '/assets/mobile-footer-upgrade.css?v=20260828-6',
-  '/assets/supabase-client.js?v=20260825-1',
-  '/assets/public-nav-upgrade.js?v=20260830-1',
-  '/assets/product-personalization.css?v=20260816-4',
-  '/assets/product-personalization.js?v=20260827-3',
-  '/assets/location-service.js?v=20260821-1',
-  '/assets/store-arrival-alerts.css?v=20260811-1',
-  '/assets/store-arrival-copy-variation.js?v=20260811-2',
-  '/assets/store-arrival-alerts.js?v=20260811-3',
-  '/assets/store-arrival-test.js?v=20260811-5',
-  '/assets/search-notifications.css?v=20260804-1',
-  '/assets/home-personal-deals.css?v=20260804-1',
-  '/assets/home-personal-deals.js?v=20260825-1',
-  '/assets/pwa-install.js?v=20260901-1',
-
-  // Product detail shell.
-  '/assets/product-price-history-safe.js?v=20260827-1',
-  '/assets/product-intelligence.css?v=20260810-2',
-  '/assets/product-premium.css?v=20260811-2',
-  '/assets/product-equivalence.css?v=20260811-1',
-  '/assets/product-identity-guard.css?v=20260811-1',
-  '/assets/product-detail.js?v=20260827-2',
-  '/assets/product-detail-safety.js?v=20260811-1',
-  '/assets/product-identity-guard.js?v=20260827-1',
-  '/assets/product-leaflet-location-global.js?v=20260821-1',
-  '/assets/product-seo.js?v=20260811-3',
-  '/assets/product-premium-runtime.js?v=20260815-4',
-  '/assets/product-intelligence.js?v=20260821-1',
-  '/assets/product-equivalence.js?v=20260827-1',
-
-  // Shopping-list shell.
-  '/assets/shopping-positive-price-guard.js?v=20260828-2',
-  '/assets/shopping-budget-concurrency.js?v=20260828-2',
-  '/assets/shopping-local-quantity-guard.js?v=20260828-1',
-  '/assets/shopping-owner-item-concurrency.js?v=20260828-1',
-  '/assets/shopping-owner-cold-sync.js?v=20260828-1',
-  '/assets/shopping-guest-claim-bridge.js?v=20260827-1',
-  '/assets/shopping-guest-product-fallback.js?v=20260828-1',
-  '/assets/shopping-guest-claim-reconcile.js?v=20260827-1',
-  '/assets/shopping-owner-custom-add-bridge.js?v=20260828-3',
-  '/assets/shopping-shared-add-submit-guard.js?v=20260828-3',
-  '/assets/shopping-owner-cloud-refresh.js?v=20260828-1',
-  '/assets/shopping-plan-validity-warning.js?v=20260828-1',
-  '/assets/shopping-list-copy-guard.js?v=20260828-1',
-  '/assets/shopping-clipboard-share-bridge.js?v=20260828-2',
-  '/assets/shopping-share-fallback-guard.js?v=20260828-1',
-  '/assets/shopping-list-redesign.css?v=20260816-3',
-  '/assets/mobile-optimizer-compact.css?v=20260828-3',
-  '/assets/shopping-list-mobile-focus.css?v=20260830-1',
-  '/assets/shopping-optimizer-mobile-collapse.css?v=20260828-1',
-  '/assets/shopping-shared-readonly-presentation.css?v=20260828-2',
-  '/assets/shopping-route-positive-price-guard.js?v=20260828-1',
-  '/assets/shopping-route-freshness.css?v=20260828-1',
-  '/assets/product-search.js?v=20260804-2',
-  '/assets/shopping-list.js?v=20260827-2',
-  '/assets/shopping-list-price-summary-v2.css?v=20260827-1',
-  '/assets/shopping-day-consistent-plan.js?v=20260828-5',
-  '/assets/shopping-optimizer-mobile-collapse.js?v=20260828-2',
-  '/assets/shopping-list-price-summary.js?v=20260828-8',
-  '/assets/shopping-visible-refresh-tick.js?v=20260828-1',
-  '/assets/shopping-insights.css?v=20260828-1',
-  '/assets/shopping-insights-bootstrap.js?v=20260828-9',
-  '/assets/shopping-repeat-purchase-sync.js?v=20260828-2',
-  '/assets/shopping-history-freshness.js?v=20260828-1',
-  '/assets/shopping-shared-readonly-presentation.js?v=20260828-2',
-  '/assets/shopping-insights-mobile-order.js?v=20260828-1',
-  '/assets/shopping-optimizer-window-label.js?v=20260828-1',
-  '/assets/shopping-insights-validity-guard.js?v=20260828-2',
-  '/assets/shopping-insights.js?v=20260828-1',
-  '/assets/shopping-route.css?v=20260815-3',
-  '/assets/shopping-route.js?v=20260827-2',
-  '/assets/shopping-route-freshness.js?v=20260828-1',
-  '/assets/shopping-route-today-label.js?v=20260828-1',
-  '/assets/shopping-route-autostart.js?v=20260807-1',
-
-  // Account shell.
-  '/assets/account-redesign.css?v=20260816-11',
-  '/assets/account-mobile-hero-card.css?v=20260829-1',
-  '/assets/account-notification-seen-guard.js?v=20260822-1',
-  '/assets/account.js?v=20260822-3',
-  '/assets/web-push.js?v=20260831-1',
-  '/assets/account-recovery.js?v=20260817-1'
+  '/favicon.svg'
 ];
 
 self.addEventListener('install', (event) => {
   event.waitUntil((async () => {
-    const cache = await caches.open(CACHE_NAME);
-    await cache.addAll(SHELL.map((url) => new Request(url, { cache: 'reload' })));
+    const cache = await caches.open(CORE_CACHE_NAME);
+    await cache.addAll(CORE_SHELL.map((url) => new Request(url, { cache: 'reload' })));
     await self.skipWaiting();
   })());
 });
 
 self.addEventListener('activate', (event) => {
   event.waitUntil((async () => {
+    const keep = new Set([CORE_CACHE_NAME, RUNTIME_CACHE_NAME]);
     const names = await caches.keys();
-    await Promise.all(names.filter((name) => name.startsWith('slevao-shell-') && name !== CACHE_NAME).map((name) => caches.delete(name)));
+    await Promise.all(names
+      .filter((name) => (
+        name.startsWith('slevao-shell-')
+        || name.startsWith('slevao-core-')
+        || name.startsWith('slevao-runtime-')
+      ) && !keep.has(name))
+      .map((name) => caches.delete(name)));
     await self.clients.claim();
   })());
 });
@@ -271,6 +117,12 @@ function isCriticalStatic(url) {
   return /\.(?:css|js|webmanifest)$/i.test(url.pathname);
 }
 
+async function putRuntime(request, response) {
+  if (!response?.ok) return;
+  const cache = await caches.open(RUNTIME_CACHE_NAME);
+  await cache.put(request, response.clone());
+}
+
 self.addEventListener('fetch', (event) => {
   const request = event.request;
   if (request.method !== 'GET') return;
@@ -280,17 +132,17 @@ self.addEventListener('fetch', (event) => {
 
   if (request.mode === 'navigate') {
     event.respondWith((async () => {
+      const runtime = await caches.open(RUNTIME_CACHE_NAME);
       try {
         const response = await fetch(request);
-        if (response.ok) {
-          const cache = await caches.open(CACHE_NAME);
-          cache.put(request, response.clone()).catch(() => {});
-        }
+        if (response.ok) putRuntime(request, response).catch(() => {});
         return response;
       } catch {
-        return (await caches.match(request))
-          || (await caches.match(url.pathname))
-          || (await caches.match(OFFLINE_URL));
+        const core = await caches.open(CORE_CACHE_NAME);
+        return (await runtime.match(request))
+          || (await runtime.match(url.pathname))
+          || (await core.match(OFFLINE_URL))
+          || Response.error();
       }
     })());
     return;
@@ -298,25 +150,34 @@ self.addEventListener('fetch', (event) => {
 
   if (isLocalStatic(request, url)) {
     event.respondWith((async () => {
-      const cache = await caches.open(CACHE_NAME);
+      const runtime = await caches.open(RUNTIME_CACHE_NAME);
 
+      // CSS/JS/manifest stay network-first so a new deploy cannot be masked by
+      // an older runtime cache. They still fall back to the last good response.
       if (isCriticalStatic(url)) {
         try {
           const freshRequest = new Request(request, { cache: 'reload' });
           const response = await fetch(freshRequest);
-          if (response.ok) cache.put(request, response.clone()).catch(() => {});
+          if (response.ok) putRuntime(request, response).catch(() => {});
           return response;
         } catch {
-          return (await caches.match(request)) || Response.error();
+          return (await runtime.match(request)) || Response.error();
         }
       }
 
-      const cached = await caches.match(request);
+      // Images/fonts use stale-while-revalidate. Nothing outside CORE_SHELL is
+      // required during install, so one missing optional asset cannot break PWA.
+      const cached = await runtime.match(request);
       const network = fetch(request).then(async (response) => {
-        if (response.ok) cache.put(request, response.clone()).catch(() => {});
+        if (response.ok) await putRuntime(request, response).catch(() => {});
         return response;
       }).catch(() => null);
-      return cached || (await network) || Response.error();
+
+      if (cached) {
+        event.waitUntil(network.then(() => undefined));
+        return cached;
+      }
+      return (await network) || Response.error();
     })());
   }
 });

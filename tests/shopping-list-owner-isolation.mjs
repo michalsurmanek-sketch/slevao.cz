@@ -59,8 +59,12 @@ assert.match(storeBottomNav, /navScript\.async = false;/, 'Store public-nav load
 assert.match(storeBottomNav, /script\.async = false;/, 'Store public-features loader nemá vynucené pořadí.');
 const accountVersion = accountHtml.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(accountVersion, 'Účet nenačítá verzovaný owner-aware account runtime.');
-assert.match(worker, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'PWA nemá owner bridge.');
-assert.ok(worker.includes(`'/assets/account.js?v=${accountVersion}'`), 'PWA nemá stejný owner-aware account runtime jako účet.');
+
+// Owner bridge/account runtime are now cached after successful use. Verify the
+// generic runtime contract instead of requiring them in install-time precache.
+assert.match(worker, /function isLocalStatic\(request, url\)/, 'PWA nemá runtime cache pro owner-aware assety.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje owner bridge\/account assety.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou owner-aware URL.');
 
 const bridgeStart = nav.indexOf('  function installShoppingListOwnerBridge()');
 const bridgeEnd = nav.indexOf('\n  function loadPersonalization()', bridgeStart);

@@ -97,9 +97,11 @@ const autostartUrl = html.match(/assets\/shopping-route-autostart\.js\?v=[^"']+/
 assert.match(cssUrl, /^assets\/shopping-route-freshness\.css\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný route freshness CSS.');
 assert.match(jsUrl, /^assets\/shopping-route-freshness\.js\?v=20260828-[0-9]+$/, 'HTML nenačítá verzovaný route freshness runtime.');
 assert.ok(autostartUrl, 'HTML nenačítá route autostart runtime.');
-assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA nemá stejnou route freshness CSS verzi jako HTML.');
-assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA nemá stejnou route freshness JS verzi jako HTML.');
-assert.ok(worker.includes(`'/${autostartUrl}'`), 'PWA nemá stejnou route autostart verzi jako HTML.');
+for (const runtimeUrl of [cssUrl, jsUrl, autostartUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("cache: 'reload'"), 'Route CSS/JS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Route CSS/JS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 let listGateReady = false;
 let autostartInterval = null;

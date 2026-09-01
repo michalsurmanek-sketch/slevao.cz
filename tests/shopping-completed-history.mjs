@@ -115,15 +115,21 @@ assert.ok(
   bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 8),
   'Checked-history bootstrap nesmí klesnout pod baseline 20260828-8.',
 );
-assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje přesný checked-history insights asset.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný checked-history bootstrap asset.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+
+// Public page assets are intentionally no longer install-time precache entries.
+// They are network-first/runtime cached after successful use, so a missing
+// optional shopping asset cannot block installation of the entire PWA.
+assert.ok(!worker.includes(`'/${insightsUrl}'`), 'Checked-history insights se nemá vracet do monolitického install-time precache.');
+assert.ok(!worker.includes(`'/${bootstrapUrl}'`), 'Checked-history bootstrap se nemá vracet do monolitického install-time precache.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'PWA nemá runtime cache cestu pro navštívené shopping assety.');
+assert.ok(worker.includes("cache: 'reload'"), 'Kritické shopping JS musí zůstat network-first.');
+const cacheMatch = worker.match(/CACHE_VERSION = '(\d{8})-(\d+)'/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 65),
-  'PWA shell se nesmí vrátit pod checked-history baseline 20260828-65.',
+  'PWA cache se nesmí vrátit pod checked-history baseline 20260828-65.',
 );
 
 console.log('Checked shopping history is fail-closed against stale unfinished-only completion snapshots');

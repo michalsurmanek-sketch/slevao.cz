@@ -44,13 +44,16 @@ assert.match(insights, /lastBusinessDay = pragueDate\(\);/, 'Inicializace insigh
 const listVersion = insightsBootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/)?.[1] || '';
 assert.ok(listVersion, 'Identity bootstrap musí načítat verzovaný shopping-list.js.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít auth owner gate přímým shopping-list loaderem.');
-assert.ok(serviceWorker.includes(`'/assets/shopping-list.js?v=${listVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-list.js jako identity bootstrap.');
+assert.ok(!serviceWorker.includes(`'/assets/shopping-list.js?v=${listVersion}'`), 'shopping-list.js se nesmí vrátit do install-time PWA precache.');
 
 const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping-insights bootstrap.');
-assert.ok(serviceWorker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'PWA musí cacheovat stejnou verzi shopping-insights bootstrapu jako seznam.html.');
+assert.ok(!serviceWorker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'shopping-insights bootstrap se nesmí vrátit do install-time PWA precache.');
 const insightsVersion = insightsBootstrap.match(/const INSIGHTS_URL = 'assets\/shopping-insights\.js\?v=([0-9-]+)'/)?.[1] || '';
 assert.ok(insightsVersion, 'Bootstrap musí načítat verzovaný shopping-insights.js.');
-assert.ok(serviceWorker.includes(`'/assets/shopping-insights.js?v=${insightsVersion}'`), 'PWA musí cacheovat stejnou dynamickou shopping-insights.js verzi jako bootstrap.');
+assert.ok(!serviceWorker.includes(`'/assets/shopping-insights.js?v=${insightsVersion}'`), 'Dynamický shopping-insights.js se nesmí vrátit do install-time PWA precache.');
+assert.ok(serviceWorker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Shopping JavaScript musí být obsloužen jako kritický runtime asset.');
+assert.ok(serviceWorker.includes("cache: 'reload'"), 'Shopping JavaScript musí zůstat network-first.');
+assert.ok(serviceWorker.includes('putRuntime(request, response)'), 'Shopping JavaScript musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Nákupní seznam: Prague/DST date window diagnostika prošla.');

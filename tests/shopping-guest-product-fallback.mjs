@@ -112,7 +112,6 @@ assert.ok(coldSyncAt >= 0 && fallbackAt > coldSyncAt && runtimesAt > fallbackAt,
 
 const assetUrl = html.match(/assets\/shopping-guest-product-fallback\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-guest-product-fallback.js?v=20260828-1', 'seznam.html nemá guest product fallback v1.');
-assert.ok(worker.includes(`'/${assetUrl}'`), 'PWA shell necachuje přesný guest product fallback asset.');
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9]{8})-([0-9]+)/)?.[0] || '';
 const bootstrapMatch = bootstrapUrl.match(/v=(\d{8})-(\d+)$/);
 assert.ok(bootstrapMatch, 'Shopping insights bootstrap nemá očekávaný verzovaný formát YYYYMMDD-revision.');
@@ -122,14 +121,16 @@ assert.ok(
   bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 7),
   'Bootstrap po guest fallback integraci nesmí klesnout pod baseline 20260828-7.',
 );
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA shell musí cacheovat přesně stejnou verzi shopping insights bootstrapu jako seznam.html.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje guest fallback a bootstrap assety.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Guest fallback a bootstrap nejsou v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesné verzované guest fallback\/bootstrap URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 64),
-  'PWA shell se nesmí vrátit pod guest fallback baseline 20260828-64.',
+  'PWA cache se nesmí vrátit pod guest fallback baseline 20260828-64.',
 );
 
 console.log('Guest shopping rows safely fallback missing catalog products before cloud merge');

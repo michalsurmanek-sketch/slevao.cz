@@ -38,5 +38,8 @@ const guardUrl = html.match(/assets\/shopping-local-quantity-guard\.js\?v=[^"']+
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.match(guardUrl, /^assets\/shopping-local-quantity-guard\.js\?v=20260828-[0-9]+$/);
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Quantity guard musí běžet před shopping bootstrapem.');
-assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje quantity guard ze seznam.html.');
+assert.ok(!worker.includes(`'/${guardUrl}'`), 'Quantity guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Quantity guard musí být obsloužený jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'Quantity guard musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Quantity guard musí být po úspěšném načtení uložitelný do runtime cache.');
 console.log('Legacy local shopping quantities are finite and positive before shopping bootstrap');

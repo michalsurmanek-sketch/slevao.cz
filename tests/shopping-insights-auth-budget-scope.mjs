@@ -61,11 +61,12 @@ assert.ok(insightsRuntimeIndex > listRuntimeIndex, 'Shopping list musí být vlo
 
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js před ověřením ownera.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-insights\.js/, 'seznam.html nesmí spouštět shopping-insights.js napřímo.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje stejný identity bootstrap jako seznam.html.');
-assert.ok(worker.includes(`'/${ownerCustomAddUrl}'`), 'PWA necachuje stejný owner custom add bridge jako bootstrap.');
-assert.ok(worker.includes(`'/${sharedAddGuardUrl}'`), 'PWA necachuje stejný shared add submit guard jako bootstrap.');
-assert.ok(worker.includes(`'/${listUrl}'`), 'PWA necachuje stejný dynamicky načítaný Shopping List runtime jako bootstrap.');
-assert.ok(worker.includes(`'/${insightsUrl}'`), 'PWA necachuje stejný Insights runtime jako bootstrap.');
+for (const runtimeUrl of [bootstrapUrl, ownerCustomAddUrl, sharedAddGuardUrl, listUrl, insightsUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `Runtime ${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Shopping runtime skripty musí být obsloužené jako kritické statické assety.');
+assert.ok(worker.includes("cache: 'reload'"), 'Shopping runtime skripty musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Shopping runtime skripty musí být po úspěšném načtení uložitelný do runtime cache.');
 
 const functionStart = bootstrap.indexOf('  function installBudgetOwnerBridge()');
 const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);

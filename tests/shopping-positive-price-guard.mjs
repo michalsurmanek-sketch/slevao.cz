@@ -100,7 +100,10 @@ assert.match(guardUrl, /^assets\/shopping-positive-price-guard\.js\?v=20260828-[
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.ok(bootstrapUrl, 'seznam.html nemá shopping insights bootstrap.');
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Positive-price guard se musí načíst před shopping bootstrapem.');
-assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný positive-price guard ze seznam.html.');
+assert.ok(!worker.includes(`'/${guardUrl}'`), 'Positive-price guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Positive-price guard musí být obsloužený jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'Positive-price guard musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Positive-price guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping positive-price guard filters verified positive offers and custom candidates before optimizer/insights runtime');
 await import('./shopping-budget-concurrency.mjs');

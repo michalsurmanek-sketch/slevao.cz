@@ -22,6 +22,8 @@ assert.match(account, /catch \(error\) \{\s*button\.disabled = false;[\s\S]*?Upo
 
 const htmlVersion = html.match(/assets\/account\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.equal(htmlVersion, '20260822-3', 'ucet.html nemá aktuální account notification-delivery runtime.');
-assert.ok(worker.includes(`'/assets/account.js?v=${htmlVersion}'`), 'PWA shell musí cacheovat stejnou account.js verzi jako ucet.html.');
+assert.ok(!worker.includes(`'/assets/account.js?v=${htmlVersion}'`), 'account.js se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'PWA musí account.js obsloužit jako kritický runtime asset.');
+assert.ok(worker.includes("cache: 'reload'"), 'Account runtime musí být network-first s cache fallbackem.');
 
 console.log('Account mutation button state OK');

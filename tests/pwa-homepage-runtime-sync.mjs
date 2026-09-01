@@ -16,7 +16,10 @@ const versionedAssets = (source) => [...new Set(
     .map((match) => `/assets/${match[1]}?v=${match[2]}`)
 )];
 
-const requiredAssets = new Set([
+// Keep this inventory only as a regression signal. Public runtime assets must
+// no longer be copied into the install-time precache; the fetch handler caches
+// them after a successful request.
+const publicRuntimeAssets = new Set([
   ...versionedAssets(index),
   ...versionedAssets(leaflets),
   ...versionedAssets(list),
@@ -25,12 +28,7 @@ const requiredAssets = new Set([
   ...versionedAssets(footer),
   ...versionedAssets(rpcBootstrap),
 ]);
-const missing = [...requiredAssets].filter((asset) => !worker.includes(`'${asset}'`)).sort();
-assert.deepEqual(
-  missing,
-  [],
-  `PWA shell postrádá přímé nebo dynamické runtime závislosti:\n${missing.join('\n')}`
-);
+assert.ok(publicRuntimeAssets.size > 0, 'Veřejné stránky nemají žádné verzované runtime assety k ověření.');
 
 const versionsFor = (source, asset) => versionedAssets(source)
   .filter((value) => value.startsWith(`/assets/${asset}?v=`))
@@ -41,24 +39,17 @@ assert.equal(productPersonalization.length, 1, 'Produkt musí načítat právě 
 assert.equal(accountPersonalization.length, 1, 'Účet musí načítat právě jednu verzi product-personalization.css.');
 assert.equal(productPersonalization[0], accountPersonalization[0], 'Produkt a účet musí používat stejnou verzi product-personalization.css.');
 
-const shellEntries = [...worker.matchAll(/'((?:\/assets\/)[^']+\?v=[^']+)'/g)].map((match) => match[1]);
-const versionsByAsset = new Map();
-for (const entry of shellEntries) {
-  const [path, version = ''] = entry.split('?v=');
-  const versions = versionsByAsset.get(path) || new Set();
-  versions.add(version);
-  versionsByAsset.set(path, versions);
-}
-const duplicateVersions = [...versionsByAsset.entries()]
-  .filter(([, versions]) => versions.size > 1)
-  .map(([path, versions]) => `${path}: ${[...versions].sort().join(', ')}`)
-  .sort();
-assert.deepEqual(
-  duplicateVersions,
-  [],
-  `PWA shell nesmí precachovat více verzí stejného assetu:\n${duplicateVersions.join('\n')}`
-);
+assert.match(worker, /const CACHE_VERSION = '20260901-5';/, 'Po změně cache strategie musí být zvýšená verze cache.');
+assert.match(worker, /const CORE_CACHE_NAME = `slevao-core-\$\{CACHE_VERSION\}`;/, 'Service worker musí mít oddělenou core cache.');
+assert.match(worker, /const RUNTIME_CACHE_NAME = `slevao-runtime-\$\{CACHE_VERSION\}`;/, 'Service worker musí mít oddělenou runtime cache.');
+assert.match(worker, /const CORE_SHELL = \[\s*OFFLINE_URL,\s*'\/manifest\.webmanifest',\s*'\/favicon\.svg'\s*\];/s, 'Core shell má zůstat minimální a deterministický.');
+assert.match(worker, /cache\.addAll\(CORE_SHELL\.map/, 'Instalace musí atomicky precachovat jen minimální core shell.');
+assert.doesNotMatch(worker, /cache\.addAll\(SHELL\.map/, 'Instalace nesmí znovu používat starý monolitický SHELL precache.');
+assert.doesNotMatch(worker, /cache\.addAll\([^\n]*RUNTIME/s, 'Instalace nesmí precachovat runtime assety jedním cache.addAll.');
+assert.equal(versionedAssets(worker).length, 0, 'Service worker nesmí hardcodovat stovky verzovaných CSS/JS souborů do install-time shellu.');
+assert.match(worker, /putRuntime\(request, response\)/, 'Úspěšné runtime odpovědi se musí ukládat až při použití.');
+assert.match(worker, /isCriticalStatic[\s\S]*cache: 'reload'/, 'Kritické CSS/JS musí zůstat network-first.');
+assert.match(worker, /event\.waitUntil\(network\.then\(\(\) => undefined\)\)/, 'Nekritické statické soubory mají používat stale-while-revalidate.');
+assert.match(worker, /name\.startsWith\('slevao-shell-'\)/, 'Aktivace musí uklidit i starou monolitickou shell cache.');
 
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260901-4';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
-
-console.log(`PWA public-page runtime sync OK (${requiredAssets.size} dependencies)`);
+console.log(`PWA split-cache runtime OK (${publicRuntimeAssets.size} page dependencies cached on demand)`);

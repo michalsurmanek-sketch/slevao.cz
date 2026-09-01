@@ -134,15 +134,16 @@ const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] |
 assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
 assert.ok(html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(coldUrl), 'Cold sync se načítá před owner-storage bridge.');
 assert.ok(html.indexOf(coldUrl) < html.indexOf(bootstrapUrl), 'Cold sync se načítá až po shopping bootstrapu.');
-assert.ok(worker.includes(`'/${coldUrl}'`), 'PWA necachuje přesný cold-sync runtime ze seznam.html.');
-assert.ok(worker.includes(`'/${bootstrapUrl}'`), 'PWA necachuje přesný bootstrap ze seznam.html.');
-const cacheMatch = worker.match(/CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)'/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision pro cold-sync ochranu.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje cold-sync a bootstrap assety.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Cold-sync runtime není v PWA network-first vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou cold-sync URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision pro cold-sync ochranu.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 59),
-  'PWA shell je starší než cold-sync fix 20260828-59.',
+  'PWA cache je starší než cold-sync fix 20260828-59.',
 );
 
 const bootStart = bootstrap.indexOf('  async function boot()');

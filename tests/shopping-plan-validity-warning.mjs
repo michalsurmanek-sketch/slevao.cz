@@ -55,7 +55,12 @@ assert.match(html, /assets\/shopping-plan-validity-warning\.js\?v=20260828-[0-9]
 assert.match(html, /assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+/, 'seznam.html nenačítá verzovaný mobilní optimizer CSS.');
 const warningUrl = html.match(/assets\/shopping-plan-validity-warning\.js\?v=[^"']+/)?.[0];
 const cssUrl = html.match(/assets\/mobile-optimizer-compact\.css\?v=[^"']+/)?.[0];
-assert.ok(warningUrl && worker.includes(`'/${warningUrl}'`), 'PWA necachuje přesný mixed-date warning runtime ze seznam.html.');
-assert.ok(cssUrl && worker.includes(`'/${cssUrl}'`), 'PWA necachuje přesný mobilní optimizer CSS ze seznam.html.');
+assert.ok(warningUrl, 'Chybí verzovaný mixed-date warning runtime.');
+assert.ok(cssUrl, 'Chybí verzovaný mobilní optimizer CSS.');
+for (const runtimeUrl of [warningUrl, cssUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("cache: 'reload'"), 'Mixed-date warning a optimizer CSS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Mixed-date warning a optimizer CSS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Mixed-date shopping plan warning contract OK');

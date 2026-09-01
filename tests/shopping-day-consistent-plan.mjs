@@ -160,9 +160,11 @@ assert.match(summaryUrl, /^assets\/shopping-list-price-summary\.js\?v=20260828-[
 assert.match(mobileCssUrl, /^assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný mobilní optimizer CSS.');
 assert.match(insightGuardUrl, /^assets\/shopping-insights-validity-guard\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá mixed-date insights guard.');
 assert.ok(html.indexOf(plannerUrl) < html.indexOf(summaryUrl), 'Day-consistent planner se musí načíst před price-summary runtime.');
-assert.ok(worker.includes(`'/${plannerUrl}'`), 'PWA necachuje přesný day-consistent planner ze seznam.html.');
-assert.ok(worker.includes(`'/${summaryUrl}'`), 'PWA necachuje přesný price-summary runtime ze seznam.html.');
-assert.ok(worker.includes(`'/${mobileCssUrl}'`), 'PWA necachuje přesný mobilní optimizer CSS ze seznam.html.');
-assert.ok(worker.includes(`'/${insightGuardUrl}'`), 'PWA necachuje mixed-date insights guard ze seznam.html.');
+for (const runtimeUrl of [plannerUrl, summaryUrl, mobileCssUrl, insightGuardUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'Planner, summary, optimizer CSS a validity guard musí být kritické runtime assety.');
+assert.ok(worker.includes("cache: 'reload'"), 'Planner, summary, optimizer CSS a validity guard musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Planner, summary, optimizer CSS a validity guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Day-consistent shopping planner, mixed-date insight semantics, bounded retry safety, mobile date visibility, refresh replay, failure-cache safety and runtime wiring OK');

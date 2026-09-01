@@ -33,7 +33,10 @@ const dayPlanUrl = html.match(/assets\/shopping-day-consistent-plan\.js\?v=[^"']
 assert.match(cssUrl, /^assets\/shopping-optimizer-mobile-collapse\.css\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzované collapse CSS.');
 assert.match(jsUrl, /^assets\/shopping-optimizer-mobile-collapse\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný collapse runtime.');
 assert.ok(html.indexOf(dayPlanUrl) < html.indexOf(jsUrl), 'Collapse runtime má běžet až po načtení přesného day-plan runtime.');
-assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA necachuje optimizer collapse CSS.');
-assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA necachuje optimizer collapse runtime.');
+for (const runtimeUrl of [cssUrl, jsUrl]) {
+  assert.ok(!worker.includes(`'/${runtimeUrl}'`), `${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
+}
+assert.ok(worker.includes("cache: 'reload'"), 'Optimizer collapse CSS/JS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Optimizer collapse CSS/JS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Mobile optimizer keeps exact plan visible and collapses legacy options safely');

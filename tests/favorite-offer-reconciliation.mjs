@@ -73,11 +73,10 @@ const homeUrl = index.match(/assets\/home-v2\.js\?v=[0-9-]+/)?.[0] || '';
 const rpcIndex = rpcUrl ? index.indexOf(rpcUrl) : -1;
 const homeIndex = homeUrl ? index.indexOf(homeUrl) : -1;
 assert.ok(rpcIndex >= 0 && homeIndex > rpcIndex, 'Homepage bootstrap musí startovat před home-v2.js.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-[a-z0-9-]+';/i, 'PWA shell nemá platné verzované jméno cache.');
-assert.ok(worker.includes(`'/${rpcUrl}'`), 'PWA shell necachuje stejný homepage bootstrap jako index.html.');
-assert.ok(worker.includes(`'/${favoriteSyncUrl}'`), 'PWA shell necachuje stejný favorite sync runtime jako homepage bootstrap.');
-assert.ok(worker.includes(`'/${productFavoritesUrl}'`), 'PWA shell necachuje stejný homepage product favorite bridge jako favorite sync runtime.');
-assert.ok(worker.includes(`'/${personalizationUrl}'`), 'PWA shell necachuje stejný účetní personalization runtime jako favorite sync runtime.');
+assert.match(worker, /const CACHE_VERSION = '[a-z0-9-]+';/i, 'PWA runtime nemá platnou verzovanou cache.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje favorite/homepage assety.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Homepage/favorite skripty nejsou v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesné verzované favorite/homepage URL.');
 
 class StorageMock {
   constructor(initial = {}) { this.map = new Map(Object.entries(initial)); }

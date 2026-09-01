@@ -6,7 +6,6 @@ const PUBLIC_NAV = 'assets/public-nav-upgrade.js';
 const SHOPPING_BOOTSTRAP = 'assets/shopping-insights-bootstrap.js';
 const SHOPPING_LIST = 'assets/shopping-list.js';
 const SHOPPING_PRICE_SUMMARY = 'assets/shopping-list-price-summary.js';
-const SHOPPING_PRICE_SUMMARY_CSS = 'assets/shopping-list-price-summary-v2.css';
 
 const CORE_PAGES = [
   { path:'/produkt.html', title:/Produkt/i, marker:'#productContent' },
@@ -24,11 +23,6 @@ const SEEDED_SHOPPING_ITEMS = [
 
 function versionedScript(path) {
   return `script[src^="${path}?v="]`;
-}
-
-function versionedShellAsset(path) {
-  const escaped = path.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`/${escaped}\\?v=[^'"\\s]+`);
 }
 
 function watchLocalRuntime(page) {
@@ -145,36 +139,22 @@ for (const width of [320, 430]) {
   });
 }
 
-test('PWA service worker exposes the current core-page shell contract', async ({ request }) => {
+test('PWA service worker exposes the resilient core/runtime cache contract', async ({ request }) => {
   const response = await request.get(`${BASE_URL}/service-worker.js`);
   expect(response.status()).toBe(200);
   const source = await response.text();
 
-  expect(source).toMatch(/const CACHE_NAME = 'slevao-shell-[a-z0-9-]+';/i);
-  expect(source).toMatch(versionedShellAsset(PUBLIC_FEATURES));
-  expect(source).toMatch(versionedShellAsset(SHOPPING_BOOTSTRAP));
-  expect(source).toMatch(versionedShellAsset(SHOPPING_LIST));
-  expect(source).toMatch(versionedShellAsset(SHOPPING_PRICE_SUMMARY));
-  expect(source).toMatch(versionedShellAsset(SHOPPING_PRICE_SUMMARY_CSS));
+  expect(source).toMatch(/const CACHE_VERSION = '[a-z0-9-]+';/i);
+  expect(source).toContain('const CORE_CACHE_NAME = `slevao-core-${CACHE_VERSION}`;');
+  expect(source).toContain('const RUNTIME_CACHE_NAME = `slevao-runtime-${CACHE_VERSION}`;');
+  expect(source).toMatch(/const CORE_SHELL = \[[\s\S]*OFFLINE_URL[\s\S]*'\/manifest\.webmanifest'[\s\S]*'\/favicon\.svg'[\s\S]*\];/);
+  expect(source).toContain("await cache.addAll(CORE_SHELL.map((url) => new Request(url, { cache: 'reload' })));" );
 
-  const bootstrapResponse = await request.get(`${BASE_URL}/${SHOPPING_BOOTSTRAP}`);
-  expect(bootstrapResponse.status()).toBe(200);
-  const bootstrapSource = await bootstrapResponse.text();
-  const listUrl = bootstrapSource.match(/const LIST_URL = '([^']+)'/)?.[1];
-  expect(listUrl, 'Shopping bootstrap must expose its versioned list runtime URL.').toBeTruthy();
-  expect(source, 'PWA shell must cache the exact shopping-list runtime loaded by the bootstrap.').toContain(`/${listUrl}`);
-
-  const shoppingResponse = await request.get(`${BASE_URL}/seznam.html`);
-  expect(shoppingResponse.status()).toBe(200);
-  const shoppingSource = await shoppingResponse.text();
-  const priceSummaryUrl = shoppingSource.match(/assets\/shopping-list-price-summary\.js\?v=[^"']+/)?.[0];
-  const priceSummaryCssUrl = shoppingSource.match(/assets\/shopping-list-price-summary-v2\.css\?v=[^"']+/)?.[0];
-  expect(priceSummaryUrl, 'Shopping page must expose its versioned price-summary runtime URL.').toBeTruthy();
-  expect(priceSummaryCssUrl, 'Shopping page must expose its versioned price-summary CSS URL.').toBeTruthy();
-  expect(source, 'PWA shell must cache the exact price-summary runtime loaded by seznam.html.').toContain(`/${priceSummaryUrl}`);
-  expect(source, 'PWA shell must cache the exact price-summary CSS loaded by seznam.html.').toContain(`/${priceSummaryCssUrl}`);
-
-  for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
-    expect(source, `PWA shell is missing ${path}`).toContain(`'${path}'`);
-  }
+  // Current versioned page assets must be cached after successful use, not during install.
+  expect(source).toMatch(/function isLocalStatic\(request, url\)/);
+  expect(source).toMatch(/url\.pathname\.startsWith\('\/assets\/'\)/);
+  expect(source).toMatch(/function isCriticalStatic\(url\)/);
+  expect(source).toContain("const freshRequest = new Request(request, { cache: 'reload' });");
+  expect(source).toContain('await cache.put(request, response.clone());');
+  expect(source).not.toMatch(/const SHELL = \[/);
 });

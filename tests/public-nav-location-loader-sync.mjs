@@ -37,9 +37,14 @@ assert.ok(
   index.indexOf(`assets/public-nav-upgrade.js?v=${navVersion}`) < index.indexOf('assets/home-footer-redesign.js'),
   'Homepage musí načíst public nav před footer runtime, aby nevznikla stará dynamická kopie.'
 );
-assert.match(worker, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'PWA shell nemá aktuální public-nav verzi.');
-assert.match(worker, new RegExp(`assets/location-service\\.js\\?v=${locationVersion}`), 'PWA shell nemá Prague-safe location-service verzi.');
-assert.match(worker, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), 'PWA shell nemá stejnou public-features URL jako hlavní PWA stránky.');
-assert.doesNotMatch(worker, /assets\/public-features\.js\?v=20260811-3/, 'PWA shell nesmí držet starý public-features alias.');
+
+// Public assets no longer belong to install-time precache. The worker must cache
+// the exact versioned request after a successful use instead.
+assert.match(worker, /function isLocalStatic\(request, url\)/, 'PWA nemá obecný runtime guard lokálních assetů.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje /assets/ soubory.');
+assert.match(worker, /function isCriticalStatic\(url\)/, 'PWA nerozlišuje kritické CSS\/JS assety.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'PWA kritické assety nejsou network-first.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou URL do runtime cache.');
+assert.doesNotMatch(worker, /assets\/public-features\.js\?v=20260811-3/, 'PWA nesmí držet starý public-features alias.');
 
 console.log('Public nav/location/features loader sync OK');
