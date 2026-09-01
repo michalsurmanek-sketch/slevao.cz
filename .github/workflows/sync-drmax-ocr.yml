@@ -61,7 +61,27 @@ jobs:
           test -n "$SUPABASE_URL"
           test -n "$SUPABASE_SERVICE_ROLE_KEY"
 
+      - name: Zjistit, zda je co OCR zpracovat
+        id: target
+        shell: bash
+        run: |
+          python3 scripts/sync_drmax_ocr.py --probe | tee /tmp/drmax-target.json
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+          payload = json.loads(Path('/tmp/drmax-target.json').read_text(encoding='utf-8').splitlines()[-1])
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f"has_target={'true' if payload.get('ok') else 'false'}\n")
+              output.write(f"reason={payload.get('reason') or 'ready'}\n")
+          PY
+
+      - name: Bez práce pro aktuální běh
+        if: steps.target.outputs.has_target != 'true'
+        run: echo "Dr. Max OCR přeskočen — ${{ steps.target.outputs.reason }}"
+
       - name: Nainstalovat český Tesseract
+        if: steps.target.outputs.has_target == 'true'
         shell: bash
         run: |
           sudo apt-get update -qq
@@ -70,4 +90,5 @@ jobs:
           tesseract --list-langs | grep -E '^(ces|eng)$'
 
       - name: OCR a uložení souřadnic do Supabase
+        if: steps.target.outputs.has_target == 'true'
         run: python3 scripts/sync_drmax_ocr.py
