@@ -23,12 +23,15 @@
   let promptNode = null;
   let promptTimer = 0;
   let eligible = false;
+  let engaged = false;
 
   const VISIT_COUNT_KEY = 'slevao-install-visit-count';
   const VISIT_SESSION_KEY = 'slevao-install-visit-counted';
   const PERMANENT_DISMISS_KEY = 'slevao-install-dismissed-permanently';
   const COOLDOWN_UNTIL_KEY = 'slevao-install-cooldown-until';
   const LAST_SHOWN_KEY = 'slevao-install-last-shown';
+  const DISMISS_UNTIL_KEY = 'slevao-install-dismissed-until';
+  const DISMISS_MS = 14 * 24 * 60 * 60 * 1000;
   const CHOICE_COOLDOWN_MS = 30 * 24 * 60 * 60 * 1000;
   const SHOW_FREQUENCY_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -52,6 +55,7 @@
       safeSet(localStorage, VISIT_COUNT_KEY, Math.min(visits, 20));
       safeSet(sessionStorage, VISIT_SESSION_KEY, '1');
     }
+    engaged = visits >= 2;
     eligible = visits >= 2;
   }
 
@@ -60,7 +64,10 @@
   }
 
   function isCoolingDown() {
-    return readNumber(localStorage, COOLDOWN_UNTIL_KEY) > Date.now();
+    return Math.max(
+      readNumber(localStorage, COOLDOWN_UNTIL_KEY),
+      readNumber(localStorage, DISMISS_UNTIL_KEY)
+    ) > Date.now();
   }
 
   function wasShownRecently() {
@@ -137,6 +144,8 @@
       const choice = await installEvent.userChoice.catch(() => null);
       if (choice?.outcome !== 'accepted') {
         safeSet(localStorage, COOLDOWN_UNTIL_KEY, Date.now() + CHOICE_COOLDOWN_MS);
+        // Keep the legacy key for older cached clients while the new client enforces 30 days.
+        try { localStorage.setItem(DISMISS_UNTIL_KEY, String(Date.now() + DISMISS_MS)); } catch {}
       }
       installEvent = null;
       removePrompt();
@@ -149,11 +158,14 @@
     });
   }
 
-  function markSuccessfulAction() {
+  function markEngaged() {
     if (eligible || isPermanentlyDismissed()) return;
+    engaged = true;
     eligible = true;
-    schedulePrompt(1200);
+    schedulePrompt(800);
   }
+
+  const markSuccessfulAction = markEngaged;
 
   function verifySuccessfulListAddition(button) {
     if (!button || eligible) return;
