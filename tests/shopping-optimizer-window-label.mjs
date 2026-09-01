@@ -27,6 +27,8 @@ assert.equal(context.current, false, 'Čistě aktuální varianta se chybně ozn
 
 const guardUrl = html.match(/assets\/shopping-optimizer-window-label\.js\?v=[^"']+/)?.[0] || '';
 assert.match(guardUrl, /^assets\/shopping-optimizer-window-label\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný optimizer window-label guard.');
-assert.ok(worker.includes(`'/${guardUrl}'`), 'PWA necachuje přesný optimizer window-label guard ze seznam.html.');
+assert.ok(!worker.includes(`'/${guardUrl}'`), 'Optimizer window-label guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("cache: 'reload'"), 'Optimizer window-label guard musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Optimizer window-label guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping optimizer clearly labels future mixed-window variants as 7-day estimates');
