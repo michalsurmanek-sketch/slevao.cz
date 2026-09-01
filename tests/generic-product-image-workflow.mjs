@@ -31,6 +31,19 @@ assert.match(workflow,/blocked_reason="\$\(jq -r '\.blocked_reason \/\/ empty'/,
 assert.match(workflow,/::warning title=Hledání produktových fotografií pozastaveno/,'Discovery cooldown must be visible as a GitHub warning.');
 assert.match(workflow,/::warning title=Generování produktových fotografií pozastaveno/,'Generator cooldown must be visible as a GitHub warning.');
 assert.match(workflow,/GITHUB_STEP_SUMMARY/,'Image workflow cooldown must be written to the job summary.');
+
+assert.match(workflow,/lidl_catalog_limit:[\s\S]*default: '20'/,'Verified Lidl catalog recheck musí mít konzervativní výchozí limit 20.');
+assert.match(workflow,/Bezpečně doplnit Lidl obrázky z ověřeného katalogu/,'Workflow musí před externím discovery spouštět bezpečný Lidl catalog recheck.');
+assert.match(workflow,/functions\/v1\/match-product-catalog/,'Verified Lidl recheck musí volat catalog matcher.');
+assert.match(workflow,/\\"store_slug\\":\\"lidl\\",\\"recheck_missing_images\\":true/,'Verified Lidl recheck musí být store-scoped a explicitně zapnout missing-image režim.');
+assert.match(workflow,/mode="\$\(jq -r '\.mode \/\/ empty'/,'Workflow musí ověřit, že catalog matcher skutečně běžel v recheck režimu.');
+assert.match(workflow,/### Lidl verified katalog recheck/,'Verified Lidl recheck musí zapisovat měřitelné výsledky do job summary.');
+assert.match(workflow,/hydrated="\$\(\(matched \+ retained\)\)"/,'Workflow musí reportovat počet bezpečně doplněných obrázků.');
+assert.ok(
+  workflow.indexOf('Bezpečně doplnit Lidl obrázky z ověřeného katalogu') < workflow.indexOf('Naplnit frontu kandidátů z existujících zdrojů'),
+  'Verified katalog recheck musí proběhnout před OpenAI/external discovery a fungovat i při jeho cooldownu.',
+);
+
 assert.match(workflow,/lidl_limit:[\s\S]*default: '10'/,'Lidl prioritní dávka musí mít konzervativní výchozí limit 10.');
 assert.match(workflow,/Prioritně zkontrolovat aktuální Lidl produkty/,'Workflow musí mít samostatnou prioritní Lidl image discovery dávku.');
 assert.match(workflow,/\\"store_slug\\":\\"lidl\\"/,'Lidl dávka musí volat discovery se store_slug=lidl.');
