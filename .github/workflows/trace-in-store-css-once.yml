@@ -1,4 +1,4 @@
-name: Trace in-store stylesheet loaders
+name: Consolidate in-store styles once
 
 on:
   push:
@@ -8,19 +8,65 @@ on:
       - .github/workflows/trace-in-store-css-once.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  trace:
+  consolidate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Find every in-store stylesheet reference
+        with:
+          ref: perf/in-store-css-consolidation-20260901
+          fetch-depth: 0
+
+      - name: Preserve cascade and remove two dynamic CSS links
         shell: bash
         run: |
-          echo '=== exact filenames ==='
-          grep -RIn --exclude-dir=.git -E 'home-in-store(-actions|-list)?\.css' . || true
-          echo '=== CSS imports ==='
-          grep -RIn --include='*.css' -E '@import|home-in-store' assets || true
-          echo '=== JS style loaders ==='
-          grep -RIn --include='*.js' -E 'stylesheet|createElement\(["'"']link["'"']\)|\.css\?v=20260807|home-in-store' assets || true
+          python3 - <<'PY'
+          from pathlib import Path
+
+          base_path = Path('assets/home-in-store.css')
+          actions_path = Path('assets/home-in-store-actions.css')
+          list_path = Path('assets/home-in-store-list.css')
+          loader_path = Path('assets/home-footer-redesign.js')
+
+          base = base_path.read_text(encoding='utf-8').rstrip()
+          actions = actions_path.read_text(encoding='utf-8').strip()
+          listing = list_path.read_text(encoding='utf-8').strip()
+          marker = '/* Inlined home-in-store extension styles: actions then list. */'
+          if marker in base:
+              raise SystemExit('in-store extension styles already inlined')
+          base_path.write_text(f'{base}\n\n{marker}\n{actions}\n\n{listing}\n', encoding='utf-8')
+
+          source = loader_path.read_text(encoding='utf-8')
+          pairs = [
+              ('home-in-store-actions.css', 'home-in-store-actions.js'),
+              ('home-in-store-list.css', 'home-in-store-list.js'),
+          ]
+          for css_name, script_name in pairs:
+              start_marker = f'''  if (!document.querySelector('link[href*="{css_name}"]')) {{'''
+              next_marker = f'''  if (!document.querySelector('script[src*="{script_name}"]')) {{'''
+              start = source.find(start_marker)
+              end = source.find(next_marker, start + 1)
+              if start < 0 or end < 0:
+                  raise SystemExit(f'could not isolate loader block for {css_name}')
+              source = source[:start] + source[end:]
+          if 'home-in-store-actions.css' in source or 'home-in-store-list.css' in source:
+              raise SystemExit('dynamic extension CSS reference remains')
+          loader_path.write_text(source, encoding='utf-8')
+          PY
+          git diff --check
+          grep -F 'Inlined home-in-store extension styles: actions then list.' assets/home-in-store.css
+          ! grep -F 'home-in-store-actions.css' assets/home-footer-redesign.js
+          ! grep -F 'home-in-store-list.css' assets/home-footer-redesign.js
+
+      - name: Commit production change and remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/trace-in-store-css-once.yml
+          git add assets/home-in-store.css assets/home-footer-redesign.js
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Consolidate in-store extension CSS"
+          git push origin HEAD:perf/in-store-css-consolidation-20260901
