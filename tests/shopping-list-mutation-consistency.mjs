@@ -80,11 +80,13 @@ assert.match(deleteHandler, /finally \{[\s\S]*?deletingRows\.delete\(key\);[\s\S
 const version = bootstrap.match(/const LIST_URL = 'assets\/shopping-list\.js\?v=([0-9-]+)'/)?.[1] || '';
 assert.ok(version, 'Identity bootstrap musí načítat verzovaný shopping-list.js.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí obejít auth gate přímým shopping-list loaderem.');
-assert.ok(worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'PWA musí cacheovat stejnou shopping-list.js verzi jako identity bootstrap.');
+assert.ok(!worker.includes(`'/assets/shopping-list.js?v=${version}'`), 'shopping-list.js se nesmí vrátit do install-time PWA precache.');
 
 const bootstrapVersion = html.match(/assets\/shopping-insights-bootstrap\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(bootstrapVersion, 'seznam.html musí načítat verzovaný shopping bootstrap.');
-assert.ok(worker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'PWA musí cacheovat stejnou bootstrap verzi jako seznam.html.');
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-[0-9a-z-]+';/i, 'PWA shell musí mít verzované cache jméno.');
+assert.ok(!worker.includes(`'/assets/shopping-insights-bootstrap.js?v=${bootstrapVersion}'`), 'Shopping bootstrap se nesmí vrátit do install-time PWA precache.');
+assert.match(worker, /const CACHE_VERSION = '[0-9]{8}-[0-9]+';/, 'PWA musí mít verzovaný core/runtime cache namespace.');
+assert.ok(worker.includes("cache: 'reload'"), 'Shopping JS musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Shopping JS musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping list mutation consistency OK');
