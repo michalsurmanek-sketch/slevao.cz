@@ -46,8 +46,8 @@ for (const [name, html] of [['seznam.html', listHtml], ['ucet.html', accountHtml
 assert.ok(listHtml.includes(reconcileUrl), 'seznam.html nenačítá guest claim reconciler.');
 assert.ok(listHtml.indexOf('assets/shopping-insights-bootstrap.js') < listHtml.indexOf(reconcileUrl), 'Reconciler se spouští před shopping runtime bootstrapem.');
 assert.ok(accountHtml.indexOf(bridgeUrl) < accountHtml.indexOf('assets/account.js'), 'Guest claim bridge se na účtu spouští až po auth runtime.');
-assert.ok(worker.includes(`'/${bridgeUrl}'`), 'PWA necachuje guest claim bridge.');
-assert.ok(worker.includes(`'/${reconcileUrl}'`), 'PWA necachuje guest claim reconciler.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje guest claim assety.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesné verzované guest claim assety.');
 
 const ownerStart = nav.indexOf('  function installShoppingListOwnerBridge()');
 const ownerEnd = nav.indexOf('\n  function loadPersonalization()', ownerStart);
