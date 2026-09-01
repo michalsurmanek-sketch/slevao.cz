@@ -1,0 +1,53 @@
+name: One-shot Supabase HTML pin
+
+on:
+  push:
+    branches:
+      - fix/product-leaflet-exact-link-20260901
+    paths:
+      - .github/workflows/pin-supabase-html-once.yml
+
+permissions:
+  contents: write
+
+jobs:
+  pin-html-sdk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/product-leaflet-exact-link-20260901
+          fetch-depth: 0
+
+      - name: Pin exact Supabase SDK in root HTML
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          pattern = re.compile(r'https://cdn\.jsdelivr\.net/npm/@supabase/supabase-js@2(?=["\'])')
+          replacement = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4'
+          changed = []
+          for path in sorted(Path('.').glob('*.html')):
+              source = path.read_text(encoding='utf-8')
+              updated, count = pattern.subn(replacement, source)
+              if count:
+                  path.write_text(updated, encoding='utf-8')
+                  changed.append((str(path), count))
+          print('Pinned:', changed)
+          if len(changed) != 13:
+              raise SystemExit(f'Expected exactly 13 remaining HTML files, changed {len(changed)}')
+          PY
+          git diff --check
+
+      - name: Commit exact replacements and remove one-shot workflow
+        shell: bash
+        run: |
+          git rm .github/workflows/pin-supabase-html-once.yml
+          git add -- '*.html'
+          git diff --cached --check
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -m "Pin Supabase SDK across HTML pages"
+          git push origin HEAD:fix/product-leaflet-exact-link-20260901
