@@ -28,7 +28,9 @@ alter table public.leaflet_document_pages enable row level security;
 revoke all on table public.leaflet_document_pages from public, anon, authenticated;
 grant all on table public.leaflet_document_pages to service_role;
 
-create or replace function private.replace_leaflet_document_pages(
+-- Public schema is required for PostgREST RPC discovery. Execute is service-role only,
+-- so this remains an internal atomic writer even though the function is discoverable.
+create or replace function public.replace_leaflet_document_pages_internal(
   p_store_id uuid,
   p_source_document_url text,
   p_source_kind text,
@@ -37,7 +39,7 @@ create or replace function private.replace_leaflet_document_pages(
 returns integer
 language plpgsql
 security definer
-set search_path = 'public', 'private', 'pg_temp'
+set search_path = 'public', 'pg_temp'
 as $function$
 declare
   v_count integer;
@@ -57,11 +59,19 @@ begin
   if jsonb_typeof(p_pages) <> 'array' then
     raise exception 'Leaflet document pages: pages must be an array.';
   end if;
+  if exists(
+    select 1
+    from jsonb_array_elements(p_pages) x
+    where coalesce(x->>'page_number','') !~ '^[1-9][0-9]{0,2}$'
+       or coalesce(x->>'image_url','') !~ '^https://[^[:space:]]+$'
+  ) then
+    raise exception 'Leaflet document pages: invalid page payload.';
+  end if;
 
   select count(*)::integer,
-         count(distinct nullif(x->>'page_number','')::integer)::integer,
-         min(nullif(x->>'page_number','')::integer),
-         max(nullif(x->>'page_number','')::integer)
+         count(distinct (x->>'page_number')::integer)::integer,
+         min((x->>'page_number')::integer),
+         max((x->>'page_number')::integer)
     into v_count,v_distinct,v_min,v_max
   from jsonb_array_elements(p_pages) x;
 
@@ -70,13 +80,6 @@ begin
   end if;
   if v_distinct <> v_count or v_min <> 1 or v_max <> v_count then
     raise exception 'Leaflet document pages: page numbers must be unique and contiguous 1..N.';
-  end if;
-  if exists(
-    select 1 from jsonb_array_elements(p_pages) x
-    where nullif(x->>'page_number','')::integer not between 1 and 200
-       or coalesce(x->>'image_url','') !~ '^https://[^[:space:]]+$'
-  ) then
-    raise exception 'Leaflet document pages: invalid page payload.';
   end if;
 
   delete from public.leaflet_document_pages
@@ -109,5 +112,5 @@ begin
 end;
 $function$;
 
-revoke all on function private.replace_leaflet_document_pages(uuid,text,text,jsonb) from public, anon, authenticated;
-grant execute on function private.replace_leaflet_document_pages(uuid,text,text,jsonb) to service_role;
+revoke all on function public.replace_leaflet_document_pages_internal(uuid,text,text,jsonb) from public, anon, authenticated;
+grant execute on function public.replace_leaflet_document_pages_internal(uuid,text,text,jsonb) to service_role;
