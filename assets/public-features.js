@@ -22,7 +22,7 @@
       } else if (window.supabase?.createClient) {
         supabasePromise = Promise.resolve(window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY));
       } else {
-        supabasePromise = import('https://esm.sh/@supabase/supabase-js@2')
+        supabasePromise = import('https://esm.sh/@supabase/supabase-js@2.112.4')
           .then(({ createClient }) => createClient(SUPABASE_URL, SUPABASE_KEY));
       }
     }
