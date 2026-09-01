@@ -5,15 +5,18 @@ import { Script } from 'node:vm';
 const root = new URL('../', import.meta.url);
 const nav = readFileSync(new URL('assets/public-nav-upgrade.js', root), 'utf8');
 const footer = readFileSync(new URL('assets/home-footer-redesign.js', root), 'utf8');
+const storeBottomNav = readFileSync(new URL('assets/store-bottom-nav.js', root), 'utf8');
 const index = readFileSync(new URL('index.html', root), 'utf8');
 const product = readFileSync(new URL('produkt.html', root), 'utf8');
 const list = readFileSync(new URL('seznam.html', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
+const lidl = readFileSync(new URL('lidl.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 
-const navVersion = '20260830-1';
+const navVersion = '20260901-2';
+const storeBottomNavVersion = '20260901-1';
 const locationVersion = '20260821-1';
 const publicFeaturesVersion = '20260828-2';
 
@@ -32,6 +35,9 @@ for (const [name, source] of [['index.html', index], ['produkt.html', product], 
   assert.match(source, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), `${name} nepoužívá sjednocenou public-features verzi.`);
 }
 assert.match(footer, new RegExp(`assets/public-features\\.js\\?v=${publicFeaturesVersion}`), 'Homepage footer loader nepoužívá sjednocenou public-features verzi.');
+assert.match(footer, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'Homepage fallback loader nepoužívá aktuální public-nav verzi.');
+assert.match(storeBottomNav, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'Store bottom-nav loader nepoužívá aktuální public-nav verzi.');
+assert.match(lidl, new RegExp(`assets/store-bottom-nav\\.js\\?v=${storeBottomNavVersion}`), 'Lidl stránka nepoužívá aktuální store-bottom-nav cache verzi.');
 
 assert.ok(
   index.indexOf(`assets/public-nav-upgrade.js?v=${navVersion}`) < index.indexOf('assets/home-footer-redesign.js'),

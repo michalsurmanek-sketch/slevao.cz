@@ -169,7 +169,7 @@
   }
 
   function loadStoreArrivalAlerts() {
-    if (!document.querySelector('link[href*="store-arrival-alerts.css"]')) {
+    if (!isHomePage() && !document.querySelector('link[href*="store-arrival-alerts.css"]')) {
       const style = document.createElement('link');
       style.rel = 'stylesheet';
       style.href = 'assets/store-arrival-alerts.css?v=20260811-1';
