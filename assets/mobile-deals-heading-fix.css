@@ -724,3 +724,113 @@
   html body #categoriesSection .sectionHead p{margin:2px 0 0!important;font-size:11.5px!important;line-height:1.25!important;color:#697674!important}
   html body #categoriesSection .categoryChip{flex:0 0 116px!important;width:116px!important;min-height:62px!important}
 }
+
+/* Homepage bundle: mobile hero compact */
+/* Slevao.cz – mobilní hero: čistý obrázek přes celé pozadí karty. */
+@media(max-width:800px){
+  html body .hero{padding-top:8px!important}
+  html body .hero .container{padding-inline:10px!important}
+  html body .heroCard{padding:14px 14px 14px!important;background-image:url('/assets/hero-mobile-combined.webp?v=20260815-1')!important;background-size:cover!important;background-position:center center!important;background-repeat:no-repeat!important}
+  html body .heroCopy{display:block!important;position:relative!important;z-index:1!important}
+  html body .heroCopy>.eyebrow{width:max-content!important;max-width:100%!important;min-height:28px!important;margin:0 0 7px!important;padding:0 10px!important;font-size:10px!important;line-height:28px!important}
+  html body .heroCopy>h1{max-width:72%!important;margin:0!important;font-size:clamp(29px,8.6vw,36px)!important;line-height:.98!important;letter-spacing:-1.25px!important}
+  html body .heroCopy>p{max-width:58%!important;margin:8px 0 0!important;font-size:13px!important;line-height:1.35!important}
+  html body .heroCopy::after{display:none!important;content:none!important}
+  html body .heroCard .heroStats{width:100%!important;margin:10px 0 0!important}
+  html body .heroCard .heroStats>span{min-height:52px!important}
+  html body .heroNearbyPanel.is-nearby-collapsed{margin-top:10px!important}
+
+  /* Pouze zmenšení vertikálních mezer mezi hlavními bloky homepage.
+     Vnitřní rozměry, typografie, karty i obsah zůstávají beze změny. */
+  html body main>.section{padding-top:10px!important;padding-bottom:10px!important}
+  html body #categoriesSection{padding-top:10px!important;padding-bottom:6px!important}
+  html body #storesSection,
+  html body #leafletsSection,
+  html body #dealsSection{padding-top:10px!important;padding-bottom:10px!important}
+
+  /* Definitivní override názvu mobilní mini karty.
+     Pevně rezervuje prostor pro celé 3 řádky, aby flex layout název nesrazil. */
+  html body #dealGrid[data-card-view="mini"] .dealCard h3,
+  html body #dealGrid[data-card-view="mini"] .dealCard .dealInfo h3,
+  html body #dealGrid[data-card-view="mini"] .dealCard .dealBody h3{
+    width:100%!important;
+    min-width:0!important;
+    height:44px!important;
+    min-height:44px!important;
+    max-height:44px!important;
+    flex:0 0 44px!important;
+    box-sizing:border-box!important;
+    margin:0 0 6px!important;
+    padding:0!important;
+    font-size:11.5px!important;
+    line-height:1.16!important;
+    letter-spacing:-.08px!important;
+    font-weight:800!important;
+    white-space:normal!important;
+    display:-webkit-box!important;
+    -webkit-box-orient:vertical!important;
+    -webkit-line-clamp:3!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    overflow-wrap:break-word!important;
+    word-break:normal!important;
+  }
+
+  /* Mini karta: jednotková cena musí být vždy celá viditelná (např. "cena za 1 kg"). */
+  html body #dealGrid[data-card-view="mini"] .dealChips{
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important;
+    gap:4px!important;
+    width:100%!important;
+    min-width:0!important;
+    overflow:visible!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:center!important;
+    min-width:0!important;
+    width:100%!important;
+    padding:0 3px!important;
+    box-sizing:border-box!important;
+    font-size:7.5px!important;
+    line-height:1!important;
+    letter-spacing:-.18px!important;
+    white-space:nowrap!important;
+    overflow:visible!important;
+    text-overflow:clip!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span:first-child{
+    font-size:7.2px!important;
+    letter-spacing:-.22px!important;
+  }
+
+  /* Redundantní textové tlačítko Oblíbit je pryč; horní srdce .saveOffer zůstává. */
+  html body #dealGrid .dealCard [data-favorite]:not(.saveOffer){
+    display:none!important;
+  }
+}
+@media(max-width:390px){
+  html body #dealGrid[data-card-view="mini"] .dealCard h3,
+  html body #dealGrid[data-card-view="mini"] .dealCard .dealInfo h3,
+  html body #dealGrid[data-card-view="mini"] .dealCard .dealBody h3{
+    height:42px!important;
+    min-height:42px!important;
+    max-height:42px!important;
+    flex-basis:42px!important;
+    font-size:10.8px!important;
+    line-height:1.16!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span{
+    font-size:7px!important;
+    padding-inline:2px!important;
+  }
+  html body #dealGrid[data-card-view="mini"] .dealChips>span:first-child{
+    font-size:6.8px!important;
+  }
+}
+@media(max-width:360px){
+  html body .heroCard{padding-inline:12px!important;background-position:56% center!important}
+  html body .heroCopy>h1{max-width:76%!important;font-size:clamp(27px,8.8vw,32px)!important}
+  html body .heroCopy>p{max-width:64%!important}
+}
