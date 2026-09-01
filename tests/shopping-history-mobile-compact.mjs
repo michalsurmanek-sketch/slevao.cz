@@ -29,14 +29,16 @@ assert.ok(css.slice(0, mobileStart).includes('.sfHistoryCard{border:1px solid va
 
 const cssUrl = html.match(/assets\/shopping-insights\.css\?v=[^"']+/)?.[0] || '';
 assert.equal(cssUrl, 'assets/shopping-insights.css?v=20260828-1', 'seznam.html nemá mobilní history CSS verzi 20260828-1.');
-assert.ok(worker.includes(`'/${cssUrl}'`), 'PWA necachuje přesný shopping insights CSS ze seznam.html.');
-const cacheMatch = worker.match(/const CACHE_NAME = 'slevao-shell-(\d{8})-(\d+)';/);
-assert.ok(cacheMatch, 'PWA shell nemá očekávaný verzovaný formát YYYYMMDD-revision.');
+assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje shopping insights CSS.');
+assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Shopping insights CSS není v PWA network-first runtime vrstvě.');
+assert.match(worker, /await cache\.put\(request, response\.clone\(\)\)/, 'PWA neukládá přesnou verzovanou shopping insights CSS URL.');
+const cacheMatch = worker.match(/const CACHE_VERSION = '(\d{8})-(\d+)';/);
+assert.ok(cacheMatch, 'PWA cache nemá očekávaný verzovaný formát YYYYMMDD-revision.');
 const cacheDate = Number(cacheMatch[1]);
 const cacheRevision = Number(cacheMatch[2]);
 assert.ok(
   cacheDate > 20260828 || (cacheDate === 20260828 && cacheRevision >= 63),
-  'PWA shell se nesmí vrátit pod mobile history compact baseline 20260828-63.',
+  'PWA cache se nesmí vrátit pod mobile history compact baseline 20260828-63.',
 );
 
 console.log('Shopping history is compact on mobile without changing desktop layout');
