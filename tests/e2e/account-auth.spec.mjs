@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
-const CDN_PATTERN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
+const CDN_PATTERN = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4';
 
 const MOCK_SUPABASE = `
 (() => {

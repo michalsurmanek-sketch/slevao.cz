@@ -4,6 +4,10 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const htmlFiles = readdirSync(root).filter((name) => name.endsWith('.html')).sort();
+assert.ok(
+  ['produkt.html', 'seznam.html', 'ucet.html'].every((page) => htmlFiles.includes(page)),
+  'Supabase CDN guard must include the core product, shopping-list and account HTML pages.',
+);
 const failures = [];
 const multiClientPages = [];
 
@@ -41,15 +45,20 @@ assert.deepEqual(
 
 const supabaseCdnRefs = [];
 const floatingSupabaseCdnRefs = [];
-const assetsDir = new URL('assets/', root);
-for (const asset of readdirSync(assetsDir).filter((name) => name.endsWith('.js')).sort()) {
-  const source = read(`assets/${asset}`);
+const collectSupabaseCdnRefs = (source, sourcePath) => {
   for (const match of source.matchAll(/https:\/\/cdn\.jsdelivr\.net\/npm\/@supabase\/supabase-js@([^'"\s]+)/g)) {
     const version = match[1].split(/[/?#]/, 1)[0];
-    const ref = { asset, version, url: match[0] };
+    const ref = { source: sourcePath, version, url: match[0] };
     supabaseCdnRefs.push(ref);
     if (!/^\d+\.\d+\.\d+$/.test(version)) floatingSupabaseCdnRefs.push(ref);
   }
+};
+
+for (const page of htmlFiles) collectSupabaseCdnRefs(read(page), page);
+
+const assetsDir = new URL('assets/', root);
+for (const asset of readdirSync(assetsDir).filter((name) => name.endsWith('.js')).sort()) {
+  collectSupabaseCdnRefs(read(`assets/${asset}`), `assets/${asset}`);
 }
 
 assert.ok(supabaseCdnRefs.length > 0, 'Expected at least one browser Supabase CDN reference to validate.');
@@ -59,4 +68,4 @@ assert.deepEqual(
   `Supabase browser CDN references must use an exact x.y.z version, never @2/latest/floating tags:\n${JSON.stringify(floatingSupabaseCdnRefs, null, 2)}`,
 );
 
-console.log(`Browser Supabase singleton coverage OK (${multiClientPages.length} multi-client pages checked, ${supabaseCdnRefs.length} pinned CDN refs)`);
+console.log(`Browser Supabase singleton coverage OK (${multiClientPages.length} multi-client pages checked, ${supabaseCdnRefs.length} pinned CDN refs across HTML and JS)`);
