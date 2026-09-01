@@ -31,6 +31,9 @@ assert.deepEqual(Array.from(context.values, ([n, text]) => [n, text]), [
 
 assert.match(html, /assets\/shopping-list-copy-guard\.js\?v=20260828-[0-9]+/, 'seznam.html nenačítá count copy guard.');
 const url = html.match(/assets\/shopping-list-copy-guard\.js\?v=[^"']+/)?.[0];
-assert.ok(url && worker.includes(`'/${url}'`), 'PWA necachuje přesný count copy guard ze seznam.html.');
+assert.ok(url, 'Chybí verzovaný count copy guard.');
+assert.ok(!worker.includes(`'/${url}'`), 'Count copy guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("cache: 'reload'"), 'Count copy guard musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Count copy guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Shopping list count grammar guard OK');
