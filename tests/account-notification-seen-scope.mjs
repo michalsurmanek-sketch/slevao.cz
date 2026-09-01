@@ -19,7 +19,9 @@ assert.ok(
   accountHtml.indexOf(`assets/account-notification-seen-guard.js?v=${guardVersion}`) < accountHtml.indexOf('assets/account.js?v='),
   'Seen guard musí být načtený před account.js.'
 );
-assert.match(worker, new RegExp(`assets/account-notification-seen-guard\\.js\\?v=${guardVersion}`), 'PWA shell necacheuje seen guard.');
+assert.ok(!worker.includes(`'/assets/account-notification-seen-guard.js?v=${guardVersion}'`), 'Seen guard se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathname);"), 'PWA musí seen guard obsloužit jako kritický runtime asset.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Seen guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
 const deliveryStart = account.indexOf('  function deliverBrowserNotification(row) {');
 const deliveryEnd = account.indexOf('\n\n  function ensurePendingAlertRequestId', deliveryStart);
