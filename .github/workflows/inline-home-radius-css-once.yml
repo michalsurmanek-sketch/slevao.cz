@@ -1,0 +1,66 @@
+name: Inline home radius CSS once
+
+on:
+  push:
+    branches:
+      - perf/home-radius-css-inline-20260901
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/home-radius-css-inline-20260901
+          fetch-depth: 0
+
+      - name: Inline radius styles into adjacent hero stylesheet
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          radius_path = Path('assets/home-radius-select.css')
+          hero_path = Path('assets/home-live-hero.css')
+          index_path = Path('index.html')
+
+          radius = radius_path.read_text(encoding='utf-8').strip()
+          hero = hero_path.read_text(encoding='utf-8')
+          marker = '/* Homepage bundle: radius selector */'
+          if marker in hero:
+              raise SystemExit('radius CSS already bundled')
+          hero_path.write_text(hero.rstrip() + '\n\n' + marker + '\n' + radius + '\n', encoding='utf-8')
+
+          index = index_path.read_text(encoding='utf-8')
+          radius_link = '  <link rel="stylesheet" href="assets/home-radius-select.css?v=20260809-4">\n'
+          if index.count(radius_link) != 1:
+              raise SystemExit(f'expected exactly one radius CSS link, got {index.count(radius_link)}')
+          index = index.replace(radius_link, '', 1)
+
+          old_hero = 'assets/home-live-hero.css?v=20260815-8'
+          new_hero = 'assets/home-live-hero.css?v=20260901-9'
+          if index.count(old_hero) != 1:
+              raise SystemExit(f'expected exactly one live hero CSS ref, got {index.count(old_hero)}')
+          index = index.replace(old_hero, new_hero, 1)
+          index_path.write_text(index, encoding='utf-8')
+          PY
+
+          grep -n 'Homepage bundle: radius selector' assets/home-live-hero.css
+          grep -n 'home-live-hero.css?v=20260901-9' index.html
+          if grep -n 'home-radius-select.css' index.html; then
+            echo 'Standalone radius CSS still referenced on homepage.' >&2
+            exit 1
+          fi
+
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          git rm .github/workflows/inline-home-radius-css-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/home-live-hero.css index.html
+          git commit -m "Inline homepage radius selector styles"
+          git push origin HEAD:perf/home-radius-css-inline-20260901
