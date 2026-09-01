@@ -4,6 +4,7 @@ Runs only against current official Dr. Max page images.
 """
 import json
 import os
+import sys
 import urllib.parse
 import urllib.request
 
@@ -126,18 +127,18 @@ def direct_download(image_url: str, destination: str):
 worker.api = api
 worker.download = direct_download
 
-if __name__ == "__main__":
-    target = drmax_target()
+
+def render_target(target: dict) -> dict:
     if not target.get("ok"):
-        print(json.dumps({
-            "ok": True,
+        return {
+            "ok": False,
             "worker": "drmax",
             "engine": worker.ENGINE,
             "skipped": True,
             **target,
-        }, ensure_ascii=False), flush=True)
-        raise SystemExit(0)
-    print(json.dumps({
+        }
+    return {
+        "ok": True,
         "worker": "drmax",
         "engine": worker.ENGINE,
         "target": target["import_id"],
@@ -145,5 +146,16 @@ if __name__ == "__main__":
         "valid_to": target.get("valid_to"),
         "completed_pages": target.get("completed_pages", 0),
         "expected_pages": target.get("expected_pages", len(target.get("page_image_urls") or [])),
-    }, ensure_ascii=False), flush=True)
+    }
+
+
+if __name__ == "__main__":
+    target = drmax_target()
+    if "--probe" in sys.argv[1:]:
+        print(json.dumps(render_target(target), ensure_ascii=False), flush=True)
+        raise SystemExit(0)
+    if not target.get("ok"):
+        print(json.dumps(render_target(target), ensure_ascii=False), flush=True)
+        raise SystemExit(0)
+    print(json.dumps(render_target(target), ensure_ascii=False), flush=True)
     worker.main()
