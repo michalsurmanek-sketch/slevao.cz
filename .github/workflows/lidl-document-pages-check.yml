@@ -1,0 +1,37 @@
+name: Kontrola Lidl document pages
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'supabase/migrations/*leaflet_document_pages*.sql'
+      - 'supabase/functions/sync-lidl-document-pages/**'
+      - 'tests/lidl-document-pages-contract.mjs'
+      - '.github/workflows/lidl-document-pages-check.yml'
+  pull_request:
+    paths:
+      - 'supabase/migrations/*leaflet_document_pages*.sql'
+      - 'supabase/functions/sync-lidl-document-pages/**'
+      - 'tests/lidl-document-pages-contract.mjs'
+      - '.github/workflows/lidl-document-pages-check.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ověřit bezpečnostní kontrakt Lidl stran
+        run: node tests/lidl-document-pages-contract.mjs
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Ověřit TypeScript Lidl page workeru
+        run: deno check supabase/functions/sync-lidl-document-pages/index.ts
