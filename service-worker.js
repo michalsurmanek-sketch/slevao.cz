@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260831-1';
+const CACHE_NAME = 'slevao-shell-20260901-1';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -25,7 +25,7 @@ const SHELL = [
   '/assets/footer-generated-bg.css?v=20260808-6',
   '/assets/mobile-ux.css?v=20260815-21',
   '/assets/mobile-store-row-fix.css?v=20260829-1',
-  '/assets/home-quick-food-filter.css?v=20260810-1',
+  '/assets/home-quick-food-filter.css?v=20260829-2',
   '/assets/home-quick-food-personalize.css?v=20260811-2',
   '/assets/home-semantic-filters.css?v=20260815-2',
   '/assets/product-card-desktop.css?v=20260815-3',
@@ -48,14 +48,14 @@ const SHELL = [
   '/assets/home-filter-range-guard.js?v=20260826-1',
   '/assets/home-autopilot.css?v=20260810-5',
   '/assets/home-autopilot.js?v=20260829-1',
-  '/assets/home-footer-redesign.js?v=20260830-1',
+  '/assets/home-footer-redesign.js?v=20260831-2',
   '/assets/mobile-navigation.js?v=20260829-1',
   '/assets/product-card-desktop.js?v=20260828-1',
   '/assets/home-radius-select.js?v=20260809-3',
   '/assets/mobile-leaflet-nav-position.js?v=20260816-10',
 
   // Homepage footer-loader dynamic dependencies.
-  '/assets/footer-section-jumps.js?v=20260830-2',
+  '/assets/footer-section-jumps.js?v=20260831-8',
   '/assets/home-quick-food-personalize.js?v=20260811-1',
   '/assets/home-save-today.css?v=20260815-7',
   '/assets/home-save-today.js?v=20260815-8',

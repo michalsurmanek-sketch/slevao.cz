@@ -83,7 +83,11 @@
 
   function ensureFreshStyles() {
     const version = '20260829-2';
-    if (document.querySelector(`link[data-sq-food-fresh="${version}"]`)) return;
+    const existing = document.querySelector('link[href*="home-quick-food-filter.css"]');
+    if (existing) {
+      existing.dataset.sqFoodFresh = version;
+      return;
+    }
     const link = document.createElement('link');
     link.rel = 'stylesheet';
     link.href = `assets/home-quick-food-filter.css?v=${version}`;

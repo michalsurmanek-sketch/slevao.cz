@@ -57,7 +57,8 @@ assert.match(homeCss, /@media\(max-width:800px\)/, 'Homepage nemá responzivní 
 
 for (const pattern of [
   /async function rpc\(/, /get_public_offer_page_filtered/, /get_public_offer_facets/,
-  /get_public_saved_offer_page/, /get_public_product_comparison/, /const PAGE_SIZE = 24/,
+  /get_public_saved_offer_page/, /get_public_product_comparison/,
+  /const PAGE_SIZE = window\.matchMedia\('\(min-width: 801px\)'\)\.matches \? 26 : 24/,
   /AbortController/, /function unitPrice\(/, /function openCompare\(/, /function openReport\(/, /SAVED_KEY/,
 ]) assert.match(homeJs, pattern, `Homepage postrádá povinnou serverovou logiku ${pattern}.`);
 for (const pattern of [

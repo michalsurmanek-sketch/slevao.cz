@@ -138,7 +138,7 @@ test('desktop homepage renders server-paginated offers', async ({ page }) => {
   const cards = page.locator('#dealGrid .dealCard');
   const count = await cards.count();
   expect(count).toBeGreaterThan(0);
-  expect(count).toBeLessThanOrEqual(24);
+  expect(count).toBeLessThanOrEqual(26);
 
   const offerCount = Number((await page.locator('#offerCount').innerText()).replace(/\D/g, ''));
   const storeCount = Number((await page.locator('#storeCount').innerText()).replace(/\D/g, ''));

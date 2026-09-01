@@ -6,7 +6,7 @@
   const RELOAD_KEY = 'slevao-favorite-offer-sync-v2';
   const SUPABASE_CLIENT_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
   const SHARED_SUPABASE_CLIENT_URL = 'assets/supabase-client.js?v=20260825-1';
-  const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260804-2';
+  const PERSONALIZATION_CSS_URL = 'assets/product-personalization.css?v=20260816-4';
   const PERSONALIZATION_JS_URL = 'assets/product-personalization.js?v=20260827-3';
   const HOME_PRODUCT_FAVORITES_URL = 'assets/home-product-favorites.js?v=20260822-1';
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -106,7 +106,8 @@
   }
 
   function appendScript(src, marker, onload) {
-    const existing = document.querySelector(`script[${marker}]`);
+    const assetPath = src.split('?')[0];
+    const existing = document.querySelector(`script[${marker}],script[src*="${assetPath}"]`);
     if (existing) {
       if (onload) existing.addEventListener('load', onload, { once:true });
       return existing;
@@ -122,7 +123,7 @@
 
   function loadProductFavoriteRuntime() {
     if (typeof document === 'undefined' || !document.getElementById('dealGrid')) return;
-    if (!document.querySelector('link[data-slevao-product-personalization]')) {
+    if (!document.querySelector('link[href*="product-personalization.css"]')) {
       const link = document.createElement('link');
       link.rel = 'stylesheet';
       link.href = PERSONALIZATION_CSS_URL;

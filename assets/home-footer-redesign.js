@@ -37,7 +37,7 @@
   if (!document.querySelector('link[href*="home-quick-food-filter.css"]')) {
     const quickFoodStyle = document.createElement('link');
     quickFoodStyle.rel = 'stylesheet';
-    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260810-1';
+    quickFoodStyle.href = 'assets/home-quick-food-filter.css?v=20260829-2';
     document.head.appendChild(quickFoodStyle);
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
