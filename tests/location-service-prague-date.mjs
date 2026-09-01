@@ -23,6 +23,8 @@ assert.match(locationService, /window\.SlevaoLocation = \{[\s\S]*?pragueDate,/, 
 
 const version = html.match(/assets\/location-service\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(version, 'seznam.html musí načítat verzovaný location-service.js.');
-assert.ok(serviceWorker.includes(`'/assets/location-service.js?v=${version}'`), 'PWA musí cacheovat stejnou verzi location-service.js jako seznam.html.');
+assert.ok(!serviceWorker.includes(`'/assets/location-service.js?v=${version}'`), 'location-service.js se nesmí vrátit do install-time PWA precache.');
+assert.ok(serviceWorker.includes("cache: 'reload'"), 'location-service.js musí být network-first.');
+assert.ok(serviceWorker.includes('putRuntime(request, response)'), 'location-service.js musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Location service: Prague date diagnostika prošla.');
