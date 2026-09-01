@@ -12,8 +12,13 @@ test('homepage stays within real CSS and JavaScript request budget', async ({ pa
     try { url = new URL(request.url()); } catch { return; }
     if (url.origin !== BASE_URL) return;
     const type = request.resourceType();
-    if (type !== 'stylesheet' && type !== 'script') return;
-    requests[type].push(`${url.pathname}${url.search}`);
+    if (type === 'stylesheet' && url.pathname.endsWith('.css')) {
+      requests.stylesheet.push(`${url.pathname}${url.search}`);
+      return;
+    }
+    if (type === 'script' && url.pathname.endsWith('.js')) {
+      requests.script.push(`${url.pathname}${url.search}`);
+    }
   });
 
   const response = await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
