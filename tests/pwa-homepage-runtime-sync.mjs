@@ -8,6 +8,7 @@ const list = readFileSync(new URL('seznam.html', root), 'utf8');
 const product = readFileSync(new URL('produkt.html', root), 'utf8');
 const account = readFileSync(new URL('ucet.html', root), 'utf8');
 const footer = readFileSync(new URL('assets/home-footer-redesign.js', root), 'utf8');
+const rpcBootstrap = readFileSync(new URL('assets/rpc-request-dedupe.js', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 const versionedAssets = (source) => [...new Set(
@@ -22,6 +23,7 @@ const requiredAssets = new Set([
   ...versionedAssets(product),
   ...versionedAssets(account),
   ...versionedAssets(footer),
+  ...versionedAssets(rpcBootstrap),
 ]);
 const missing = [...requiredAssets].filter((asset) => !worker.includes(`'${asset}'`)).sort();
 assert.deepEqual(
@@ -57,6 +59,6 @@ assert.deepEqual(
   `PWA shell nesmí precachovat více verzí stejného assetu:\n${duplicateVersions.join('\n')}`
 );
 
-assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260901-3';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
+assert.match(worker, /const CACHE_NAME = 'slevao-shell-20260901-4';/, 'Po změně precache runtime musí být zvýšený PWA cache namespace.');
 
 console.log(`PWA public-page runtime sync OK (${requiredAssets.size} dependencies)`);

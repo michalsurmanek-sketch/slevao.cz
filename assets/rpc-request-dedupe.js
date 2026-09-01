@@ -21,7 +21,7 @@
 
   if (typeof document !== 'undefined' && !document.querySelector('script[data-slevao-count-semantics]')) {
     const countScript = document.createElement('script');
-    countScript.src = 'assets/home-count-semantics.js?v=20260825-1';
+    countScript.src = 'assets/home-count-semantics.js?v=20260901-1';
     countScript.async = false;
     countScript.dataset.slevaoCountSemantics = '1';
     document.head.appendChild(countScript);

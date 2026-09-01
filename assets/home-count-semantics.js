@@ -15,6 +15,11 @@
     const label = copy?.querySelector('.heroStatLabel');
     if (label) label.textContent = 'Platí dnes';
     if (copy) copy.title = 'Počet všech veřejně vyhledatelných nabídek platných dnes';
+    const storeValue = document.getElementById('storeCount');
+    const storeCopy = storeValue?.closest('.heroStatCopy');
+    const storeLabel = storeCopy?.querySelector('.heroStatLabel');
+    if (storeLabel) storeLabel.textContent = 'Obchodů s nabídkou';
+    if (storeCopy) storeCopy.title = 'Počet obchodů, které mají alespoň jednu veřejnou nabídku platnou dnes';
   }
 
   function cleanResultText(value) {

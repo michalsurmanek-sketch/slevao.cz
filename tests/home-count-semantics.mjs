@@ -5,7 +5,8 @@ const bootstrap = fs.readFileSync('assets/rpc-request-dedupe.js', 'utf8');
 const source = fs.readFileSync('assets/home-count-semantics.js', 'utf8');
 const home = fs.readFileSync('assets/home-v2.js', 'utf8');
 
-assert(bootstrap.includes("assets/home-count-semantics.js?v=20260825-1"), 'Homepage bootstrap must load the current count semantics layer.');
+assert(bootstrap.includes("assets/home-count-semantics.js?v=20260901-1"), 'Homepage bootstrap must load the current count semantics layer.');
+assert(source.includes("storeLabel.textContent = 'Obchodů s nabídkou'"), 'Store metric must say it counts only stores with a current offer.');
 assert(bootstrap.includes("script[data-slevao-count-semantics]"), 'Count semantics layer must be loaded at most once.');
 assert(source.includes("label.textContent = 'Platí dnes'"), 'Hero offer count must explicitly mean offers valid today.');
 assert(source.includes('všech veřejně vyhledatelných nabídek'), 'Hero tooltip must explain that the total is searchable public inventory.');

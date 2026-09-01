@@ -1,4 +1,4 @@
-const CACHE_NAME = 'slevao-shell-20260901-3';
+const CACHE_NAME = 'slevao-shell-20260901-4';
 const OFFLINE_URL = '/offline.html';
 const SHELL = [
   '/',
@@ -36,7 +36,8 @@ const SHELL = [
   '/assets/index-mobile-final.css?v=20260816-7',
   '/assets/mobile-deals-heading-fix.css?v=20260828-2',
   '/assets/mobile-hero-compact.css?v=20260829-1',
-  '/assets/rpc-request-dedupe.js?v=20260826-3',
+  '/assets/rpc-request-dedupe.js?v=20260901-1',
+  '/assets/home-count-semantics.js?v=20260901-1',
   '/assets/home-v2.js?v=20260829-1',
   '/assets/home-leaflet-direct.js?v=20260821-2',
   '/assets/home-leaflet-viewer.js?v=20260809-1',
