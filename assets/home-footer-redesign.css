@@ -71,3 +71,233 @@
   .footerFavoriteTitle,.footer .footerSocialTitle{position:relative;margin-bottom:30px!important}
   .footerFavoriteTitle:after,.footer .footerSocialTitle:after{content:"";position:absolute;left:0;bottom:-15px;width:38px;height:3px;border-radius:999px;background:#39d8c7}
 }
+
+/* Homepage footer cascade inlined to remove two stylesheet requests. */
+/* Slevao.cz – finální upgrade patičky podle schváleného vizuálu. */
+
+/* Čtvrtá výhoda v levém sloupci – vizuálně stejná jako ostatní položky. */
+.footerFeatures::after{
+  content:"Upozornění na slevy";
+  min-height:70px;
+  display:flex;
+  align-items:center;
+  padding-left:62px;
+  border-top:1px dashed rgba(145,224,216,.18);
+  color:#e4efee;
+  font-size:15px;
+  font-weight:500;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect x='0.5' y='0.5' width='47' height='47' rx='14' fill='%230f5d5d' fill-opacity='.48' stroke='%2331d6c5' stroke-opacity='.32'/%3E%3Cpath d='M18 29h12l-1.8-2.4V21a4.2 4.2 0 0 0-8.4 0v5.6L18 29Zm4 3h4' fill='none' stroke='%2331d6c5' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:left center;
+  background-size:48px 48px;
+}
+
+@media(min-width:1261px){
+  .footerMain{
+    grid-template-columns:1.28fr .72fr .78fr 1fr 1.18fr!important;
+    gap:34px!important;
+    row-gap:18px!important;
+    padding:52px 50px 30px!important;
+    align-items:start!important;
+  }
+  .footerIdentity{grid-column:1!important;grid-row:1 / span 2!important}
+  .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
+  .footerColumnHelp{grid-column:3!important;grid-row:1!important}
+  .footerColumnUseful{grid-column:4!important;grid-row:1 / span 2!important}
+  .footerWatch{grid-column:5!important;grid-row:1 / span 2!important}
+  .footerFavorite{display:block!important;grid-column:2 / 4!important;grid-row:2!important;margin-top:-6px!important}
+}
+
+.footerBottom{
+  position:relative!important;
+  z-index:2!important;
+  margin:0 44px 68px!important;
+  padding:0!important;
+  border:1px solid rgba(69,219,204,.48)!important;
+  border-radius:22px!important;
+  color:#fff!important;
+  background:linear-gradient(135deg,rgba(5,62,65,.82),rgba(4,42,46,.7))!important;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 12px 32px rgba(0,20,23,.13)!important;
+  overflow:visible!important;
+  backdrop-filter:blur(8px);
+}
+
+.footerBottomInner{
+  display:grid!important;
+  grid-template-columns:minmax(310px,1.45fr) repeat(3,minmax(170px,1fr))!important;
+  align-items:stretch!important;
+  gap:0!important;
+}
+
+.footerCopyright,
+.footerTrust,
+.footerBadge{
+  position:relative!important;
+  min-width:0!important;
+  min-height:94px!important;
+  display:flex!important;
+  align-items:center!important;
+  padding:20px 22px 20px 74px!important;
+  margin:0!important;
+  border:0!important;
+  border-radius:0!important;
+  background:transparent!important;
+  color:transparent!important;
+  font-size:0!important;
+  white-space:normal!important;
+}
+
+/* První text má větší odstup od velké ikony štítu. */
+.footerCopyright{padding-left:92px!important}
+
+.footerTrust,
+.footerBadge{border-left:1px solid rgba(91,218,206,.25)!important}
+
+.footerCopyright::before,
+.footerTrust::before,
+.footerBadge::before{
+  position:absolute;
+  left:22px;
+  top:50%;
+  width:42px;
+  height:42px;
+  transform:translateY(-50%);
+  display:grid;
+  place-items:center;
+  border:1px solid rgba(83,226,211,.32);
+  border-radius:50%;
+  color:#5be4d5;
+  background:radial-gradient(circle at 35% 30%,rgba(77,233,218,.2),rgba(9,85,85,.3));
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.07),0 8px 20px rgba(0,20,23,.12);
+  font-size:21px;
+  line-height:1;
+  font-weight:950;
+}
+
+.footerCopyright::before{content:"✓";width:54px;height:54px;left:18px;border-radius:17px;font-size:28px}
+.footerTrust::before{content:"✓"}
+.footerBadge:nth-child(1)::before{content:"↻"}
+.footerBadge:nth-child(2)::before{content:"▢"}
+
+.footerCopyright::after,
+.footerTrust::after,
+.footerBadge::after{
+  display:block;
+  color:#dfeceb;
+  white-space:pre-line;
+  font-size:14px;
+  line-height:1.5;
+  font-weight:850;
+  letter-spacing:0;
+}
+
+.footerCopyright::after{content:"Ověřené a aktuální nabídky\A Data z oficiálních letáků · Průběžně aktualizováno"}
+.footerTrust::after{content:"Zdarma\A 100 % zdarma"}
+.footerBadge:nth-child(1)::after{content:"Denně aktualizováno\A Nové akce každý den"}
+.footerBadge:nth-child(2)::after{content:"Bez registrace\A Žádné osobní údaje"}
+
+.footerBadges{display:contents!important}
+.footerBadge:nth-child(3){display:none!important}
+
+.footerBottom::after{
+  content:"© 2026 Slevao.cz · Data aktualizována průběžně     ◇  Bezpečné a důvěryhodné srovnání nabídek";
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:-48px;
+  min-height:30px;
+  display:flex;
+  align-items:center;
+  padding:0 2px;
+  color:#b9cecb;
+  font-size:12px;
+  line-height:1.35;
+  letter-spacing:.01em;
+  white-space:pre-wrap;
+}
+
+@media(max-width:1260px) and (min-width:901px){
+  .footerMain{
+    grid-template-columns:1.2fr .8fr .9fr 1.1fr!important;
+    gap:28px!important;
+    row-gap:18px!important;
+  }
+  .footerIdentity{grid-column:1!important;grid-row:1 / span 2!important}
+  .footerColumnSlevao{grid-column:2!important;grid-row:1!important}
+  .footerColumnHelp{grid-column:3!important;grid-row:1!important}
+  .footerColumnUseful{grid-column:4!important;grid-row:1 / span 2!important}
+  .footerFavorite{display:block!important;grid-column:2 / 4!important;grid-row:2!important;margin-top:-6px!important}
+  .footerWatch{grid-column:1 / -1!important;grid-row:3!important}
+  .footerBottom{margin-left:28px!important;margin-right:28px!important}
+  .footerBottomInner{grid-template-columns:1.35fr 1fr 1fr 1fr!important}
+  .footerCopyright,.footerTrust,.footerBadge{padding-left:62px!important;padding-right:14px!important}
+  .footerCopyright{padding-left:78px!important}
+  .footerCopyright::before,.footerTrust::before,.footerBadge::before{left:14px}
+}
+
+@media(max-width:900px){
+  .footerFeatures::after{
+    min-height:92px;
+    justify-content:center;
+    padding:56px 12px 12px;
+    border:1px solid rgba(145,224,216,.14);
+    border-radius:14px;
+    text-align:center;
+    font-size:13px;
+    background-position:center 10px;
+    background-size:40px 40px;
+  }
+  .footerFavorite{display:block!important}
+  .footerBottom{margin:0 20px 64px!important;border-radius:18px!important}
+  .footerBottomInner{grid-template-columns:1fr 1fr!important}
+  .footerCopyright{grid-column:1 / -1!important}
+  .footerCopyright,.footerTrust,.footerBadge{min-height:86px!important}
+  .footerTrust{border-left:0!important;border-top:1px solid rgba(91,218,206,.2)!important}
+  .footerBadge{border-top:1px solid rgba(91,218,206,.2)!important}
+  .footerBadge:nth-child(2){grid-column:1 / -1!important;border-left:0!important}
+  .footerBottom::after{justify-content:center;text-align:center;bottom:-50px}
+}
+
+@media(max-width:620px){
+  .footerFeatures::after{
+    min-height:62px;
+    justify-content:flex-start;
+    padding:12px 12px 12px 72px;
+    text-align:left;
+    background-position:12px center;
+    background-size:42px 42px;
+  }
+  .footerBottom{margin:0 12px 68px!important}
+  .footerBottomInner{grid-template-columns:1fr!important}
+  .footerCopyright,.footerTrust,.footerBadge{grid-column:auto!important;min-height:78px!important;border-left:0!important;border-top:1px solid rgba(91,218,206,.18)!important;padding:15px 14px 15px 64px!important}
+  .footerCopyright{border-top:0!important;padding-left:72px!important}
+  .footerCopyright::before,.footerTrust::before,.footerBadge::before{left:14px;width:36px;height:36px;font-size:18px}
+  .footerCopyright::before{width:42px;height:42px;border-radius:14px;font-size:22px}
+  .footerCopyright::after,.footerTrust::after,.footerBadge::after{font-size:12.5px}
+  .footerBottom::after{bottom:-56px;font-size:10.5px}
+}
+
+/* Slevao.cz footer – obrázek dodaný uživatelem jako skutečné pozadí patičky. */
+.footerShell{
+  background-color:#032f33!important;
+  background-image:url('footer-background.webp?v=20260808-1')!important;
+  background-position:center center!important;
+  background-size:cover!important;
+  background-repeat:no-repeat!important;
+  background-attachment:scroll!important;
+  isolation:isolate;
+  transform:translateZ(0);
+}
+
+/* Obrázek už obsahuje vlastní procenta, kruhy a košík – původní dekorace proto vypínáme. */
+.footerShell::before,
+.footerShell::after{
+  display:none!important;
+}
+
+@media(max-width:620px){
+  .footerShell{
+    background-position:center center!important;
+    background-size:cover!important;
+  }
+}
