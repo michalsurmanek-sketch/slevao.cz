@@ -1,0 +1,26 @@
+name: Trace in-store stylesheet loaders
+
+on:
+  push:
+    branches:
+      - perf/in-store-css-consolidation-20260901
+    paths:
+      - .github/workflows/trace-in-store-css-once.yml
+
+permissions:
+  contents: read
+
+jobs:
+  trace:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Find every in-store stylesheet reference
+        shell: bash
+        run: |
+          echo '=== exact filenames ==='
+          grep -RIn --exclude-dir=.git -E 'home-in-store(-actions|-list)?\.css' . || true
+          echo '=== CSS imports ==='
+          grep -RIn --include='*.css' -E '@import|home-in-store' assets || true
+          echo '=== JS style loaders ==='
+          grep -RIn --include='*.js' -E 'stylesheet|createElement\(["'"']link["'"']\)|\.css\?v=20260807|home-in-store' assets || true
