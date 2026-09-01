@@ -20,6 +20,8 @@
   <style id="slevaoHomeBootStyle">
     html.slevaoHomeBooting body{visibility:hidden}
     html,body{overflow-anchor:none!important}
+    .skipLink{position:fixed;left:12px;top:-80px;z-index:20000;padding:11px 15px;border-radius:10px;background:#10201e;color:#fff;font:800 14px system-ui,sans-serif;text-decoration:none;transition:top .15s ease}
+    .skipLink:focus{top:12px;outline:3px solid #49dfcf;outline-offset:2px}
   </style>
   <script>
     (() => {
@@ -102,6 +104,7 @@
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
 </head>
 <body>
+  <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
   <header class="topbar">
     <div class="container topbarInner">
       <a class="brand" href="#top" aria-label="Slevao.cz domů"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a>
@@ -119,7 +122,7 @@
     </div>
   </header>
 
-  <main id="top">
+  <main id="top" tabindex="-1">
     <section class="hero">
       <div class="container">
         <div class="heroCard">
@@ -143,7 +146,7 @@
               <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
             </div>
             <div class="slLiveDivider">nebo ručně</div>
-            <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ"><button type="submit">Najít</button></form>
+            <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ" aria-label="Město nebo PSČ"><button type="submit">Najít</button></form>
             <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Výsledek se zobrazí až po vyhledání.</div>
             <div class="slLiveLegacyRegion" hidden>
               <select id="regionSelect" aria-hidden="true" tabindex="-1"><option value="all">Celá Česká republika</option></select>
@@ -192,13 +195,13 @@
         </div>
 
         <div id="quickTabs" class="quickTabs" role="tablist" aria-label="Rychlé výběry">
-          <button class="quickTab active" type="button" data-mode="recommended" role="tab">Doporučené</button>
-          <button class="quickTab" type="button" data-mode="food" role="tab">Potraviny</button>
-          <button class="quickTab" type="button" data-mode="discount" role="tab">Největší slevy</button>
-          <button class="quickTab" type="button" data-mode="ending" role="tab">Končí dnes</button>
-          <button class="quickTab" type="button" data-mode="new" role="tab">Nově přidané</button>
-          <button class="quickTab" type="button" data-mode="under50" role="tab">Do 50 Kč</button>
-          <button class="quickTab" type="button" data-mode="under100" role="tab">Do 100 Kč</button>
+          <button id="quickTabRecommended" class="quickTab active" type="button" data-mode="recommended" role="tab" aria-controls="dealGrid">Doporučené</button>
+          <button class="quickTab" type="button" data-mode="food" role="tab" aria-controls="dealGrid">Potraviny</button>
+          <button class="quickTab" type="button" data-mode="discount" role="tab" aria-controls="dealGrid">Největší slevy</button>
+          <button class="quickTab" type="button" data-mode="ending" role="tab" aria-controls="dealGrid">Končí dnes</button>
+          <button class="quickTab" type="button" data-mode="new" role="tab" aria-controls="dealGrid">Nově přidané</button>
+          <button class="quickTab" type="button" data-mode="under50" role="tab" aria-controls="dealGrid">Do 50 Kč</button>
+          <button class="quickTab" type="button" data-mode="under100" role="tab" aria-controls="dealGrid">Do 100 Kč</button>
         </div>
 
         <div id="activeFilters" class="activeFilters" hidden></div>
@@ -206,7 +209,7 @@
         <div class="dealsLayout">
           <div class="filterColumn">
             <aside id="filterPanel" class="filterPanel" aria-label="Filtry nabídek">
-            <div class="filterPanelHead"><strong>Filtrovat nabídky</strong><button id="filterClose" type="button">×</button></div>
+            <div class="filterPanelHead"><strong>Filtrovat nabídky</strong><button id="filterClose" type="button" aria-label="Zavřít filtry">×</button></div>
             <label>Produkt nebo značka<input id="sideSearch" type="search" placeholder="Např. káva, mléko…"></label>
             <label>Obchod<select id="storeSelect"><option value="all">Všechny obchody</option></select></label>
             <label>Kategorie<select id="categorySelect"><option value="all">Všechny kategorie</option></select></label>
@@ -236,7 +239,7 @@
                 <option value="name">Podle názvu</option>
               </select>
             </div>
-            <div id="dealGrid" class="dealGrid"><div class="loadingState"><span class="spinner"></span><strong>Načítám aktuální nabídky</strong><small>Kontroluji platnost cen a obchodů.</small></div></div>
+            <div id="dealGrid" class="dealGrid" role="tabpanel" aria-labelledby="quickTabRecommended"><div class="loadingState"><span class="spinner"></span><strong>Načítám aktuální nabídky</strong><small>Kontroluji platnost cen a obchodů.</small></div></div>
             <div id="loadMoreWrap" class="loadMoreWrap" hidden><button id="loadMore" type="button">Načíst další nabídky</button></div>
           </div>
         </div>
@@ -353,14 +356,14 @@
 
   <div id="compareModal" class="modal" hidden>
     <div class="modalBox" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
-      <div class="modalHead"><div><span class="eyebrow">Porovnání cen</span><h2 id="compareTitle">Porovnat produkt</h2></div><button type="button" data-close-modal="compareModal">×</button></div>
+      <div class="modalHead"><div><span class="eyebrow">Porovnání cen</span><h2 id="compareTitle">Porovnat produkt</h2></div><button type="button" data-close-modal="compareModal" aria-label="Zavřít porovnání cen">×</button></div>
       <div id="compareContent"></div>
     </div>
   </div>
 
   <div id="reportModal" class="modal" hidden>
     <div class="modalBox smallModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
-      <div class="modalHead"><div><span class="eyebrow">Pomoz nám opravit data</span><h2 id="reportTitle">Nahlásit problém</h2></div><button type="button" data-close-modal="reportModal">×</button></div>
+      <div class="modalHead"><div><span class="eyebrow">Pomoz nám opravit data</span><h2 id="reportTitle">Nahlásit problém</h2></div><button type="button" data-close-modal="reportModal" aria-label="Zavřít hlášení problému">×</button></div>
       <p id="reportProduct" class="reportProduct"></p>
       <label>Co je špatně?<select id="reportType"><option value="Cena neplatí">Cena neplatí</option><option value="Špatná fotografie">Špatná fotografie</option><option value="Nesprávná gramáž">Nesprávná gramáž</option><option value="Akce skončila">Akce skončila</option><option value="Produkt není dostupný">Produkt není dostupný</option><option value="Jiný problém">Jiný problém</option></select></label>
       <label>Poznámka<textarea id="reportNote" rows="4" placeholder="Doplň podrobnosti…"></textarea></label>
@@ -378,12 +381,12 @@
   <script src="assets/home-leaflet-covers.js?v=20260821-2" defer></script>
   <script src="assets/home-overview.js?v=20260821-2" defer></script>
   <script src="assets/home-quick-food-filter.js?v=20260829-4" defer></script>
-  <script src="assets/home-semantic-filters.js?v=20260826-8" defer></script>
+  <script src="assets/home-semantic-filters.js?v=20260901-1" defer></script>
   <script src="assets/home-filter-range-guard.js?v=20260826-1" defer></script>
   <script src="assets/public-nav-upgrade.js?v=20260830-1" defer></script>
   <script src="assets/public-features.js?v=20260828-2" defer></script>
   <script src="assets/home-autopilot.js?v=20260829-1" defer></script>
-  <script src="assets/home-footer-redesign.js?v=20260831-2" defer></script>
+  <script src="assets/home-footer-redesign.js?v=20260901-1" defer></script>
   <script src="assets/mobile-navigation.js?v=20260829-1" defer></script>
   <script src="assets/product-card-desktop.js?v=20260828-1" defer></script>
   <script src="assets/home-radius-select.js?v=20260809-3" defer></script>

@@ -64,7 +64,7 @@
           <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
         </div>
         <div class="slLiveDivider">nebo ručně</div>
-        <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ"><button type="submit">Najít</button></form>
+        <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ" aria-label="Město nebo PSČ"><button type="submit">Najít</button></form>
         <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Výsledek se zobrazí až po vyhledání.</div>`;
       host.appendChild(legacy);
     }

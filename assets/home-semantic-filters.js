@@ -315,11 +315,28 @@
     const sync = () => {
       tabs.querySelectorAll('[data-mode]').forEach((button) => {
         const active = button.classList.contains('active');
+        if (!button.id) button.id = `quickTab-${button.dataset.mode}`;
+        button.setAttribute('aria-controls', 'dealGrid');
         button.setAttribute('aria-selected', String(active));
         button.tabIndex = active ? 0 : -1;
+        if (active) document.getElementById('dealGrid')?.setAttribute('aria-labelledby', button.id);
       });
     };
     new MutationObserver(sync).observe(tabs, { subtree:true, attributes:true, attributeFilter:['class'] });
+    tabs.addEventListener('keydown', (event) => {
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const buttons = [...tabs.querySelectorAll('[role="tab"][data-mode]')];
+      if (!buttons.length) return;
+      const current = Math.max(0, buttons.indexOf(document.activeElement));
+      let next = current;
+      if (event.key === 'ArrowLeft') next = (current - 1 + buttons.length) % buttons.length;
+      if (event.key === 'ArrowRight') next = (current + 1) % buttons.length;
+      if (event.key === 'Home') next = 0;
+      if (event.key === 'End') next = buttons.length - 1;
+      event.preventDefault();
+      buttons[next].focus();
+      buttons[next].click();
+    });
     sync();
   }
 

@@ -36,12 +36,21 @@ const homeJs = read('assets/home-v2.js');
 const homeCss = read('assets/home-v2.css');
 const searchSuggest = read('assets/search-suggest.js');
 const drmaxOcr = read('scripts/sync_drmax_ocr.py');
+const homeLive = read('assets/home-live.js');
+const semanticFilters = read('assets/home-semantic-filters.js');
 new Script(homeJs, { filename:'assets/home-v2.js' });
 new Script(searchSuggest, { filename:'assets/search-suggest.js' });
 
 assert.match(drmaxOcr, /"reason": "no-current-official-flyer"/, 'Dr. Max OCR neumí bezpečně čekat na nové oficiální vydání.');
 assert.doesNotMatch(drmaxOcr, /raise RuntimeError\("No current Dr\. Max import with official page images"\)/, 'Chybějící nové vydání Dr. Max nesmí shodit plánovaný OCR běh.');
 assert.match(drmaxOcr, /if not target\.get\("ok"\):[\s\S]*"skipped": True[\s\S]*raise SystemExit\(0\)/, 'Dr. Max OCR nemá úspěšný no-op pro období mezi letáky.');
+
+assert.match(index, /class="skipLink" href="#top">Přejít na hlavní obsah/, 'Homepage nemá odkaz pro přeskočení navigace.');
+assert.match(index, /id="slLivePlace"[^>]*aria-label="Město nebo PSČ"/, 'Pole města nebo PSČ nemá přístupný název.');
+assert.match(homeLive, /id="slLivePlace"[^>]*aria-label="Město nebo PSČ"/, 'Dynamická lokalita znovu vytváří nepojmenované pole.');
+assert.match(index, /role="tab" aria-controls="dealGrid"/, 'Rychlé záložky nejsou propojené s výsledky.');
+assert.match(semanticFilters, /\['ArrowLeft', 'ArrowRight', 'Home', 'End'\]/, 'Rychlé záložky nejdou ovládat šipkami.');
+assert.doesNotMatch(index, /data-close-modal="[^"]+">×<\/button>/, 'Zavírací tlačítko dialogu nemá přístupný název.');
 
 assert.match(index, /<link rel="canonical" href="https:\/\/slevao\.cz\/">/, 'Homepage nemá canonical URL.');
 assert.match(index, /application\/ld\+json/, 'Homepage nemá strukturovaná data.');
