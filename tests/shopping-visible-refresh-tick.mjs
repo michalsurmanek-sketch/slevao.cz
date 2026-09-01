@@ -53,6 +53,8 @@ assert.equal(cleared, 77, 'Interval se při opuštění stránky neuvolní.');
 
 const jsUrl = html.match(/assets\/shopping-visible-refresh-tick\.js\?v=[^"']+/)?.[0] || '';
 assert.match(jsUrl, /^assets\/shopping-visible-refresh-tick\.js\?v=20260828-[0-9]+$/, 'seznam.html nenačítá verzovaný visible refresh tick.');
-assert.ok(worker.includes(`'/${jsUrl}'`), 'PWA nemá stejnou verzi visible refresh ticku jako HTML.');
+assert.ok(!worker.includes(`'/${jsUrl}'`), 'Visible refresh tick se nesmí vrátit do install-time PWA precache.');
+assert.ok(worker.includes("cache: 'reload'"), 'Visible refresh tick musí být network-first.');
+assert.ok(worker.includes('putRuntime(request, response)'), 'Visible refresh tick musí být po úspěšném načtení uložitelný do runtime cache.');
 
 console.log('Visible shopping page refreshes stale offers and exact plans every five minutes safely');
