@@ -5,12 +5,14 @@ on:
     branches: ['main']
     paths:
       - 'supabase/migrations/*leaflet_document_pages*.sql'
+      - 'supabase/migrations/*lidl_verified_source_pages*.sql'
       - 'supabase/functions/sync-lidl-document-pages/**'
       - 'tests/lidl-document-pages-contract.mjs'
       - '.github/workflows/lidl-document-pages-check.yml'
   pull_request:
     paths:
       - 'supabase/migrations/*leaflet_document_pages*.sql'
+      - 'supabase/migrations/*lidl_verified_source_pages*.sql'
       - 'supabase/functions/sync-lidl-document-pages/**'
       - 'tests/lidl-document-pages-contract.mjs'
       - '.github/workflows/lidl-document-pages-check.yml'
