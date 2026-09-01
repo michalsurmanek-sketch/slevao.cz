@@ -183,10 +183,10 @@
   }
 
   const footerWatch = document.querySelector('.footerWatch');
-  if (footerWatch && !footerWatch.querySelector('.footerSocial')) {
-    const oldSocial = document.querySelector('.footerColumnUseful .footerSocial');
-    if (oldSocial) oldSocial.remove();
-    const social = document.createElement('div');
+  const footerUseful = document.querySelector('.footerColumnUseful');
+  let social = document.querySelector('.footerSocial');
+  if (!social && (footerWatch || footerUseful)) {
+    social = document.createElement('div');
     social.className = 'footerSocial';
     social.innerHTML = `
       <p class="footerSocialTitle">Sledujte nás</p>
@@ -206,8 +206,18 @@
       </div>
       <small class="footerSocialNote">Nové akce, tipy a slevy každý den.</small>
     `;
-    footerWatch.appendChild(social);
   }
+
+  const placeSocial = () => {
+    if (!social) return;
+    const desktop = window.matchMedia('(min-width:901px)').matches;
+    const target = desktop ? footerWatch : footerUseful;
+    if (target && social.parentElement !== target) target.appendChild(social);
+  };
+  placeSocial();
+  const desktopMedia = window.matchMedia('(min-width:901px)');
+  if (typeof desktopMedia.addEventListener === 'function') desktopMedia.addEventListener('change', placeSocial);
+  else if (typeof desktopMedia.addListener === 'function') desktopMedia.addListener(placeSocial);
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
