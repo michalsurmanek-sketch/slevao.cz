@@ -8,6 +8,10 @@ on:
         description: Maximální počet produktů pro hledání existujících fotografií
         required: false
         default: '30'
+      lidl_catalog_limit:
+        description: Bezpečný recheck aktuálních Lidl nabídek proti ověřenému katalogu
+        required: false
+        default: '20'
       lidl_limit:
         description: Prioritní dávka aktuálních Lidl produktů bez ověřené fotografie
         required: false
@@ -42,6 +46,37 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || (echo 'Chybí GitHub secret SUPABASE_URL' && exit 1)
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo 'Chybí GitHub secret SUPABASE_SERVICE_ROLE_KEY' && exit 1)
+
+      - name: Bezpečně doplnit Lidl obrázky z ověřeného katalogu
+        shell: bash
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LIDL_CATALOG_LIMIT: ${{ github.event.inputs.lidl_catalog_limit || '20' }}
+        run: |
+          response="$(curl --fail-with-body --silent --show-error \
+            --request POST \
+            --url "$SUPABASE_URL/functions/v1/match-product-catalog" \
+            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "Content-Type: application/json" \
+            --data "{\"limit\":$LIDL_CATALOG_LIMIT,\"store_slug\":\"lidl\",\"recheck_missing_images\":true}")"
+          printf '%s\n' "$response"
+          mode="$(jq -r '.mode // empty' <<<"$response")"
+          if [[ "$mode" != 'recheck_missing_images' ]]; then
+            echo "Neočekávaný catalog matcher režim: ${mode:-chybí}"
+            exit 1
+          fi
+          checked="$(jq -r '.checked // 0' <<<"$response")"
+          matched="$(jq -r '.matched // 0' <<<"$response")"
+          retained="$(jq -r '.retained // 0' <<<"$response")"
+          needs_review="$(jq -r '.needs_review // 0' <<<"$response")"
+          failed="$(jq -r '.failed // 0' <<<"$response")"
+          hydrated="$((matched + retained))"
+          printf '### Lidl verified katalog recheck\n- Zkontrolováno: `%s`\n- Doplněno obrázků: `%s`\n- Matched: `%s`\n- Retained: `%s`\n- Needs review: `%s`\n- Failed: `%s`\n' "$checked" "$hydrated" "$matched" "$retained" "$needs_review" "$failed" >> "$GITHUB_STEP_SUMMARY"
+          if (( failed > 0 )); then
+            echo "::warning title=Lidl catalog recheck částečně selhal::$failed nabídek skončilo chybou"
+          fi
 
       - name: Naplnit frontu kandidátů z existujících zdrojů
         shell: bash
