@@ -159,9 +159,16 @@ for (const needle of [
   "self.addEventListener('push'",
   'self.registration.showNotification',
   "self.addEventListener('notificationclick'",
-  "const CACHE_NAME = 'slevao-shell-",
+  "const CORE_CACHE_NAME = `slevao-core-${CACHE_VERSION}`",
+  "const RUNTIME_CACHE_NAME = `slevao-runtime-${CACHE_VERSION}`",
 ]) {
   if (!sw.includes(needle)) throw new Error(`Missing root PWA/Push Service Worker behavior: ${needle}`);
+}
+if (!sw.includes('cache.addAll(CORE_SHELL.map')) {
+  throw new Error('Root PWA worker must precache only the minimal CORE_SHELL.');
+}
+if (sw.includes('cache.addAll(SHELL.map')) {
+  throw new Error('Root PWA worker must not restore the monolithic public runtime precache.');
 }
 
 for (const needle of [
