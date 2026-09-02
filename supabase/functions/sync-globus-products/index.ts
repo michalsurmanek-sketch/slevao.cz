@@ -16,7 +16,8 @@ const MAX_VALIDITY_DAYS = 180;
 const INVALID_VALIDITY_SENTINEL_YEAR = 2100;
 const API_PAGE_TIMEOUT_MS = 12_000;
 const ADAPTER = 'globus-action-products-api-v1';
-const PARSER_VERSION = 'globus-action-products-api-v1';
+const PARSER_VERSION = 'globus-action-products-api-v2';
+const MAX_TITLE_LENGTH = 160;
 
 const db = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
   auth: { persistSession: false, autoRefreshToken: false },
@@ -50,8 +51,38 @@ function allowed(req: Request) {
   return req.headers.get('authorization') === `Bearer ${SERVICE_ROLE_KEY}`
     || Boolean(CRON_SECRET && req.headers.get('x-cron-secret') === CRON_SECRET);
 }
+function decodeHtml(value: unknown) {
+  return String(value ?? '')
+    .replace(/&nbsp;|&#160;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)));
+}
 function clean(value: unknown) {
-  return String(value ?? '').replace(/\s+/g, ' ').trim();
+  return decodeHtml(value)
+    .replace(/<br\s*\/?>/gi, ' ')
+    .replace(/<[^>]+>/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function titleText(product: any) {
+  const rawName = String(product?.name ?? '');
+  const fullName = clean(rawName);
+  if (fullName && fullName.length <= MAX_TITLE_LENGTH) return fullName;
+
+  const billName = clean(product?.billName);
+  if (billName.length >= 3 && billName.length <= MAX_TITLE_LENGTH) return billName;
+
+  const firstParagraph = clean(rawName.split(/(?:<br\s*\/?>\s*){2,}|\r?\n\s*\r?\n/i)[0]);
+  if (firstParagraph.length >= 3 && firstParagraph.length <= MAX_TITLE_LENGTH) return firstParagraph;
+
+  const shortened = fullName.slice(0, MAX_TITLE_LENGTH + 1);
+  const boundary = shortened.lastIndexOf(' ');
+  return (boundary >= 40 ? shortened.slice(0, boundary) : shortened.slice(0, MAX_TITLE_LENGTH)).trim();
 }
 function normalize(value: unknown) {
   return clean(value)
@@ -76,8 +107,7 @@ function safeValidityWindow(validFrom: string | null, validTo: string | null): b
   const startMs = Date.parse(`${validFrom}T00:00:00Z`);
   const endMs = Date.parse(`${validTo}T00:00:00Z`);
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) return false;
-  const days = Math.floor((endMs - startMs) / 86400000);
-  return days <= MAX_VALIDITY_DAYS;
+  return Math.floor((endMs - startMs) / 86400000) <= MAX_VALIDITY_DAYS;
 }
 function firstEan(value: unknown): string | null {
   const values = Array.isArray(value) ? value : [value];
@@ -157,9 +187,7 @@ async function fetchAllProducts() {
     const result = await fetchPage(page);
     pagesFetched = page + 1;
     if (reportedTotal === null) reportedTotal = result.totalCount;
-    if (reportedTotal !== result.totalCount) {
-      throw new Error(`Globus totalCount se během stránkování změnil z ${reportedTotal} na ${result.totalCount}.`);
-    }
+    if (reportedTotal !== result.totalCount) throw new Error(`Globus totalCount se během stránkování změnil z ${reportedTotal} na ${result.totalCount}.`);
     for (const product of result.products) {
       const vanr = clean(product?.vanr);
       if (!vanr) continue;
@@ -181,15 +209,13 @@ async function fetchAllProducts() {
   if (all.length > MAX_PRODUCTS) throw new Error(`Globus API vrátilo podezřele mnoho produktů: ${all.length}.`);
   if (duplicateVanr > 0) throw new Error(`Globus API obsahuje ${duplicateVanr} duplicitních VANR napříč stránkami.`);
   const gap = Math.max(0, Number(reportedTotal || 0) - all.length);
-  if (gap > MAX_REPORTED_GAP) {
-    throw new Error(`Globus API reportuje ${reportedTotal}, ale stránkovat lze jen ${all.length}; rozdíl ${gap} je nad limitem ${MAX_REPORTED_GAP}.`);
-  }
+  if (gap > MAX_REPORTED_GAP) throw new Error(`Globus API reportuje ${reportedTotal}, ale stránkovat lze jen ${all.length}; rozdíl ${gap} je nad limitem ${MAX_REPORTED_GAP}.`);
   return { products: all, reportedTotal: Number(reportedTotal || all.length), pagesFetched, gap };
 }
 
 function normalizeProduct(product: any) {
   const house = product?.productInHouse || {};
-  const title = clean(product?.name || product?.billName);
+  const title = titleText(product);
   const normalizedTitle = normalize(title);
   const vanr = clean(product?.vanr);
   const price = money(house?.actualPrice);
@@ -288,16 +314,20 @@ Deno.serve(async (req) => {
     let publicDiscounts = 0;
     let memberPrices = 0;
     let missingImages = 0;
-    for (const row of rows) {
+    let sanitizedTitles = 0;
+    for (let index = 0; index < rows.length; index++) {
+      const row = rows[index];
+      const source = fetched.products[index];
       const key = `${row.valid_from}|${row.valid_to}`;
       validityPairs.set(key, (validityPairs.get(key) || 0) + 1);
       if (row.old_price && row.old_price > row.price) publicDiscounts++;
       if (row.metadata?.member_price && row.metadata.member_price < row.price) memberPrices++;
       if (!row.image_url) missingImages++;
+      if (clean(source?.name) !== row.title) sanitizedTitles++;
     }
 
     const signature = await sha([
-      ADAPTER,
+      PARSER_VERSION,
       HOUSE_NUMBER,
       fetched.reportedTotal,
       rows.length,
@@ -323,6 +353,7 @@ Deno.serve(async (req) => {
       public_discount_count: publicDiscounts,
       member_price_count: memberPrices,
       missing_image_count: missingImages,
+      sanitized_title_count: sanitizedTitles,
       signature,
     };
 
@@ -347,15 +378,10 @@ Deno.serve(async (req) => {
       p_accessible_product_count: rows.length,
     });
     if (error) throw error;
-
-    // The database wrapper is authoritative for successful health/count telemetry
-    // because it knows the post-filter published count and exact source binding.
     return json({ ...summary, dry_run: false, publish: data });
   } catch (error) {
     const message = errorText(error);
-    if (!requestedDryRun) {
-      await markHealth('degraded', `Globus Olomouc synchronizace selhala: ${message}`, message);
-    }
+    if (!requestedDryRun) await markHealth('degraded', `Globus Olomouc synchronizace selhala: ${message}`, message);
     return json({ error: message, adapter: ADAPTER }, 500);
   }
 });
