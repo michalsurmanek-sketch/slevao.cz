@@ -9,6 +9,7 @@ const homeFooter = fs.readFileSync('assets/home-footer-redesign.css', 'utf8');
 const homeFooterRuntime = fs.readFileSync('assets/home-footer-redesign.js', 'utf8');
 const inStore = fs.readFileSync('assets/home-in-store.css', 'utf8');
 const quickFoodPersonalize = fs.readFileSync('assets/home-quick-food-personalize.css', 'utf8');
+const liveHero = fs.readFileSync('assets/home-live-hero.css', 'utf8');
 const publicNav = fs.readFileSync('assets/public-nav-upgrade.js', 'utf8');
 const productHtml = fs.readFileSync('produkt.html', 'utf8');
 const listHtml = fs.readFileSync('seznam.html', 'utf8');
@@ -129,8 +130,20 @@ assert.match(deals, /html body \.heroCard \.heroStats>span\{min-height:52px!impo
 assert.match(deals, /html body #dealGrid\[data-card-view="mini"\] \.dealCard h3/);
 assert.match(index, /assets\/mobile-deals-heading-fix\.css\?v=20260901-3/);
 
+assert.equal(
+  index.includes('assets/home-radius-select.css'),
+  false,
+  'homepage must keep radius selector styles bundled into home-live-hero.css',
+);
+assert.match(liveHero, /Homepage bundle: radius selector/);
+assert.match(liveHero, /\.slRadiusControl\{position:relative;width:132px;max-width:100%;z-index:25\}/);
+assert.match(liveHero, /\.slRadiusTrigger\{width:100%;height:48px;display:grid/);
+assert.match(liveHero, /\.slRadiusMenu\{position:fixed;left:0;top:0;width:164px/);
+assert.match(liveHero, /@media\(max-width:800px\)[\s\S]*\.heroNearbyPanel \.slLiveOptions \.slRadiusControl\{\s*width:118px!important;\s*max-width:118px!important;/);
+assert.match(index, /assets\/home-live-hero\.css\?v=20260901-9/);
+
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 22, 'homepage should keep the consolidated 22 direct CSS links');
+assert.equal(directCssLinks.length, 21, 'homepage should keep the consolidated 21 direct CSS links');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
