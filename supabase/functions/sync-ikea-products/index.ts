@@ -4,7 +4,9 @@ const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
 const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const CRON = Deno.env.get('CRON_SECRET') || '';
 const SOURCE = 'https://www.ikea.com/cz/cs/cat/lower-price/';
-const ADAPTER = 'ikea-official-lower-price-v1';
+const ADAPTER = 'ikea-official-lower-price-v2';
+const MIN_PRODUCTS = 15;
+const MAX_PRODUCTS = 24;
 const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
 const HEADERS = { 'access-control-allow-origin': '*', 'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret', 'content-type': 'application/json; charset=utf-8' };
 
@@ -34,21 +36,23 @@ async function sha256(value: string) {
   return [...new Uint8Array(digest)].map((x) => x.toString(16).padStart(2, '0')).join('');
 }
 function parseProducts(html: string, today: string) {
-  const section = html.slice(html.indexOf('id="product-list"'));
-  if (!section) throw new Error('IKEA seznam produktů nebyl nalezen.');
+  const sectionStart = html.indexOf('id="product-list"');
+  if (sectionStart < 0) throw new Error('IKEA seznam produktů nebyl nalezen.');
+  const section = html.slice(sectionStart);
   const blocks = section.split(/<div class="plp-mastercard[^"]*"[^>]*data-ref-id=/i).slice(1);
   const rows: any[] = [];
   for (const block of blocks) {
-    if (!/Nová\s*nižší\s*cena/i.test(decode(block))) continue;
-    if (/Online se prodává v sadách po|IKEA Family|při koupi|kupón|kupon/i.test(decode(block))) continue;
-    const sku = block.match(/^"?(\d{8})"?\s+data-product-number="(\d{8})"/i)?.[2];
+    const decodedBlock = decode(block);
+    if (!/Nová\s*nižší\s*cena/i.test(decodedBlock)) continue;
+    if (/Online se prodává v sadách po|IKEA Family|při koupi|kupón|kupon/i.test(decodedBlock)) continue;
+    const sku = block.match(/data-product-number="([sS]?\d{8})"/i)?.[1]?.toLowerCase();
     const currentRaw = block.match(/data-price="([0-9.]+)"/i)?.[1];
     const href = block.match(/href="(https:\/\/www\.ikea\.com\/cz\/cs\/p\/[^"]+)"/i)?.[1]?.replace(/&amp;/g, '&');
     const image = block.match(/<img class="plp-image plp-product__image"[^>]*src="([^"]+)"/i)?.[1]?.replace(/&amp;/g, '&');
     const name = decode(block.match(/class="notranslate plp-price-module__product-name">([\s\S]*?)<\/span>/i)?.[1] || '');
     const description = decode(block.match(/class="plp-text plp-typography-label-m plp-typography-regular plp-price-module__description">([\s\S]*?)<\/span>/i)?.[1] || '');
     const oldSection = block.match(/Původní cena[\s\S]{0,1200}?plp-price__integer">([0-9\s]+)/i)?.[1];
-    const validFrom = parseCzechDate(decode(block));
+    const validFrom = parseCzechDate(decodedBlock);
     const price = Number(currentRaw);
     const oldPrice = oldSection ? Number(oldSection.replace(/\s/g, '')) : null;
     const title = decode(`${name} ${description}`);
@@ -62,8 +66,37 @@ function parseProducts(html: string, today: string) {
     });
   }
   const unique = [...new Map(rows.map((row) => [row.external_id, row])).values()];
-  if (unique.length < 15 || unique.length > 24) throw new Error(`IKEA parser našel ${unique.length} bezpečných produktů; očekáváno 15–24.`);
+  if (unique.length < MIN_PRODUCTS || unique.length > MAX_PRODUCTS) throw new Error(`IKEA parser našel ${unique.length} bezpečných produktů; očekáváno ${MIN_PRODUCTS}–${MAX_PRODUCTS}.`);
   return unique;
+}
+
+async function markFailure(message: string) {
+  const checkedAt = new Date().toISOString();
+  const today = checkedAt.slice(0, 10);
+  const { data: store } = await db.from('stores').select('id').eq('slug', 'ikea').maybeSingle();
+  if (!store?.id) return;
+  const { count } = await db.from('offers').select('id', { head: true, count: 'exact' })
+    .eq('store_id', store.id).eq('status', 'published').eq('is_verified', true)
+    .lte('valid_from', today).gte('valid_to', today);
+  const currentCount = Number(count || 0);
+  const healthStatus = currentCount > 0 ? 'degraded' : 'error';
+  const healthReason = currentCount > 0
+    ? `IKEA sync selhal; zachováno ${currentCount} aktuálních ověřených nabídek. ${message}`
+    : `IKEA sync selhal bez aktuálních ověřených nabídek. ${message}`;
+  await db.from('store_product_sync_state').update({
+    last_run_at: checkedAt,
+    last_error: message,
+    last_parser_error: message,
+    is_running: false,
+    run_started_at: null,
+    parser_version: ADAPTER,
+    adapter_name: ADAPTER,
+    adapter_version: ADAPTER,
+    health_status: healthStatus,
+    health_reason: healthReason,
+    updated_at: checkedAt,
+  }).eq('store_id', store.id);
+  await db.from('leaflet_sources').update({ last_checked_at: checkedAt, last_error: message }).eq('store_id', store.id).eq('is_active', true);
 }
 
 Deno.serve(async (request) => {
@@ -89,14 +122,16 @@ Deno.serve(async (request) => {
       if (error) throw error;
     }
 
-    if (body.dry_run === true) return json({ ok: true, dry_run: true, publishable: rows.length, signature, candidates: rows });
+    if (body.dry_run === true) return json({ ok: true, dry_run: true, adapter: ADAPTER, publishable: rows.length, signature, candidates: rows });
     const { data: result, error: publishError } = await db.rpc('publish_structured_store_offers', {
       p_store_slug: 'ikea', p_adapter: ADAPTER, p_signature: signature, p_rows: rows,
-      p_min_products: 15, p_max_products: 24, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
+      p_min_products: MIN_PRODUCTS, p_max_products: MAX_PRODUCTS, p_source_document_url: SOURCE, p_parser_version: ADAPTER,
     });
     if (publishError) throw publishError;
-    return json({ ok: true, store: store.name, published: rows.length, signature, result });
+    return json({ ok: true, store: store.name, adapter: ADAPTER, published: rows.length, signature, result });
   } catch (error) {
-    return json({ error: error instanceof Error ? error.message : String(error), code: 'IKEA_PRODUCTS_SYNC_FAILED' }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    try { await markFailure(message); } catch (_) {}
+    return json({ error: message, code: 'IKEA_PRODUCTS_SYNC_FAILED', adapter: ADAPTER }, 500);
   }
 });
