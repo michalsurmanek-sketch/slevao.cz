@@ -54,9 +54,10 @@ test('homepage keeps leaflet cover styles bundled and stays at 25 CSS requests',
       cardScrollSnapAlign: getComputedStyle(card).scrollSnapAlign,
       coverAspectRatio: getComputedStyle(cover).aspectRatio,
       coverIsolation: getComputedStyle(cover).isolation,
+      coverWidth: cover.getBoundingClientRect().width,
       linkDisplay: getComputedStyle(link).display,
       linkOverflow: getComputedStyle(link).overflow,
-      imageWidth: getComputedStyle(image).width,
+      imageWidth: image.getBoundingClientRect().width,
       imageObjectFit: getComputedStyle(image).objectFit,
       badgePosition: getComputedStyle(badge).position,
       badgeBorderRadius: getComputedStyle(badge).borderRadius,
@@ -75,7 +76,7 @@ test('homepage keeps leaflet cover styles bundled and stays at 25 CSS requests',
   expect(computed.coverIsolation).toBe('isolate');
   expect(computed.linkDisplay).toBe('grid');
   expect(computed.linkOverflow).toBe('hidden');
-  expect(computed.imageWidth).toBe('100%');
+  expect(Math.abs(computed.imageWidth - computed.coverWidth)).toBeLessThan(0.5);
   expect(computed.imageObjectFit).toBe('contain');
   expect(computed.badgePosition).toBe('absolute');
   expect(computed.badgeBorderRadius).toBe('999px');
