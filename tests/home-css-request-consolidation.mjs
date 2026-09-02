@@ -140,10 +140,21 @@ assert.match(liveHero, /\.slRadiusControl\{position:relative;width:132px;max-wid
 assert.match(liveHero, /\.slRadiusTrigger\{width:100%;height:48px;display:grid/);
 assert.match(liveHero, /\.slRadiusMenu\{position:fixed;left:0;top:0;width:164px/);
 assert.match(liveHero, /@media\(max-width:800px\)[\s\S]*\.heroNearbyPanel \.slLiveOptions \.slRadiusControl\{\s*width:118px!important;\s*max-width:118px!important;/);
-assert.match(index, /assets\/home-live-hero\.css\?v=20260901-9/);
+
+assert.equal(
+  index.includes('assets/home-leaflet-covers.css'),
+  false,
+  'homepage must keep leaflet cover styles bundled into home-live-hero.css',
+);
+assert.match(liveHero, /Homepage bundle: leaflet covers/);
+assert.match(liveHero, /#leafletGrid \.leafletCover\{[\s\S]*aspect-ratio:210\/297;/);
+assert.match(liveHero, /#leafletGrid \.leafletFrontPage\{[\s\S]*object-fit:contain;/);
+assert.match(liveHero, /#leafletGrid \.leafletCurrentBadge\{[\s\S]*border-radius:999px;/);
+assert.match(liveHero, /@media\(max-width:520px\)[\s\S]*#leafletGrid\.leafletGrid\{display:flex;gap:13px;overflow-x:auto;/);
+assert.match(index, /assets\/home-live-hero\.css\?v=20260902-10/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 21, 'homepage should keep the consolidated 21 direct CSS links');
+assert.equal(directCssLinks.length, 20, 'homepage should keep the consolidated 20 direct CSS links');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
