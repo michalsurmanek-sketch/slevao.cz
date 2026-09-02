@@ -238,3 +238,113 @@ a.slLiveNearbyRow:hover,a.slLiveNearbyRow:focus-visible{background:rgba(255,255,
   .slRadiusTrigger,.slRadiusChevron svg,.slRadiusOption{transition:none}
   .slRadiusMenu{animation:none}
 }
+
+/* Homepage bundle: leaflet covers (inlined from home-leaflet-covers.css). */
+/* Skutečné titulní strany aktuálních letáků na hlavní stránce ---------- */
+#leafletGrid .leafletCard{min-width:0}
+#leafletGrid .leafletCover{
+  height:auto;
+  aspect-ratio:210/297;
+  background:linear-gradient(145deg,#edf5f4,#fff);
+  border-bottom:1px solid var(--line);
+  isolation:isolate;
+}
+#leafletGrid .leafletCoverLink{
+  display:grid;
+  position:relative;
+  place-items:center;
+  color:inherit;
+  text-decoration:none;
+  overflow:hidden;
+}
+#leafletGrid .leafletFrontPage{
+  display:block;
+  width:100%;
+  height:100%;
+  max-width:none;
+  max-height:none;
+  object-fit:contain;
+  object-position:center top;
+  background:#fff;
+}
+#leafletGrid .leafletCurrentBadge{
+  position:absolute;
+  z-index:2;
+  left:10px;
+  bottom:10px;
+  padding:7px 10px;
+  border:1px solid rgba(255,255,255,.62);
+  border-radius:999px;
+  background:rgba(16,32,30,.84);
+  color:#fff;
+  font-size:11px;
+  font-weight:950;
+  line-height:1;
+  backdrop-filter:blur(8px);
+  -webkit-backdrop-filter:blur(8px);
+}
+#leafletGrid .leafletCard[data-direct-leaflet-card="1"]{
+  box-shadow:0 10px 30px rgba(23,34,34,.07);
+  transition:transform .2s ease,box-shadow .2s ease,border-color .2s ease;
+}
+#leafletGrid .leafletCard[data-direct-leaflet-card="1"]:hover{
+  transform:translateY(-4px);
+  border-color:#9ee8e1;
+  box-shadow:var(--shadow);
+}
+#leafletGrid .leafletStoreIdentity{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  margin-bottom:9px;
+}
+#leafletGrid .leafletStoreIdentity h3{margin:0}
+#leafletGrid .leafletCardLogo{
+  width:48px;
+  height:34px;
+  object-fit:contain;
+  flex:0 0 auto;
+}
+#leafletGrid .leafletCardLogoFallback{
+  width:38px;
+  height:34px;
+  display:grid;
+  place-items:center;
+  border-radius:10px;
+  background:var(--brand-soft);
+  color:var(--brand-dark);
+  font-weight:950;
+}
+#leafletGrid .primaryButton{margin-top:10px}
+
+#leafletGrid .leafletFastSkeleton{
+  pointer-events:none;
+  box-shadow:none;
+  overflow:hidden;
+}
+#leafletGrid .leafletFastSkeleton .leafletCover{
+  background:#eef3f2;
+}
+#leafletGrid .leafletFastSkeleton .leafletBody{
+  min-height:124px;
+}
+#leafletGrid .leafletSkeletonLine{
+  height:13px;
+  width:62%;
+  margin:0 0 12px;
+  border-radius:999px;
+  background:#edf2f1;
+}
+#leafletGrid .leafletSkeletonLine.wide{width:78%;height:18px}
+#leafletGrid .leafletSkeletonLine.short{width:42%;margin-bottom:0}
+
+@media(max-width:900px){
+  #leafletGrid.leafletGrid{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:520px){
+  #leafletGrid.leafletGrid{display:flex;gap:13px;overflow-x:auto;scroll-snap-type:x mandatory;padding:0 2px 8px}
+  #leafletGrid .leafletCard{flex:0 0 min(76vw,286px);scroll-snap-align:start}
+}
+@media(prefers-reduced-motion:reduce){
+  #leafletGrid .leafletCard[data-direct-leaflet-card="1"]{transition:none}
+}
