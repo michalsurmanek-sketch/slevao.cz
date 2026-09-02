@@ -289,6 +289,26 @@ Deno.serve(async (req) => {
     await persistLeafletFingerprint(storeId, before);
     return json({ ...summary, dry_run: false, publish: data, fingerprint_seeded: true });
   } catch (error) {
-    return json({ ok: false, adapter: ADAPTER, error: error instanceof Error ? error.message : String(error) }, 500);
+    const message = error instanceof Error ? error.message : String(error);
+    const now = new Date().toISOString();
+    try {
+      const { data: store } = await db.from('stores').select('id').eq('slug', 'tesco').maybeSingle();
+      if (store?.id) {
+        await db.from('store_product_sync_state').upsert({
+          store_id: store.id,
+          last_run_at: now,
+          is_running: false,
+          run_started_at: null,
+          last_error: message.slice(0, 2000),
+          last_parser_error: message.slice(0, 2000),
+          health_status: 'error',
+          health_reason: 'Tesco produktový sync selhal; poslední ověřené nabídky zůstaly zachované.',
+          updated_at: now,
+        }, { onConflict: 'store_id' });
+      }
+    } catch {
+      // Health reporting must never mask the original sync failure.
+    }
+    return json({ ok: false, adapter: ADAPTER, error: message }, 500);
   }
 });
