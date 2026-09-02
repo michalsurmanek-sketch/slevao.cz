@@ -1,0 +1,45 @@
+name: Inline homepage leaflet cover CSS once
+on:
+  push:
+    branches:
+      - perf/home-leaflet-covers-inline-20260902
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/home-leaflet-covers-inline-20260902
+          fetch-depth: 0
+      - name: Inline leaflet cover styles into adjacent hero bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '\n/* Homepage bundle: leaflet covers (inlined from home-leaflet-covers.css). */\n' >> assets/home-live-hero.css
+          cat assets/home-leaflet-covers.css >> assets/home-live-hero.css
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text()
+          old_hero = '<link rel="stylesheet" href="assets/home-live-hero.css?v=20260901-9">'
+          new_hero = '<link rel="stylesheet" href="assets/home-live-hero.css?v=20260902-10">'
+          cover = '  <link rel="stylesheet" href="assets/home-leaflet-covers.css?v=20260809-4">\n'
+          if old_hero not in s:
+              raise SystemExit('expected home-live-hero cache reference not found')
+          if cover not in s:
+              raise SystemExit('expected home-leaflet-covers link not found')
+          s = s.replace(old_hero, new_hero, 1).replace(cover, '', 1)
+          p.write_text(s)
+          PY
+      - name: Remove one-shot workflow and commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          git rm .github/workflows/inline-home-leaflet-covers-css-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/home-live-hero.css index.html
+          git commit -m "Inline homepage leaflet cover styles"
+          git push origin HEAD:perf/home-leaflet-covers-inline-20260902
