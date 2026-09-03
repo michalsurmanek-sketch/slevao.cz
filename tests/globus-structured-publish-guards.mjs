@@ -13,7 +13,8 @@ assert.match(edge, /\[\s*([A-Za-z_$][\w$]*)\.message\s*,\s*\1\.details\s*,\s*\1\
 assert.match(edge, /API_PAGE_TIMEOUT_MS\s*=\s*12_?000\b/, 'Každá stránka Globus API musí mít omezený timeout 12 000 ms.');
 assert.match(edge, /new AbortController\(\)/, 'Globus API fetch musí být přerušitelný.');
 assert.match(edge, /attempt\s*<=\s*2/, 'Globus API retry musí být omezený.');
-assert.match(edge, /markHealth\('degraded'/, 'Ostré selhání musí zapsat degraded health.');
+assert.match(edge, /async function markHealth\([\s\S]*?health_status:'degraded'/, 'Globus health writer musí při ostrém selhání ukládat degraded stav.');
+assert.match(edge, /catch\(error\)[\s\S]*?if\(!dry\)await markHealth\(/, 'Ostré selhání musí zavolat degraded health writer, zatímco dry-run nesmí měnit health.');
 
 assert.match(floor, /\(source\.item ->> 'price'\)::numeric >= 2/, 'Globus wrapper musí vynechat nabídky pod globálním 2 Kč limitem.');
 assert.match(floor, /v_filtered_count < 300/, 'Cenový filtr nesmí obejít minimální completeness guard.');
