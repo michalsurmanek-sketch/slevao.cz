@@ -1,6 +1,8 @@
 (() => {
   'use strict';
   const LIST_KEY = 'slevao-shopping-list-v1';
+  const LEGACY_RECIPE_START = Date.parse('2026-09-03T08:15:00Z');
+  const LEGACY_RECIPE_END = Date.parse('2026-09-03T09:00:00Z');
   const RECIPES = {
     spagety: ['Špagety (1 balení)','Mleté hovězí maso (500 g)','Rajčatové pyré (1 ks)','Cibule (1 ks)','Česnek (2 stroužky)','Mrkev (1 ks)','Parmazán (1 balení)','Olivový olej (1 ks)'],
     rizek: ['Kuřecí prsa (600 g)','Hladká mouka (1 balení)','Vejce (3 ks)','Strouhanka (1 balení)','Olej na smažení (1 ks)','Brambory (1 kg)'],
@@ -10,24 +12,47 @@
   const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const readList = () => { try { const value = JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
-  const legacyRecipeNames = new Set(['Špagety','Mleté hovězí maso','Rajčatové pyré','Cibule','Česnek','Mrkev','Parmazán','Olivový olej','Kuřecí prsa','Hladká mouka','Vejce','Strouhanka','Olej na smažení','Brambory','Hovězí maso','Sádlo','Sladká paprika','Kmín','Majoránka','Hovězí vývar','Mléko','Olej','Marmeláda'].map(normalize));
+  const legacyRecipeRows = new Map([
+    ['Špagety',1,'balení','Špagety (1 balení)'],['Mleté hovězí maso',500,'g','Mleté hovězí maso (500 g)'],['Rajčatové pyré',1,'ks','Rajčatové pyré (1 ks)'],['Cibule',1,'ks','Cibule (1 ks)'],['Česnek',2,'stroužky','Česnek (2 stroužky)'],['Mrkev',1,'ks','Mrkev (1 ks)'],['Parmazán',1,'balení','Parmazán (1 balení)'],['Olivový olej',1,'ks','Olivový olej (1 ks)'],
+    ['Kuřecí prsa',600,'g','Kuřecí prsa (600 g)'],['Hladká mouka',1,'balení','Hladká mouka (1 balení)'],['Vejce',3,'ks','Vejce (3 ks)'],['Strouhanka',1,'balení','Strouhanka (1 balení)'],['Olej na smažení',1,'ks','Olej na smažení (1 ks)'],['Brambory',1,'kg','Brambory (1 kg)'],
+    ['Hovězí maso',800,'g','Hovězí maso (800 g)'],['Cibule',4,'ks','Cibule (4 ks)'],['Sádlo',1,'ks','Sádlo (1 ks)'],['Sladká paprika',1,'balení','Sladká paprika (1 balení)'],['Česnek',3,'stroužky','Česnek (3 stroužky)'],['Kmín',1,'balení','Kmín (1 balení)'],['Majoránka',1,'balení','Majoránka (1 balení)'],['Hovězí vývar',1,'l','Hovězí vývar (1 l)'],
+    ['Hladká mouka',250,'g','Hladká mouka (250 g)'],['Mléko',500,'ml','Mléko (500 ml)'],['Vejce',2,'ks','Vejce (2 ks)'],['Olej',1,'ks','Olej (1 ks)'],['Marmeláda',1,'ks','Marmeláda (1 ks)']
+  ].map(([name, quantity, unit, fixedName]) => [`${normalize(name)}|${quantity}|${normalize(unit)}`, fixedName]));
+
+  function isLegacyRecipeTimestamp(row) {
+    const timestamp = Date.parse(String(row?.added_at || row?.created_at || ''));
+    return Number.isFinite(timestamp) && timestamp >= LEGACY_RECIPE_START && timestamp < LEGACY_RECIPE_END;
+  }
+
   function migrateLegacyRecipeRows() {
     const rows = readList(); let changed = false;
     rows.forEach((row) => {
+      if (!row || row.product_id || !isLegacyRecipeTimestamp(row)) return;
       const oldName = String(row.custom_name || row.name || '').trim();
-      if (row.product_id || !legacyRecipeNames.has(normalize(oldName)) || !Number(row.quantity)) return;
-      const amount = `${Number(row.quantity).toLocaleString('cs-CZ')} ${String(row.unit || 'ks').trim()}`;
-      const name = `${oldName} (${amount})`;
-      row.custom_name = name; row.name = name; row.key = `c:${normalize(name)}`; row.quantity = 1; row.unit = 'ks'; changed = true;
+      const quantity = Number(row.quantity);
+      const unit = String(row.unit || 'ks').trim();
+      if (!oldName || !Number.isFinite(quantity) || quantity <= 0) return;
+      const fixedName = legacyRecipeRows.get(`${normalize(oldName)}|${quantity}|${normalize(unit)}`);
+      if (!fixedName) return;
+      row.custom_name = fixedName;
+      row.name = fixedName;
+      row.key = `c:${normalize(fixedName)}`;
+      row.quantity = 1;
+      row.qty = 1;
+      row.unit = 'ks';
+      row.source = 'recipe';
+      row.updated_at = new Date().toISOString();
+      changed = true;
     });
     if (changed) try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch {}
   }
+
   function addRecipe(key, button) {
     const ingredients = RECIPES[key]; if (!ingredients) return;
     const rows = readList(); let added = 0;
     ingredients.forEach((name) => {
       if (rows.some((row) => !row.completed && normalize(row.custom_name || row.name) === normalize(name))) return;
-      rows.push({local_id:uid(),key:`c:${normalize(name)}`,product_id:null,selected_offer_id:null,custom_name:name,name,quantity:1,unit:'ks',completed:false,added_at:new Date().toISOString()}); added += 1;
+      rows.push({local_id:uid(),key:`c:${normalize(name)}`,product_id:null,selected_offer_id:null,custom_name:name,name,quantity:1,qty:1,unit:'ks',completed:false,source:'recipe',recipe_id:key,added_at:new Date().toISOString()}); added += 1;
     });
     try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch { return; }
     window.SlevaoPublic?.updateNavCount?.();
