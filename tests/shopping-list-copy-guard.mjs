@@ -19,14 +19,41 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí count grammar kontrakt: ${needle}`);
 }
 
-const start = source.indexOf('  function label(value)');
-const end = source.indexOf('\n  function sync()', start);
-assert.ok(start >= 0 && end > start, 'Count label helper nejde izolovaně otestovat.');
-const helper = source.slice(start, end);
+for (const needle of [
+  "const optimizer = document.getElementById('optimizer');",
+  'function unresolvedCount()',
+  "text.match(/(\\d+)\\s+(?:položku|položky|položek)\\s+se nepodařilo spolehlivě najít/i)",
+  "let note = box.querySelector('.sfPartialCoverage');",
+  "note.className = 'sfMuted sfPartialCoverage';",
+  "const desired = `Mezisoučet · ${missing} ${missingLabel(missing)}`;",
+  "box.classList.add('hasPartialCoverage');",
+  "box.classList.remove('hasPartialCoverage');",
+  "if (optimizer) new MutationObserver(sync).observe(optimizer, { childList:true, characterData:true, subtree:true });",
+]) {
+  assert.ok(source.includes(needle), `Chybí partial optimizer copy kontrakt: ${needle}`);
+}
+
+const labelStart = source.indexOf('  function label(value)');
+const labelEnd = source.indexOf('\n  function missingLabel(value)', labelStart);
+assert.ok(labelStart >= 0 && labelEnd > labelStart, 'Count label helper nejde izolovaně otestovat.');
+const labelHelper = source.slice(labelStart, labelEnd);
+
+const missingStart = source.indexOf('  function missingLabel(value)');
+const missingEnd = source.indexOf('\n  function syncCount()', missingStart);
+assert.ok(missingStart >= 0 && missingEnd > missingStart, 'Missing-item label helper nejde izolovaně otestovat.');
+const missingHelper = source.slice(missingStart, missingEnd);
+
 const context = { Number, Math };
-new Script(`${helper}\nglobalThis.values = [0,1,2,3,4,5,11,21].map((n) => [n,label(n)]);`).runInNewContext(context);
-assert.deepEqual(Array.from(context.values, ([n, text]) => [n, text]), [
-  [0,'položek'],[1,'položka'],[2,'položky'],[3,'položky'],[4,'položky'],[5,'položek'],[11,'položek'],[21,'položek']
+new Script(`${labelHelper}\n${missingHelper}\nglobalThis.values = [0,1,2,3,4,5,11,21].map((n) => [n,label(n),missingLabel(n)]);`).runInNewContext(context);
+assert.deepEqual(Array.from(context.values, ([n, text, missing]) => [n, text, missing]), [
+  [0,'položek','položek bez ceny'],
+  [1,'položka','položka bez ceny'],
+  [2,'položky','položky bez ceny'],
+  [3,'položky','položky bez ceny'],
+  [4,'položky','položky bez ceny'],
+  [5,'položek','položek bez ceny'],
+  [11,'položek','položek bez ceny'],
+  [21,'položek','položek bez ceny'],
 ]);
 
 assert.match(html, /assets\/shopping-list-copy-guard\.js\?v=20260828-[0-9]+/, 'seznam.html nenačítá count copy guard.');
@@ -36,4 +63,4 @@ assert.ok(!worker.includes(`'/${url}'`), 'Count copy guard se nesmí vrátit do 
 assert.ok(worker.includes("cache: 'reload'"), 'Count copy guard musí být network-first.');
 assert.ok(worker.includes('putRuntime(request, response)'), 'Count copy guard musí být po úspěšném načtení uložitelný do runtime cache.');
 
-console.log('Shopping list count grammar guard OK');
+console.log('Shopping list count grammar and partial optimizer subtotal guard OK');
