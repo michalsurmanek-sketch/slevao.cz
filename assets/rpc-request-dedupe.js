@@ -34,7 +34,7 @@
   const FACETS_RPC = '/rest/v1/rpc/get_public_offer_facets';
   const READ_RPC_PREFIX = '/rest/v1/rpc/get_public_';
   const GRACE_MS = 1000;
-  const RETRY_DELAY_MS = 180;
+  const RETRY_DELAYS_MS = [350, 1100, 2400];
   const ALLOWED_MODES = new Set(['all','recommended','food','ending','under50','under100','discount','new']);
   let facetModeHint = new URLSearchParams(location.search).get('q')?.trim() ? 'all' : 'recommended';
   let facetContextEngaged = false;
@@ -103,17 +103,24 @@
     }
   }
 
-  function fetchWithReadRetry(input, init, { url, method, isRequest }) {
+  async function fetchWithReadRetry(input, init, { url, method, isRequest }) {
     const isSafeReadRpc = !isRequest && method === 'POST' && url.includes(READ_RPC_PREFIX);
     if (!isSafeReadRpc) return originalFetch(input, init);
 
     const signal = init?.signal;
-    return originalFetch(input, init).catch(async (error) => {
-      if (!(error instanceof TypeError) || signal?.aborted) throw error;
-      await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAY_MS));
-      if (signal?.aborted) throw error;
-      return originalFetch(input, init);
-    });
+    let lastError = null;
+    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+      if (signal?.aborted) throw lastError || new DOMException('Aborted', 'AbortError');
+      try {
+        return await originalFetch(input, init);
+      } catch (error) {
+        lastError = error;
+        const retryableNetworkError = error instanceof TypeError;
+        if (!retryableNetworkError || signal?.aborted || attempt === RETRY_DELAYS_MS.length) throw error;
+        await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      }
+    }
+    throw lastError || new TypeError('Failed to fetch');
   }
 
   function contextualFacetBody(body) {
