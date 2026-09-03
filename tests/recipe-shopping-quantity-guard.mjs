@@ -8,7 +8,7 @@ const indexHtml = readFileSync(new URL('index.html', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
 const coldSyncSource = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
-const candidateMigration = readFileSync(new URL('supabase/migrations/20260903213700_fix_recipe_candidate_search.sql', root), 'utf8');
+const candidateMigration = readFileSync(new URL('supabase/migrations/20260903210837_tighten_recipe_staple_identity.sql', root), 'utf8');
 
 const recipeMarker = "const LIST_KEY = 'slevao-shopping-list-v1';";
 const markerPos = indexHtml.indexOf(recipeMarker);
@@ -43,10 +43,32 @@ for (const source of [homeSource, inlineRecipeSource]) {
 
 assert.match(candidateMigration, /create or replace function public\.get_public_shopping_list_candidates/i, 'Recipe candidate normalization must be persisted as a database migration.');
 assert.ok(candidateMigration.includes('kg|g|ml|l|ks|balení|stroužky'), 'Candidate search must recognize recipe amount annotations.');
-assert.ok(candidateMigration.includes('p_query => rec.search_text'), 'Offer lookup must search the normalized ingredient name.');
-assert.ok(!candidateMigration.includes('p_query => rec.query_text'), 'Offer lookup must not search the display name including recipe quantity.');
-assert.ok(candidateMigration.includes('with ordinality as page_row(offer, total_count, candidate_ord)'), 'Candidate ranking must use the current public offer RPC return contract.');
+assert.match(candidateMigration, /p_query\s*=>\s*rec\.search_text/, 'Offer lookup must search the normalized ingredient name.');
+assert.doesNotMatch(candidateMigration, /p_query\s*=>\s*rec\.query_text/, 'Offer lookup must not search the display name including recipe quantity.');
+assert.match(candidateMigration, /with ordinality as page_row\(offer\s*,\s*total_count\s*,\s*candidate_ord\)/i, 'Candidate ranking must use the current public offer RPC return contract.');
 assert.ok(!candidateMigration.includes('normalize_search_text'), 'Recipe candidate lookup must not depend on the removed normalize_search_text helper.');
+
+// Recipe matching must be fail-closed: semantic identity first, price second.
+assert.match(candidateMigration, /as is_recipe/, 'Recipe-aware candidate filtering must stay explicit.');
+assert.match(candidateMigration, /filter_group'\s*,?''\)='food'|filter_group'\s*,?\s*''\)\s*=\s*'food'/, 'Recipe candidates must stay inside the food group.');
+assert.match(candidateMigration, /stem_count\s*=\s*s\.token_count|s\.stem_count\s*=\s*s\.token_count/, 'Every meaningful recipe token must match the candidate identity.');
+assert.match(candidateMigration, /max_exact_count/, 'Recipe candidates must prefer the highest exact-token identity.');
+assert.match(candidateMigration, /detska vyziva\|kojeneck\|krmiv/, 'Infant-food and pet-food contexts must not leak into recipe ingredients.');
+assert.match(candidateMigration, /hovezi maso[\s\S]*?mlet\|meln\|burger\|tatarak/, 'Generic beef for goulash must reject minced/burger substitutes.');
+assert.match(candidateMigration, /hladka mouka[\s\S]*?spald\|zitn\|celozrnn\|bezlepk/, 'Plain flour must not silently turn into spelt/rye/wholegrain/gluten-free flour.');
+assert.match(candidateMigration, /olej na smazeni'[\s\S]*?then 'Olej'/, 'Frying oil must search the generic oil catalogue instead of the full cooking phrase.');
+assert.match(candidateMigration, /slunecnic\|repk\|rostlinn\|frit/, 'Generic recipe oil must stay limited to ordinary cooking oils.');
+assert.match(candidateMigration, /quantity_text'[\s\S]*?\(ml\|l\)/, 'Generic oil candidates must represent an actual liquid oil package.');
+
+// Recipe amount annotations affect purchase cost, never shopping-list piece quantity.
+assert.match(candidateMigration, /recipe_base_price/, 'Adjusted recipe offers must preserve their original package/base price.');
+assert.match(candidateMigration, /recipe_purchase_multiplier/, 'Adjusted recipe offers must expose the purchase multiplier.');
+assert.match(candidateMigration, /recipe_required_amount/, 'Adjusted recipe offers must expose the required recipe amount.');
+assert.match(candidateMigration, /purchase_multiplier/, 'Candidate pricing must calculate a recipe purchase multiplier.');
+assert.match(candidateMigration, /variable_price/, 'Per-kilogram/per-litre offers must be distinguished from fixed packages.');
+assert.match(candidateMigration, /ceil\(/, 'Fixed packages must round required package counts upward.');
+assert.match(candidateMigration, /'%cena za%'/, 'Loose/per-unit pricing must recognize the public quantity label.');
+assert.match(candidateMigration, /jsonb_set\([\s\S]*?'\{price\}'/, 'The optimizer price must be replaced with the required purchase cost for recipe candidates.');
 
 const initialRows = [
   {
@@ -117,4 +139,4 @@ const bootstrapPos = listHtml.indexOf('assets/shopping-insights-bootstrap.js');
 assert.ok(guardPos >= 0, 'Shopping-list page must load the recipe quantity guard.');
 assert.ok(bootstrapPos > guardPos, 'Recipe quantity guard must run before shopping-list bootstrap and cloud synchronization.');
 
-console.log('recipe shopping quantity regression guard: OK');
+console.log('recipe shopping quantity + identity + pricing regression guard: OK');
