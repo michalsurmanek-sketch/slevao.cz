@@ -154,8 +154,10 @@ assert.match(liveHero, /@media\(max-width:520px\)[\s\S]*#leafletGrid\.leafletGri
 assert.match(index, /assets\/home-live-hero\.css\?v=\d{8}-\d+/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.ok(index.includes('assets/home-recipes.css?v='), 'The recipe section stylesheet is an intentional homepage request.');
-assert.equal(directCssLinks.length, 21, 'homepage should keep the consolidated 21 direct CSS links including recipes');
+assert.equal(index.includes('assets/home-recipes.css?v='), false, 'Recipe styles must stay inline so the homepage does not add a 26th CSS request.');
+assert.match(index, /#recipesSection>\.container\{width:min\(1240px,calc\(100% - 32px\)\)/, 'Homepage must retain the inline recipe layout and viewport-width guard.');
+assert.match(index, /\.recipeCards\{display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/, 'Homepage must retain the inline desktop recipe cards.');
+assert.equal(directCssLinks.length, 20, 'homepage should keep the consolidated 20 direct CSS links with recipe styles inline');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
