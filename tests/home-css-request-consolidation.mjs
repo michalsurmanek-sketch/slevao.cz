@@ -154,7 +154,8 @@ assert.match(liveHero, /@media\(max-width:520px\)[\s\S]*#leafletGrid\.leafletGri
 assert.match(index, /assets\/home-live-hero\.css\?v=\d{8}-\d+/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 20, 'homepage should keep the consolidated 20 direct CSS links');
+assert.ok(index.includes('assets/home-recipes.css?v='), 'The recipe section stylesheet is an intentional homepage request.');
+assert.equal(directCssLinks.length, 21, 'homepage should keep the consolidated 21 direct CSS links including recipes');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
