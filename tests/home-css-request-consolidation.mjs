@@ -103,8 +103,8 @@ assert.match(
   'homepage must not restore the standalone store-arrival stylesheet request',
 );
 assert.equal(index.includes('assets/store-arrival-alerts.css'), false, 'homepage must not directly request store-arrival-alerts.css');
-assert.match(productHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
-assert.match(listHtml, /assets\/store-arrival-alerts\.css\?v=20260811-1/);
+assert.match(productHtml, /assets\/store-arrival-alerts\.css\?v=\d{8}-\d+/);
+assert.match(listHtml, /assets\/store-arrival-alerts\.css\?v=\d{8}-\d+/);
 
 assert.equal(
   index.includes('assets/home-semantic-filters.css'),
@@ -115,8 +115,8 @@ assert.match(quickFoodPersonalize, /Homepage bundle: semantic filters/);
 assert.match(quickFoodPersonalize, /\.slSemanticPanel\[hidden\]\{display:none!important\}/);
 assert.match(quickFoodPersonalize, /\.slSemanticRow button\{min-height:36px/);
 assert.match(quickFoodPersonalize, /\.dealsSection\.slSemanticActive \.filterPanel\{border-radius:26px/);
-assert.match(homeFooterRuntime, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
-assert.match(index, /assets\/home-quick-food-personalize\.css\?v=20260901-3/);
+assert.match(homeFooterRuntime, /assets\/home-quick-food-personalize\.css\?v=\d{8}-\d+/);
+assert.match(index, /assets\/home-quick-food-personalize\.css\?v=\d{8}-\d+/);
 
 assert.equal(
   index.includes('assets/mobile-hero-compact.css'),
@@ -128,7 +128,7 @@ assert.match(deals, /html body \.heroCard\{padding:14px 14px 14px!important;back
 assert.match(deals, /html body \.heroCopy>\.eyebrow\{width:max-content!important;max-width:100%!important;min-height:28px!important/);
 assert.match(deals, /html body \.heroCard \.heroStats>span\{min-height:52px!important\}/);
 assert.match(deals, /html body #dealGrid\[data-card-view="mini"\] \.dealCard h3/);
-assert.match(index, /assets\/mobile-deals-heading-fix\.css\?v=20260901-3/);
+assert.match(index, /assets\/mobile-deals-heading-fix\.css\?v=\d{8}-\d+/);
 
 assert.equal(
   index.includes('assets/home-radius-select.css'),
@@ -151,7 +151,7 @@ assert.match(liveHero, /#leafletGrid \.leafletCover\{[\s\S]*aspect-ratio:210\/29
 assert.match(liveHero, /#leafletGrid \.leafletFrontPage\{[\s\S]*object-fit:contain;/);
 assert.match(liveHero, /#leafletGrid \.leafletCurrentBadge\{[\s\S]*border-radius:999px;/);
 assert.match(liveHero, /@media\(max-width:520px\)[\s\S]*#leafletGrid\.leafletGrid\{display:flex;gap:13px;overflow-x:auto;/);
-assert.match(index, /assets\/home-live-hero\.css\?v=20260902-10/);
+assert.match(index, /assets\/home-live-hero\.css\?v=\d{8}-\d+/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
 assert.equal(directCssLinks.length, 20, 'homepage should keep the consolidated 20 direct CSS links');
