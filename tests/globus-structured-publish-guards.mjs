@@ -10,7 +10,7 @@ const sourceBinding = read('supabase/migrations/20260827115500_bind_globus_struc
 assert.match(config, /verify_jwt\s*=\s*false/, 'Globus Edge používá vlastní cron/service autentizaci a gateway režim musí být explicitní.');
 assert.match(edge, /function errorText\(/, 'Globus nesmí zahodit PostgREST chybu na [object Object].');
 assert.match(edge, /\[\s*([A-Za-z_$][\w$]*)\.message\s*,\s*\1\.details\s*,\s*\1\.hint\s*,\s*\1\.code\s*\]/, 'Globus diagnostika musí zachovat message/details/hint/code bez závislosti na názvu lokální proměnné.');
-assert.match(edge, /API_PAGE_TIMEOUT_MS\s*=\s*12_000/, 'Každá stránka Globus API musí mít omezený timeout.');
+assert.match(edge, /API_PAGE_TIMEOUT_MS\s*=\s*12_?000\b/, 'Každá stránka Globus API musí mít omezený timeout 12 000 ms.');
 assert.match(edge, /new AbortController\(\)/, 'Globus API fetch musí být přerušitelný.');
 assert.match(edge, /attempt\s*<=\s*2/, 'Globus API retry musí být omezený.');
 assert.match(edge, /markHealth\('degraded'/, 'Ostré selhání musí zapsat degraded health.');
