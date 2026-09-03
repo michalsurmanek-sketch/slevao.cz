@@ -32,7 +32,11 @@ for (const needle of [
   'const { data, error } = await db.auth.getSession();',
   'setMarkerUserId(currentUserId);',
   'bootedUserId = currentUserId;',
-  'loadShoppingRuntimes();',
+  'function loadCoreRuntimes()',
+  'loadCoreRuntimes();',
+  'const ownerPreflight = new Promise((resolve) => {',
+  'window.SlevaoShoppingOwnerPreflight = ownerPreflight;',
+  'finishOwnerPreflight();',
   'function loadOwnerCustomAddBridge()',
   'function loadSharedAddGuard()',
   'function loadList()',
@@ -46,20 +50,30 @@ for (const needle of [
   assert.ok(bootstrap.includes(needle), `Chybí shopping auth/owner guard: ${needle}`);
 }
 
-const setOwnerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);');
-const loadRuntimesIndex = bootstrap.indexOf('    loadShoppingRuntimes();', setOwnerIndex);
-assert.ok(setOwnerIndex >= 0 && loadRuntimesIndex > setOwnerIndex, 'Owner marker musí být nastaven před vložením shopping runtime skriptů.');
-const runtimeBlockStart = bootstrap.indexOf('  function loadShoppingRuntimes()');
-const ownerAddRuntimeIndex = bootstrap.indexOf('    loadOwnerCustomAddBridge();', runtimeBlockStart);
+const bootStart = bootstrap.indexOf('  async function boot()');
+const coreLoadIndex = bootstrap.indexOf('    loadCoreRuntimes();', bootStart);
+const sessionReadIndex = bootstrap.indexOf('      const { data, error } = await db.auth.getSession();', bootStart);
+assert.ok(
+  bootStart >= 0 && coreLoadIndex > bootStart && sessionReadIndex > coreLoadIndex,
+  'Lokální shopping-list runtime se musí vložit před čekáním na cloudovou session.'
+);
+const setOwnerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', sessionReadIndex);
+const finishPreflightIndex = bootstrap.indexOf('    finishOwnerPreflight();', setOwnerIndex);
+const insightsAfterPreflightIndex = bootstrap.indexOf('    loadInsights();', finishPreflightIndex);
+assert.ok(
+  setOwnerIndex > sessionReadIndex && finishPreflightIndex > setOwnerIndex && insightsAfterPreflightIndex > finishPreflightIndex,
+  'Owner marker a cloud preflight musí být dokončené před vložením insights runtime.'
+);
+
+const coreRuntimeBlockStart = bootstrap.indexOf('  function loadCoreRuntimes()');
+const ownerAddRuntimeIndex = bootstrap.indexOf('    loadOwnerCustomAddBridge();', coreRuntimeBlockStart);
 const sharedAddRuntimeIndex = bootstrap.indexOf('    loadSharedAddGuard();', ownerAddRuntimeIndex);
 const listRuntimeIndex = bootstrap.indexOf('    loadList();', sharedAddRuntimeIndex);
-const insightsRuntimeIndex = bootstrap.indexOf('    loadInsights();', listRuntimeIndex);
-assert.ok(runtimeBlockStart >= 0 && ownerAddRuntimeIndex > runtimeBlockStart, 'Owner custom add bridge se nevkládá v shopping runtime bloku.');
+assert.ok(coreRuntimeBlockStart >= 0 && ownerAddRuntimeIndex > coreRuntimeBlockStart, 'Owner custom add bridge se nevkládá v core runtime bloku.');
 assert.ok(sharedAddRuntimeIndex > ownerAddRuntimeIndex, 'Shared add guard se musí vložit po owner bridge a před shopping-list runtime.');
 assert.ok(listRuntimeIndex > sharedAddRuntimeIndex, 'Shared add guard musí být vložen před shopping-list runtime.');
-assert.ok(insightsRuntimeIndex > listRuntimeIndex, 'Shopping list musí být vložen před insights runtime.');
 
-assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js před ověřením ownera.');
+assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-list\.js/, 'seznam.html nesmí spouštět shopping-list.js napřímo mimo identity bootstrap.');
 assert.doesNotMatch(html, /<script[^>]+src="assets\/shopping-insights\.js/, 'seznam.html nesmí spouštět shopping-insights.js napřímo.');
 for (const runtimeUrl of [bootstrapUrl, ownerCustomAddUrl, sharedAddGuardUrl, listUrl, insightsUrl]) {
   assert.ok(!worker.includes(`'/${runtimeUrl}'`), `Runtime ${runtimeUrl} se nesmí vrátit do install-time PWA precache.`);
@@ -69,7 +83,7 @@ assert.ok(worker.includes("cache: 'reload'"), 'Shopping runtime skripty musí b�
 assert.ok(worker.includes('putRuntime(request, response)'), 'Shopping runtime skripty musí být po úspěšném načtení uložitelný do runtime cache.');
 
 const functionStart = bootstrap.indexOf('  function installBudgetOwnerBridge()');
-const functionEnd = bootstrap.indexOf('\n  function markerUserId()', functionStart);
+const functionEnd = bootstrap.indexOf('\n  function installShareBridge()', functionStart);
 assert.ok(functionStart >= 0 && functionEnd > functionStart, 'Budget owner bridge nejde izolovaně otestovat.');
 const bridgeFunction = bootstrap.slice(functionStart, functionEnd);
 
@@ -184,6 +198,7 @@ function createBootstrapScenario({ shared = false } = {}) {
     JSON,
     Array,
     Boolean,
+    Promise,
     console,
   };
   new Script(bootstrap, { filename:'shopping-auth-owner-bootstrap-test.js' }).runInNewContext(context);
@@ -204,7 +219,15 @@ assert.deepEqual(
   [ownerCustomAddUrl, sharedAddGuardUrl, listUrl, insightsUrl],
   'Shopping runtimy se nenačetly v bezpečném pořadí.'
 );
-assert.ok(scenario.appended.every((entry) => entry.owner === 'user-b'), 'Shopping runtime se vložil dřív, než bootstrap přepnul stale owner marker na aktuální session user B.');
+assert.ok(
+  scenario.appended.slice(0, 3).every((entry) => entry.owner === 'user-a'),
+  'Core shopping runtime musí být vložen okamžitě bez čekání na cloudovou identitu.'
+);
+assert.equal(
+  scenario.appended.at(-1)?.owner,
+  'user-b',
+  'Insights runtime se vložil dřív, než bootstrap přepnul owner marker na aktuální session user B.'
+);
 assert.equal(scenario.getReloads(), 0, 'Stale owner při prvním bootu nemá vyžadovat pozdní reload po startu shopping-list runtime.');
 
 const authCallback = scenario.getAuthCallback();
@@ -224,4 +247,4 @@ sharedAuthCallback('SIGNED_OUT', null);
 assert.equal(sharedScenario.storage.getItem(ACTIVE), null, 'Shared režim neaktualizoval owner marker pro další navigaci.');
 assert.equal(sharedScenario.getReloads(), 0, 'Shared-token seznam se nesmí reloadovat jen kvůli změně přihlášeného účtu.');
 
-console.log('Shopping insights auth and budget scope OK');
+console.log('Shopping insights auth, local-first bootstrap and budget scope OK');
