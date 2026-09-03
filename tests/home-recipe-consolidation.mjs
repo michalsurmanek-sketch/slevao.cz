@@ -34,6 +34,23 @@ assert.equal(eggs.rows[0].quantity, 1, 'Sloučení receptu nesmí znovu použít
 assert.equal(eggs.rows[0].unit, 'ks');
 assert.deepEqual(Array.from(eggs.rows[0].recipe_ids).sort(), ['palacinky','rizek']);
 
+const repeatedRizek = consolidate([
+  eggs.rows[0],
+  { local_id:'e3-repeat', source:'recipe', recipe_id:'rizek', custom_name:'Vejce (3 ks)', name:'Vejce (3 ks)', completed:false },
+]);
+assert.equal(repeatedRizek.merged, 1, 'Opakovaný stejný receptový zdroj se má odstranit jako duplicita.');
+assert.equal(repeatedRizek.rows.length, 1);
+assert.equal(repeatedRizek.rows[0].custom_name, 'Vejce (5 ks)', 'Opakované kliknutí na stejný řízek nesmí změnit 5 vajec na 8.');
+assert.deepEqual(Array.from(repeatedRizek.rows[0].recipe_ids).sort(), ['palacinky','rizek']);
+
+const newEggRecipe = consolidate([
+  repeatedRizek.rows[0],
+  { local_id:'e1-extra', source:'recipe', recipe_id:'extra', custom_name:'Vejce (1 ks)', name:'Vejce (1 ks)', completed:false },
+]);
+assert.equal(newEggRecipe.merged, 1);
+assert.equal(newEggRecipe.rows[0].custom_name, 'Vejce (6 ks)', 'Jiný nový receptový zdroj se naopak musí normálně přičíst.');
+assert.deepEqual(Array.from(newEggRecipe.rows[0].recipe_ids).sort(), ['extra','palacinky','rizek']);
+
 const garlic = consolidate([
   { local_id:'g2', source:'recipe', recipe_id:'spagety', custom_name:'Česnek (2 stroužky)', name:'Česnek (2 stroužky)', completed:false },
   { local_id:'g3', source:'recipe', recipe_id:'gulas', custom_name:'Česnek (3 stroužky)', name:'Česnek (3 stroužky)', completed:false },
@@ -83,6 +100,8 @@ assert.equal(incompatibleFlour.rows.length, 2);
 assert.match(source, /stroužek\|stroužky\|stroužků/, 'Frontend parser musí rozpoznat všechny české tvary stroužku.');
 assert.match(source, /\['stroužek','stroužky','stroužků'\]\.includes\(unit\) \? 'stroužky' : unit/, 'Tvary stroužku musí mít společnou interní jednotku pro slučování.');
 assert.match(source, /if \(count === 1\) return 'stroužek';[\s\S]*?count >= 2 && count <= 4[\s\S]*?return 'stroužky';[\s\S]*?return 'stroužků';/, 'Výstup musí správně skloňovat stroužek/stroužky/stroužků.');
+assert.match(source, /function recipeSources\(row\)/, 'Slučování musí zachovat původ receptů pro idempotenci opakovaného kliknutí.');
+assert.match(source, /const duplicateRecipe = entrySources\.length > 0 && overlap\.length === entrySources\.length;/, 'Již započtený recipe_id se nesmí přičíst podruhé.');
 
 const sync = section('  async function syncPendingRecipeRows()', '\n\n  function runOriginalRecipeAdd');
 const consolidatePos = sync.indexOf('const consolidated = consolidateRecipeRows');
@@ -109,4 +128,4 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí bezpečný cloud update sloučené receptové položky: ${needle}`);
 }
 
-console.log('Compatible recipe ingredient consolidation is safe for guests, Czech grammar, and cloud-aware: OK');
+console.log('Compatible recipe ingredient consolidation is idempotent, safe for guests, Czech grammar, and cloud-aware: OK');
