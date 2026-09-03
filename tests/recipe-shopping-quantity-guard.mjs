@@ -8,7 +8,7 @@ const indexHtml = readFileSync(new URL('index.html', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
 const coldSyncSource = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
-const candidateMigration = readFileSync(new URL('supabase/migrations/20260903211230_normalize_recipe_count_package_units.sql', root), 'utf8');
+const candidateMigration = readFileSync(new URL('supabase/migrations/20260903211500_tighten_recipe_substitute_identity.sql', root), 'utf8');
 
 const recipeMarker = "const LIST_KEY = 'slevao-shopping-list-v1';";
 const markerPos = indexHtml.indexOf(recipeMarker);
@@ -56,6 +56,9 @@ assert.match(candidateMigration, /max_exact_count/, 'Recipe candidates must pref
 assert.match(candidateMigration, /detska vyziva\|kojeneck\|krmiv/, 'Infant-food and pet-food contexts must not leak into recipe ingredients.');
 assert.match(candidateMigration, /hovezi maso[\s\S]*?mlet\|meln\|burger\|tatarak/, 'Generic beef for goulash must reject minced/burger substitutes.');
 assert.match(candidateMigration, /hladka mouka[\s\S]*?spald\|zitn\|celozrnn\|bezlepk/, 'Plain flour must not silently turn into spelt/rye/wholegrain/gluten-free flour.');
+assert.match(candidateMigration, /sadlo[\s\S]*?bez kuze[\s\S]*?maso a ryby/, 'Recipe lard must reject raw pork fat / meat-category substitutes.');
+assert.match(candidateMigration, /strouhanka[\s\S]*?panko\|japonsk/, 'Generic breadcrumbs must not silently turn into Panko.');
+assert.match(candidateMigration, /parmazan[\s\S]*?a la parmazan\|styl parmazan/, 'Parmesan must not silently turn into imitation a-la-Parmesan cheese.');
 assert.match(candidateMigration, /olej na smazeni'[\s\S]*?then 'Olej'/, 'Frying oil must search the generic oil catalogue instead of the full cooking phrase.');
 assert.match(candidateMigration, /slunecnic\|repk\|rostlinn\|frit/, 'Generic recipe oil must stay limited to ordinary cooking oils.');
 assert.match(candidateMigration, /quantity_text'[\s\S]*?\(ml\|l\)/, 'Generic oil candidates must represent an actual liquid oil package.');
@@ -141,4 +144,4 @@ const bootstrapPos = listHtml.indexOf('assets/shopping-insights-bootstrap.js');
 assert.ok(guardPos >= 0, 'Shopping-list page must load the recipe quantity guard.');
 assert.ok(bootstrapPos > guardPos, 'Recipe quantity guard must run before shopping-list bootstrap and cloud synchronization.');
 
-console.log('recipe shopping quantity + identity + pricing + count-alias regression guard: OK');
+console.log('recipe shopping quantity + identity + pricing + substitute regression guard: OK');
