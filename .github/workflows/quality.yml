@@ -35,4 +35,4 @@ jobs:
       - name: Ověřit synchronizaci přidání do nákupního seznamu z homepage
         run: node tests/home-shopping-list-account-sync.mjs
       - name: Ověřit opravu množství surovin z receptů
-        run: node tests/recipe-shopping-quantity-guard.mjs
+        run: node tests/recipe-shopping-quantity-guard.mjs && node tests/recipe-search-alias-scope.mjs && node tests/recipe-garlic-clove-forms.mjs && node tests/home-recipe-consolidation.mjs
