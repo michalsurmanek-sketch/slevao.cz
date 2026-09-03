@@ -6,7 +6,7 @@
   const BUDGET_KEY_PREFIX = 'slevao-shopping-budget-v2:';
   const OWNER_CUSTOM_ADD_URL = 'assets/shopping-owner-custom-add-bridge.js?v=20260828-3';
   const SHARED_ADD_GUARD_URL = 'assets/shopping-shared-add-submit-guard.js?v=20260828-3';
-  const LIST_URL = 'assets/shopping-list.js?v=20260827-2';
+  const LIST_URL = 'assets/shopping-list.js?v=20260903-1';
   const INSIGHTS_URL = 'assets/shopping-insights.js?v=20260828-1';
   const sharedHash = new URLSearchParams(location.hash.replace(/^#/, ''));
   const sharedMode = Boolean(sharedHash.get('share'));
@@ -17,6 +17,19 @@
   let listLoaded = false;
   let insightLoaded = false;
   let reloadQueued = false;
+  let ownerPreflightDone = false;
+  let resolveOwnerPreflight = null;
+
+  const ownerPreflight = new Promise((resolve) => {
+    resolveOwnerPreflight = resolve;
+  });
+  window.SlevaoShoppingOwnerPreflight = ownerPreflight;
+
+  function finishOwnerPreflight() {
+    if (ownerPreflightDone) return;
+    ownerPreflightDone = true;
+    resolveOwnerPreflight?.();
+  }
 
   function installBudgetOwnerBridge() {
     if (Storage.prototype.__slevaoShoppingBudgetOwnerBridge) return;
@@ -169,10 +182,14 @@
     document.head.appendChild(script);
   }
 
-  function loadShoppingRuntimes() {
+  function loadCoreRuntimes() {
     loadOwnerCustomAddBridge();
     loadSharedAddGuard();
     loadList();
+  }
+
+  function loadShoppingRuntimes() {
+    loadCoreRuntimes();
     loadInsights();
   }
 
@@ -186,8 +203,14 @@
   async function boot() {
     installBudgetOwnerBridge();
     installShareBridge();
+
+    // Základ seznamu načti okamžitě. Cloudová příprava smí blokovat pouze
+    // synchronizaci, nikdy vykreslení lokálně uložených položek.
+    loadCoreRuntimes();
+
     if (!db) {
-      loadShoppingRuntimes();
+      finishOwnerPreflight();
+      loadInsights();
       return;
     }
 
@@ -219,7 +242,9 @@
         console.debug('slevao_shopping_guest_product_fallback_failed', error);
       }
     }
-    loadShoppingRuntimes();
+
+    finishOwnerPreflight();
+    loadInsights();
   }
 
   let authSubscription = null;
@@ -254,6 +279,9 @@
   boot().catch((error) => {
     console.warn('slevao_shopping_boot_failed', error);
     setMarkerUserId(null);
-    loadShoppingRuntimes();
+    loadCoreRuntimes();
+  }).finally(() => {
+    finishOwnerPreflight();
+    loadInsights();
   });
 })();
