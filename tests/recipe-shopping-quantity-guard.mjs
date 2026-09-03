@@ -4,19 +4,40 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const homeSource = readFileSync(new URL('assets/home-recipes.js', root), 'utf8');
+const indexHtml = readFileSync(new URL('index.html', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
 const candidateMigration = readFileSync(new URL('supabase/migrations/20260903213700_fix_recipe_candidate_search.sql', root), 'utf8');
 
-new Script(homeSource, { filename:'assets/home-recipes.js' });
-new Script(guardSource, { filename:'assets/shopping-recipe-quantity-guard.js' });
+const recipeMarker = "const LIST_KEY = 'slevao-shopping-list-v1';";
+const markerPos = indexHtml.indexOf(recipeMarker);
+assert.ok(markerPos >= 0, 'Homepage must contain the inline recipe runtime.');
+const inlineStart = indexHtml.lastIndexOf('(() => {', markerPos);
+const inlineEndMarker = "document.querySelectorAll('#recipesSection [data-recipe]').forEach((button) => button.addEventListener('click', () => addRecipe(button.dataset.recipe, button)));";
+const inlineEndBody = indexHtml.indexOf(inlineEndMarker, markerPos);
+assert.ok(inlineStart >= 0 && inlineEndBody >= markerPos, 'Homepage inline recipe runtime boundaries must be detectable.');
+const inlineClose = indexHtml.indexOf('})();', inlineEndBody + inlineEndMarker.length);
+assert.ok(inlineClose > inlineEndBody, 'Homepage inline recipe runtime must close its IIFE.');
+const inlineRecipeSource = indexHtml.slice(inlineStart, inlineClose + 5);
+const normalizeSource = (source) => source.split('\n').map((line) => line.trim()).filter(Boolean).join('\n');
 
-assert.match(homeSource, /LEGACY_RECIPE_START = Date\.parse\('2026-09-03T08:15:00Z'\)/, 'Legacy migration must be bounded to the recipe rollout window.');
-assert.match(homeSource, /LEGACY_RECIPE_END = Date\.parse\('2026-09-03T09:00:00Z'\)/, 'Legacy migration must have an explicit end time.');
-assert.match(homeSource, /legacyRecipeRows = new Map\(/, 'Legacy migration must require an exact recipe name/quantity/unit signature.');
-assert.doesNotMatch(homeSource, /legacyRecipeNames = new Set/, 'Broad name-only recipe migration must never return.');
-assert.match(homeSource, /source:'recipe',recipe_id:key/, 'New recipe rows must carry recipe provenance.');
-assert.match(homeSource, /quantity:1,qty:1,unit:'ks'/, 'A recipe ingredient must count as one shopping-list row regardless of grams or millilitres.');
+new Script(homeSource, { filename:'assets/home-recipes.js' });
+new Script(inlineRecipeSource, { filename:'index.html:inline-home-recipes' });
+new Script(guardSource, { filename:'assets/shopping-recipe-quantity-guard.js' });
+assert.equal(
+  normalizeSource(inlineRecipeSource),
+  normalizeSource(homeSource),
+  'Inline homepage recipe runtime must stay in exact sync with assets/home-recipes.js without adding another JS request.'
+);
+
+for (const source of [homeSource, inlineRecipeSource]) {
+  assert.match(source, /LEGACY_RECIPE_START = Date\.parse\('2026-09-03T08:15:00Z'\)/, 'Legacy migration must be bounded to the recipe rollout window.');
+  assert.match(source, /LEGACY_RECIPE_END = Date\.parse\('2026-09-03T09:00:00Z'\)/, 'Legacy migration must have an explicit end time.');
+  assert.match(source, /legacyRecipeRows = new Map\(/, 'Legacy migration must require an exact recipe name/quantity/unit signature.');
+  assert.doesNotMatch(source, /legacyRecipeNames = new Set/, 'Broad name-only recipe migration must never return.');
+  assert.match(source, /source:'recipe',recipe_id:key/, 'New recipe rows must carry recipe provenance.');
+  assert.match(source, /quantity:1,qty:1,unit:'ks'/, 'A recipe ingredient must count as one shopping-list row regardless of grams or millilitres.');
+}
 
 assert.match(candidateMigration, /create or replace function public\.get_public_shopping_list_candidates/i, 'Recipe candidate normalization must be persisted as a database migration.');
 assert.ok(candidateMigration.includes('kg|g|ml|l|ks|balení|stroužky'), 'Candidate search must recognize recipe amount annotations.');
