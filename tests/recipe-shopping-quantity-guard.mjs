@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const homeSource = readFileSync(new URL('assets/home-recipes.js', root), 'utf8');
 const indexHtml = readFileSync(new URL('index.html', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
+const coldSyncSource = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
 const candidateMigration = readFileSync(new URL('supabase/migrations/20260903213700_fix_recipe_candidate_search.sql', root), 'utf8');
 
@@ -24,6 +25,7 @@ const normalizeSource = (source) => source.split('\n').map((line) => line.trim()
 new Script(homeSource, { filename:'assets/home-recipes.js' });
 new Script(inlineRecipeSource, { filename:'index.html:inline-home-recipes' });
 new Script(guardSource, { filename:'assets/shopping-recipe-quantity-guard.js' });
+new Script(coldSyncSource, { filename:'assets/shopping-owner-cold-sync.js' });
 assert.equal(
   normalizeSource(inlineRecipeSource),
   normalizeSource(homeSource),
@@ -80,6 +82,35 @@ assert.equal(repaired[1].quantity, 4);
 assert.equal(repaired[2].custom_name, 'Cibule', 'Rows with a quantity that was never emitted by a recipe must remain untouched.');
 assert.equal(repaired[2].quantity, 7);
 assert.equal(sandbox.window.__slevaoRecipeQuantityGuard?.repaired, 1);
+
+const coldSyncSandbox = {
+  URLSearchParams,
+  location: { search:'', hash:'' },
+  document: { querySelector() { return {}; } },
+  localStorage: { getItem() { return '[]'; }, setItem() {} },
+  window: { SlevaoSupabase: { getClient() { return {}; } } }
+};
+new Script(coldSyncSource).runInContext(createContext(coldSyncSandbox));
+const remoteRepair = coldSyncSandbox.window.SlevaoShoppingOwnerColdSync?.legacyRecipeRepair;
+assert.equal(typeof remoteRepair, 'function', 'Owner cold sync must expose its narrowly-scoped legacy recipe repair for regression coverage.');
+const cloudFix = remoteRepair({
+  id:'remote-recipe', product_id:null, custom_name:'Hovězí maso', quantity:800, unit:'g',
+  created_at:'2026-09-03T08:30:00.000Z'
+});
+assert.equal(cloudFix?.custom_name, 'Hovězí maso (800 g)');
+assert.equal(cloudFix?.quantity, 1);
+assert.equal(cloudFix?.unit, 'ks');
+assert.equal(remoteRepair({
+  id:'manual-old', product_id:null, custom_name:'Hovězí maso', quantity:800, unit:'g',
+  created_at:'2026-09-02T08:30:00.000Z'
+}), null, 'Cloud rows outside the recipe rollout window must remain untouched.');
+assert.equal(remoteRepair({
+  id:'manual-other-qty', product_id:null, custom_name:'Hovězí maso', quantity:700, unit:'g',
+  created_at:'2026-09-03T08:30:00.000Z'
+}), null, 'Cloud rows with a quantity not emitted by a recipe must remain untouched.');
+assert.ok(coldSyncSource.includes(".select('id,product_id,custom_name,quantity,unit,created_at')"), 'Cold sync must load the fields required to identify stale recipe quantities.');
+assert.ok(coldSyncSource.includes('repairRemoteRecipeRows(list.id, remoteRows)'), 'Cold sync must repair stale cloud rows before shopping-list merge.');
+assert.ok(!coldSyncSource.includes("if (!localRows.some((row) => row?.server_id))"), 'Cold sync must not skip cloud repair just because local rows have no server_id yet.');
 
 const guardPos = listHtml.indexOf('assets/shopping-recipe-quantity-guard.js');
 const bootstrapPos = listHtml.indexOf('assets/shopping-insights-bootstrap.js');
