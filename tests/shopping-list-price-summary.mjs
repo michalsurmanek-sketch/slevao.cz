@@ -146,6 +146,8 @@ for (const needle of [
 ]) {
   assert.ok(source.includes(needle), `Chybí cenový unit/storage/render kontrakt: ${needle}`);
 }
+assert.ok(source.includes("const summaryLabel = complete ? 'Celkem' : 'Mezisoučet';"), 'Neúplné cenové pokrytí musí být označené jako Mezisoučet, ne Celkem.');
+assert.ok(source.includes('<span><b>${summaryLabel}</b><small>${coverage}${timing}${ambiguity}</small></span>'), 'Souhrn musí vykreslit dynamický štítek Celkem/Mezisoučet.');
 assert.ok(!source.includes('${money(unit)} / ks'), 'Jednotková cena se nesmí natvrdo vydávat za ks.');
 assert.ok(!source.includes('/ jednotku'), 'Neznámá jednotka se nesmí zobrazovat jako generický popisek.');
 assert.ok(!source.includes('část cen začne během 7 dnů'), 'Celkový součet nesmí zamlčet, že budoucí akce nemusí platit současně.');
@@ -178,4 +180,4 @@ assert.ok(mobileCss.includes('max-width:100%'), 'Mobilní mixed-date badge nemá
 assert.match(html, /assets\/mobile-optimizer-compact\.css\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální mobilní optimizer CSS.');
 assert.match(html, /assets\/shopping-list-price-summary\.js\?v=20260828-[0-9]+/, 'seznam.html nenačítá aktuální cenový runtime.');
 
-console.log('Shopping list price summary prefers day-consistent plan and keeps unit/shared safety OK');
+console.log('Shopping list price summary prefers day-consistent plan, labels partial totals, and keeps unit/shared safety OK');
