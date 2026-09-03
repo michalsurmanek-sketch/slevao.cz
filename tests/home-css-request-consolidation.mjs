@@ -151,10 +151,23 @@ assert.match(liveHero, /#leafletGrid \.leafletCover\{[\s\S]*aspect-ratio:210\/29
 assert.match(liveHero, /#leafletGrid \.leafletFrontPage\{[\s\S]*object-fit:contain;/);
 assert.match(liveHero, /#leafletGrid \.leafletCurrentBadge\{[\s\S]*border-radius:999px;/);
 assert.match(liveHero, /@media\(max-width:520px\)[\s\S]*#leafletGrid\.leafletGrid\{display:flex;gap:13px;overflow-x:auto;/);
-assert.match(index, /assets\/home-live-hero\.css\?v=20260902-10/);
+
+assert.equal(
+  index.includes('assets/home-overview.css'),
+  false,
+  'homepage must keep desktop overview styles bundled into home-live-hero.css',
+);
+assert.match(liveHero, /Homepage bundle: desktop overview/);
+assert.match(liveHero, /\.desktopOverview\{padding:0 0 14px\}/);
+assert.match(liveHero, /\.desktopOverviewGrid\{width:min\(1450px,calc\(100% - 48px\)\);display:grid;grid-template-columns:1\.04fr \.98fr 1\.12fr/);
+assert.match(liveHero, /\.overviewPanel\{min-width:0;min-height:0;height:var\(--overview-panel-height,auto\);display:flex;flex-direction:column;[\s\S]*border-radius:24px/);
+assert.match(liveHero, /\.overviewLeaflets\{flex:1;display:grid;grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+assert.match(liveHero, /\.overviewStores\{flex:1;display:grid;grid-template-columns:repeat\(4,minmax\(0,1fr\)\);grid-template-rows:repeat\(2,minmax\(0,1fr\)\)/);
+assert.match(liveHero, /@media\(max-width:1100px\)\{\.desktopOverview\{display:none\}\}/);
+assert.match(index, /assets\/home-live-hero\.css\?v=20260902-11/);
 
 const directCssLinks = [...index.matchAll(/<link\s+rel="stylesheet"\s+href="assets\/[^"?]+\.css(?:\?[^"#]*)?"[^>]*>/g)];
-assert.equal(directCssLinks.length, 20, 'homepage should keep the consolidated 20 direct CSS links');
+assert.equal(directCssLinks.length, 19, 'homepage should keep the consolidated 19 direct CSS links');
 assert.ok(index.includes('assets/mobile-footer-upgrade.css?v='), 'The final direct stylesheet remains the intentional mobile footer upgrade layer.');
 
 console.log('home CSS request consolidation guard: OK');
