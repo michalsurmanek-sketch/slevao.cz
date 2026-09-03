@@ -184,17 +184,17 @@
 
   async function syncPendingRecipeRows() {
     const api = await publicApi();
+    const consolidated = consolidateRecipeRows(api.readList?.() || []);
+    const rows = consolidated.rows;
+    if (consolidated.merged > 0) api.writeList?.(rows);
+
     const db = await api.getSupabase();
-    if (!db) return { synced:0, localOnly:true };
+    if (!db) return { synced:0, localOnly:true, merged:consolidated.merged };
 
     const { data, error } = await db.auth.getSession();
     if (error) throw error;
     const session = data?.session || null;
-    if (!session?.user?.id) return { synced:0, localOnly:true };
-
-    const consolidated = consolidateRecipeRows(api.readList?.() || []);
-    const rows = consolidated.rows;
-    if (consolidated.merged > 0) api.writeList?.(rows);
+    if (!session?.user?.id) return { synced:0, localOnly:true, merged:consolidated.merged };
 
     const dirty = rows.filter((row) => (
       row?.source === 'recipe'
@@ -328,7 +328,8 @@
       .then(() => syncPendingRecipeRows())
       .then((result) => {
         if (result?.localOnly) {
-          window.SlevaoPublic?.toast?.('Recept je uložen v tomto zařízení. Po přihlášení se synchronizuje se seznamem.');
+          const mergeText = result?.merged > 0 ? ` ${result.merged} duplicitních surovin bylo sloučeno.` : '';
+          window.SlevaoPublic?.toast?.(`Recept je uložen v tomto zařízení.${mergeText} Po přihlášení se synchronizuje se seznamem.`);
         } else if (result?.synced > 0) {
           const mergeText = result?.merged > 0 ? `, ${result.merged} duplicitních surovin sloučeno` : '';
           window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem${mergeText}.`);
