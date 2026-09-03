@@ -34,6 +34,21 @@ assert.equal(eggs.rows[0].quantity, 1, 'Sloučení receptu nesmí znovu použít
 assert.equal(eggs.rows[0].unit, 'ks');
 assert.deepEqual(Array.from(eggs.rows[0].recipe_ids).sort(), ['palacinky','rizek']);
 
+const garlic = consolidate([
+  { local_id:'g2', source:'recipe', recipe_id:'spagety', custom_name:'Česnek (2 stroužky)', name:'Česnek (2 stroužky)', completed:false },
+  { local_id:'g3', source:'recipe', recipe_id:'gulas', custom_name:'Česnek (3 stroužky)', name:'Česnek (3 stroužky)', completed:false },
+]);
+assert.equal(garlic.merged, 1);
+assert.equal(garlic.rows.length, 1);
+assert.equal(garlic.rows[0].custom_name, 'Česnek (5 stroužků)', 'Pět stroužků musí mít správný český tvar.');
+
+const garlicAgain = consolidate([
+  garlic.rows[0],
+  { local_id:'g1', source:'recipe', recipe_id:'extra', custom_name:'Česnek (1 stroužek)', name:'Česnek (1 stroužek)', completed:false },
+]);
+assert.equal(garlicAgain.merged, 1, 'Už sloučený tvar „stroužků“ musí být znovu parsovatelný.');
+assert.equal(garlicAgain.rows[0].custom_name, 'Česnek (6 stroužků)');
+
 const onions = consolidate([
   { local_id:'c1', server_id:'server-cibule', source:'recipe', recipe_id:'spagety', custom_name:'Cibule (1 ks)', name:'Cibule (1 ks)', quantity:1, unit:'ks', completed:false },
   { local_id:'c4', source:'recipe', recipe_id:'gulas', custom_name:'Cibule (4 ks)', name:'Cibule (4 ks)', quantity:1, unit:'ks', completed:false },
@@ -45,8 +60,8 @@ assert.equal(onions.rows[0].custom_name, 'Cibule (5 ks)');
 assert.equal(onions.rows[0].recipe_dirty, true, 'Přejmenovaný cloudový receptový řádek musí být označen k aktualizaci.');
 
 const twoCloudGarlic = consolidate([
-  { local_id:'g2', server_id:'server-g2', source:'recipe', recipe_id:'spagety', custom_name:'Česnek (2 stroužky)', name:'Česnek (2 stroužky)', completed:false },
-  { local_id:'g3', server_id:'server-g3', source:'recipe', recipe_id:'gulas', custom_name:'Česnek (3 stroužky)', name:'Česnek (3 stroužky)', completed:false },
+  { local_id:'sg2', server_id:'server-g2', source:'recipe', recipe_id:'spagety', custom_name:'Česnek (2 stroužky)', name:'Česnek (2 stroužky)', completed:false },
+  { local_id:'sg3', server_id:'server-g3', source:'recipe', recipe_id:'gulas', custom_name:'Česnek (3 stroužky)', name:'Česnek (3 stroužky)', completed:false },
 ]);
 assert.equal(twoCloudGarlic.merged, 0, 'Dvě už existující cloudové položky se nesmí destruktivně slučovat na homepage.');
 assert.equal(twoCloudGarlic.rows.length, 2);
@@ -64,6 +79,10 @@ const incompatibleFlour = consolidate([
 ]);
 assert.equal(incompatibleFlour.merged, 0, 'Nekompatibilní receptové jednotky se nesmí sčítat.');
 assert.equal(incompatibleFlour.rows.length, 2);
+
+assert.match(source, /stroužek\|stroužky\|stroužků/, 'Frontend parser musí rozpoznat všechny české tvary stroužku.');
+assert.match(source, /\['stroužek','stroužky','stroužků'\]\.includes\(unit\) \? 'stroužky' : unit/, 'Tvary stroužku musí mít společnou interní jednotku pro slučování.');
+assert.match(source, /if \(count === 1\) return 'stroužek';[\s\S]*?count >= 2 && count <= 4[\s\S]*?return 'stroužky';[\s\S]*?return 'stroužků';/, 'Výstup musí správně skloňovat stroužek/stroužky/stroužků.');
 
 const sync = section('  async function syncPendingRecipeRows()', '\n\n  function runOriginalRecipeAdd');
 const consolidatePos = sync.indexOf('const consolidated = consolidateRecipeRows');
@@ -90,4 +109,4 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí bezpečný cloud update sloučené receptové položky: ${needle}`);
 }
 
-console.log('Compatible recipe ingredient consolidation is safe for guests and cloud-aware: OK');
+console.log('Compatible recipe ingredient consolidation is safe for guests, Czech grammar, and cloud-aware: OK');
