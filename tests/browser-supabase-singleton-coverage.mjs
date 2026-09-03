@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
+import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const read = (path) => readFileSync(new URL(path, root), 'utf8');
@@ -68,4 +69,31 @@ assert.deepEqual(
   `Supabase browser CDN references must use an exact x.y.z version, never @2/latest/floating tags:\n${JSON.stringify(floatingSupabaseCdnRefs, null, 2)}`,
 );
 
-console.log(`Browser Supabase singleton coverage OK (${multiClientPages.length} multi-client pages checked, ${supabaseCdnRefs.length} pinned CDN refs across HTML and JS)`);
+const singletonSource = read('assets/supabase-client.js');
+new Script(singletonSource, { filename:'assets/supabase-client.js' });
+
+const offlineWindow = {};
+new Script(singletonSource, { filename:'supabase-client-offline.js' }).runInContext(createContext({ window:offlineWindow, Object }));
+assert.ok(offlineWindow.SlevaoSupabase, 'Supabase singleton facade must install even when the CDN SDK is unavailable.');
+assert.equal(
+  offlineWindow.SlevaoSupabase.getClient(),
+  null,
+  'Missing Supabase SDK must degrade to null instead of crashing local-first public pages.',
+);
+
+let creates = 0;
+const onlineClient = { marker:'singleton' };
+const onlineWindow = {
+  supabase: {
+    createClient() {
+      creates += 1;
+      return onlineClient;
+    }
+  }
+};
+new Script(singletonSource, { filename:'supabase-client-online.js' }).runInContext(createContext({ window:onlineWindow, Object }));
+assert.equal(onlineWindow.SlevaoSupabase.getClient(), onlineClient, 'Singleton facade did not create the Supabase client when SDK is available.');
+assert.equal(onlineWindow.SlevaoSupabase.getClient(), onlineClient, 'Singleton facade returned a different client on repeated access.');
+assert.equal(creates, 1, 'Singleton facade created more than one project client.');
+
+console.log(`Browser Supabase singleton coverage OK (${multiClientPages.length} multi-client pages checked, ${supabaseCdnRefs.length} pinned CDN refs across HTML and JS; offline local-first fallback verified)`);
