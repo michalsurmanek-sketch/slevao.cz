@@ -10,13 +10,21 @@ new Script(source, { filename:'assets/shopping-owner-item-concurrency.js' });
 
 const runtimeUrl = 'assets/shopping-owner-item-concurrency.js?v=20260828-1';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
+const publicNavUrl = html.match(/assets\/public-nav-upgrade\.js\?v=[^"']+/)?.[0] || '';
 assert.ok(html.includes(runtimeUrl), 'seznam.html nenačítá owner item semantic CAS bridge.');
+assert.match(publicNavUrl, /^assets\/public-nav-upgrade\.js\?v=\d{8}-\d+$/, 'seznam.html nemá verzovaný owner-scoped localStorage bridge.');
 assert.ok(
-  html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(runtimeUrl),
+  html.indexOf(publicNavUrl) < html.indexOf(runtimeUrl),
   'Owner item CAS bridge běží před owner-scoped localStorage bridge.'
 );
-const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
-assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
+const bootstrapMatch = bootstrapUrl.match(/\?v=(\d{8})-(\d+)$/);
+assert.ok(bootstrapMatch, 'seznam.html nemá platnou YYYYMMDD-revision verzi shopping bootstrapu.');
+const bootstrapDate = Number(bootstrapMatch[1]);
+const bootstrapRevision = Number(bootstrapMatch[2]);
+assert.ok(
+  bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 7),
+  'seznam.html má bootstrap starší než guest-product fallback integrace v7.'
+);
 assert.ok(
   html.indexOf(runtimeUrl) < html.indexOf(bootstrapUrl),
   'Owner item CAS bridge musí obalit Supabase klienta před shopping runtime bootstrapem.'
