@@ -66,21 +66,34 @@
   const normalizeRecipeName = (value) => String(value || '').trim().toLocaleLowerCase('cs-CZ');
   const normalizeRecipeKey = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
 
+  function normalizeRecipeUnit(value) {
+    const unit = String(value || '').trim().toLocaleLowerCase('cs-CZ');
+    return ['stroužek','stroužky','stroužků'].includes(unit) ? 'stroužky' : unit;
+  }
+
   function parseRecipeIngredient(value) {
-    const match = String(value || '').trim().match(/^(.*?)\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s+(kg|g|ml|l|ks|balení|stroužky)\s*\)\s*$/i);
+    const match = String(value || '').trim().match(/^(.*?)\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s+(kg|g|ml|l|ks|balení|stroužek|stroužky|stroužků)\s*\)\s*$/i);
     if (!match) return null;
     const amount = Number(match[2].replace(',', '.'));
     if (!Number.isFinite(amount) || amount <= 0) return null;
     return {
       base: match[1].trim(),
       amount,
-      unit: match[3].toLocaleLowerCase('cs-CZ')
+      unit: normalizeRecipeUnit(match[3])
     };
   }
 
   function formatRecipeAmount(value) {
     const number = Number(value);
     return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(3))).replace('.', ',');
+  }
+
+  function formatRecipeUnit(unit, amount) {
+    if (unit !== 'stroužky') return unit;
+    const count = Number(amount);
+    if (count === 1) return 'stroužek';
+    if (Number.isInteger(count) && count >= 2 && count <= 4) return 'stroužky';
+    return 'stroužků';
   }
 
   function consolidateRecipeRows(sourceRows) {
@@ -104,7 +117,8 @@
       if (synced.length > 1) continue;
       const canonical = synced[0] || group[0];
       const total = group.reduce((sum, entry) => sum + entry.parsed.amount, 0);
-      const newName = `${canonical.parsed.base} (${formatRecipeAmount(total)} ${canonical.parsed.unit})`;
+      const displayUnit = formatRecipeUnit(canonical.parsed.unit, total);
+      const newName = `${canonical.parsed.base} (${formatRecipeAmount(total)} ${displayUnit})`;
       const oldName = String(canonical.row.custom_name || canonical.row.name || '').trim();
 
       canonical.row.custom_name = newName;
