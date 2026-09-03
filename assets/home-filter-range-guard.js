@@ -4,6 +4,9 @@
   const minPrice = document.getElementById('minPrice');
   const maxPrice = document.getElementById('maxPrice');
   let addQueue = Promise.resolve();
+  let recipeQueue = Promise.resolve();
+  let recipeBypass = false;
+  const recipeSyncing = new WeakSet();
 
   if (minPrice && maxPrice) {
     document.querySelectorAll('.pricePresets [data-max-price]').forEach((button) => {
@@ -60,6 +63,120 @@
     api.writeList?.(normalized);
   }
 
+  const normalizeRecipeName = (value) => String(value || '').trim().toLocaleLowerCase('cs-CZ');
+
+  function createMutationId() {
+    const source = globalThis.crypto;
+    if (source?.randomUUID) return source.randomUUID();
+    if (!source?.getRandomValues) throw new Error('Prohlížeč neumí bezpečně vytvořit identifikátor změny.');
+    const bytes = new Uint8Array(16);
+    source.getRandomValues(bytes);
+    bytes[6] = (bytes[6] & 0x0f) | 0x40;
+    bytes[8] = (bytes[8] & 0x3f) | 0x80;
+    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
+    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+  }
+
+  async function findOwnerList(db, userId) {
+    const { data, error } = await db.from('shopping_lists')
+      .select('id')
+      .eq('user_id', userId)
+      .eq('is_archived', false)
+      .order('created_at')
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.id || null;
+  }
+
+  async function loadRemoteRecipeMap(db, listId) {
+    if (!listId) return new Map();
+    const { data, error } = await db.from('shopping_list_items')
+      .select('id,custom_name,quantity,unit,is_completed,updated_at')
+      .eq('shopping_list_id', listId)
+      .is('product_id', null)
+      .order('created_at');
+    if (error) throw error;
+    const map = new Map();
+    for (const row of data || []) {
+      if (row?.is_completed) continue;
+      const key = normalizeRecipeName(row?.custom_name);
+      if (key && !map.has(key)) map.set(key, row);
+    }
+    return map;
+  }
+
+  function alignRecipeRow(row, remote) {
+    if (!row || !remote?.id) return;
+    row.server_id = remote.id;
+    row.selected_offer_id = null;
+    row.quantity = 1;
+    row.qty = 1;
+    row.unit = 'ks';
+    row.completed = false;
+    row.is_completed = false;
+    row.updated_at = remote.updated_at || new Date().toISOString();
+  }
+
+  async function syncPendingRecipeRows() {
+    const api = await publicApi();
+    const db = await api.getSupabase();
+    if (!db) return { synced:0, localOnly:true };
+
+    const { data, error } = await db.auth.getSession();
+    if (error) throw error;
+    const session = data?.session || null;
+    if (!session?.user?.id) return { synced:0, localOnly:true };
+
+    const rows = api.readList?.() || [];
+    const pending = rows.filter((row) => (
+      row?.source === 'recipe'
+      && !row?.server_id
+      && !row?.completed
+      && String(row?.custom_name || row?.name || '').trim()
+    ));
+    if (!pending.length) return { synced:0, localOnly:false };
+
+    let listId = await findOwnerList(db, session.user.id);
+    const remoteMap = await loadRemoteRecipeMap(db, listId);
+    let synced = 0;
+
+    for (const row of pending) {
+      const name = String(row.custom_name || row.name || '').trim();
+      const key = normalizeRecipeName(name);
+      let remote = remoteMap.get(key) || null;
+
+      if (!remote) {
+        const { data: sync, error: syncError } = await db.rpc('add_own_shopping_list_custom_item', {
+          p_custom_name: name,
+          p_quantity: 1,
+          p_unit: 'ks',
+          p_mutation_id: createMutationId(),
+        });
+        if (syncError) throw syncError;
+        remote = sync?.item || null;
+        if (!remote?.id) throw new Error('Synchronizace receptu nepotvrdila přidanou surovinu.');
+        listId = sync?.list_id || listId;
+        remoteMap.set(key, remote);
+      }
+
+      alignRecipeRow(row, remote);
+      synced += 1;
+    }
+
+    api.writeList?.(rows);
+    return { synced, localOnly:false };
+  }
+
+  function runOriginalRecipeAdd(button) {
+    recipeBypass = true;
+    try {
+      button.click();
+    } finally {
+      recipeBypass = false;
+    }
+  }
+
   function feedback(button, message) {
     const original = button.getAttribute('data-sf-account-sync-label') || button.textContent.trim();
     button.setAttribute('data-sf-account-sync-label', original);
@@ -102,6 +219,43 @@
   }
 
   document.addEventListener('click', (event) => {
+    if (recipeBypass) return;
+    const button = event.target?.closest?.('#recipesSection [data-recipe]');
+    if (!button || button.disabled || recipeSyncing.has(button)) return;
+
+    event.preventDefault();
+    event.stopImmediatePropagation();
+
+    // Zachovej přesně původní local-first recipe handler a jeho feedback.
+    runOriginalRecipeAdd(button);
+    recipeSyncing.add(button);
+    button.disabled = true;
+    button.setAttribute('aria-busy', 'true');
+
+    recipeQueue = recipeQueue
+      .catch(() => {})
+      .then(() => syncPendingRecipeRows())
+      .then((result) => {
+        if (result?.localOnly) {
+          window.SlevaoPublic?.toast?.('Recept je uložen v tomto zařízení. Po přihlášení se synchronizuje se seznamem.');
+        } else if (result?.synced > 0) {
+          window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem.`);
+        }
+      })
+      .catch((error) => {
+        console.debug('slevao_recipe_account_sync_failed', error);
+        window.SlevaoPublic?.toast?.('Recept je uložen v tomto zařízení. Synchronizace účtu se dokončí po otevření seznamu.');
+      })
+      .finally(() => {
+        recipeSyncing.delete(button);
+        if (button.isConnected) {
+          button.disabled = false;
+          button.removeAttribute('aria-busy');
+        }
+      });
+  }, true);
+
+  document.addEventListener('click', (event) => {
     const button = event.target.closest('[data-sf-add]');
     if (!button || button.disabled) return;
 
@@ -122,4 +276,5 @@
 
   window.__slevaoPriceRangeGuard = true;
   window.__slevaoAccountShoppingListAddGuard = true;
+  window.__slevaoRecipeAccountShoppingListSync = true;
 })();
