@@ -105,10 +105,19 @@ for (const needle of [
   'window.SlevaoShoppingGuestProductFallback?.sync?.()',
   'await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId)',
 ]) assert.ok(bootstrap.includes(needle), `Bootstrap nemá guest fallback pořadí: ${needle}`);
-const coldSyncAt = bootstrap.indexOf('await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId)');
-const fallbackAt = bootstrap.indexOf('window.SlevaoShoppingGuestProductFallback?.sync?.()');
-const runtimesAt = bootstrap.indexOf('loadShoppingRuntimes();', fallbackAt);
-assert.ok(coldSyncAt >= 0 && fallbackAt > coldSyncAt && runtimesAt > fallbackAt, 'Guest fallback musí běžet po owner cold-sync a před shopping runtime.');
+const bootStart = bootstrap.indexOf('  async function boot()');
+const coreRuntimeAt = bootstrap.indexOf('    loadCoreRuntimes();', bootStart);
+const markerAt = bootstrap.indexOf('    setMarkerUserId(currentUserId);', coreRuntimeAt);
+const coldSyncAt = bootstrap.indexOf('await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId)', markerAt);
+const fallbackAt = bootstrap.indexOf('window.SlevaoShoppingGuestProductFallback?.sync?.()', coldSyncAt);
+const preflightAt = bootstrap.indexOf('    finishOwnerPreflight();', fallbackAt);
+const insightsAt = bootstrap.indexOf('    loadInsights();', preflightAt);
+assert.ok(coreRuntimeAt > bootStart, 'Guest fallback bootstrap musí zachovat okamžité local-first vykreslení seznamu.');
+assert.ok(markerAt > coreRuntimeAt, 'Owner marker se musí nastavit až po local-first startu seznamu.');
+assert.ok(coldSyncAt > markerAt, 'Owner cold-sync musí běžet po nastavení owner scope.');
+assert.ok(fallbackAt > coldSyncAt, 'Guest product fallback musí běžet po owner cold-sync.');
+assert.ok(preflightAt > fallbackAt, 'Owner preflight nesmí skončit před guest product fallbackem.');
+assert.ok(insightsAt > preflightAt, 'Shopping insights se nesmí spustit před dokončením guest fallbacku a owner preflightu.');
 
 const assetUrl = html.match(/assets\/shopping-guest-product-fallback\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(assetUrl, 'assets/shopping-guest-product-fallback.js?v=20260828-1', 'seznam.html nemá guest product fallback v1.');
