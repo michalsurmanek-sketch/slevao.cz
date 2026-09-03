@@ -20,6 +20,12 @@ test('recipe adds ingredient rows as items, not grams, and survives opening the 
   await addRizek.click();
   await expect(addRizek).toContainText('Přidáno 6 surovin');
 
+  const shortcut = section.locator('.recipeListShortcut');
+  await expect(shortcut).toBeVisible();
+  await expect(shortcut).toContainText('Suroviny jsou v nákupním seznamu.');
+  const openList = shortcut.getByRole('link', { name:'Otevřít nákupní seznam →' });
+  await expect(openList).toHaveAttribute('href', 'seznam.html');
+
   const rows = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '[]'), LIST_KEY);
   expect(rows).toHaveLength(6);
   expect(rows.every((row) => row.quantity === 1 && row.qty === 1 && row.unit === 'ks')).toBe(true);
@@ -42,7 +48,8 @@ test('recipe adds ingredient rows as items, not grams, and survives opening the 
   expect(sectionMetrics.left).toBeGreaterThanOrEqual(-1);
   expect(sectionMetrics.right).toBeLessThanOrEqual(sectionMetrics.viewport + 1);
 
-  await page.goto(`${BASE_URL}/seznam.html`, { waitUntil:'domcontentloaded' });
+  await openList.click();
+  await expect(page).toHaveURL(/\/seznam\.html$/);
   await expect(page.locator('#listItems .sfListItem')).toHaveCount(6, { timeout:10_000 });
 
   const persisted = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || '[]'), LIST_KEY);
