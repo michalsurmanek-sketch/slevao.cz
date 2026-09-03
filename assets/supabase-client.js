@@ -36,9 +36,10 @@
 
   function getClient() {
     if (!client) {
-      if (!installSingletonFactory() || !originalCreateClient) {
-        throw new Error('Supabase knihovna není načtená.');
-      }
+      // Public pages such as the shopping list are deliberately local-first.
+      // A blocked/failed CDN request must not crash their startup before local
+      // data can render; callers that require cloud access already handle null.
+      if (!installSingletonFactory() || !originalCreateClient) return null;
       client = originalCreateClient(url, key);
     }
     return client;
