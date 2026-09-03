@@ -155,11 +155,15 @@ assert.ok(
 );
 
 const bootStart = bootstrap.indexOf('  async function boot()');
-const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', bootStart);
+const coreRuntimeIndex = bootstrap.indexOf('    loadCoreRuntimes();', bootStart);
+const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', coreRuntimeIndex);
 const coldSyncIndex = bootstrap.indexOf('await window.SlevaoShoppingOwnerColdSync?.sync?.(currentUserId);', markerIndex);
-const runtimeIndex = bootstrap.indexOf('    loadShoppingRuntimes();', coldSyncIndex);
-assert.ok(markerIndex > bootStart, 'Bootstrap nenastaví owner marker před cold sync.');
+const preflightIndex = bootstrap.indexOf('    finishOwnerPreflight();', coldSyncIndex);
+const insightsIndex = bootstrap.indexOf('    loadInsights();', preflightIndex);
+assert.ok(coreRuntimeIndex > bootStart, 'Bootstrap nespouští local-first jádro seznamu okamžitě.');
+assert.ok(markerIndex > coreRuntimeIndex, 'Owner marker se nastavuje před local-first vykreslením seznamu.');
 assert.ok(coldSyncIndex > markerIndex, 'Cold sync běží před nastavením správného owner scope.');
-assert.ok(runtimeIndex > coldSyncIndex, 'Shopping runtimy se spouští před dokončením cold sync.');
+assert.ok(preflightIndex > coldSyncIndex, 'Owner preflight končí před dokončením cold sync.');
+assert.ok(insightsIndex > preflightIndex, 'Shopping insights se spouští před dokončením owner preflight.');
 
 console.log('Shopping owner cold sync prevents stale remote deletions from resurrecting');
