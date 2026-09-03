@@ -130,7 +130,7 @@ for (const needle of [
 const coldUrl = html.match(/assets\/shopping-owner-cold-sync\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 const publicNavUrl = html.match(/assets\/public-nav-upgrade\.js\?v=[^"']+/)?.[0] || '';
-assert.equal(coldUrl, 'assets/shopping-owner-cold-sync.js?v=20260828-1', 'seznam.html nemá očekávanou cold-sync verzi.');
+assert.equal(coldUrl, 'assets/shopping-owner-cold-sync.js?v=20260903-1', 'seznam.html nemá očekávanou cold-sync verzi.');
 const bootstrapMatch = bootstrapUrl.match(/\?v=(\d{8})-(\d+)$/);
 assert.ok(bootstrapMatch, 'seznam.html nemá platnou YYYYMMDD-revision verzi shopping bootstrapu.');
 const bootstrapDate = Number(bootstrapMatch[1]);
