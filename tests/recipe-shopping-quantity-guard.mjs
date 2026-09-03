@@ -6,6 +6,7 @@ const root = new URL('../', import.meta.url);
 const homeSource = readFileSync(new URL('assets/home-recipes.js', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
+const candidateMigration = readFileSync(new URL('supabase/migrations/20260903213700_fix_recipe_candidate_search.sql', root), 'utf8');
 
 new Script(homeSource, { filename:'assets/home-recipes.js' });
 new Script(guardSource, { filename:'assets/shopping-recipe-quantity-guard.js' });
@@ -16,6 +17,13 @@ assert.match(homeSource, /legacyRecipeRows = new Map\(/, 'Legacy migration must 
 assert.doesNotMatch(homeSource, /legacyRecipeNames = new Set/, 'Broad name-only recipe migration must never return.');
 assert.match(homeSource, /source:'recipe',recipe_id:key/, 'New recipe rows must carry recipe provenance.');
 assert.match(homeSource, /quantity:1,qty:1,unit:'ks'/, 'A recipe ingredient must count as one shopping-list row regardless of grams or millilitres.');
+
+assert.match(candidateMigration, /create or replace function public\.get_public_shopping_list_candidates/i, 'Recipe candidate normalization must be persisted as a database migration.');
+assert.ok(candidateMigration.includes('kg|g|ml|l|ks|balení|stroužky'), 'Candidate search must recognize recipe amount annotations.');
+assert.ok(candidateMigration.includes('p_query => rec.search_text'), 'Offer lookup must search the normalized ingredient name.');
+assert.ok(!candidateMigration.includes('p_query => rec.query_text'), 'Offer lookup must not search the display name including recipe quantity.');
+assert.ok(candidateMigration.includes('with ordinality as page_row(offer, total_count, candidate_ord)'), 'Candidate ranking must use the current public offer RPC return contract.');
+assert.ok(!candidateMigration.includes('normalize_search_text'), 'Recipe candidate lookup must not depend on the removed normalize_search_text helper.');
 
 const initialRows = [
   {
