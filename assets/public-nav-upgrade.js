@@ -232,6 +232,55 @@
     document.head.appendChild(style);
   }
 
+  function installRecipeListShortcut() {
+    if (!isHomePage() || window.__slevaoRecipeListShortcutInstalled) return;
+    window.__slevaoRecipeListShortcutInstalled = true;
+
+    if (!document.getElementById('slevaoRecipeListShortcutStyle')) {
+      const style = document.createElement('style');
+      style.id = 'slevaoRecipeListShortcutStyle';
+      style.textContent = `
+        .recipeListShortcut{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;padding:11px 13px;border:1px solid #cde8e4;border-radius:14px;background:#f7fcfb;color:#52615f;font-size:12px;font-weight:750}
+        .recipeListShortcut[hidden]{display:none!important}
+        .recipeListShortcut a{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;min-height:34px;padding:0 12px;border-radius:10px;background:#159e94;color:#fff;text-decoration:none;font-weight:900;white-space:nowrap}
+        .recipeListShortcut a:hover{background:#0f897f}
+        .recipeListShortcut a:focus-visible{outline:3px solid rgba(21,158,148,.25);outline-offset:2px}
+        @media(max-width:560px){.recipeListShortcut{align-items:stretch;flex-direction:column;gap:8px}.recipeListShortcut a{width:100%}}
+      `;
+      document.head.appendChild(style);
+    }
+
+    document.addEventListener('click', (event) => {
+      const button = event.target.closest('#recipesSection [data-recipe]');
+      if (!button) return;
+
+      window.setTimeout(() => {
+        if (!button.classList.contains('is-added')) return;
+        const section = document.getElementById('recipesSection');
+        const cards = section?.querySelector('.recipeCards');
+        if (!section || !cards) return;
+
+        let shortcut = section.querySelector('.recipeListShortcut');
+        if (!shortcut) {
+          shortcut = document.createElement('div');
+          shortcut.className = 'recipeListShortcut';
+          shortcut.setAttribute('role', 'status');
+          shortcut.setAttribute('aria-live', 'polite');
+          shortcut.innerHTML = '<span></span><a href="seznam.html">Otevřít nákupní seznam →</a>';
+          cards.insertAdjacentElement('afterend', shortcut);
+        }
+
+        const message = shortcut.querySelector('span');
+        if (message) {
+          message.textContent = /^Už je/i.test(String(button.textContent || '').trim())
+            ? 'Suroviny už jsou v nákupním seznamu.'
+            : 'Suroviny jsou v nákupním seznamu.';
+        }
+        shortcut.hidden = false;
+      }, 0);
+    });
+  }
+
   function upgrade() {
     const nav = document.querySelector('.slevaoBottomNav');
     if (!nav) return false;
@@ -344,6 +393,7 @@
   loadStoreArrivalTest();
   loadHomePersonalDeals();
   installMobileNavVisualFix();
+  installRecipeListShortcut();
   installCrossPageSearchJump();
 
   if (upgrade()) return;
