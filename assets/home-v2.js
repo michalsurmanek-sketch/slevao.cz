@@ -59,26 +59,35 @@
     toast.timer = window.setTimeout(() => { box.hidden = true; }, 2800);
   }
 
-  async function rpc(name, payload = {}, timeoutMs = 12000) {
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), timeoutMs);
-    try {
-      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
-        method:'POST',
-        headers:{ apikey:SUPABASE_KEY, 'content-type':'application/json', accept:'application/json' },
-        body:JSON.stringify(payload),
-        cache:'no-store',
-        signal:controller.signal
-      });
-      if (!response.ok) {
-        let detail = '';
-        try { detail = (await response.json())?.message || ''; } catch {}
-        throw new Error(detail || `Databáze vrátila chybu ${response.status}.`);
+  async function rpc(name, payload = {}, timeoutMs = 18000) {
+    let lastError = null;
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const controller = new AbortController();
+      const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${name}`, {
+          method:'POST',
+          headers:{ apikey:SUPABASE_KEY, 'content-type':'application/json', accept:'application/json' },
+          body:JSON.stringify(payload),
+          cache:'no-store',
+          signal:controller.signal
+        });
+        if (response.ok) return await response.json();
+        let body = null;
+        try { body = await response.json(); } catch {}
+        const error = new Error(body?.message || `Databáze vrátila chybu ${response.status}.`);
+        const transient = [502,503,504].includes(response.status) || body?.code === 'PGRST002';
+        if (!transient || attempt === 1) throw error;
+        lastError = error;
+      } catch (error) {
+        lastError = error;
+        if (attempt === 1 || (error?.name !== 'AbortError' && !/schema cache|PGRST002/i.test(String(error?.message || '')))) throw error;
+      } finally {
+        window.clearTimeout(timer);
       }
-      return await response.json();
-    } finally {
-      window.clearTimeout(timer);
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
     }
+    throw lastError || new Error('Databázi se nepodařilo načíst.');
   }
 
   function categoryLabel(key) {
