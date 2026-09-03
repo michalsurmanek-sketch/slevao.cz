@@ -277,7 +277,7 @@ const clipboardUrl = html.match(/assets\/shopping-clipboard-share-bridge\.js\?v=
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 const fallbackUrl = html.match(/assets\/shopping-share-fallback-guard\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(clipboardUrl, 'assets/shopping-clipboard-share-bridge.js?v=20260828-2');
-assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260828-9');
+assert.equal(bootstrapUrl, 'assets/shopping-insights-bootstrap.js?v=20260903-1');
 assert.match(fallbackUrl, /^assets\/shopping-share-fallback-guard\.js\?v=20260828-[0-9]+$/);
 assert.ok(html.indexOf(clipboardUrl) < html.indexOf(bootstrapUrl), 'Clipboard share bridge musí běžet před bootstrapem seznamu.');
 assert.ok(html.indexOf(bootstrapUrl) < html.indexOf(fallbackUrl), 'Share fallback guard musí běžet až po Web Share bridge bootstrapu.');
