@@ -5,10 +5,11 @@ const LIST_KEY = 'slevao-shopping-list-v1';
 
 test('recipe adds ingredient rows as items, not grams, and survives opening the shopping list', async ({ page }) => {
   await page.setViewportSize({ width:390, height:844 });
-  await page.addInitScript((key) => localStorage.removeItem(key), LIST_KEY);
 
   const response = await page.goto(`${BASE_URL}/index.html`, { waitUntil:'domcontentloaded' });
   expect(response?.status()).toBe(200);
+  await page.evaluate((key) => localStorage.removeItem(key), LIST_KEY);
+  await page.reload({ waitUntil:'domcontentloaded' });
 
   const section = page.locator('#recipesSection');
   await expect(section).toBeVisible();
