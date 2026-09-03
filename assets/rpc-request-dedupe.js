@@ -103,24 +103,27 @@
     }
   }
 
-  async function fetchWithReadRetry(input, init, { url, method, isRequest }) {
-    const isSafeReadRpc = !isRequest && method === 'POST' && url.includes(READ_RPC_PREFIX);
-    if (!isSafeReadRpc) return originalFetch(input, init);
+  function fetchWithReadRetry(input, init, { url, method, isRequest }) {
+    return (async () => {
+      const isSafeReadRpc = !isRequest && method === 'POST' && url.includes(READ_RPC_PREFIX);
+      if (!isSafeReadRpc) return originalFetch(input, init);
 
-    const signal = init?.signal;
-    let lastError = null;
-    for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
-      if (signal?.aborted) throw lastError || new DOMException('Aborted', 'AbortError');
-      try {
-        return await originalFetch(input, init);
-      } catch (error) {
-        lastError = error;
-        const retryableNetworkError = error instanceof TypeError;
-        if (!retryableNetworkError || signal?.aborted || attempt === RETRY_DELAYS_MS.length) throw error;
-        await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAYS_MS[attempt]));
+      const signal = init?.signal;
+      let lastError = null;
+      for (let attempt = 0; attempt <= RETRY_DELAYS_MS.length; attempt += 1) {
+        if (signal?.aborted) throw lastError || new DOMException('Aborted', 'AbortError');
+        try {
+          return await originalFetch(input, init);
+        } catch (error) {
+          lastError = error;
+          const retryableNetworkError = error instanceof TypeError;
+          if (!retryableNetworkError || signal?.aborted || attempt === RETRY_DELAYS_MS.length) throw error;
+          const RETRY_DELAY_MS = RETRY_DELAYS_MS[attempt];
+          await new Promise((resolve) => window.setTimeout(resolve, RETRY_DELAY_MS));
+        }
       }
-    }
-    throw lastError || new TypeError('Failed to fetch');
+      throw lastError || new TypeError('Failed to fetch');
+    })();
   }
 
   function contextualFacetBody(body) {
