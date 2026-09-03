@@ -65,6 +65,17 @@ const incompatibleFlour = consolidate([
 assert.equal(incompatibleFlour.merged, 0, 'Nekompatibilní receptové jednotky se nesmí sčítat.');
 assert.equal(incompatibleFlour.rows.length, 2);
 
+const sync = section('  async function syncPendingRecipeRows()', '\n\n  function runOriginalRecipeAdd');
+const consolidatePos = sync.indexOf('const consolidated = consolidateRecipeRows');
+const dbPos = sync.indexOf('const db = await api.getSupabase();');
+const sessionPos = sync.indexOf('db.auth.getSession()');
+assert.ok(consolidatePos >= 0 && dbPos > consolidatePos && sessionPos > dbPos,
+  'Lokální slučování musí proběhnout před Supabase/session kontrolou, aby fungovalo i hostům.');
+assert.match(sync, /if \(consolidated\.merged > 0\) api\.writeList\?\.\(rows\);[\s\S]*?if \(!db\) return \{ synced:0, localOnly:true, merged:consolidated\.merged \};/,
+  'Host bez dostupného Supabase musí dostat už sloučený lokální seznam.');
+assert.match(sync, /if \(!session\?\.user\?\.id\) return \{ synced:0, localOnly:true, merged:consolidated\.merged \};/,
+  'Nepřihlášený host musí zachovat informaci o provedeném sloučení.');
+
 for (const needle of [
   "const dirty = rows.filter((row) => (",
   "row?.source === 'recipe'",
@@ -79,4 +90,4 @@ for (const needle of [
   assert.ok(source.includes(needle), `Chybí bezpečný cloud update sloučené receptové položky: ${needle}`);
 }
 
-console.log('Compatible recipe ingredient consolidation is safe and cloud-aware: OK');
+console.log('Compatible recipe ingredient consolidation is safe for guests and cloud-aware: OK');
