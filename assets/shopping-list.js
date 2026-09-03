@@ -799,9 +799,6 @@
   }
 
   async function init() {
-    const { data: { session: current } } = await db.auth.getSession();
-    session = current;
-
     if (sharedMode) {
       rows = [];
       $('accountStatus').textContent = 'Načítám sdílený seznam…';
@@ -812,23 +809,46 @@
       return;
     }
 
+    // Lokální seznam musí být dostupný okamžitě i při výpadku Supabase.
     rows = readLocal();
+    $('accountStatus').textContent = 'Seznam je připravený. Ověřuji synchronizaci účtu…';
+    render();
+
+    try {
+      const { data, error } = await db.auth.getSession();
+      if (error) throw error;
+      session = data?.session || null;
+    } catch (error) {
+      session = null;
+      $('accountStatus').innerHTML = 'Seznam je uložen v tomto zařízení. <a href="ucet.html?redirect=seznam.html">Přihlásit a synchronizovat</a>.';
+      showMessage('Cloud je dočasně nedostupný. Lokální seznam zůstává plně použitelný.', true);
+    }
+
     $('accountStatus').innerHTML = session
       ? `Přihlášen jako <strong>${esc(session.user.email)}</strong> · seznam se synchronizuje.`
       : 'Seznam je uložen v tomto zařízení. <a href="ucet.html?redirect=seznam.html">Přihlásit a synchronizovat</a>.';
+
     if (session) {
       try {
+        const ownerPreflight = window.SlevaoShoppingOwnerPreflight;
+        if (ownerPreflight && typeof ownerPreflight.then === 'function') await ownerPreflight;
+        // Cold-sync mohl odstranit lokální kopie položek smazaných v cloudu.
+        // Před obousměrným merge proto vždy načti čerstvý lokální stav.
+        rows = readLocal();
+        render();
         await mergeRemote();
+        render();
         showMessage('Seznam je synchronizovaný s účtem.');
       } catch (error) {
-        showMessage(`Synchronizace se nepodařila: ${error.message}`, true);
+        showMessage(`Synchronizace se nepodařila: ${error.message}. Lokální seznam zůstává dostupný.`, true);
       }
     }
+
     render();
     try {
       await fetchOffers();
     } catch (error) {
-      showMessage(`Ceny se nepodařilo načíst: ${error.message}`, true);
+      showMessage(`Ceny se nepodařilo načíst: ${error.message}. Položky seznamu ale zůstávají dostupné.`, true);
     }
   }
 
