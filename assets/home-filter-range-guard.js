@@ -96,6 +96,10 @@
     return 'stroužků';
   }
 
+  function recipeSources(row) {
+    return [...new Set([row?.recipe_id, ...(Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])].filter(Boolean))];
+  }
+
   function consolidateRecipeRows(sourceRows) {
     const rows = Array.isArray(sourceRows) ? sourceRows : [];
     const groups = new Map();
@@ -116,7 +120,26 @@
       const synced = group.filter(({ row }) => row.server_id);
       if (synced.length > 1) continue;
       const canonical = synced[0] || group[0];
-      const total = group.reduce((sum, entry) => sum + entry.parsed.amount, 0);
+      const sourceIds = new Set(recipeSources(canonical.row));
+      let total = canonical.parsed.amount;
+      let safe = true;
+
+      for (const entry of group) {
+        if (entry.row === canonical.row) continue;
+        const entrySources = recipeSources(entry.row);
+        const overlap = entrySources.filter((id) => sourceIds.has(id));
+        if (overlap.length && overlap.length !== entrySources.length) {
+          safe = false;
+          break;
+        }
+        const duplicateRecipe = entrySources.length > 0 && overlap.length === entrySources.length;
+        if (!duplicateRecipe) {
+          total += entry.parsed.amount;
+          entrySources.forEach((id) => sourceIds.add(id));
+        }
+      }
+      if (!safe) continue;
+
       const displayUnit = formatRecipeUnit(canonical.parsed.unit, total);
       const newName = `${canonical.parsed.base} (${formatRecipeAmount(total)} ${displayUnit})`;
       const oldName = String(canonical.row.custom_name || canonical.row.name || '').trim();
@@ -128,7 +151,7 @@
       canonical.row.qty = 1;
       canonical.row.unit = 'ks';
       canonical.row.source = 'recipe';
-      canonical.row.recipe_ids = [...new Set(group.flatMap(({ row }) => [row.recipe_id, ...(Array.isArray(row.recipe_ids) ? row.recipe_ids : [])]).filter(Boolean))];
+      canonical.row.recipe_ids = [...sourceIds];
       canonical.row.updated_at = new Date().toISOString();
       if (canonical.row.server_id && normalizeRecipeName(oldName) !== normalizeRecipeName(newName)) canonical.row.recipe_dirty = true;
 
