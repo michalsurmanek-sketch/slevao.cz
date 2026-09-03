@@ -165,20 +165,30 @@ assert.equal(typeof listeners.get('change:true'), 'function', 'Guard neposlouch�
 assert.equal(typeof listeners.get('blur:true'), 'function', 'Guard neposlouchá blur v capture fázi.');
 
 const bootStart = bootstrap.indexOf('  async function boot()');
-const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', bootStart);
+const coreRuntimeIndex = bootstrap.indexOf('    loadCoreRuntimes();', bootStart);
+const markerIndex = bootstrap.indexOf('    setMarkerUserId(currentUserId);', coreRuntimeIndex);
 const readyIndex = bootstrap.indexOf('window.SlevaoShoppingBudgetConcurrencyReady', markerIndex);
 const syncIndex = bootstrap.indexOf('window.SlevaoShoppingBudgetConcurrency?.syncStorage?.();', readyIndex);
-const runtimeIndex = bootstrap.indexOf('    loadShoppingRuntimes();', syncIndex);
-assert.ok(bootStart >= 0 && markerIndex > bootStart, 'Bootstrap nenastaví owner marker uvnitř bootu.');
+const finishPreflightIndex = bootstrap.indexOf('    finishOwnerPreflight();', syncIndex);
+const insightsRuntimeIndex = bootstrap.indexOf('    loadInsights();', finishPreflightIndex);
+assert.ok(bootStart >= 0 && coreRuntimeIndex > bootStart, 'Bootstrap nenačte lokální shopping-list runtime uvnitř bootu.');
+assert.ok(markerIndex > coreRuntimeIndex, 'Core shopping-list runtime musí být dostupný ještě před cloudovou identitou.');
 assert.ok(readyIndex > markerIndex, 'Bootstrap čeká na cloud budget dřív, než nastaví správného ownera.');
 assert.ok(syncIndex > readyIndex, 'Bootstrap nesynchronizuje cloud budget po readiness.');
-assert.ok(runtimeIndex > syncIndex, 'Shopping runtimy se načítají před cloud-authoritative budget synchronizací.');
+assert.ok(finishPreflightIndex > syncIndex, 'Owner preflight končí dřív než cloud-authoritative budget synchronizace.');
+assert.ok(insightsRuntimeIndex > finishPreflightIndex, 'Budget/insights runtime se načítá před cloud-authoritative budget synchronizací.');
 
 const guardUrl = html.match(/assets\/shopping-budget-concurrency\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(guardUrl, 'assets/shopping-budget-concurrency.js?v=20260828-2', 'seznam.html nemá očekávanou cold-load verzi budget guardu.');
-const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
-assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
+const bootstrapVersionMatch = bootstrapUrl.match(/\?v=(\d{8})-(\d+)$/);
+assert.ok(bootstrapVersionMatch, 'seznam.html nemá verzovaný shopping bootstrap ve formátu YYYYMMDD-revision.');
+const bootstrapDate = Number(bootstrapVersionMatch[1]);
+const bootstrapRevision = Number(bootstrapVersionMatch[2]);
+assert.ok(
+  bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 7),
+  'seznam.html má bootstrap starší než guest-product fallback integrace v7.'
+);
 assert.ok(html.indexOf(guardUrl) < html.indexOf(bootstrapUrl), 'Budget concurrency guard musí běžet před shopping bootstrapem.');
 assert.ok(!worker.includes(`'/${guardUrl}'`), 'Budget concurrency guard se nesmí vrátit do install-time PWA precache.');
 assert.ok(!worker.includes(`'/${bootstrapUrl}'`), 'Shopping bootstrap se nesmí vrátit do install-time PWA precache.');
@@ -194,4 +204,4 @@ assert.ok(worker.includes("return /\\.(?:css|js|webmanifest)$/i.test(url.pathnam
 assert.ok(worker.includes("cache: 'reload'"), 'Budget/bootstrap JS musí být network-first.');
 assert.ok(worker.includes('putRuntime(request, response)'), 'Budget/bootstrap JS musí být po úspěšném načtení uložitelný do runtime cache.');
 
-console.log('Shopping budget concurrency and cloud-authoritative cold-load guard OK');
+console.log('Shopping budget concurrency, local-first list and cloud-authoritative insights guard OK');
