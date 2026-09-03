@@ -129,10 +129,18 @@ for (const needle of [
 
 const coldUrl = html.match(/assets\/shopping-owner-cold-sync\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
+const publicNavUrl = html.match(/assets\/public-nav-upgrade\.js\?v=[^"']+/)?.[0] || '';
 assert.equal(coldUrl, 'assets/shopping-owner-cold-sync.js?v=20260828-1', 'seznam.html nemá očekávanou cold-sync verzi.');
-const bootstrapVersion = Number(bootstrapUrl.match(/\?v=20260828-(\d+)$/)?.[1] || 0);
-assert.ok(bootstrapVersion >= 7, 'seznam.html má bootstrap starší než guest-product fallback integrace v7.');
-assert.ok(html.indexOf('assets/public-nav-upgrade.js?v=20260822-2') < html.indexOf(coldUrl), 'Cold sync se načítá před owner-storage bridge.');
+const bootstrapMatch = bootstrapUrl.match(/\?v=(\d{8})-(\d+)$/);
+assert.ok(bootstrapMatch, 'seznam.html nemá platnou YYYYMMDD-revision verzi shopping bootstrapu.');
+const bootstrapDate = Number(bootstrapMatch[1]);
+const bootstrapRevision = Number(bootstrapMatch[2]);
+assert.ok(
+  bootstrapDate > 20260828 || (bootstrapDate === 20260828 && bootstrapRevision >= 7),
+  'seznam.html má bootstrap starší než guest-product fallback integrace v7.'
+);
+assert.match(publicNavUrl, /^assets\/public-nav-upgrade\.js\?v=\d{8}-\d+$/, 'seznam.html nemá verzovaný public-nav runtime.');
+assert.ok(html.indexOf(publicNavUrl) < html.indexOf(coldUrl), 'Cold sync se načítá před owner-storage bridge.');
 assert.ok(html.indexOf(coldUrl) < html.indexOf(bootstrapUrl), 'Cold sync se načítá až po shopping bootstrapu.');
 assert.match(worker, /url\.pathname\.startsWith\('\/assets\/'\)/, 'PWA runtime neobsluhuje cold-sync a bootstrap assety.');
 assert.match(worker, /const freshRequest = new Request\(request, \{ cache: 'reload' \}\)/, 'Cold-sync runtime není v PWA network-first vrstvě.');
