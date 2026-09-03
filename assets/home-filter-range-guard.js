@@ -64,6 +64,69 @@
   }
 
   const normalizeRecipeName = (value) => String(value || '').trim().toLocaleLowerCase('cs-CZ');
+  const normalizeRecipeKey = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+  function parseRecipeIngredient(value) {
+    const match = String(value || '').trim().match(/^(.*?)\s*\(\s*([0-9]+(?:[.,][0-9]+)?)\s+(kg|g|ml|l|ks|balení|stroužky)\s*\)\s*$/i);
+    if (!match) return null;
+    const amount = Number(match[2].replace(',', '.'));
+    if (!Number.isFinite(amount) || amount <= 0) return null;
+    return {
+      base: match[1].trim(),
+      amount,
+      unit: match[3].toLocaleLowerCase('cs-CZ')
+    };
+  }
+
+  function formatRecipeAmount(value) {
+    const number = Number(value);
+    return Number.isInteger(number) ? String(number) : String(Number(number.toFixed(3))).replace('.', ',');
+  }
+
+  function consolidateRecipeRows(sourceRows) {
+    const rows = Array.isArray(sourceRows) ? sourceRows : [];
+    const groups = new Map();
+    rows.forEach((row) => {
+      if (row?.source !== 'recipe' || row?.completed || row?.is_completed || row?.product_id) return;
+      const parsed = parseRecipeIngredient(row.custom_name || row.name);
+      if (!parsed) return;
+      const key = `${normalizeRecipeKey(parsed.base)}|${normalizeRecipeKey(parsed.unit)}`;
+      const group = groups.get(key) || [];
+      group.push({ row, parsed });
+      groups.set(key, group);
+    });
+
+    const removed = new Set();
+    let merged = 0;
+    for (const group of groups.values()) {
+      if (group.length < 2) continue;
+      const synced = group.filter(({ row }) => row.server_id);
+      if (synced.length > 1) continue;
+      const canonical = synced[0] || group[0];
+      const total = group.reduce((sum, entry) => sum + entry.parsed.amount, 0);
+      const newName = `${canonical.parsed.base} (${formatRecipeAmount(total)} ${canonical.parsed.unit})`;
+      const oldName = String(canonical.row.custom_name || canonical.row.name || '').trim();
+
+      canonical.row.custom_name = newName;
+      canonical.row.name = newName;
+      canonical.row.key = `c:${normalizeRecipeKey(newName)}`;
+      canonical.row.quantity = 1;
+      canonical.row.qty = 1;
+      canonical.row.unit = 'ks';
+      canonical.row.source = 'recipe';
+      canonical.row.recipe_ids = [...new Set(group.flatMap(({ row }) => [row.recipe_id, ...(Array.isArray(row.recipe_ids) ? row.recipe_ids : [])]).filter(Boolean))];
+      canonical.row.updated_at = new Date().toISOString();
+      if (canonical.row.server_id && normalizeRecipeName(oldName) !== normalizeRecipeName(newName)) canonical.row.recipe_dirty = true;
+
+      for (const entry of group) {
+        if (entry.row === canonical.row) continue;
+        removed.add(entry.row);
+        merged += 1;
+      }
+    }
+
+    return { rows: removed.size ? rows.filter((row) => !removed.has(row)) : rows, merged };
+  }
 
   function createMutationId() {
     const source = globalThis.crypto;
@@ -116,6 +179,7 @@
     row.completed = false;
     row.is_completed = false;
     row.updated_at = remote.updated_at || new Date().toISOString();
+    delete row.recipe_dirty;
   }
 
   async function syncPendingRecipeRows() {
@@ -128,18 +192,45 @@
     const session = data?.session || null;
     if (!session?.user?.id) return { synced:0, localOnly:true };
 
-    const rows = api.readList?.() || [];
+    const consolidated = consolidateRecipeRows(api.readList?.() || []);
+    const rows = consolidated.rows;
+    if (consolidated.merged > 0) api.writeList?.(rows);
+
+    const dirty = rows.filter((row) => (
+      row?.source === 'recipe'
+      && row?.server_id
+      && row?.recipe_dirty
+      && !row?.completed
+      && String(row?.custom_name || row?.name || '').trim()
+    ));
     const pending = rows.filter((row) => (
       row?.source === 'recipe'
       && !row?.server_id
       && !row?.completed
       && String(row?.custom_name || row?.name || '').trim()
     ));
-    if (!pending.length) return { synced:0, localOnly:false };
+    if (!pending.length && !dirty.length) return { synced:0, localOnly:false, merged:consolidated.merged };
 
     let listId = await findOwnerList(db, session.user.id);
     const remoteMap = await loadRemoteRecipeMap(db, listId);
     let synced = 0;
+
+    for (const row of dirty) {
+      if (!listId) throw new Error('Aktivní nákupní seznam pro synchronizovaný recept nebyl nalezen.');
+      const name = String(row.custom_name || row.name || '').trim();
+      const { data: updated, error: updateError } = await db.from('shopping_list_items')
+        .update({ custom_name:name, quantity:1, unit:'ks', is_completed:false })
+        .eq('id', row.server_id)
+        .eq('shopping_list_id', listId)
+        .is('product_id', null)
+        .select('id,custom_name,quantity,unit,is_completed,updated_at')
+        .maybeSingle();
+      if (updateError) throw updateError;
+      if (!updated?.id) throw new Error('Synchronizace sloučené receptové suroviny nebyla potvrzena.');
+      alignRecipeRow(row, updated);
+      remoteMap.set(normalizeRecipeName(name), updated);
+      synced += 1;
+    }
 
     for (const row of pending) {
       const name = String(row.custom_name || row.name || '').trim();
@@ -165,7 +256,7 @@
     }
 
     api.writeList?.(rows);
-    return { synced, localOnly:false };
+    return { synced, localOnly:false, merged:consolidated.merged };
   }
 
   function runOriginalRecipeAdd(button) {
@@ -239,7 +330,8 @@
         if (result?.localOnly) {
           window.SlevaoPublic?.toast?.('Recept je uložen v tomto zařízení. Po přihlášení se synchronizuje se seznamem.');
         } else if (result?.synced > 0) {
-          window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem.`);
+          const mergeText = result?.merged > 0 ? `, ${result.merged} duplicitních surovin sloučeno` : '';
+          window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem${mergeText}.`);
         }
       })
       .catch((error) => {
