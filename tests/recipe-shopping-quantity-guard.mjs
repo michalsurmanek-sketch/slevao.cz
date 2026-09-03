@@ -8,7 +8,7 @@ const indexHtml = readFileSync(new URL('index.html', root), 'utf8');
 const guardSource = readFileSync(new URL('assets/shopping-recipe-quantity-guard.js', root), 'utf8');
 const coldSyncSource = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
-const candidateMigration = readFileSync(new URL('supabase/migrations/20260903210837_tighten_recipe_staple_identity.sql', root), 'utf8');
+const candidateMigration = readFileSync(new URL('supabase/migrations/20260903211230_normalize_recipe_count_package_units.sql', root), 'utf8');
 
 const recipeMarker = "const LIST_KEY = 'slevao-shopping-list-v1';";
 const markerPos = indexHtml.indexOf(recipeMarker);
@@ -69,6 +69,8 @@ assert.match(candidateMigration, /variable_price/, 'Per-kilogram/per-litre offer
 assert.match(candidateMigration, /ceil\(/, 'Fixed packages must round required package counts upward.');
 assert.match(candidateMigration, /'%cena za%'/, 'Loose/per-unit pricing must recognize the public quantity label.');
 assert.match(candidateMigration, /jsonb_set\([\s\S]*?'\{price\}'/, 'The optimizer price must be replaced with the required purchase cost for recipe candidates.');
+assert.match(candidateMigration, /kg\|g\|ml\|l\|ks\|kusů\|kusy\|kus/, 'Package parser must recognize Czech count-unit aliases as well as ks.');
+assert.match(candidateMigration, /lower\(a\.req\[3\]\)='ks'[\s\S]*?lower\(a\.pkg\[3\]\) in \('ks','kusů','kusy','kus'\)/, 'Czech count aliases must be normalized into the same purchase-count calculation as ks.');
 
 const initialRows = [
   {
@@ -139,4 +141,4 @@ const bootstrapPos = listHtml.indexOf('assets/shopping-insights-bootstrap.js');
 assert.ok(guardPos >= 0, 'Shopping-list page must load the recipe quantity guard.');
 assert.ok(bootstrapPos > guardPos, 'Recipe quantity guard must run before shopping-list bootstrap and cloud synchronization.');
 
-console.log('recipe shopping quantity + identity + pricing regression guard: OK');
+console.log('recipe shopping quantity + identity + pricing + count-alias regression guard: OK');
