@@ -4,6 +4,7 @@
 do $$
 declare
   fn_source text;
+  returned_query text;
 begin
   select p.prosrc
     into fn_source
@@ -20,7 +21,7 @@ begin
   if fn_source not like '%regexp_replace(%'
      or fn_source not like '%kg|g|ml|l|ks|balení|stroužek|stroužky|stroužků%'
      or fn_source not like '%as base_text%'
-     or fn_source not like '%p_query => rec.search_text%'
+     or fn_source not like '%p_query=>rec.search_text%'
   then
     raise exception 'recipe quantity suffix is not stripped before offer search';
   end if;
@@ -36,6 +37,15 @@ begin
      or fn_source not like '%recipe_required_unit%'
   then
     raise exception 'display label / recipe amount metadata contract is missing';
+  end if;
+
+  select c.query_text
+    into returned_query
+  from public.get_public_shopping_list_candidates(array['Hovězí maso (800 g)'], 1) c
+  limit 1;
+
+  if returned_query is distinct from 'Hovězí maso (800 g)' then
+    raise exception 'recipe display label changed: %', returned_query;
   end if;
 end
 $$;
