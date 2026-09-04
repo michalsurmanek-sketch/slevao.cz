@@ -26,6 +26,9 @@ assert.ok(
   nav.indexOf('loadLocationService();') < nav.indexOf('loadStoreArrivalAlerts();'),
   'Location service se musí spustit před store-arrival runtime.'
 );
+assert.match(nav, /localStorage\.getItem\('slevao-store-arrival-alerts-v1'\) === '1'/, 'Store-arrival copy experiment se nenačítá podle skutečného opt-in stavu.');
+assert.match(nav, /event\.target\.closest\('#slArrivalToggle'\)/, 'Store-arrival copy experiment se neumí načíst po uživatelském zapnutí.');
+assert.match(nav, /window\.__slevaoArrivalCopyLazyBound = true;/, 'Store-arrival copy lazy listener není chráněný proti duplicitní instalaci.');
 
 for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nepoužívá aktuální public-nav verzi.`);
