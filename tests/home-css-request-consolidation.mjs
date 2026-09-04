@@ -97,14 +97,15 @@ assert.match(inStore, /\.slInStoreListCoverage\{margin:14px 22px 0/);
 assert.match(homeFooter, /Homepage bundle: store-arrival alerts/);
 assert.match(homeFooter, /\.slArrivalToggle\{width:100%;min-height:58px;display:grid/);
 assert.match(homeFooter, /\.slArrivalSwitch\{position:relative;width:38px;height:22px/);
-assert.match(
+assert.doesNotMatch(
   publicNav,
-  /if \(!isHomePage\(\) && !document\.querySelector\('link\[href\*="store-arrival-alerts\.css"\]'\)\) \{/,
-  'homepage must not restore the standalone store-arrival stylesheet request',
+  /store-arrival-alerts\.css/,
+  'public-nav must not dynamically restore the standalone store-arrival stylesheet request',
 );
 assert.equal(index.includes('assets/store-arrival-alerts.css'), false, 'homepage must not directly request store-arrival-alerts.css');
-assert.match(productHtml, /assets\/store-arrival-alerts\.css\?v=\d{8}-\d+/);
-assert.match(listHtml, /assets\/store-arrival-alerts\.css\?v=\d{8}-\d+/);
+assert.doesNotMatch(productHtml, /assets\/store-arrival-alerts\.css/, 'product page must not request unused store-arrival-alerts.css');
+assert.doesNotMatch(listHtml, /assets\/store-arrival-alerts\.css/, 'shopping list must not request unused store-arrival-alerts.css');
+assert.match(publicNav, /if \(!isHomePage\(\) && !arrivalAlertsEnabled\(\)\) return;/, 'non-home arrival monitor must stay opt-in only');
 
 assert.equal(
   index.includes('assets/home-semantic-filters.css'),
