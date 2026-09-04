@@ -45,6 +45,7 @@ test('homepage stays within real CSS and JavaScript request budget', async ({ pa
 
   expect(css.duplicatePaths, `Duplicate stylesheet requests: ${JSON.stringify(css.duplicatePaths)}`).toEqual([]);
   expect(js.duplicatePaths, `Duplicate script requests: ${JSON.stringify(js.duplicatePaths)}`).toEqual([]);
+  expect(js.items.some((item) => item === '/assets/public-nav-upgrade.js?v=20260904-1'), 'Homepage must load the current public-nav runtime.').toBe(true);
   expect(js.items.some((item) => item.startsWith('/assets/store-arrival-test.js')), 'Production homepage must not load the diagnostic store-arrival test runtime.').toBe(false);
   expect(js.items.some((item) => item.startsWith('/assets/home-recipes.js')), 'Homepage recipe shopping runtime must remain loaded.').toBe(true);
   expect(css.total, `Homepage CSS request budget exceeded: ${css.total} > ${CSS_BUDGET}`).toBeLessThanOrEqual(CSS_BUDGET);
