@@ -390,7 +390,7 @@
   loadLocationService();
   loadStoreArrivalCopyVariation();
   loadStoreArrivalAlerts();
-  loadStoreArrivalTest();
+  if (new URLSearchParams(location.search).get('arrivalTest') === '1') loadStoreArrivalTest();
   loadHomePersonalDeals();
   installMobileNavVisualFix();
   installRecipeListShortcut();
