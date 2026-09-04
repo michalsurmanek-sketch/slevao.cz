@@ -137,7 +137,7 @@
     return fixedName ? { custom_name:fixedName, quantity:1, unit:'ks' } : null;
   }
 
-  async function repairRemoteRecipeRows(listId, remoteRows) {
+  async function repairRemoteRecipeRows(remoteRows) {
     let repaired = 0;
     for (const row of remoteRows || []) {
       const fix = legacyRecipeRepair(row);
@@ -168,13 +168,7 @@
     });
   }
 
-  async function sync(userId) {
-    const ownerId = String(userId || '').trim();
-    if (!ownerId) return { changed:false, reason:'guest' };
-
-    const localRows = readLocalRows();
-    const recipeSync = await syncLocalRecipeRows(localRows);
-
+  async function loadOwnerSnapshot(ownerId) {
     const { data:list, error:listError } = await db.from('shopping_lists')
       .select('id')
       .eq('user_id', ownerId)
@@ -183,20 +177,43 @@
       .limit(1)
       .maybeSingle();
     if (listError) throw listError;
+    if (!list?.id) return { list:null, remoteRows:[], repairedRemote:0 };
 
-    let remoteRows = [];
-    let repairedRemote = 0;
-    if (list?.id) {
+    const fetchRows = async () => {
       const { data, error } = await db.from('shopping_list_items')
         .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at,is_recipe,recipe_ids')
         .eq('shopping_list_id', list.id)
         .order('created_at');
       if (error) throw error;
-      remoteRows = data || [];
-      repairedRemote = await repairRemoteRecipeRows(list.id, remoteRows);
+      return data || [];
+    };
+
+    let remoteRows = await fetchRows();
+    const repairedRemote = await repairRemoteRecipeRows(remoteRows);
+    if (repairedRemote > 0) remoteRows = await fetchRows();
+    return { list, remoteRows, repairedRemote };
+  }
+
+  async function sync(userId) {
+    const ownerId = String(userId || '').trim();
+    if (!ownerId) return { changed:false, reason:'guest' };
+
+    const localRows = readLocalRows();
+    let snapshot = await loadOwnerSnapshot(ownerId);
+
+    // Nejdřív respektuj smazání z jiného zařízení. Teprve řádky, které po
+    // tomto kroku zůstaly, smějí projít recipe RPC a případně vytvořit cloud.
+    let nextRows = reconcileBeforeMerge(localRows, snapshot.remoteRows);
+    const removedBeforeRecipeSync = localRows.length - nextRows.length;
+
+    const recipeSync = await syncLocalRecipeRows(nextRows);
+    let repairedRemote = snapshot.repairedRemote;
+    if (recipeSync.changed) {
+      snapshot = await loadOwnerSnapshot(ownerId);
+      repairedRemote += snapshot.repairedRemote;
+      nextRows = reconcileBeforeMerge(nextRows, snapshot.remoteRows);
     }
 
-    const nextRows = reconcileBeforeMerge(localRows, remoteRows);
     const removed = localRows.length - nextRows.length;
     if (removed > 0 || recipeSync.changed) {
       localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));
@@ -207,6 +224,7 @@
     return {
       changed:true,
       removed,
+      removed_before_recipe_sync:removedBeforeRecipeSync,
       repaired_remote:repairedRemote,
       recipe_synced:recipeSync.synced,
       recipe_conflicts:recipeSync.conflicts,
@@ -222,6 +240,7 @@
     syncLocalRecipeRows,
     legacyRecipeRepair,
     reconcileBeforeMerge,
+    loadOwnerSnapshot,
     sync
   };
 })();
