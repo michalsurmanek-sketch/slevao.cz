@@ -160,11 +160,12 @@
     document.head.appendChild(script);
   }
 
+  function arrivalAlertsEnabled() {
+    try { return localStorage.getItem('slevao-store-arrival-alerts-v1') === '1'; }
+    catch { return false; }
+  }
+
   function loadStoreArrivalCopyVariation() {
-    const isEnabled = () => {
-      try { return localStorage.getItem('slevao-store-arrival-alerts-v1') === '1'; }
-      catch { return false; }
-    };
     const attach = () => {
       if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
       const script = document.createElement('script');
@@ -173,7 +174,7 @@
       document.head.appendChild(script);
     };
 
-    if (isEnabled()) {
+    if (arrivalAlertsEnabled()) {
       attach();
       return;
     }
@@ -186,12 +187,7 @@
   }
 
   function loadStoreArrivalAlerts() {
-    if (!isHomePage() && !document.querySelector('link[href*="store-arrival-alerts.css"]')) {
-      const style = document.createElement('link');
-      style.rel = 'stylesheet';
-      style.href = 'assets/store-arrival-alerts.css?v=20260811-1';
-      document.head.appendChild(style);
-    }
+    if (!isHomePage() && !arrivalAlertsEnabled()) return;
     if (document.querySelector('script[src*="store-arrival-alerts.js"]')) return;
     const script = document.createElement('script');
     script.src = 'assets/store-arrival-alerts.js?v=20260811-3';
