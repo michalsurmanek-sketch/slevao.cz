@@ -18,6 +18,13 @@
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+  const recipeSuffix = /\s*\(\s*[0-9]+(?:[.,][0-9]+)?\s+(?:kg|g|ml|l|cl|dl|ks|bal|balení|porce|stroužek|stroužky|stroužků)\s*\)\s*$/i;
+  const semanticSuffix = /\([^)]*\)\s*$/;
+  const unitLabels = new Map([
+    ['kg','kg'],['g','g'],['ml','ml'],['l','l'],['cl','cl'],['dl','dl'],['ks','ks'],
+    ['bal','bal'],['baleni','balení'],['porce','porce'],
+    ['strouzek','stroužek'],['strouzky','stroužky'],['strouzku','stroužků']
+  ]);
 
   const legacyRecipeRows = new Map([
     ['Špagety',1,'balení','Špagety (1 balení)'],['Mleté hovězí maso',500,'g','Mleté hovězí maso (500 g)'],['Rajčatové pyré',1,'ks','Rajčatové pyré (1 ks)'],['Cibule',1,'ks','Cibule (1 ks)'],['Česnek',2,'stroužky','Česnek (2 stroužky)'],['Mrkev',1,'ks','Mrkev (1 ks)'],['Parmazán',1,'balení','Parmazán (1 balení)'],['Olivový olej',1,'ks','Olivový olej (1 ks)'],
@@ -46,6 +53,15 @@
       row?.recipe_id,
       ...(Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])
     ].map((value) => String(value || '').trim()).filter(Boolean))];
+  }
+
+  function formatQuantity(quantity) {
+    if (!Number.isFinite(quantity)) return '';
+    return String(Number(quantity)).replace('.', ',');
+  }
+
+  function safeUnitLabel(unit) {
+    return unitLabels.get(norm(unit).replace(/\s+/g, '')) || null;
   }
 
   function adoptRecipeRemote(row, remote) {
@@ -197,12 +213,36 @@
 
   function legacyRecipeRepair(row) {
     if (!row?.id || row.product_id) return null;
-    const createdAt = Date.parse(String(row.created_at || ''));
-    if (!Number.isFinite(createdAt) || createdAt < LEGACY_RECIPE_START || createdAt >= LEGACY_RECIPE_END) return null;
     const name = String(row.custom_name || '').trim();
     const quantity = Number(row.quantity);
     const unit = String(row.unit || 'ks').trim();
     if (!name || !Number.isFinite(quantity) || quantity <= 0) return null;
+
+    const alreadyNormalized = recipeSuffix.test(name)
+      && quantity === 1
+      && norm(unit) === 'ks';
+    if (alreadyNormalized) return null;
+
+    if (row.is_recipe === true) {
+      if (recipeSuffix.test(name)) return { custom_name:name, quantity:1, unit:'ks' };
+
+      const exact = legacyRecipeRows.get(`${norm(name)}|${quantity}|${norm(unit)}`);
+      if (exact) return { custom_name:exact, quantity:1, unit:'ks' };
+      if (semanticSuffix.test(name)) return null;
+
+      const normalizedUnit = norm(unit).replace(/\s+/g, '');
+      const label = safeUnitLabel(unit);
+      const meaningfulStructuredAmount = label && (
+        normalizedUnit !== 'ks'
+        || (quantity > 1 && quantity <= 50)
+      );
+      return meaningfulStructuredAmount
+        ? { custom_name:`${name} (${formatQuantity(quantity)} ${label})`, quantity:1, unit:'ks' }
+        : null;
+    }
+
+    const createdAt = Date.parse(String(row.created_at || ''));
+    if (!Number.isFinite(createdAt) || createdAt < LEGACY_RECIPE_START || createdAt >= LEGACY_RECIPE_END) return null;
     const fixedName = legacyRecipeRows.get(`${norm(name)}|${quantity}|${norm(unit)}`);
     return fixedName ? { custom_name:fixedName, quantity:1, unit:'ks' } : null;
   }
@@ -215,7 +255,7 @@
       const { data: sync, error } = await db.rpc('sync_own_shopping_list_recipe_item', {
         p_source_item_id: row.id,
         p_custom_name: fix.custom_name,
-        p_recipe_ids: [],
+        p_recipe_ids: recipeSources(row),
       });
       if (error) throw error;
       if (sync?.status === 'conflict' || !sync?.item?.id) continue;
@@ -296,7 +336,6 @@
       };
     }
 
-    const removed = localRows.length - nextRows.length + hydration.added;
     const changed = removedBeforeRecipeSync > 0 || recipeSync.changed || hydration.changed;
     if (changed) {
       localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));
