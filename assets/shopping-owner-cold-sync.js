@@ -41,6 +41,90 @@
     }
   }
 
+  function recipeSources(row) {
+    return [...new Set([
+      row?.recipe_id,
+      ...(Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])
+    ].map((value) => String(value || '').trim()).filter(Boolean))];
+  }
+
+  function adoptRecipeRemote(row, remote) {
+    if (!row || !remote?.id) return false;
+    row.server_id = remote.id;
+    row.selected_offer_id = remote.selected_offer_id || null;
+    row.custom_name = remote.custom_name || row.custom_name || row.name || null;
+    row.name = row.custom_name || row.name || 'Položka';
+    row.quantity = 1;
+    row.qty = 1;
+    row.unit = 'ks';
+    row.completed = Boolean(remote.is_completed);
+    row.is_completed = Boolean(remote.is_completed);
+    row.source = 'recipe';
+    row.recipe_ids = Array.isArray(remote.recipe_ids) ? remote.recipe_ids : recipeSources(row);
+    row.recipe_cloud_synced = 1;
+    row.updated_at = remote.updated_at || row.updated_at || new Date().toISOString();
+    delete row.recipe_dirty;
+    delete row.recipe_sync_conflict;
+    return true;
+  }
+
+  function adoptManualConflict(row, remote, reason = 'target_not_recipe_safe') {
+    if (!row || !remote?.id) return false;
+    row.server_id = remote.id;
+    row.selected_offer_id = remote.selected_offer_id || null;
+    row.custom_name = remote.custom_name || row.custom_name || row.name || null;
+    row.name = row.custom_name || row.name || 'Položka';
+    row.quantity = Math.max(0.01, Number(remote.quantity || 1));
+    row.qty = row.quantity;
+    row.unit = remote.unit || 'ks';
+    row.completed = Boolean(remote.is_completed);
+    row.is_completed = Boolean(remote.is_completed);
+    row.updated_at = remote.updated_at || row.updated_at || new Date().toISOString();
+    row.recipe_sync_conflict = String(reason || 'target_not_recipe_safe');
+    row.source = 'manual';
+    delete row.recipe_id;
+    delete row.recipe_ids;
+    delete row.recipe_dirty;
+    delete row.recipe_cloud_synced;
+    return true;
+  }
+
+  async function syncLocalRecipeRows(localRows) {
+    let synced = 0;
+    let conflicts = 0;
+    let changed = false;
+
+    for (const row of localRows || []) {
+      if (
+        row?.source !== 'recipe'
+        || row?.product_id
+        || row?.completed
+        || row?.is_completed
+        || !String(row?.custom_name || row?.name || '').trim()
+        || (row?.server_id && !row?.recipe_dirty && Number(row?.recipe_cloud_synced) === 1)
+      ) continue;
+
+      const { data: sync, error } = await db.rpc('sync_own_shopping_list_recipe_item', {
+        p_source_item_id: row?.server_id || null,
+        p_custom_name: String(row.custom_name || row.name).trim(),
+        p_recipe_ids: recipeSources(row),
+      });
+      if (error) throw error;
+
+      if (sync?.status === 'conflict') {
+        if (adoptManualConflict(row, sync?.item, sync?.reason)) changed = true;
+        conflicts += 1;
+        continue;
+      }
+
+      if (!sync?.item?.id) throw new Error('Atomická synchronizace receptu nepotvrdila položku.');
+      if (adoptRecipeRemote(row, sync.item)) changed = true;
+      synced += 1;
+    }
+
+    return { synced, conflicts, changed };
+  }
+
   function legacyRecipeRepair(row) {
     if (!row?.id || row.product_id) return null;
     const createdAt = Date.parse(String(row.created_at || ''));
@@ -58,12 +142,14 @@
     for (const row of remoteRows || []) {
       const fix = legacyRecipeRepair(row);
       if (!fix) continue;
-      const { error } = await db.from('shopping_list_items')
-        .update(fix)
-        .eq('id', row.id)
-        .eq('shopping_list_id', listId);
+      const { data: sync, error } = await db.rpc('sync_own_shopping_list_recipe_item', {
+        p_source_item_id: row.id,
+        p_custom_name: fix.custom_name,
+        p_recipe_ids: [],
+      });
       if (error) throw error;
-      Object.assign(row, fix);
+      if (sync?.status === 'conflict' || !sync?.item?.id) continue;
+      Object.assign(row, sync.item);
       repaired += 1;
     }
     return repaired;
@@ -87,6 +173,8 @@
     if (!ownerId) return { changed:false, reason:'guest' };
 
     const localRows = readLocalRows();
+    const recipeSync = await syncLocalRecipeRows(localRows);
+
     const { data:list, error:listError } = await db.from('shopping_lists')
       .select('id')
       .eq('user_id', ownerId)
@@ -100,7 +188,7 @@
     let repairedRemote = 0;
     if (list?.id) {
       const { data, error } = await db.from('shopping_list_items')
-        .select('id,product_id,custom_name,quantity,unit,created_at')
+        .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at,is_recipe,recipe_ids')
         .eq('shopping_list_id', list.id)
         .order('created_at');
       if (error) throw error;
@@ -110,22 +198,28 @@
 
     const nextRows = reconcileBeforeMerge(localRows, remoteRows);
     const removed = localRows.length - nextRows.length;
-    if (removed > 0) {
+    if (removed > 0 || recipeSync.changed) {
       localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));
       window.SlevaoPublic?.updateNavCount?.();
     }
-    if (!removed && !repairedRemote) return { changed:false, reason:'current' };
+    if (!removed && !repairedRemote && !recipeSync.changed) return { changed:false, reason:'current' };
 
     return {
       changed:true,
       removed,
       repaired_remote:repairedRemote,
+      recipe_synced:recipeSync.synced,
+      recipe_conflicts:recipeSync.conflicts,
       rows:nextRows
     };
   }
 
   window.SlevaoShoppingOwnerColdSync = {
     itemKey,
+    recipeSources,
+    adoptRecipeRemote,
+    adoptManualConflict,
+    syncLocalRecipeRows,
     legacyRecipeRepair,
     reconcileBeforeMerge,
     sync
