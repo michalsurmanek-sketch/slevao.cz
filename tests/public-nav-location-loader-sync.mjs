@@ -26,9 +26,14 @@ assert.ok(
   nav.indexOf('loadLocationService();') < nav.indexOf('loadStoreArrivalAlerts();'),
   'Location service se musí spustit před store-arrival runtime.'
 );
-assert.match(nav, /localStorage\.getItem\('slevao-store-arrival-alerts-v1'\) === '1'/, 'Store-arrival copy experiment se nenačítá podle skutečného opt-in stavu.');
+assert.match(nav, /localStorage\.getItem\('slevao-store-arrival-alerts-v1'\) === '1'/, 'Store-arrival runtime nečte skutečný opt-in stav.');
 assert.match(nav, /event\.target\.closest\('#slArrivalToggle'\)/, 'Store-arrival copy experiment se neumí načíst po uživatelském zapnutí.');
 assert.match(nav, /window\.__slevaoArrivalCopyLazyBound = true;/, 'Store-arrival copy lazy listener není chráněný proti duplicitní instalaci.');
+assert.match(nav, /if \(!isHomePage\(\) && !arrivalAlertsEnabled\(\)\) return;/, 'Store-arrival monitor se mimo homepage nenačítá jen pro opt-in uživatele.');
+assert.doesNotMatch(product, /store-arrival-(?:copy-variation|alerts)\.js/, 'Produktová stránka stále eager-loaduje store-arrival runtime.');
+assert.doesNotMatch(list, /store-arrival-(?:copy-variation|alerts)\.js/, 'Nákupní seznam stále eager-loaduje store-arrival runtime.');
+assert.doesNotMatch(product, /store-arrival-alerts\.css/, 'Produktová stránka stále eager-loaduje nepoužité store-arrival CSS.');
+assert.doesNotMatch(list, /store-arrival-alerts\.css/, 'Nákupní seznam stále eager-loaduje nepoužité store-arrival CSS.');
 
 for (const [name, source] of [['index.html', index], ['produkt.html', product], ['seznam.html', list], ['ucet.html', account]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nepoužívá aktuální public-nav verzi.`);
