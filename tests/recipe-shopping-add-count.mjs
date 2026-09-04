@@ -33,9 +33,8 @@ function createScenario(initialRows = [], recipeKeys = ['spagety']) {
         return selector === '#recipesSection [data-recipe]' ? buttons : [];
       }
     },
-    window:{ SlevaoPublic:{ updateNavCount(){ navUpdates += 1; } } },
+    window:{ SlevaoPublic:{ updateNavCount(){ navUpdates += 1; } }, setTimeout() {} },
     crypto:{ randomUUID: (() => { let n = 0; return () => `row-${++n}`; })() },
-    setTimeout() {},
     Date,
     Math,
     String,
