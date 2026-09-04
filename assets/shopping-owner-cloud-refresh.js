@@ -41,10 +41,17 @@
       : `c:${norm(row?.custom_name || row?.name)}`;
   }
 
+  function normalizedRecipeIds(row) {
+    return [...new Set((Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])
+      .map((value) => String(value || '').trim())
+      .filter(Boolean))].sort();
+  }
+
   function rowIdentity(row, remote = false) {
     const id = remote ? row?.id : row?.server_id;
     if (!id) return '';
     const completed = remote ? Boolean(row?.is_completed) : Boolean(row?.completed);
+    const isRecipe = remote ? Boolean(row?.is_recipe) : row?.source === 'recipe';
     return [
       String(id),
       itemKey(row),
@@ -52,6 +59,8 @@
       String(Number(row?.quantity || 1)),
       String(row?.unit || 'ks'),
       completed ? '1' : '0',
+      isRecipe ? 'recipe' : 'manual',
+      normalizedRecipeIds(row).join(','),
     ].join('|');
   }
 
@@ -61,6 +70,26 @@
 
   function localIsSettled(rows) {
     return (rows || []).every((row) => row?.server_id && !Number.isFinite(Number(row?.[CLAIM_QUANTITY])));
+  }
+
+  function applyRemoteProvenance(merged, remote) {
+    if (remote?.is_recipe) {
+      merged.source = 'recipe';
+      merged.recipe_ids = normalizedRecipeIds(remote);
+      merged.recipe_cloud_synced = 1;
+      delete merged.recipe_sync_conflict;
+      delete merged.recipe_dirty;
+      return merged;
+    }
+
+    if (merged.source === 'recipe' || merged.recipe_ids || merged.recipe_cloud_synced) {
+      merged.source = 'manual';
+      delete merged.recipe_id;
+      delete merged.recipe_ids;
+      delete merged.recipe_dirty;
+      delete merged.recipe_cloud_synced;
+    }
+    return merged;
   }
 
   function reconcileRemoteRows(localRows, remoteRows) {
@@ -90,7 +119,7 @@
         merged.custom_name = remote.custom_name;
         merged.name = remote.custom_name;
       }
-      next.push(merged);
+      next.push(applyRemoteProvenance(merged, remote));
     }
     return next;
   }
@@ -142,7 +171,7 @@
     }
 
     const { data:remoteRows, error:remoteError } = await db.from('shopping_list_items')
-      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,updated_at')
+      .select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,updated_at,is_recipe,recipe_ids')
       .eq('shopping_list_id', currentListId)
       .order('created_at');
     if (remoteError) throw remoteError;
@@ -264,6 +293,7 @@
   window.SlevaoOwnerCloudRefresh = {
     signature,
     localIsSettled,
+    applyRemoteProvenance,
     reconcileRemoteRows,
     snapshotState,
     verifyBeforeCompletion,
