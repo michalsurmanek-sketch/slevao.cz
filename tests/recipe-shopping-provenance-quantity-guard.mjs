@@ -34,6 +34,26 @@ const initialRows = [
     local_id:'manual-ml', product_id:null,
     custom_name:'Mléko', name:'Mléko', quantity:500, unit:'ml',
     added_at:'2026-09-04T10:00:00.000Z'
+  },
+  {
+    local_id:'generic-recipe-grams', product_id:null,
+    custom_name:'Řecký jogurt', name:'Řecký jogurt', quantity:250, unit:'g',
+    source:'recipe', recipe_id:'tzatziki', added_at:'2026-09-04T12:00:00.000Z'
+  },
+  {
+    local_id:'generic-recipe-decimal', product_id:null,
+    custom_name:'Zeleninový vývar', name:'Zeleninový vývar', quantity:0.5, unit:'l',
+    recipe_ids:['risotto'], added_at:'2026-09-04T12:00:00.000Z'
+  },
+  {
+    local_id:'generic-recipe-pieces', product_id:null,
+    custom_name:'Citron', name:'Citron', quantity:2, unit:'ks',
+    is_recipe:true, added_at:'2026-09-04T12:00:00.000Z'
+  },
+  {
+    local_id:'implausible-piece-count', product_id:null,
+    custom_name:'Nová surovina', name:'Nová surovina', quantity:500, unit:'ks',
+    source:'recipe', added_at:'2026-09-04T12:00:00.000Z'
   }
 ];
 
@@ -70,5 +90,20 @@ assert.equal(rows[5].custom_name, 'Mléko');
 assert.equal(rows[5].quantity, 500, 'Manual 500 ml rows without recipe provenance must remain untouched.');
 assert.equal(rows[5].unit, 'ml');
 
-assert.equal(sandbox.window.__slevaoRecipeQuantityGuard?.repaired, 3);
+assert.equal(rows[6].custom_name, 'Řecký jogurt (250 g)', 'New recipe ingredients must normalize without a hard-coded ingredient list.');
+assert.equal(rows[6].quantity, 1);
+assert.equal(rows[6].unit, 'ks');
+
+assert.equal(rows[7].custom_name, 'Zeleninový vývar (0,5 l)', 'Decimal recipe amounts must keep a human-readable amount.');
+assert.equal(rows[7].quantity, 1);
+assert.equal(rows[7].unit, 'ks');
+
+assert.equal(rows[8].custom_name, 'Citron (2 ks)', 'Reasonable piece counts from recipe provenance should become a display suffix.');
+assert.equal(rows[8].quantity, 1);
+assert.equal(rows[8].unit, 'ks');
+
+assert.equal(rows[9].custom_name, 'Nová surovina');
+assert.equal(rows[9].quantity, 500, 'An implausible plain 500 ks row must not be guessed into a recipe amount.');
+
+assert.equal(sandbox.window.__slevaoRecipeQuantityGuard?.repaired, 6);
 console.log('recipe provenance quantity guard: OK');
