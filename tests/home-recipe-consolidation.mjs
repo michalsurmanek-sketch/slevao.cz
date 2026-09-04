@@ -15,7 +15,7 @@ function section(start, end) {
 
 const helpers = section(
   "  const normalizeRecipeName =",
-  "\n\n  function createMutationId()"
+  "\n\n  function alignRecipeRow"
 );
 
 const context = { String, Number, Math, Date, Set, Map, Array };
@@ -74,13 +74,13 @@ assert.equal(onions.merged, 1);
 assert.equal(onions.rows.length, 1);
 assert.equal(onions.rows[0].server_id, 'server-cibule', 'Slučování musí zachovat už potvrzený cloudový řádek.');
 assert.equal(onions.rows[0].custom_name, 'Cibule (5 ks)');
-assert.equal(onions.rows[0].recipe_dirty, true, 'Přejmenovaný cloudový receptový řádek musí být označen k aktualizaci.');
+assert.equal(onions.rows[0].recipe_dirty, true, 'Přejmenovaný cloudový receptový řádek musí být označen k atomické aktualizaci.');
 
 const twoCloudGarlic = consolidate([
   { local_id:'sg2', server_id:'server-g2', source:'recipe', recipe_id:'spagety', custom_name:'Česnek (2 stroužky)', name:'Česnek (2 stroužky)', completed:false },
   { local_id:'sg3', server_id:'server-g3', source:'recipe', recipe_id:'gulas', custom_name:'Česnek (3 stroužky)', name:'Česnek (3 stroužky)', completed:false },
 ]);
-assert.equal(twoCloudGarlic.merged, 0, 'Dvě už existující cloudové položky se nesmí destruktivně slučovat na homepage.');
+assert.equal(twoCloudGarlic.merged, 0, 'Dvě už existující cloudové položky se nesmí destruktivně slučovat pouze v browseru.');
 assert.equal(twoCloudGarlic.rows.length, 2);
 
 const manualAndRecipe = consolidate([
@@ -109,23 +109,14 @@ const dbPos = sync.indexOf('const db = await api.getSupabase();');
 const sessionPos = sync.indexOf('db.auth.getSession()');
 assert.ok(consolidatePos >= 0 && dbPos > consolidatePos && sessionPos > dbPos,
   'Lokální slučování musí proběhnout před Supabase/session kontrolou, aby fungovalo i hostům.');
-assert.match(sync, /if \(consolidated\.merged > 0\) api\.writeList\?\.\(rows\);[\s\S]*?if \(!db\) return \{ synced:0, localOnly:true, merged:consolidated\.merged \};/,
+assert.match(sync, /if \(consolidated\.merged > 0\) api\.writeList\?\.\(rows\);[\s\S]*?if \(!db\) return \{ synced:0, conflicts:0, localOnly:true, merged:consolidated\.merged \};/,
   'Host bez dostupného Supabase musí dostat už sloučený lokální seznam.');
-assert.match(sync, /if \(!session\?\.user\?\.id\) return \{ synced:0, localOnly:true, merged:consolidated\.merged \};/,
+assert.match(sync, /if \(!session\?\.user\?\.id\) return \{ synced:0, conflicts:0, localOnly:true, merged:consolidated\.merged \};/,
   'Nepřihlášený host musí zachovat informaci o provedeném sloučení.');
+assert.match(sync, /\(!row\?\.server_id \|\| row\?\.recipe_dirty\)/, 'Cloud sync se má spustit pro nový nebo lokálně sloučený receptový řádek.');
+assert.match(sync, /const result = await syncRecipeRow\(db, row\)/, 'Cloudová změna musí projít atomickým recipe RPC wrapperem.');
+assert.match(sync, /if \(result\.conflict\)[\s\S]*?continue;/, 'Nejasný cloud konflikt musí být fail-closed a nesmí zastavit ostatní suroviny.');
+assert.doesNotMatch(sync, /\.update\(\{ custom_name:name/, 'Přejmenování receptu se nesmí vrátit k přímému browser UPDATE.');
+assert.doesNotMatch(sync, /add_own_shopping_list_custom_item/, 'Recept se nesmí synchronizovat obecným quantity-increment RPC.');
 
-for (const needle of [
-  "const dirty = rows.filter((row) => (",
-  "row?.source === 'recipe'",
-  '&& row?.server_id',
-  '&& row?.recipe_dirty',
-  ".update({ custom_name:name, quantity:1, unit:'ks', is_completed:false })",
-  ".eq('id', row.server_id)",
-  ".eq('shopping_list_id', listId)",
-  ".is('product_id', null)",
-  'alignRecipeRow(row, updated);',
-]) {
-  assert.ok(source.includes(needle), `Chybí bezpečný cloud update sloučené receptové položky: ${needle}`);
-}
-
-console.log('Compatible recipe ingredient consolidation is idempotent, safe for guests, Czech grammar, and cloud-aware: OK');
+console.log('Compatible recipe ingredient consolidation is idempotent, safe for guests, Czech grammar, and atomic-cloud-aware: OK');
