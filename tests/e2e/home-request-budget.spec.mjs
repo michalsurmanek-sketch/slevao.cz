@@ -52,3 +52,23 @@ test('homepage stays within real CSS and JavaScript request budget', async ({ pa
   expect(css.total, `Homepage CSS request budget exceeded: ${css.total} > ${CSS_BUDGET}`).toBeLessThanOrEqual(CSS_BUDGET);
   expect(js.total, `Homepage JS request budget exceeded: ${js.total} > ${JS_BUDGET}`).toBeLessThanOrEqual(JS_BUDGET);
 });
+
+test('secondary public pages do not load store-arrival runtime without opt-in', async ({ page }) => {
+  const requested = [];
+  page.on('request', (request) => {
+    let url;
+    try { url = new URL(request.url()); } catch { return; }
+    if (url.origin !== BASE_URL) return;
+    requested.push(url.pathname);
+  });
+
+  for (const path of ['/produkt.html', '/seznam.html', '/ucet.html']) {
+    requested.length = 0;
+    const response = await page.goto(`${BASE_URL}${path}`, { waitUntil: 'domcontentloaded' });
+    expect(response?.status(), `${path} must render successfully`).toBe(200);
+    await page.waitForTimeout(800);
+    expect(requested.includes('/assets/store-arrival-alerts.js'), `${path} must not load store-arrival monitor before opt-in`).toBe(false);
+    expect(requested.includes('/assets/store-arrival-copy-variation.js'), `${path} must not load store-arrival copy experiment before opt-in`).toBe(false);
+    expect(requested.includes('/assets/store-arrival-alerts.css'), `${path} must not load unused store-arrival CSS before opt-in`).toBe(false);
+  }
+});
