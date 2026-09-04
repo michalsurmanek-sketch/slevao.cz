@@ -143,8 +143,20 @@ assert.equal(remoteRepair({
   id:'manual-other-qty', product_id:null, custom_name:'Hovězí maso', quantity:700, unit:'g',
   created_at:'2026-09-03T08:30:00.000Z'
 }), null, 'Cloud rows with a quantity not emitted by a recipe must remain untouched.');
-assert.ok(coldSyncSource.includes(".select('id,product_id,custom_name,quantity,unit,created_at')"), 'Cold sync must load the fields required to identify stale recipe quantities.');
-assert.ok(coldSyncSource.includes('repairRemoteRecipeRows(list.id, remoteRows)'), 'Cold sync must repair stale cloud rows before shopping-list merge.');
+assert.ok(
+  coldSyncSource.includes(".select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at,is_recipe,recipe_ids')"),
+  'Cold sync must load stale-repair fields plus recipe provenance.'
+);
+assert.ok(
+  coldSyncSource.includes('const repairedRemote = await repairRemoteRecipeRows(remoteRows);'),
+  'Cold sync must repair stale cloud recipe rows before shopping-list merge.'
+);
+const staleReconcilePos = coldSyncSource.indexOf('let nextRows = reconcileBeforeMerge(localRows, snapshot.remoteRows);');
+const recipeSyncPos = coldSyncSource.indexOf('const recipeSync = await syncLocalRecipeRows(nextRows);', staleReconcilePos);
+assert.ok(
+  staleReconcilePos >= 0 && recipeSyncPos > staleReconcilePos,
+  'Cold sync must remove remotely deleted rows before recipe synchronization to prevent resurrection.'
+);
 assert.ok(!coldSyncSource.includes("if (!localRows.some((row) => row?.server_id))"), 'Cold sync must not skip cloud repair just because local rows have no server_id yet.');
 
 const guardPos = listHtml.indexOf('assets/shopping-recipe-quantity-guard.js');
