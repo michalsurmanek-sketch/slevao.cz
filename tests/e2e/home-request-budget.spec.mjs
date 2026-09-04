@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
 const CSS_BUDGET = 25;
-const JS_BUDGET = 40;
+const JS_BUDGET = 39;
 
 test('homepage stays within real CSS and JavaScript request budget', async ({ page }) => {
   const requests = { stylesheet: [], script: [] };
@@ -47,6 +47,7 @@ test('homepage stays within real CSS and JavaScript request budget', async ({ pa
   expect(js.duplicatePaths, `Duplicate script requests: ${JSON.stringify(js.duplicatePaths)}`).toEqual([]);
   expect(js.items.some((item) => item === '/assets/public-nav-upgrade.js?v=20260904-1'), 'Homepage must load the current public-nav runtime.').toBe(true);
   expect(js.items.some((item) => item.startsWith('/assets/store-arrival-test.js')), 'Production homepage must not load the diagnostic store-arrival test runtime.').toBe(false);
+  expect(js.items.some((item) => item.startsWith('/assets/store-arrival-copy-variation.js')), 'Store-arrival copy experiment must stay lazy until the user enables arrival alerts.').toBe(false);
   expect(js.items.some((item) => item.startsWith('/assets/home-recipes.js')), 'Homepage recipe shopping runtime must remain loaded.').toBe(true);
   expect(css.total, `Homepage CSS request budget exceeded: ${css.total} > ${CSS_BUDGET}`).toBeLessThanOrEqual(CSS_BUDGET);
   expect(js.total, `Homepage JS request budget exceeded: ${js.total} > ${JS_BUDGET}`).toBeLessThanOrEqual(JS_BUDGET);
