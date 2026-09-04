@@ -10,36 +10,20 @@ const coldSyncSource = readFileSync(new URL('assets/shopping-owner-cold-sync.js'
 const listHtml = readFileSync(new URL('seznam.html', root), 'utf8');
 const candidateMigration = readFileSync(new URL('supabase/migrations/20260903212317_add_safe_recipe_search_aliases.sql', root), 'utf8');
 
-const recipeMarker = "const LIST_KEY = 'slevao-shopping-list-v1';";
-const markerPos = indexHtml.indexOf(recipeMarker);
-assert.ok(markerPos >= 0, 'Homepage must contain the inline recipe runtime.');
-const inlineStart = indexHtml.lastIndexOf('(() => {', markerPos);
-const inlineEndMarker = "document.querySelectorAll('#recipesSection [data-recipe]').forEach((button) => button.addEventListener('click', () => addRecipe(button.dataset.recipe, button)));";
-const inlineEndBody = indexHtml.indexOf(inlineEndMarker, markerPos);
-assert.ok(inlineStart >= 0 && inlineEndBody >= markerPos, 'Homepage inline recipe runtime boundaries must be detectable.');
-const inlineClose = indexHtml.indexOf('})();', inlineEndBody + inlineEndMarker.length);
-assert.ok(inlineClose > inlineEndBody, 'Homepage inline recipe runtime must close its IIFE.');
-const inlineRecipeSource = indexHtml.slice(inlineStart, inlineClose + 5);
-const normalizeSource = (source) => source.split('\n').map((line) => line.trim()).filter(Boolean).join('\n');
-
+assert.ok(indexHtml.includes('assets/home-recipes.js?v=20260904-1'), 'Homepage must load the canonical external recipe runtime.');
+assert.ok(!indexHtml.includes('const RECIPES = {'), 'Homepage must not keep a second inline copy of recipe logic.');
 new Script(homeSource, { filename:'assets/home-recipes.js' });
-new Script(inlineRecipeSource, { filename:'index.html:inline-home-recipes' });
 new Script(guardSource, { filename:'assets/shopping-recipe-quantity-guard.js' });
 new Script(coldSyncSource, { filename:'assets/shopping-owner-cold-sync.js' });
-assert.equal(
-  normalizeSource(inlineRecipeSource),
-  normalizeSource(homeSource),
-  'Inline homepage recipe runtime must stay in exact sync with assets/home-recipes.js without adding another JS request.'
-);
 
-for (const source of [homeSource, inlineRecipeSource]) {
-  assert.match(source, /LEGACY_RECIPE_START = Date\.parse\('2026-09-03T08:15:00Z'\)/, 'Legacy migration must be bounded to the recipe rollout window.');
-  assert.match(source, /LEGACY_RECIPE_END = Date\.parse\('2026-09-03T09:00:00Z'\)/, 'Legacy migration must have an explicit end time.');
-  assert.match(source, /legacyRecipeRows = new Map\(/, 'Legacy migration must require an exact recipe name/quantity/unit signature.');
-  assert.doesNotMatch(source, /legacyRecipeNames = new Set/, 'Broad name-only recipe migration must never return.');
-  assert.match(source, /source:'recipe',recipe_id:key/, 'New recipe rows must carry recipe provenance.');
-  assert.match(source, /quantity:1,qty:1,unit:'ks'/, 'A recipe ingredient must count as one shopping-list row regardless of grams or millilitres.');
-}
+assert.match(homeSource, /LEGACY_RECIPE_START = Date\.parse\('2026-09-03T08:15:00Z'\)/, 'Legacy migration must be bounded to the recipe rollout window.');
+assert.match(homeSource, /LEGACY_RECIPE_END = Date\.parse\('2026-09-03T09:00:00Z'\)/, 'Legacy migration must have an explicit end time.');
+assert.match(homeSource, /legacyRecipeRows = new Map\(/, 'Legacy migration must require an exact recipe name\/quantity\/unit signature.');
+assert.doesNotMatch(homeSource, /legacyRecipeNames = new Set/, 'Broad name-only recipe migration must never return.');
+assert.match(homeSource, /source:'recipe',recipe_id:key,recipe_ids:\[key\]/, 'New recipe rows must carry complete recipe provenance.');
+assert.match(homeSource, /quantity:1,qty:1,unit:'ks'/, 'A recipe ingredient must count as one shopping-list row regardless of grams or millilitres.');
+assert.match(homeSource, /function mergeRecipeProvenance\(/, 'Identical ingredients shared by recipes must merge recipe provenance instead of duplicating rows.');
+assert.match(homeSource, /row\.recipe_dirty = 1/, 'Merged recipe provenance must be marked for cloud synchronization.');
 
 assert.match(candidateMigration, /create or replace function public\.get_public_shopping_list_candidates/i, 'Recipe candidate normalization must be persisted as a database migration.');
 assert.ok(candidateMigration.includes('kg|g|ml|l|ks|balení|stroužky'), 'Candidate search must recognize recipe amount annotations.');
@@ -63,8 +47,8 @@ assert.match(candidateMigration, /filter_group'\s*,?''\)='food'|filter_group'\s*
 assert.match(candidateMigration, /stem_count\s*=\s*s\.token_count|s\.stem_count\s*=\s*s\.token_count/, 'Every meaningful recipe token must match the candidate identity.');
 assert.match(candidateMigration, /max_exact_count/, 'Recipe candidates must prefer the highest exact-token identity.');
 assert.match(candidateMigration, /detska vyziva\|kojeneck\|krmiv/, 'Infant-food and pet-food contexts must not leak into recipe ingredients.');
-assert.match(candidateMigration, /hovezi maso[\s\S]*?mlet\|meln\|burger\|tatarak/, 'Generic beef for goulash must reject minced/burger substitutes.');
-assert.match(candidateMigration, /sadlo[\s\S]*?bez kuze[\s\S]*?maso a ryby/, 'Recipe lard must reject raw pork fat / meat-category substitutes.');
+assert.match(candidateMigration, /hovezi maso[\s\S]*?mlet\|meln\|burger\|tatarak/, 'Generic beef for goulash must reject minced\/burger substitutes.');
+assert.match(candidateMigration, /sadlo[\s\S]*?bez kuze[\s\S]*?maso a ryby/, 'Recipe lard must reject raw pork fat \/ meat-category substitutes.');
 assert.match(candidateMigration, /strouhanka[\s\S]*?panko\|japonsk/, 'Generic breadcrumbs must not silently turn into Panko.');
 assert.match(candidateMigration, /parmazan[\s\S]*?a la parmazan\|styl parmazan/, 'Parmesan must not silently turn into imitation a-la-Parmesan cheese.');
 assert.match(candidateMigration, /olej na smazeni'[\s\S]*?then 'Olej'/, 'Frying oil must search the generic oil catalogue instead of the full cooking phrase.');
@@ -72,13 +56,13 @@ assert.match(candidateMigration, /slunecnic\|repk\|rostlinn\|frit/, 'Generic rec
 assert.match(candidateMigration, /quantity_text'[\s\S]*?\(ml\|l\)/, 'Generic oil candidates must represent an actual liquid oil package.');
 
 // Recipe amount annotations affect purchase cost, never shopping-list piece quantity.
-assert.match(candidateMigration, /recipe_base_price/, 'Adjusted recipe offers must preserve their original package/base price.');
+assert.match(candidateMigration, /recipe_base_price/, 'Adjusted recipe offers must preserve their original package\/base price.');
 assert.match(candidateMigration, /recipe_purchase_multiplier/, 'Adjusted recipe offers must expose the purchase multiplier.');
 assert.match(candidateMigration, /recipe_required_amount/, 'Adjusted recipe offers must expose the required recipe amount.');
 assert.match(candidateMigration, /purchase_multiplier/, 'Candidate pricing must calculate a recipe purchase multiplier.');
-assert.match(candidateMigration, /variable_price/, 'Per-kilogram/per-litre offers must be distinguished from fixed packages.');
+assert.match(candidateMigration, /variable_price/, 'Per-kilogram\/per-litre offers must be distinguished from fixed packages.');
 assert.match(candidateMigration, /ceil\(/, 'Fixed packages must round required package counts upward.');
-assert.match(candidateMigration, /'%cena za%'/, 'Loose/per-unit pricing must recognize the public quantity label.');
+assert.match(candidateMigration, /'%cena za%'/, 'Loose\/per-unit pricing must recognize the public quantity label.');
 assert.match(candidateMigration, /jsonb_set\([\s\S]*?'\{price\}'/, 'The optimizer price must be replaced with the required purchase cost for recipe candidates.');
 assert.match(candidateMigration, /kg\|g\|ml\|l\|ks\|kusů\|kusy\|kus/, 'Package parser must recognize Czech count-unit aliases as well as ks.');
 assert.match(candidateMigration, /lower\(a\.req\[3\]\)='ks'[\s\S]*?lower\(a\.pkg\[3\]\) in \('ks','kusů','kusy','kus'\)/, 'Czech count aliases must be normalized into the same purchase-count calculation as ks.');
