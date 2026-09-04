@@ -161,11 +161,28 @@
   }
 
   function loadStoreArrivalCopyVariation() {
-    if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
-    const script = document.createElement('script');
-    script.src = 'assets/store-arrival-copy-variation.js?v=20260811-2';
-    script.defer = true;
-    document.head.appendChild(script);
+    const isEnabled = () => {
+      try { return localStorage.getItem('slevao-store-arrival-alerts-v1') === '1'; }
+      catch { return false; }
+    };
+    const attach = () => {
+      if (document.querySelector('script[src*="store-arrival-copy-variation.js"]')) return;
+      const script = document.createElement('script');
+      script.src = 'assets/store-arrival-copy-variation.js?v=20260811-2';
+      script.defer = true;
+      document.head.appendChild(script);
+    };
+
+    if (isEnabled()) {
+      attach();
+      return;
+    }
+    if (window.__slevaoArrivalCopyLazyBound) return;
+    window.__slevaoArrivalCopyLazyBound = true;
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#slArrivalToggle')) return;
+      window.setTimeout(attach, 0);
+    }, true);
   }
 
   function loadStoreArrivalAlerts() {
