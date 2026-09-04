@@ -12,6 +12,10 @@
   const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   const readList = () => { try { const value = JSON.parse(localStorage.getItem(LIST_KEY) || '[]'); return Array.isArray(value) ? value : []; } catch { return []; } };
+  const recipeSources = (row) => [...new Set([
+    row?.recipe_id,
+    ...(Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])
+  ].map((value) => String(value || '').trim()).filter(Boolean))];
   const legacyRecipeRows = new Map([
     ['Špagety',1,'balení','Špagety (1 balení)'],['Mleté hovězí maso',500,'g','Mleté hovězí maso (500 g)'],['Rajčatové pyré',1,'ks','Rajčatové pyré (1 ks)'],['Cibule',1,'ks','Cibule (1 ks)'],['Česnek',2,'stroužky','Česnek (2 stroužky)'],['Mrkev',1,'ks','Mrkev (1 ks)'],['Parmazán',1,'balení','Parmazán (1 balení)'],['Olivový olej',1,'ks','Olivový olej (1 ks)'],
     ['Kuřecí prsa',600,'g','Kuřecí prsa (600 g)'],['Hladká mouka',1,'balení','Hladká mouka (1 balení)'],['Vejce',3,'ks','Vejce (3 ks)'],['Strouhanka',1,'balení','Strouhanka (1 balení)'],['Olej na smažení',1,'ks','Olej na smažení (1 ks)'],['Brambory',1,'kg','Brambory (1 kg)'],
@@ -47,16 +51,36 @@
     if (changed) try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch {}
   }
 
+  function mergeRecipeProvenance(row, recipeKey) {
+    if (!row || !(row.source === 'recipe' || row.recipe_id || recipeSources(row).length)) return false;
+    const before = recipeSources(row);
+    const next = [...new Set([...before, String(recipeKey || '').trim()].filter(Boolean))];
+    if (next.length === before.length && next.every((value, index) => value === before[index])) return false;
+    row.source = 'recipe';
+    row.recipe_id = row.recipe_id || next[0] || recipeKey;
+    row.recipe_ids = next;
+    row.updated_at = new Date().toISOString();
+    row.recipe_dirty = 1;
+    delete row.recipe_cloud_synced;
+    return true;
+  }
+
   function addRecipe(key, button) {
     const ingredients = RECIPES[key]; if (!ingredients) return;
-    const rows = readList(); let added = 0;
+    const rows = readList(); let added = 0; let linked = 0;
     ingredients.forEach((name) => {
-      if (rows.some((row) => !row.completed && normalize(row.custom_name || row.name) === normalize(name))) return;
-      rows.push({local_id:uid(),key:`c:${normalize(name)}`,product_id:null,selected_offer_id:null,custom_name:name,name,quantity:1,qty:1,unit:'ks',completed:false,source:'recipe',recipe_id:key,added_at:new Date().toISOString()}); added += 1;
+      const existing = rows.find((row) => !row.completed && normalize(row.custom_name || row.name) === normalize(name));
+      if (existing) {
+        if (mergeRecipeProvenance(existing, key)) linked += 1;
+        return;
+      }
+      rows.push({local_id:uid(),key:`c:${normalize(name)}`,product_id:null,selected_offer_id:null,custom_name:name,name,quantity:1,qty:1,unit:'ks',completed:false,source:'recipe',recipe_id:key,recipe_ids:[key],added_at:new Date().toISOString()}); added += 1;
     });
     try { localStorage.setItem(LIST_KEY, JSON.stringify(rows)); } catch { return; }
     window.SlevaoPublic?.updateNavCount?.();
-    const original = button.textContent; button.textContent = added ? `Přidáno ${added} surovin ✓` : 'Už je v seznamu ✓'; button.classList.add('is-added');
+    const original = button.textContent;
+    button.textContent = added ? `Přidáno ${added} surovin ✓` : linked ? 'Recept propojen se seznamem ✓' : 'Už je v seznamu ✓';
+    button.classList.add('is-added');
     window.setTimeout(() => { button.textContent = original; button.classList.remove('is-added'); }, 2400);
   }
   migrateLegacyRecipeRows();
