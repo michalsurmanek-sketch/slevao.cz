@@ -165,47 +165,6 @@
     return { rows: removed.size ? rows.filter((row) => !removed.has(row)) : rows, merged };
   }
 
-  function createMutationId() {
-    const source = globalThis.crypto;
-    if (source?.randomUUID) return source.randomUUID();
-    if (!source?.getRandomValues) throw new Error('Prohlížeč neumí bezpečně vytvořit identifikátor změny.');
-    const bytes = new Uint8Array(16);
-    source.getRandomValues(bytes);
-    bytes[6] = (bytes[6] & 0x0f) | 0x40;
-    bytes[8] = (bytes[8] & 0x3f) | 0x80;
-    const hex = [...bytes].map((value) => value.toString(16).padStart(2, '0')).join('');
-    return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
-  }
-
-  async function findOwnerList(db, userId) {
-    const { data, error } = await db.from('shopping_lists')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('is_archived', false)
-      .order('created_at')
-      .limit(1)
-      .maybeSingle();
-    if (error) throw error;
-    return data?.id || null;
-  }
-
-  async function loadRemoteRecipeMap(db, listId) {
-    if (!listId) return new Map();
-    const { data, error } = await db.from('shopping_list_items')
-      .select('id,custom_name,quantity,unit,is_completed,updated_at')
-      .eq('shopping_list_id', listId)
-      .is('product_id', null)
-      .order('created_at');
-    if (error) throw error;
-    const map = new Map();
-    for (const row of data || []) {
-      if (row?.is_completed) continue;
-      const key = normalizeRecipeName(row?.custom_name);
-      if (key && !map.has(key)) map.set(key, row);
-    }
-    return map;
-  }
-
   function alignRecipeRow(row, remote) {
     if (!row || !remote?.id) return;
     row.server_id = remote.id;
@@ -215,8 +174,31 @@
     row.unit = 'ks';
     row.completed = false;
     row.is_completed = false;
+    row.source = 'recipe';
+    if (Array.isArray(remote.recipe_ids) && remote.recipe_ids.length) row.recipe_ids = remote.recipe_ids;
     row.updated_at = remote.updated_at || new Date().toISOString();
     delete row.recipe_dirty;
+  }
+
+  async function syncRecipeRow(db, row) {
+    const name = String(row?.custom_name || row?.name || '').trim();
+    if (!name) return { synced:false, conflict:false };
+
+    const { data: sync, error: syncError } = await db.rpc('sync_own_shopping_list_recipe_item', {
+      p_source_item_id: row?.server_id || null,
+      p_custom_name: name,
+      p_recipe_ids: recipeSources(row),
+    });
+    if (syncError) throw syncError;
+
+    if (sync?.status === 'conflict') {
+      return { synced:false, conflict:true, reason:sync?.reason || 'recipe_conflict' };
+    }
+
+    const remote = sync?.item || null;
+    if (!remote?.id) throw new Error('Synchronizace receptu nepotvrdila receptovou položku.');
+    alignRecipeRow(row, remote);
+    return { synced:true, conflict:false, status:sync?.status || 'updated' };
   }
 
   async function syncPendingRecipeRows() {
@@ -226,74 +208,38 @@
     if (consolidated.merged > 0) api.writeList?.(rows);
 
     const db = await api.getSupabase();
-    if (!db) return { synced:0, localOnly:true, merged:consolidated.merged };
+    if (!db) return { synced:0, conflicts:0, localOnly:true, merged:consolidated.merged };
 
     const { data, error } = await db.auth.getSession();
     if (error) throw error;
     const session = data?.session || null;
-    if (!session?.user?.id) return { synced:0, localOnly:true, merged:consolidated.merged };
+    if (!session?.user?.id) return { synced:0, conflicts:0, localOnly:true, merged:consolidated.merged };
 
-    const dirty = rows.filter((row) => (
+    const candidates = rows.filter((row) => (
       row?.source === 'recipe'
-      && row?.server_id
-      && row?.recipe_dirty
       && !row?.completed
+      && !row?.is_completed
       && String(row?.custom_name || row?.name || '').trim()
+      && (!row?.server_id || row?.recipe_dirty)
     ));
-    const pending = rows.filter((row) => (
-      row?.source === 'recipe'
-      && !row?.server_id
-      && !row?.completed
-      && String(row?.custom_name || row?.name || '').trim()
-    ));
-    if (!pending.length && !dirty.length) return { synced:0, localOnly:false, merged:consolidated.merged };
+    if (!candidates.length) return { synced:0, conflicts:0, localOnly:false, merged:consolidated.merged };
 
-    let listId = await findOwnerList(db, session.user.id);
-    const remoteMap = await loadRemoteRecipeMap(db, listId);
     let synced = 0;
-
-    for (const row of dirty) {
-      if (!listId) throw new Error('Aktivní nákupní seznam pro synchronizovaný recept nebyl nalezen.');
-      const name = String(row.custom_name || row.name || '').trim();
-      const { data: updated, error: updateError } = await db.from('shopping_list_items')
-        .update({ custom_name:name, quantity:1, unit:'ks', is_completed:false })
-        .eq('id', row.server_id)
-        .eq('shopping_list_id', listId)
-        .is('product_id', null)
-        .select('id,custom_name,quantity,unit,is_completed,updated_at')
-        .maybeSingle();
-      if (updateError) throw updateError;
-      if (!updated?.id) throw new Error('Synchronizace sloučené receptové suroviny nebyla potvrzena.');
-      alignRecipeRow(row, updated);
-      remoteMap.set(normalizeRecipeName(name), updated);
-      synced += 1;
-    }
-
-    for (const row of pending) {
-      const name = String(row.custom_name || row.name || '').trim();
-      const key = normalizeRecipeName(name);
-      let remote = remoteMap.get(key) || null;
-
-      if (!remote) {
-        const { data: sync, error: syncError } = await db.rpc('add_own_shopping_list_custom_item', {
-          p_custom_name: name,
-          p_quantity: 1,
-          p_unit: 'ks',
-          p_mutation_id: createMutationId(),
-        });
-        if (syncError) throw syncError;
-        remote = sync?.item || null;
-        if (!remote?.id) throw new Error('Synchronizace receptu nepotvrdila přidanou surovinu.');
-        listId = sync?.list_id || listId;
-        remoteMap.set(key, remote);
+    let conflicts = 0;
+    for (const row of candidates) {
+      const result = await syncRecipeRow(db, row);
+      if (result.conflict) {
+        conflicts += 1;
+        continue;
       }
-
-      alignRecipeRow(row, remote);
-      synced += 1;
+      if (result.synced) {
+        synced += 1;
+        api.writeList?.(rows);
+      }
     }
 
     api.writeList?.(rows);
-    return { synced, localOnly:false, merged:consolidated.merged };
+    return { synced, conflicts, localOnly:false, merged:consolidated.merged };
   }
 
   function runOriginalRecipeAdd(button) {
@@ -367,9 +313,10 @@
         if (result?.localOnly) {
           const mergeText = result?.merged > 0 ? ` ${result.merged} duplicitních surovin bylo sloučeno.` : '';
           window.SlevaoPublic?.toast?.(`Recept je uložen v tomto zařízení.${mergeText} Po přihlášení se synchronizuje se seznamem.`);
-        } else if (result?.synced > 0) {
+        } else if (result?.synced > 0 || result?.conflicts > 0) {
           const mergeText = result?.merged > 0 ? `, ${result.merged} duplicitních surovin sloučeno` : '';
-          window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem${mergeText}.`);
+          const conflictText = result?.conflicts > 0 ? `; ${result.conflicts} nejasných konfliktů ponecháno beze změny` : '';
+          window.SlevaoPublic?.toast?.(`Recept je uložen a ${result.synced} surovin je synchronizováno s účtem${mergeText}${conflictText}.`);
         }
       })
       .catch((error) => {
