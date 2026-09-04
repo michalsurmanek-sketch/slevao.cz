@@ -87,7 +87,7 @@ assert.match(recipeMigration, /add column if not exists recipe_ids text\[\] not 
 assert.match(recipeMigration, /create or replace function public\.sync_own_shopping_list_recipe_item/i, 'Musí existovat dedikovaný recipe sync RPC.');
 assert.match(recipeMigration, /security invoker/i, 'Recipe RPC nesmí obcházet RLS.');
 assert.match(recipeMigration, /v_user_id uuid := \(select auth\.uid\(\)\)/i, 'Recipe RPC musí vyžadovat aktuálního uživatele.');
-assert.match(recipeMigration, /slevao-owner-shopping-list-custom:[\s\S]*?pg_advisory_xact_lock/i, 'Recipe RPC musí používat stejný per-item advisory lock namespace jako obecný custom zápis.');
+assert.match(recipeMigration, /pg_advisory_xact_lock[\s\S]*?slevao-owner-shopping-list-custom:/i, 'Recipe RPC musí používat stejný per-item advisory lock namespace jako obecný custom zápis.');
 assert.match(recipeMigration, /v_target_safe := v_target\.is_recipe[\s\S]*?v_target\.quantity = 1[\s\S]*?v_target\.custom_name ~\*/i, 'Legacy cílový řádek se smí deduplikovat jen při úzkém recipe-safe podpisu.');
 assert.match(recipeMigration, /if not v_target_safe then[\s\S]*?'status', 'conflict'/i, 'Nejasný target musí failnout bez destruktivního sloučení.');
 assert.match(recipeMigration, /if v_source_found and v_source\.id <> v_item\.id then[\s\S]*?delete from public\.shopping_list_items/i, 'Zdroj se smí smazat až po potvrzeném bezpečném cíli.');
