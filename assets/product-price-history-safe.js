@@ -30,34 +30,6 @@
     }));
   }
 
-  async function load(productId, limit = DEFAULT_LIMIT) {
-    const id = String(productId || '').trim();
-    if (!uuidPattern.test(id)) {
-      return { data:null, error:new Error('Missing or invalid product_id for public price history.') };
-    }
-
-    let client;
-    try {
-      client = originalGetClient();
-    } catch (error) {
-      return { data:null, error };
-    }
-    if (!client?.rpc) {
-      return { data:null, error:new Error('Supabase client is unavailable for public price history.') };
-    }
-
-    try {
-      const result = await client.rpc(RPC_NAME, {
-        p_product_id: id,
-        p_limit: normalizedLimit(limit),
-      });
-      if (result?.error) return { data:null, error:result.error };
-      return { ...result, data:normalizeRows(result?.data) };
-    } catch (error) {
-      return { data:null, error };
-    }
-  }
-
   function install(client) {
     if (!client || typeof client.from !== 'function') return false;
     if (installedClients.has(client) || client.__slevaoSafePriceHistoryInstalled === true) return true;
@@ -92,9 +64,6 @@
             return load(productId, rowLimit);
           };
           return run().then(resolve, reject);
-        },
-        catch(reject) {
-          return Promise.resolve(builder).catch(reject);
         },
       };
       return builder;
@@ -132,17 +101,43 @@
     }
   }
 
-  api.getClient = function safeGetClient() {
-    const client = originalGetClient();
-    if (client) install(client);
-    return client;
-  };
+  async function load(productId, limit = DEFAULT_LIMIT) {
+    const id = String(productId || '').trim();
+    if (!uuidPattern.test(id)) {
+      return { data:null, error:new Error('Missing or invalid product_id for public price history.') };
+    }
 
-  window.SlevaoPriceHistorySafe = {
+    let client;
+    try {
+      client = originalGetClient();
+    } catch (error) {
+      return { data:null, error };
+    }
+    if (!client?.rpc) {
+      return { data:null, error:new Error('Supabase client is unavailable for public price history.') };
+    }
+
+    // Patch only the mutable Supabase client instance. SlevaoSupabase itself is
+    // intentionally frozen and must never be monkey-patched.
+    install(client);
+
+    try {
+      const result = await client.rpc(RPC_NAME, {
+        p_product_id: id,
+        p_limit: normalizedLimit(limit),
+      });
+      if (result?.error) return { data:null, error:result.error };
+      return { ...result, data:normalizeRows(result?.data) };
+    } catch (error) {
+      return { data:null, error };
+    }
+  }
+
+  window.SlevaoPriceHistorySafe = Object.freeze({
     load,
     install,
     rpc:RPC_NAME,
-  };
+  });
 
   let installed = false;
   try {
@@ -156,6 +151,6 @@
     ok:true,
     status:installed ? 'patched' : 'lazy',
     rpc:RPC_NAME,
-    mode:'rpc-first-lazy-adapter-v2',
+    mode:'rpc-first-client-only-adapter-v3',
   };
 })();
