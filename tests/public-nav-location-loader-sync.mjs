@@ -15,7 +15,7 @@ const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 
 new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 
-const navVersion = '20260901-2';
+const navVersion = '20260904-1';
 const storeBottomNavVersion = '20260901-1';
 const locationVersion = '20260821-1';
 const publicFeaturesVersion = '20260828-2';
