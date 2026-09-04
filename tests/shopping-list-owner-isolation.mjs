@@ -42,7 +42,7 @@ for (const [path, source] of consumers) {
   assert.match(source, /slevao-shopping-list-v1/, `${path} už nepoužívá jednotný bridgovaný legacy klíč.`);
 }
 
-const navVersion = '20260901-2';
+const navVersion = '20260904-1';
 assert.match(index, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), 'index.html nemá nasazený owner bridge.');
 for (const [name, source] of [['produkt.html', product], ['seznam.html', listHtml], ['ucet.html', accountHtml]]) {
   assert.match(source, new RegExp(`assets/public-nav-upgrade\\.js\\?v=${navVersion}`), `${name} nemá nasazený owner bridge.`);
