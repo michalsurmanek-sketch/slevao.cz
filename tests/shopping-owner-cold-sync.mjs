@@ -53,7 +53,11 @@ assert.equal(helperContext.result.customKey, 'c:rohliky');
 let localRows = [
   { local_id:'unsynced', product_id:'bread', quantity:1 },
   { local_id:'current', server_id:'row-1', product_id:'milk', quantity:2 },
-  { local_id:'deleted', server_id:'row-deleted', product_id:'eggs', quantity:1 }
+  { local_id:'deleted', server_id:'row-deleted', product_id:'eggs', quantity:1 },
+  {
+    local_id:'deleted-recipe', server_id:'recipe-deleted', source:'recipe', recipe_id:'rizek',
+    custom_name:'Vejce (3 ks)', name:'Vejce (3 ks)', quantity:1, unit:'ks', completed:false
+  }
 ];
 const writes = [];
 const localStorage = {
@@ -113,8 +117,9 @@ const api = window.SlevaoShoppingOwnerColdSync;
 assert.ok(api, 'Cold-sync API se nenainstalovalo.');
 const syncResult = await api.sync('user-1');
 assert.equal(syncResult.changed, true, 'Stale serverový řádek nebyl při cold sync detekovaný.');
-assert.equal(syncResult.removed, 1, 'Cold sync odstranil chybný počet stale řádků.');
-assert.deepEqual(localRows.map((row) => row.local_id), ['unsynced', 'current'], 'Cold sync zahodil unsynced řádek nebo ponechal vzdáleně smazaný řádek.');
+assert.equal(syncResult.removed, 2, 'Cold sync odstranil chybný počet stale řádků včetně vzdáleně smazaného receptu.');
+assert.equal(syncResult.removed_before_recipe_sync, 2, 'Vzdáleně smazané řádky musí zmizet ještě před recipe RPC.');
+assert.deepEqual(localRows.map((row) => row.local_id), ['unsynced', 'current'], 'Cold sync zahodil unsynced řádek nebo ponechal vzdáleně smazaný řádek/recept.');
 assert.equal(writes.length, 1, 'Cold sync zapisuje localStorage vícekrát než je nutné.');
 
 const recipeRow = {
@@ -189,12 +194,19 @@ for (const needle of [
   "if (!serverId) return true;",
   'if (remoteIds.has(serverId)) return true;',
   'remoteKeys.has(key)',
+  'let snapshot = await loadOwnerSnapshot(ownerId);',
+  'let nextRows = reconcileBeforeMerge(localRows, snapshot.remoteRows);',
+  'const recipeSync = await syncLocalRecipeRows(nextRows);',
   ".eq('user_id', ownerId)",
   ".eq('is_archived', false)",
   ".eq('shopping_list_id', list.id)",
   ".select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at,is_recipe,recipe_ids')",
   'localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));',
 ]) assert.ok(source.includes(needle), `Chybí owner cold-sync kontrakt: ${needle}`);
+
+const reconcilePos = source.indexOf('let nextRows = reconcileBeforeMerge(localRows, snapshot.remoteRows);');
+const recipeSyncPos = source.indexOf('const recipeSync = await syncLocalRecipeRows(nextRows);', reconcilePos);
+assert.ok(reconcilePos >= 0 && recipeSyncPos > reconcilePos, 'Recipe RPC nesmí běžet před odstraněním vzdáleně smazaných lokálních kopií.');
 
 for (const needle of [
   'function normalizedRecipeIds(row)',
@@ -247,4 +259,4 @@ assert.ok(coldSyncIndex > markerIndex, 'Cold sync běží před nastavením spr�
 assert.ok(preflightIndex > coldSyncIndex, 'Owner preflight končí před dokončením cold sync.');
 assert.ok(insightsIndex > preflightIndex, 'Shopping insights se spouští před dokončením owner preflight.');
 
-console.log('Shopping owner cold sync preserves atomic recipe provenance and prevents stale remote resurrection');
+console.log('Shopping owner cold sync preserves atomic recipe provenance and prevents deleted recipes from resurrecting');
