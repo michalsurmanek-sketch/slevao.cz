@@ -4,17 +4,19 @@ import { Script, createContext } from 'node:vm';
 
 const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('assets/shopping-owner-cold-sync.js', root), 'utf8');
+const cloudSource = readFileSync(new URL('assets/shopping-owner-cloud-refresh.js', root), 'utf8');
 const bootstrap = readFileSync(new URL('assets/shopping-insights-bootstrap.js', root), 'utf8');
 const html = readFileSync(new URL('seznam.html', root), 'utf8');
 const worker = readFileSync(new URL('service-worker.js', root), 'utf8');
 new Script(source, { filename:'assets/shopping-owner-cold-sync.js' });
+new Script(cloudSource, { filename:'assets/shopping-owner-cloud-refresh.js' });
 new Script(bootstrap, { filename:'assets/shopping-insights-bootstrap.js' });
 
 const helperStart = source.indexOf('  const norm =');
 const helperEnd = source.indexOf('\n  async function sync(userId)', helperStart);
 assert.ok(helperStart >= 0 && helperEnd > helperStart, 'Cold-sync helpers nejdou izolovaně otestovat.');
 const helpers = source.slice(helperStart, helperEnd);
-const helperContext = { result:null, String, JSON, Array, Set, Boolean };
+const helperContext = { result:null, String, JSON, Array, Set, Map, Boolean };
 new Script(`
   const LIST_KEY = 'slevao-shopping-list-v1';
   const localStorage = { getItem(){ return '[]'; } };
@@ -79,6 +81,9 @@ function query(result) {
 }
 
 const db = {
+  rpc(name) {
+    throw new Error(`Unexpected RPC ${name}`);
+  },
   from(table) {
     if (table === 'shopping_lists') return query({ data:{ id:'list-1' }, error:null });
     if (table === 'shopping_list_items') {
@@ -99,6 +104,7 @@ const context = createContext({
   JSON,
   Array,
   Set,
+  Map,
   Boolean,
   Promise
 });
@@ -111,6 +117,62 @@ assert.equal(syncResult.removed, 1, 'Cold sync odstranil chybný počet stale ř
 assert.deepEqual(localRows.map((row) => row.local_id), ['unsynced', 'current'], 'Cold sync zahodil unsynced řádek nebo ponechal vzdáleně smazaný řádek.');
 assert.equal(writes.length, 1, 'Cold sync zapisuje localStorage vícekrát než je nutné.');
 
+const recipeRow = {
+  local_id:'recipe-eggs',
+  source:'recipe',
+  recipe_id:'rizek',
+  recipe_ids:['palacinky'],
+  custom_name:'Vejce (5 ks)',
+  name:'Vejce (5 ks)',
+  quantity:1,
+  unit:'ks',
+  completed:false,
+  recipe_dirty:true,
+};
+assert.deepEqual(Array.from(api.recipeSources(recipeRow)).sort(), ['palacinky','rizek']);
+assert.equal(api.adoptRecipeRemote(recipeRow, {
+  id:'remote-eggs',
+  custom_name:'Vejce (5 ks)',
+  quantity:1,
+  unit:'ks',
+  is_completed:false,
+  recipe_ids:['palacinky','rizek'],
+  updated_at:'2026-09-04T13:00:00Z',
+}), true);
+assert.equal(recipeRow.server_id, 'remote-eggs');
+assert.equal(recipeRow.source, 'recipe');
+assert.equal(recipeRow.quantity, 1);
+assert.equal(recipeRow.recipe_cloud_synced, 1);
+assert.equal(recipeRow.recipe_dirty, undefined);
+assert.deepEqual(Array.from(recipeRow.recipe_ids).sort(), ['palacinky','rizek']);
+
+const manualConflict = {
+  local_id:'recipe-onion',
+  source:'recipe',
+  recipe_id:'gulas',
+  recipe_ids:['gulas'],
+  custom_name:'Cibule (5 ks)',
+  name:'Cibule (5 ks)',
+  quantity:1,
+  unit:'ks',
+  completed:false,
+  recipe_dirty:true,
+};
+assert.equal(api.adoptManualConflict(manualConflict, {
+  id:'manual-onion',
+  custom_name:'Cibule (5 ks)',
+  quantity:2,
+  unit:'ks',
+  is_completed:false,
+}, 'target_not_recipe_safe'), true);
+assert.equal(manualConflict.server_id, 'manual-onion');
+assert.equal(manualConflict.source, 'manual', 'Při nejasném konfliktu musí explicitní ruční položka vyhrát.');
+assert.equal(manualConflict.quantity, 2, 'Ruční množství se nesmí přepsat receptovým quantity=1.');
+assert.equal(manualConflict.recipe_id, undefined);
+assert.equal(manualConflict.recipe_ids, undefined);
+assert.equal(manualConflict.recipe_dirty, undefined);
+assert.equal(manualConflict.recipe_sync_conflict, 'target_not_recipe_safe');
+
 localRows = [{ local_id:'guest-new', product_id:'coffee', quantity:1 }];
 writes.length = 0;
 const guestResult = await api.sync('');
@@ -118,14 +180,33 @@ assert.equal(guestResult.changed, false, 'Guest cold sync nesmí měnit seznam.'
 assert.equal(writes.length, 0, 'Guest cold sync zapsal localStorage.');
 
 for (const needle of [
+  "db.rpc('sync_own_shopping_list_recipe_item'",
+  'p_source_item_id: row?.server_id || null',
+  'p_recipe_ids: recipeSources(row)',
+  "row.source = 'manual';",
+  'delete row.recipe_ids;',
+  'row.recipe_cloud_synced = 1;',
   "if (!serverId) return true;",
   'if (remoteIds.has(serverId)) return true;',
   'remoteKeys.has(key)',
   ".eq('user_id', ownerId)",
   ".eq('is_archived', false)",
   ".eq('shopping_list_id', list.id)",
+  ".select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,created_at,updated_at,is_recipe,recipe_ids')",
   'localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));',
 ]) assert.ok(source.includes(needle), `Chybí owner cold-sync kontrakt: ${needle}`);
+
+for (const needle of [
+  'function normalizedRecipeIds(row)',
+  "const isRecipe = remote ? Boolean(row?.is_recipe) : row?.source === 'recipe';",
+  "isRecipe ? 'recipe' : 'manual'",
+  'function applyRemoteProvenance(merged, remote)',
+  "merged.source = 'recipe';",
+  'merged.recipe_cloud_synced = 1;',
+  "merged.source = 'manual';",
+  'delete merged.recipe_ids;',
+  ".select('id,product_id,selected_offer_id,custom_name,quantity,unit,is_completed,updated_at,is_recipe,recipe_ids')",
+]) assert.ok(cloudSource.includes(needle), `Chybí recipe provenance v owner cloud refresh: ${needle}`);
 
 const coldUrl = html.match(/assets\/shopping-owner-cold-sync\.js\?v=[^"']+/)?.[0] || '';
 const bootstrapUrl = html.match(/assets\/shopping-insights-bootstrap\.js\?v=[^"']+/)?.[0] || '';
@@ -166,4 +247,4 @@ assert.ok(coldSyncIndex > markerIndex, 'Cold sync běží před nastavením spr�
 assert.ok(preflightIndex > coldSyncIndex, 'Owner preflight končí před dokončením cold sync.');
 assert.ok(insightsIndex > preflightIndex, 'Shopping insights se spouští před dokončením owner preflight.');
 
-console.log('Shopping owner cold sync prevents stale remote deletions from resurrecting');
+console.log('Shopping owner cold sync preserves atomic recipe provenance and prevents stale remote resurrection');
