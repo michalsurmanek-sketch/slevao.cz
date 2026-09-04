@@ -68,6 +68,76 @@
     return true;
   }
 
+  function createRemoteRecipeLocalRow(remote) {
+    if (!remote?.id || remote?.product_id || !remote?.is_recipe || !String(remote?.custom_name || '').trim()) return null;
+    const name = String(remote.custom_name).trim();
+    return {
+      local_id:`remote:${remote.id}`,
+      server_id:remote.id,
+      key:itemKey(remote),
+      product_id:null,
+      selected_offer_id:remote.selected_offer_id || null,
+      custom_name:name,
+      name,
+      quantity:1,
+      qty:1,
+      unit:'ks',
+      completed:Boolean(remote.is_completed),
+      is_completed:Boolean(remote.is_completed),
+      source:'recipe',
+      recipe_ids:recipeSources(remote),
+      recipe_cloud_synced:1,
+      added_at:remote.created_at || remote.updated_at || new Date().toISOString(),
+      updated_at:remote.updated_at || remote.created_at || new Date().toISOString()
+    };
+  }
+
+  function hydrateRemoteRecipeRows(localRows, remoteRows) {
+    const rows = Array.isArray(localRows) ? localRows : [];
+    const localByKey = new Map(rows.map((row) => [itemKey(row), row]).filter(([key]) => key && key !== 'c:'));
+    let changed = false;
+    let added = 0;
+    let adopted = 0;
+
+    for (const remote of remoteRows || []) {
+      if (!remote?.is_recipe || remote?.product_id || !remote?.id || !String(remote?.custom_name || '').trim()) continue;
+      const key = itemKey(remote);
+      if (!key || key === 'c:') continue;
+      const local = localByKey.get(key);
+      if (local) {
+        const before = JSON.stringify({
+          server_id:local.server_id || null,
+          source:local.source || null,
+          recipe_ids:recipeSources(local),
+          quantity:Number(local.quantity || 1),
+          completed:Boolean(local.completed)
+        });
+        adoptRecipeRemote(local, remote);
+        const after = JSON.stringify({
+          server_id:local.server_id || null,
+          source:local.source || null,
+          recipe_ids:recipeSources(local),
+          quantity:Number(local.quantity || 1),
+          completed:Boolean(local.completed)
+        });
+        if (before !== after) {
+          changed = true;
+          adopted += 1;
+        }
+        continue;
+      }
+
+      const created = createRemoteRecipeLocalRow(remote);
+      if (!created) continue;
+      rows.push(created);
+      localByKey.set(key, created);
+      changed = true;
+      added += 1;
+    }
+
+    return { rows, changed, added, adopted };
+  }
+
   function adoptManualConflict(row, remote, reason = 'target_not_recipe_safe') {
     if (!row || !remote?.id) return false;
     row.server_id = remote.id;
@@ -206,28 +276,43 @@
     let nextRows = reconcileBeforeMerge(localRows, snapshot.remoteRows);
     const removedBeforeRecipeSync = localRows.length - nextRows.length;
 
+    // Cloud-only recepty musí být v localStorage označené jako recipe ještě
+    // před tím, než hlavní shopping-list merge načte obecné custom řádky.
+    let hydration = hydrateRemoteRecipeRows(nextRows, snapshot.remoteRows);
+    nextRows = hydration.rows;
+
     const recipeSync = await syncLocalRecipeRows(nextRows);
     let repairedRemote = snapshot.repairedRemote;
     if (recipeSync.changed) {
       snapshot = await loadOwnerSnapshot(ownerId);
       repairedRemote += snapshot.repairedRemote;
       nextRows = reconcileBeforeMerge(nextRows, snapshot.remoteRows);
+      const finalHydration = hydrateRemoteRecipeRows(nextRows, snapshot.remoteRows);
+      nextRows = finalHydration.rows;
+      hydration = {
+        changed: hydration.changed || finalHydration.changed,
+        added: hydration.added + finalHydration.added,
+        adopted: hydration.adopted + finalHydration.adopted
+      };
     }
 
-    const removed = localRows.length - nextRows.length;
-    if (removed > 0 || recipeSync.changed) {
+    const removed = localRows.length - nextRows.length + hydration.added;
+    const changed = removedBeforeRecipeSync > 0 || recipeSync.changed || hydration.changed;
+    if (changed) {
       localStorage.setItem(LIST_KEY, JSON.stringify(nextRows));
       window.SlevaoPublic?.updateNavCount?.();
     }
-    if (!removed && !repairedRemote && !recipeSync.changed) return { changed:false, reason:'current' };
+    if (!changed && !repairedRemote) return { changed:false, reason:'current' };
 
     return {
       changed:true,
-      removed,
+      removed:Math.max(0, localRows.length - nextRows.length + hydration.added),
       removed_before_recipe_sync:removedBeforeRecipeSync,
       repaired_remote:repairedRemote,
       recipe_synced:recipeSync.synced,
       recipe_conflicts:recipeSync.conflicts,
+      remote_recipe_added:hydration.added,
+      remote_recipe_adopted:hydration.adopted,
       rows:nextRows
     };
   }
@@ -236,6 +321,8 @@
     itemKey,
     recipeSources,
     adoptRecipeRemote,
+    createRemoteRecipeLocalRow,
+    hydrateRemoteRecipeRows,
     adoptManualConflict,
     syncLocalRecipeRows,
     legacyRecipeRepair,
