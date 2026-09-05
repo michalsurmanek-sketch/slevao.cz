@@ -16,6 +16,7 @@
     row?.recipe_id,
     ...(Array.isArray(row?.recipe_ids) ? row.recipe_ids : [])
   ].map((value) => String(value || '').trim()).filter(Boolean))];
+  const isRecipeRow = (row) => Boolean(row && (row.source === 'recipe' || row.recipe_id || recipeSources(row).length));
   const legacyRecipeRows = new Map([
     ['Špagety',1,'balení','Špagety (1 balení)'],['Mleté hovězí maso',500,'g','Mleté hovězí maso (500 g)'],['Rajčatové pyré',1,'ks','Rajčatové pyré (1 ks)'],['Cibule',1,'ks','Cibule (1 ks)'],['Česnek',2,'stroužky','Česnek (2 stroužky)'],['Mrkev',1,'ks','Mrkev (1 ks)'],['Parmazán',1,'balení','Parmazán (1 balení)'],['Olivový olej',1,'ks','Olivový olej (1 ks)'],
     ['Kuřecí prsa',600,'g','Kuřecí prsa (600 g)'],['Hladká mouka',1,'balení','Hladká mouka (1 balení)'],['Vejce',3,'ks','Vejce (3 ks)'],['Strouhanka',1,'balení','Strouhanka (1 balení)'],['Olej na smažení',1,'ks','Olej na smažení (1 ks)'],['Brambory',1,'kg','Brambory (1 kg)'],
@@ -52,7 +53,7 @@
   }
 
   function mergeRecipeProvenance(row, recipeKey) {
-    if (!row || !(row.source === 'recipe' || row.recipe_id || recipeSources(row).length)) return false;
+    if (!isRecipeRow(row)) return false;
     const before = recipeSources(row);
     const next = [...new Set([...before, String(recipeKey || '').trim()].filter(Boolean))];
     if (next.length === before.length && next.every((value, index) => value === before[index])) return false;
@@ -69,7 +70,13 @@
     const ingredients = RECIPES[key]; if (!ingredients) return;
     const rows = readList(); let added = 0; let linked = 0;
     ingredients.forEach((name) => {
-      const existing = rows.find((row) => !row.completed && normalize(row.custom_name || row.name) === normalize(name));
+      const existing = rows.find((row) => (
+        !row?.completed
+        && !row?.is_completed
+        && !row?.product_id
+        && isRecipeRow(row)
+        && normalize(row.custom_name || row.name) === normalize(name)
+      ));
       if (existing) {
         if (mergeRecipeProvenance(existing, key)) linked += 1;
         return;
