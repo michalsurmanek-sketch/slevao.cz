@@ -1,2 +1,11 @@
 [functions.sync-official-leaflet-sources]
 verify_jwt = true
+
+[functions.backfill-lidl-images]
+verify_jwt = false
+
+[functions.enrich-offer-images]
+verify_jwt = false
+
+[functions.discover-exact-ean-images]
+verify_jwt = false
