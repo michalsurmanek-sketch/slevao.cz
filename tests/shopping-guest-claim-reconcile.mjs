@@ -69,12 +69,21 @@ class StorageMock {
   setItem(key, value) { this.map.set(String(key), String(value)); }
   removeItem(key) { this.map.delete(String(key)); }
 }
+const nativeStorageGetItem = StorageMock.prototype.getItem;
+const nativeStorageSetItem = StorageMock.prototype.setItem;
+const nativeStorageRemoveItem = StorageMock.prototype.removeItem;
 
 const LEGACY = 'slevao-shopping-list-v1';
 const ACTIVE = 'slevao-active-user-v1';
 const USER_KEY = 'slevao-shopping-list-v2:user:user-a';
 
 function runClaim(existingUserRows = [], guestRows = [{ product_id:'milk', quantity:3, completed:false }]) {
+  StorageMock.prototype.getItem = nativeStorageGetItem;
+  StorageMock.prototype.setItem = nativeStorageSetItem;
+  StorageMock.prototype.removeItem = nativeStorageRemoveItem;
+  delete StorageMock.prototype.__slevaoShoppingListOwnerBridge;
+  delete StorageMock.prototype.__slevaoGuestClaimBridge;
+
   const localStorage = new StorageMock({ [USER_KEY]:JSON.stringify(existingUserRows) });
   const context = {
     Storage: StorageMock,
