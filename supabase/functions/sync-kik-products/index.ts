@@ -247,10 +247,10 @@ Deno.serve(async (request) => {
   if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
   let storeId: string | null = null;
   let sourceId: string | null = null;
-  let dryRun = false;
+  let dryRun = true;
   try {
     const body = await request.json().catch(() => ({}));
-    dryRun = body.dry_run === true;
+    dryRun = body.dry_run !== false;
     const force = body.force === true;
     const today = pragueDate();
     const { data: store, error: storeError } = await db.from('stores').select('id,name').eq('slug', 'kik').single();
