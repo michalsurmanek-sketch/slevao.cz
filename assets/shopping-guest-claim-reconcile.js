@@ -13,9 +13,10 @@
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, ' ')
     .trim();
+  const rowKind = (row) => row?.source === 'recipe' || row?.is_recipe === true ? 'recipe' : 'manual';
   const rowKey = (row) => row?.product_id
     ? `p:${String(row.product_id)}`
-    : (norm(row?.custom_name || row?.name) ? `c:${norm(row?.custom_name || row?.name)}` : '');
+    : (norm(row?.custom_name || row?.name) ? `c:${rowKind(row)}:${norm(row?.custom_name || row?.name)}` : '');
   const readRows = () => {
     try {
       const rows = JSON.parse(localStorage.getItem(LIST_KEY) || '[]');
@@ -33,6 +34,14 @@
       quantity: Math.max(Number(remote?.quantity || 1), claimQuantity),
       completed: Boolean(remote?.is_completed && claimCompleted),
     };
+  }
+
+  function resolveClaimRemote(local, remoteById, remoteByKey) {
+    const serverId = String(local?.server_id || '').trim();
+    const remote = (serverId ? remoteById.get(serverId) : null) || remoteByKey.get(rowKey(local));
+    if (!remote?.id) return null;
+    if (rowKind(local) !== rowKind(remote)) return null;
+    return remote;
   }
 
   async function waitForListSync() {
@@ -70,17 +79,16 @@
     if (listError || !list?.id) return;
 
     const { data:remoteRows, error:remoteError } = await db.from('shopping_list_items')
-      .select('id,shopping_list_id,product_id,custom_name,quantity,unit,is_completed')
+      .select('id,shopping_list_id,product_id,custom_name,quantity,unit,is_completed,is_recipe')
       .eq('shopping_list_id', list.id);
     if (remoteError) return;
 
+    const remoteById = new Map((remoteRows || []).filter((row) => row?.id).map((row) => [String(row.id), row]));
     const remoteByKey = new Map((remoteRows || []).map((row) => [rowKey(row), row]).filter(([key]) => key));
-    const localByKey = new Map(rows.map((row) => [rowKey(row), row]).filter(([key]) => key));
 
     for (const local of claimedRows) {
-      const key = rowKey(local);
-      const remote = remoteByKey.get(key);
-      if (!key || !remote?.id) return;
+      const remote = resolveClaimRemote(local, remoteById, remoteByKey);
+      if (!remote?.id) return;
       const desired = mergeClaimedState(local, remote);
       if (Number(remote.quantity || 1) !== desired.quantity || Boolean(remote.is_completed) !== desired.completed) {
         const { error:updateError } = await db.from('shopping_list_items')
@@ -89,20 +97,17 @@
           .eq('shopping_list_id', list.id);
         if (updateError) return;
       }
-      const currentLocal = localByKey.get(key);
-      if (currentLocal) {
-        currentLocal.server_id = remote.id;
-        currentLocal.quantity = desired.quantity;
-        currentLocal.completed = desired.completed;
-        delete currentLocal[CLAIM_QUANTITY];
-        delete currentLocal[CLAIM_COMPLETED];
-      }
+      local.server_id = remote.id;
+      local.quantity = desired.quantity;
+      local.completed = desired.completed;
+      delete local[CLAIM_QUANTITY];
+      delete local[CLAIM_COMPLETED];
     }
 
     localStorage.setItem(LIST_KEY, JSON.stringify(rows));
     location.reload();
   }
 
-  window.SlevaoGuestClaimReconcile = { mergeClaimedState };
+  window.SlevaoGuestClaimReconcile = { mergeClaimedState, rowKind, rowKey, resolveClaimRemote };
   reconcile().catch(() => {});
 })();
