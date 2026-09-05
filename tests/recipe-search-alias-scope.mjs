@@ -5,6 +5,7 @@ const root = new URL('../', import.meta.url);
 const source = readFileSync(new URL('supabase/migrations/20260903213107_scope_recipe_aliases_to_recipe_rows.sql', root), 'utf8');
 const passata = readFileSync(new URL('supabase/migrations/20260903214459_add_safe_recipe_passata_alias.sql', root), 'utf8');
 const finalCandidateMigration = readFileSync(new URL('supabase/migrations/20260904182500_fix_recipe_shopping_quantity_suffix.sql', root), 'utf8');
+const groundBeefMix = readFileSync(new URL('supabase/migrations/20260905203000_allow_ground_beef_mix_recipe_substitute.sql', root), 'utf8');
 
 assert.match(source, /btrim\(value\)\s*~\*[\s\S]*?as is_recipe/i, 'Recipe detection must be computed before search alias selection.');
 assert.match(source, /case when q\.is_recipe then[\s\S]*?when 'marmelada' then 'Džem'[\s\S]*?when 'hovezi maso' then 'Hovězí zadní'[\s\S]*?when 'hladka mouka' then 'Pšeničná mouka'[\s\S]*?else q\.base_text[\s\S]*?end[\s\S]*?else q\.base_text end as search_text/i,
@@ -45,9 +46,23 @@ assert.doesNotMatch(finalCandidateMigration, /page_row\.row_number/i,
 assert.match(finalCandidateMigration, /with ordinality as page_row\(offer\s*,\s*total_count\s*,\s*candidate_ord\)/i,
   'Candidate ranking must use the current public offer RPC contract.');
 
+// "Mleté hovězí maso" may fall back to a clearly identified ground-meat mix,
+// but plain "Hovězí maso" must remain protected from minced/burger substitutes.
+assert.match(groundBeefMix, /when 'mlete hovezi maso' then 'Mleté maso'/,
+  'Ground beef recipes must search the generic ground-meat catalogue so a mix can be offered as a substitute.');
+assert.match(groundBeefMix, /ingredient_text\)\) <> 'hovezi maso' or s\.candidate_text !~ '\(mlet\|meln\|burger\|tatarak\)'/i,
+  'Plain beef must continue rejecting minced, burger and tartare products.');
+assert.match(groundBeefMix, /ingredient_text\)\) <> 'mlete hovezi maso'[\s\S]*?candidate_text ~ '\(\^\| \)mlet\[a-z\]\*\( \|\$\)'[\s\S]*?candidate_text ~ '\(\^\| \)maso\( \|\$\)'[\s\S]*?candidate_text ~ '\(\^\| \)hovez\[a-z\]\*\( \|\$\)'[\s\S]*?candidate_text ~ '\(\^\| \)\(mix\|smes\)\[a-z\]\*\( \|\$\)'/i,
+  'Ground-beef fallback must remain limited to actual minced meat that is beef or explicitly a mix/směs.');
+assert.match(groundBeefMix, /candidate_text !~ '\(\^\| \)\(kurec\|kruti\|kachn\|jehne\|ryb\)\[a-z\]\*\( \|\$\)'/i,
+  'Ground-beef fallback must reject unrelated poultry, lamb and fish mince.');
+assert.match(groundBeefMix, /Expected ground-beef recipe alias fragment was not found[\s\S]*?Expected ground-beef semantic guard fragment was not found/,
+  'The substitute migration must fail closed if either expected production fragment drifts.');
+
 const recipeSuffix = /\s*\(\s*[0-9]+(?:[.,][0-9]+)?\s+(?:kg|g|ml|l|ks|balení|stroužek|stroužky|stroužků)\s*\)\s*$/i;
 const cleanIngredient = (value) => String(value).trim().replace(recipeSuffix, '').trim();
 assert.equal(cleanIngredient('Hovězí maso (800 g)'), 'Hovězí maso');
+assert.equal(cleanIngredient('Mleté hovězí maso (500 g)'), 'Mleté hovězí maso');
 assert.equal(cleanIngredient('Mléko (500 ml)'), 'Mléko');
 assert.equal(cleanIngredient('Hladká mouka (1 balení)'), 'Hladká mouka');
 assert.equal(cleanIngredient('Česnek (3 stroužky)'), 'Česnek');
@@ -55,4 +70,4 @@ assert.equal(cleanIngredient('Česnek (1 stroužek)'), 'Česnek');
 assert.equal(cleanIngredient('Česnek (5 stroužků)'), 'Česnek');
 assert.equal(cleanIngredient('Rajčata (cherry)'), 'Rajčata (cherry)', 'Semantic parentheses must not be stripped as recipe quantity metadata.');
 
-console.log('Recipe search aliases and final quantity-suffix candidate normalization: OK');
+console.log('Recipe search aliases, safe ground-beef mix substitute and final quantity-suffix normalization: OK');
