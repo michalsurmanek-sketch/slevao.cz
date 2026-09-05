@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 const root = new URL('../', import.meta.url);
 const grantsMigration = readFileSync(new URL('supabase/migrations/20260828144001_minimize_anon_public_table_write_grants.sql', root), 'utf8');
 const reportMigration = readFileSync(new URL('supabase/migrations/20260828152152_harden_public_offer_report_insert.sql', root), 'utf8');
+const internalRpcMigration = readFileSync(new URL('supabase/migrations/20260905072200_restrict_internal_sync_security_definers.sql', root), 'utf8');
 
 assert.ok(
   grantsMigration.includes('revoke insert, update, delete, truncate, references, trigger on all tables in schema public from anon;'),
@@ -31,4 +32,22 @@ assert.ok(reportMigration.includes('revoke all on function public.normalize_publ
 assert.ok(reportMigration.includes('grant execute on function public.normalize_public_offer_report_insert() to postgres, service_role;'), 'Trigger helper není dostupný serverovým rolím.');
 assert.ok(/before insert on public\.offer_reports/i.test(reportMigration), 'Offer-report normalizace není zapojená jako BEFORE INSERT trigger.');
 
-console.log('Anonymous writes are minimized and public offer-report inserts are server-normalized');
+const internalFunctions = [
+  'public.stage_globus_offer_chunk(text, jsonb)',
+  'public.finalize_globus_staged_offers(text, text, text, integer, integer)',
+  'public.propagate_globus_source_categories(jsonb)',
+  'public.refresh_billa_verified_health()',
+  'public.refresh_pepco_collection_health()',
+];
+for (const fn of internalFunctions) {
+  assert.ok(
+    internalRpcMigration.includes(`revoke execute on function ${fn} from public, anon, authenticated;`),
+    `${fn} zůstala spustitelná veřejnými rolemi.`
+  );
+  assert.ok(
+    internalRpcMigration.includes(`grant execute on function ${fn} to service_role;`),
+    `${fn} není po uzamčení dostupná service_role.`
+  );
+}
+
+console.log('Anonymous writes are minimized and internal sync RPCs are not publicly executable');
