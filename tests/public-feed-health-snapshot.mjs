@@ -5,6 +5,7 @@ const root = new URL('../', import.meta.url);
 const sql = readFileSync(new URL('supabase/migrations/20260818081500_public_leaflet_source_health_snapshot.sql', root), 'utf8');
 const cacheSql = readFileSync(new URL('supabase/migrations/20260901154850_cache_public_store_feed_health.sql', root), 'utf8');
 const syncHealthSql = readFileSync(new URL('supabase/migrations/20260905072000_store_product_sync_health_minimum_guard.sql', root), 'utf8');
+const syncHealthSecuritySql = readFileSync(new URL('supabase/migrations/20260905072100_restore_store_product_sync_health_security_invoker.sql', root), 'utf8');
 
 assert.match(sql, /create table if not exists public\.public_leaflet_source_health_snapshot/i);
 assert.match(sql, /enable row level security/i);
@@ -26,8 +27,10 @@ assert.match(cacheSql, /cron\.schedule\([\s\S]*'refresh-public-store-feed-health
 const finalView = cacheSql.slice(cacheSql.lastIndexOf('create or replace view public.public_store_feed_health'));
 assert.doesNotMatch(finalView, /from public\.offers|from public\.leaflet_imports/i, 'Veřejný health view nesmí při návštěvě znovu agregovat nabídky nebo importy.');
 
+assert.match(syncHealthSql, /with \(security_invoker = true\) as/i, 'Store sync health view musí po přepsání zůstat security_invoker.');
 assert.match(syncHealthSql, /st\.minimum_offer_count/i, 'Store sync health musí načítat minimum_offer_count.');
 assert.match(syncHealthSql, /active_offer_count\s*<\s*minimum_offer_count\s+then\s+'degraded'/i, 'Zdroj pod minimálním počtem aktivních nabídek musí být degraded.');
 assert.match(syncHealthSql, /when active_offer_count\s*>\s*0\s+then\s+'ok'/i, 'Zdroj může být ok až po kontrole minimálního počtu nabídek.');
+assert.match(syncHealthSecuritySql, /alter view public\.store_product_sync_health set \(security_invoker = true\)/i, 'Opravná migrace musí explicitně obnovit security_invoker na produkci.');
 
 console.log('Public feed-health snapshot OK');
