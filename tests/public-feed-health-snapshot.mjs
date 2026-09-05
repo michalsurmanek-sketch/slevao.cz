@@ -6,6 +6,7 @@ const sql = readFileSync(new URL('supabase/migrations/20260818081500_public_leaf
 const cacheSql = readFileSync(new URL('supabase/migrations/20260901154850_cache_public_store_feed_health.sql', root), 'utf8');
 const syncHealthSql = readFileSync(new URL('supabase/migrations/20260905072000_store_product_sync_health_minimum_guard.sql', root), 'utf8');
 const syncHealthSecuritySql = readFileSync(new URL('supabase/migrations/20260905072100_restore_store_product_sync_health_security_invoker.sql', root), 'utf8');
+const explicitHealthSql = readFileSync(new URL('supabase/migrations/20260905072700_preserve_explicit_store_sync_health.sql', root), 'utf8');
 
 assert.match(sql, /create table if not exists public\.public_leaflet_source_health_snapshot/i);
 assert.match(sql, /enable row level security/i);
@@ -32,5 +33,14 @@ assert.match(syncHealthSql, /st\.minimum_offer_count/i, 'Store sync health musí
 assert.match(syncHealthSql, /active_offer_count\s*<\s*minimum_offer_count\s+then\s+'degraded'/i, 'Zdroj pod minimálním počtem aktivních nabídek musí být degraded.');
 assert.match(syncHealthSql, /when active_offer_count\s*>\s*0\s+then\s+'ok'/i, 'Zdroj může být ok až po kontrole minimálního počtu nabídek.');
 assert.match(syncHealthSecuritySql, /alter view public\.store_product_sync_health set \(security_invoker = true\)/i, 'Opravná migrace musí explicitně obnovit security_invoker na produkci.');
+
+assert.match(explicitHealthSql, /with \(security_invoker = true\) as/i, 'Explicit health oprava nesmí znovu shodit security_invoker.');
+const explicitStateIndex = explicitHealthSql.indexOf("when state_health_status = any");
+const explicitErrorIndex = explicitHealthSql.indexOf("when state_health_status = 'error'::text or last_error is not null");
+const minimumIndex = explicitHealthSql.indexOf('and active_offer_count < minimum_offer_count');
+const activeOkIndex = explicitHealthSql.indexOf("when active_offer_count > 0 then 'ok'::text");
+assert.ok(explicitStateIndex >= 0 && explicitStateIndex < activeOkIndex, 'Explicitní degraded/blocked/waiting status se nesmí přepsat na ok jen kvůli aktivním nabídkám.');
+assert.ok(explicitErrorIndex >= 0 && explicitErrorIndex < activeOkIndex, 'Explicitní error se nesmí přepsat na ok jen kvůli aktivním nabídkám.');
+assert.ok(minimumIndex >= 0 && minimumIndex < activeOkIndex, 'Minimum aktivních nabídek musí být vyhodnoceno před ok.');
 
 console.log('Public feed-health snapshot OK');
