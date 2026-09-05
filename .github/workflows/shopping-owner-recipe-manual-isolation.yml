@@ -5,20 +5,30 @@ on:
     branches: ['main']
     paths:
       - 'assets/shopping-owner-cold-sync.js'
+      - 'assets/shopping-guest-claim-bridge.js'
+      - 'assets/shopping-guest-claim-reconcile.js'
       - 'supabase/migrations/20260905213500_isolate_manual_rows_from_recipe_sync.sql'
       - 'supabase/migrations/20260905214500_prefer_recipe_target_on_sync.sql'
+      - 'supabase/migrations/20260905215000_allow_manual_recipe_custom_key_coexistence.sql'
       - 'tests/shopping-owner-recipe-manual-isolation.mjs'
       - 'tests/recipe-rpc-manual-isolation.mjs'
       - 'tests/recipe-rpc-target-preference.mjs'
+      - 'tests/shopping-custom-key-provenance.mjs'
+      - 'tests/shopping-guest-claim-reconcile.mjs'
       - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
   pull_request:
     paths:
       - 'assets/shopping-owner-cold-sync.js'
+      - 'assets/shopping-guest-claim-bridge.js'
+      - 'assets/shopping-guest-claim-reconcile.js'
       - 'supabase/migrations/20260905213500_isolate_manual_rows_from_recipe_sync.sql'
       - 'supabase/migrations/20260905214500_prefer_recipe_target_on_sync.sql'
+      - 'supabase/migrations/20260905215000_allow_manual_recipe_custom_key_coexistence.sql'
       - 'tests/shopping-owner-recipe-manual-isolation.mjs'
       - 'tests/recipe-rpc-manual-isolation.mjs'
       - 'tests/recipe-rpc-target-preference.mjs'
+      - 'tests/shopping-custom-key-provenance.mjs'
+      - 'tests/shopping-guest-claim-reconcile.mjs'
       - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
   workflow_dispatch:
 
@@ -35,4 +45,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ověřit oddělení ručních a receptových položek
-        run: node tests/shopping-owner-recipe-manual-isolation.mjs && node tests/recipe-rpc-manual-isolation.mjs && node tests/recipe-rpc-target-preference.mjs
+        run: node tests/shopping-owner-recipe-manual-isolation.mjs && node tests/recipe-rpc-manual-isolation.mjs && node tests/recipe-rpc-target-preference.mjs && node tests/shopping-custom-key-provenance.mjs && node tests/shopping-guest-claim-reconcile.mjs
