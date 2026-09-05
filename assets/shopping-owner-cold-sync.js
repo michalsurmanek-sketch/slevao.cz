@@ -55,6 +55,22 @@
     ].map((value) => String(value || '').trim()).filter(Boolean))];
   }
 
+  function isRecipeRow(row) {
+    return Boolean(row && (
+      row.is_recipe === true
+      || row.source === 'recipe'
+      || row.recipe_id
+      || recipeSources(row).length
+    ));
+  }
+
+  function syncIdentityKey(row) {
+    const key = itemKey(row);
+    if (!key || key === 'c:') return '';
+    if (row?.product_id) return key;
+    return `${isRecipeRow(row) ? 'recipe' : 'manual'}:${key}`;
+  }
+
   function formatQuantity(quantity) {
     if (!Number.isFinite(quantity)) return '';
     return String(Number(quantity)).replace('.', ',');
@@ -65,7 +81,7 @@
   }
 
   function adoptRecipeRemote(row, remote) {
-    if (!row || !remote?.id) return false;
+    if (!row || !isRecipeRow(row) || !remote?.id) return false;
     row.server_id = remote.id;
     row.selected_offer_id = remote.selected_offer_id || null;
     row.custom_name = remote.custom_name || row.custom_name || row.name || null;
@@ -110,7 +126,10 @@
 
   function hydrateRemoteRecipeRows(localRows, remoteRows) {
     const rows = Array.isArray(localRows) ? localRows : [];
-    const localByKey = new Map(rows.map((row) => [itemKey(row), row]).filter(([key]) => key && key !== 'c:'));
+    const localByKey = new Map(rows
+      .filter((row) => isRecipeRow(row))
+      .map((row) => [itemKey(row), row])
+      .filter(([key]) => key && key !== 'c:'));
     let changed = false;
     let added = 0;
     let adopted = 0;
@@ -182,7 +201,7 @@
 
     for (const row of localRows || []) {
       if (
-        row?.source !== 'recipe'
+        !isRecipeRow(row)
         || row?.product_id
         || row?.completed
         || row?.is_completed
@@ -267,14 +286,14 @@
 
   function reconcileBeforeMerge(localRows, remoteRows) {
     const remoteIds = new Set((remoteRows || []).map((row) => String(row?.id || '')).filter(Boolean));
-    const remoteKeys = new Set((remoteRows || []).map(itemKey).filter((key) => key && key !== 'c:'));
+    const remoteKeys = new Set((remoteRows || []).map(syncIdentityKey).filter(Boolean));
 
     return (localRows || []).filter((row) => {
       const serverId = String(row?.server_id || '');
       if (!serverId) return true;
       if (remoteIds.has(serverId)) return true;
-      const key = itemKey(row);
-      return Boolean(key && key !== 'c:' && remoteKeys.has(key));
+      const key = syncIdentityKey(row);
+      return Boolean(key && remoteKeys.has(key));
     });
   }
 
@@ -359,6 +378,8 @@
   window.SlevaoShoppingOwnerColdSync = {
     itemKey,
     recipeSources,
+    isRecipeRow,
+    syncIdentityKey,
     adoptRecipeRemote,
     createRemoteRecipeLocalRow,
     hydrateRemoteRecipeRows,
