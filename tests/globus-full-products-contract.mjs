@@ -30,8 +30,9 @@ assert.match(edge, /\bPUBLISH_CHUNK_SIZE\s*=\s*75\b/, 'Globus publication must s
 assert.match(edge, /db\.rpc\(\s*'stage_globus_offer_chunk'/, 'Globus live sync must stage the verified snapshot in bounded chunks');
 assert.match(edge, /stagedTotal\s*!==\s*rows\.length/, 'Globus must fail closed when staging is incomplete');
 assert.match(edge, /db\.rpc\(\s*'finalize_globus_staged_offers'/, 'Globus live sync must finalize only a complete staged snapshot');
-assert.match(edge, /markHealth\(\s*'degraded'/, 'A failed live Globus refresh must mark operational health degraded');
-assert.doesNotMatch(edge, /markHealth\(\s*'ok'/, 'Successful Globus counts must remain authoritative in the transactional DB publisher');
+assert.match(edge, /async function markHealth\([\s\S]*?health_status\s*:\s*'degraded'/, 'A failed live Globus refresh must persist degraded operational health');
+assert.match(edge, /catch\(error\)[\s\S]*?if\(!dry\)await markHealth\(/, 'Only a failed live Globus refresh may mutate operational health');
+assert.doesNotMatch(edge, /health_status\s*:\s*'ok'/, 'Successful Globus counts must remain authoritative in the transactional DB publisher');
 
 assert.match(staged, /create table if not exists private\.globus_offer_stage/, 'Globus chunked publisher must use a private staging table');
 assert.match(staged, /primary key\s*\(\s*signature\s*,\s*external_id\s*\)/, 'Globus staging must be idempotent per snapshot signature and product');
