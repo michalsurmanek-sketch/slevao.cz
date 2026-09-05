@@ -6,15 +6,19 @@ on:
     paths:
       - 'assets/shopping-owner-cold-sync.js'
       - 'supabase/migrations/20260905213500_isolate_manual_rows_from_recipe_sync.sql'
+      - 'supabase/migrations/20260905214500_prefer_recipe_target_on_sync.sql'
       - 'tests/shopping-owner-recipe-manual-isolation.mjs'
       - 'tests/recipe-rpc-manual-isolation.mjs'
+      - 'tests/recipe-rpc-target-preference.mjs'
       - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
   pull_request:
     paths:
       - 'assets/shopping-owner-cold-sync.js'
       - 'supabase/migrations/20260905213500_isolate_manual_rows_from_recipe_sync.sql'
+      - 'supabase/migrations/20260905214500_prefer_recipe_target_on_sync.sql'
       - 'tests/shopping-owner-recipe-manual-isolation.mjs'
       - 'tests/recipe-rpc-manual-isolation.mjs'
+      - 'tests/recipe-rpc-target-preference.mjs'
       - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
   workflow_dispatch:
 
@@ -31,4 +35,4 @@ jobs:
         with:
           node-version: '22'
       - name: Ověřit oddělení ručních a receptových položek
-        run: node tests/shopping-owner-recipe-manual-isolation.mjs && node tests/recipe-rpc-manual-isolation.mjs
+        run: node tests/shopping-owner-recipe-manual-isolation.mjs && node tests/recipe-rpc-manual-isolation.mjs && node tests/recipe-rpc-target-preference.mjs
