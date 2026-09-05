@@ -5,6 +5,7 @@ const root = new URL('../', import.meta.url);
 const grantsMigration = readFileSync(new URL('supabase/migrations/20260828144001_minimize_anon_public_table_write_grants.sql', root), 'utf8');
 const reportMigration = readFileSync(new URL('supabase/migrations/20260828152152_harden_public_offer_report_insert.sql', root), 'utf8');
 const internalRpcMigration = readFileSync(new URL('supabase/migrations/20260905072200_restrict_internal_sync_security_definers.sql', root), 'utf8');
+const triggerHelperMigration = readFileSync(new URL('supabase/migrations/20260905072400_restrict_internal_trigger_helpers.sql', root), 'utf8');
 
 assert.ok(
   grantsMigration.includes('revoke insert, update, delete, truncate, references, trigger on all tables in schema public from anon;'),
@@ -50,4 +51,20 @@ for (const fn of internalFunctions) {
   );
 }
 
-console.log('Anonymous writes are minimized and internal sync RPCs are not publicly executable');
+const triggerHelpers = [
+  'public.propagate_rohlik_offer_amount_v78()',
+  'public.sync_dm_product_context_from_offer()',
+  'public.sync_pro_doma_source_health_from_index_job()',
+];
+for (const fn of triggerHelpers) {
+  assert.ok(
+    triggerHelperMigration.includes(`revoke execute on function ${fn} from public, anon, authenticated;`),
+    `${fn} zůstala přímo spustitelná veřejnými rolemi.`
+  );
+  assert.ok(
+    triggerHelperMigration.includes(`grant execute on function ${fn} to service_role;`),
+    `${fn} není po uzamčení dostupná service_role.`
+  );
+}
+
+console.log('Anonymous writes are minimized and internal sync/trigger RPCs are not publicly executable');
