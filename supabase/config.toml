@@ -9,3 +9,6 @@ verify_jwt = false
 
 [functions.discover-exact-ean-images]
 verify_jwt = false
+
+[functions.sync-kik-images]
+verify_jwt = false
