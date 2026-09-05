@@ -24,7 +24,7 @@
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260828-2';
+    script.src = 'assets/public-features.js?v=20260901-1';
     script.defer = true;
     document.head.appendChild(script);
   }
@@ -42,7 +42,7 @@
   }
   if (!document.querySelector('script[src*="home-quick-food-filter.js"]')) {
     const quickFoodScript = document.createElement('script');
-    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260829-4';
+    quickFoodScript.src = 'assets/home-quick-food-filter.js?v=20260905-1';
     quickFoodScript.defer = true;
     document.head.appendChild(quickFoodScript);
   }

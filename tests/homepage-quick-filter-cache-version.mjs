@@ -1,0 +1,12 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+const html = fs.readFileSync('index.html','utf8');
+const footer = fs.readFileSync('assets/home-footer-redesign.js','utf8');
+const version = '20260905-1';
+const matches = [...html.matchAll(/assets\/home-quick-food-filter\.js\?v=([^"']+)/g)].map((m) => m[1]);
+assert.deepEqual(matches, [version]);
+assert.match(footer, new RegExp(`assets/home-quick-food-filter\\.js\\?v=${version}`));
+assert.doesNotMatch(html, /home-quick-food-filter\.js\?v=20260829-4/);
+assert.doesNotMatch(footer, /home-quick-food-filter\.js\?v=20260829-4/);
+assert.match(html, /assets\/home-footer-redesign\.js\?v=20260905-1/);
+console.log('homepage quick filter cache version: OK');
