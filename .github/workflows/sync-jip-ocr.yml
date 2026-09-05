@@ -47,7 +47,26 @@ jobs:
           pdftoppm -v 2>&1 | head -1
 
       - name: OCR aktuálního 12stránkového Maloobchod letáku
-        run: python3 scripts/sync_jip_ocr.py
+        shell: bash
+        run: |
+          set +e
+          max_attempts=4
+          status=1
+          for attempt in $(seq 1 "$max_attempts"); do
+            echo "JIP OCR attempt $attempt/$max_attempts"
+            python3 scripts/sync_jip_ocr.py
+            status=$?
+            if [ "$status" -eq 0 ]; then
+              exit 0
+            fi
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 10))
+              echo "::warning::JIP OCR failed with exit code $status; retrying in ${delay}s"
+              sleep "$delay"
+            fi
+          done
+          echo "::error::JIP OCR failed after $max_attempts attempts"
+          exit "$status"
 
       - name: Consensus kontrola staged PDF OCR v3 proti produkčnímu v2
         shell: bash
