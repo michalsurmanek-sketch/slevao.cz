@@ -1,117 +1,29 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL')!;
-const SERVICE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-const CRON = Deno.env.get('CRON_SECRET') || '';
-const db = createClient(SUPABASE_URL, SERVICE, { auth: { persistSession: false, autoRefreshToken: false } });
+const SUPABASE_URL=Deno.env.get('SUPABASE_URL')!;
+const SERVICE=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+const CRON=Deno.env.get('CRON_SECRET')||'';
+const db=createClient(SUPABASE_URL,SERVICE,{auth:{persistSession:false,autoRefreshToken:false}});
+const CORS={'access-control-allow-origin':'*','access-control-allow-headers':'authorization,apikey,content-type,x-cron-secret','access-control-allow-methods':'POST,OPTIONS','content-type':'application/json; charset=utf-8'};
+const HEADERS={'user-agent':'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',accept:'text/html,application/json,*/*;q=0.8','accept-language':'cs-CZ,cs;q=0.9'};
+const SOURCE_ADAPTER='kik-publitas-v2';
+const KIK_API='https://api-shop.prod.kik.de/api/v1/products';
+const ARTICLE=/^\d{6,8}$/u;
+const PRICE=/^\d{2,4}$/u;
+const json=(b:unknown,s=200)=>new Response(JSON.stringify(b),{status:s,headers:CORS});
+function clean(v:string){return v.replace(/\s+/g,' ').replace(/[,:;]+$/u,'').trim()}
+function err(e:unknown){return e instanceof Error?e.message:String(e)}
+function pragueDate(){const p=new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Prague',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date()),g=(t:string)=>p.find(x=>x.type===t)?.value||'';return`${g('year')}-${g('month')}-${g('day')}`}
+function isoFromCz(v:string){const m=v.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/u);return m?`${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`:null}
+function validFrom(text:string){for(const l of text.split(/\r?\n/u).map(clean).filter(Boolean)){if(/PLATNOST OD/iu.test(l)){const d=isoFromCz(l);if(d)return d}}return null}
+async function allowed(req:Request){const raw=req.headers.get('authorization')||'',token=raw.replace(/^Bearer\s+/i,'').trim();if(token===SERVICE)return true;if(CRON&&req.headers.get('x-cron-secret')===CRON)return true;if(!token)return false;const{data,error}=await db.auth.getUser(token);return!error&&!!data.user&&['admin','editor'].includes(String(data.user.app_metadata?.role||'').toLowerCase())}
+async function fetchText(url:string,timeout=25000){const c=new AbortController(),timer=setTimeout(()=>c.abort(),timeout);try{const r=await fetch(url,{headers:HEADERS,redirect:'follow',signal:c.signal});const t=await r.text();if(!r.ok)throw new Error(`${new URL(url).hostname} HTTP ${r.status}`);return t}finally{clearTimeout(timer)}}
+function dataFromHtml(html:string){const marker='var data =',start=html.indexOf(marker),js=html.indexOf('{',start+marker.length),end=html.indexOf('Reader.Bootstrap.init',js);if(start<0||js<0||end<0)throw new Error('Publitas data mají neočekávaný formát.');const block=html.slice(js,end),semi=block.lastIndexOf(';');return JSON.parse((semi>=0?block.slice(0,semi):block).trim())}
+function image(v:unknown){const u=String(v||'').trim();return /^https:\/\/media\.kik\.de\//i.test(u)?u:null}
+type Hit={article_id:string;ok:boolean;name?:string;slug?:string|null;prices?:number[];primary_image?:string|null;status_code?:number|null;origin_exact?:boolean;error?:string};
+async function product(id:string):Promise<Hit>{const c=new AbortController(),timer=setTimeout(()=>c.abort(),15000);try{const r=await fetch(`${KIK_API}/${id}`,{method:'POST',headers:{'content-type':'application/json',accept:'application/json',origin:'https://www.kik.cz',referer:'https://www.kik.cz/','user-agent':HEADERS['user-agent'],'x-trace-id':`slevao-kik-page-${id}-${Date.now()}`},body:JSON.stringify({attributeFilterNames:[],customerGroup:''}),signal:c.signal});const text=await r.text();if(!r.ok)return{article_id:id,ok:false,error:`HTTP ${r.status}`};const p=JSON.parse(text),vs=Array.isArray(p?.variants)?p.variants:[];const prices=[...new Set(vs.map((v:any)=>Number(v?.price?.final)).filter((n:number)=>Number.isFinite(n)))].sort((a,b)=>a-b);const originExact=vs.some((v:any)=>String(v?.attributes?.origin_product_no||'')===id)&&String(p?.key||'')===id;const imgs=[...new Set(vs.flatMap((v:any)=>Array.isArray(v?.images)?v.images.map((x:any)=>image(x?.url)).filter(Boolean):[]))]as string[];return{article_id:id,ok:true,name:String(p?.name||''),slug:p?.slug?String(p.slug):null,prices,primary_image:imgs[0]||null,status_code:Number.isFinite(Number(p?.statusCode))?Number(p.statusCode):null,origin_exact:originExact}}catch(e){return{article_id:id,ok:false,error:err(e)}}finally{clearTimeout(timer)}}
 
-const CORS = {
-  'access-control-allow-origin': '*',
-  'access-control-allow-headers': 'authorization,apikey,content-type,x-cron-secret',
-  'access-control-allow-methods': 'POST,OPTIONS',
-  'content-type': 'application/json; charset=utf-8',
-};
-const FETCH_HEADERS = {
-  'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/150 Safari/537.36',
-  accept: 'text/html,application/json,*/*;q=0.8',
-  'accept-language': 'cs-CZ,cs;q=0.9',
-};
-
-const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: CORS });
-function errorText(error: unknown) { return error instanceof Error ? error.message : String(error); }
-async function allowed(request: Request) {
-  const raw = request.headers.get('authorization') || '';
-  const token = raw.replace(/^Bearer\s+/i, '').trim();
-  if (token === SERVICE) return true;
-  if (CRON && request.headers.get('x-cron-secret') === CRON) return true;
-  if (!token) return false;
-  const { data, error } = await db.auth.getUser(token);
-  return !error && !!data.user && ['admin', 'editor'].includes(String(data.user.app_metadata?.role || '').toLowerCase());
-}
-async function fetchText(url: string, timeout = 25000) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeout);
-  try {
-    const response = await fetch(url, { headers: FETCH_HEADERS, redirect: 'follow', signal: controller.signal });
-    const text = await response.text();
-    if (!response.ok) throw new Error(`${new URL(url).hostname} HTTP ${response.status}`);
-    return text;
-  } finally { clearTimeout(timer); }
-}
-function dataFromHtml(html: string) {
-  const marker = 'var data =';
-  const start = html.indexOf(marker);
-  const jsonStart = html.indexOf('{', start + marker.length);
-  const end = html.indexOf('Reader.Bootstrap.init', jsonStart);
-  if (start < 0 || jsonStart < 0 || end < 0) throw new Error('Publitas data mají neočekávaný formát.');
-  const block = html.slice(jsonStart, end);
-  const semi = block.lastIndexOf(';');
-  return JSON.parse((semi >= 0 ? block.slice(0, semi) : block).trim());
-}
-function inspectApi(api: any) {
-  let hotspotArrays = 0, hotspotCount = 0, productHotspots = 0, productPhotos = 0;
-  const hotspotTypes: Record<string, number> = {};
-  for (const spread of Array.isArray(api?.spreads) ? api.spreads : []) {
-    if (!Array.isArray(spread?.hotspots)) continue;
-    hotspotArrays++;
-    hotspotCount += spread.hotspots.length;
-    for (const hotspot of spread.hotspots) {
-      const type = String(hotspot?.type || 'unknown');
-      hotspotTypes[type] = (hotspotTypes[type] || 0) + 1;
-      if (/product/i.test(type)) productHotspots++;
-      if (hotspot?.photoUrl) productPhotos++;
-      if (Array.isArray(hotspot?.photos)) productPhotos += hotspot.photos.length;
-      if (Array.isArray(hotspot?.products)) {
-        productHotspots += hotspot.products.length;
-        for (const product of hotspot.products) {
-          if (product?.photoUrl) productPhotos++;
-          if (Array.isArray(product?.photos)) productPhotos += product.photos.length;
-        }
-      }
-    }
-  }
-  return { hotspot_arrays: hotspotArrays, hotspot_count: hotspotCount, hotspot_types: hotspotTypes, product_hotspots: productHotspots, product_photos: productPhotos };
-}
-
-Deno.serve(async (request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: CORS });
-  if (request.method !== 'POST') return json({ error: 'Method not allowed' }, 405);
-  if (!(await allowed(request))) return json({ error: 'Unauthorized' }, 401);
-
-  try {
-    const { data: store, error: storeError } = await db.from('stores').select('id').eq('slug', 'kik').single();
-    if (storeError || !store) throw storeError || new Error('KiK store missing');
-    const { data: document, error: documentError } = await db.from('leaflet_imports')
-      .select('id,metadata').eq('store_id', store.id).eq('status', 'published')
-      .contains('metadata', { adapter: 'kik-publitas-v2' }).order('updated_at', { ascending: false }).limit(1).single();
-    if (documentError || !document) throw documentError || new Error('KiK Publitas document missing');
-
-    const viewer = String(document.metadata?.viewer_url || '').replace(/\/+$/, '');
-    if (!/^https:\/\/letaki\.kik\.cz\/kik-[a-z0-9_-]+$/i.test(viewer)) throw new Error('Unsafe KiK viewer URL');
-    const html = await fetchText(`${viewer}/`);
-    const readerData = dataFromHtml(html);
-    const groupSlug = String(readerData.groupSlug || '');
-    const publicationSlug = String(readerData.slug || '');
-    if (!/^[a-z0-9_-]+$/i.test(groupSlug) || !/^[a-z0-9_-]+$/i.test(publicationSlug)) throw new Error('Invalid Publitas identity');
-    const apiUrl = `https://api.publitas.com/v1/groups/${encodeURIComponent(groupSlug)}/publications/${encodeURIComponent(publicationSlug)}.json`;
-    const api = JSON.parse(await fetchText(apiUrl));
-    const inspection = inspectApi(api);
-
-    return json({
-      ok: true,
-      mode: 'read_only_inspection',
-      store: 'KiK',
-      publication_id: String(readerData.id || ''),
-      expected_publication_id: String(document.metadata?.publication_id || ''),
-      group_slug: groupSlug,
-      publication_slug: publicationSlug,
-      spreads: Array.isArray(api?.spreads) ? api.spreads.length : 0,
-      ...inspection,
-      safe_image_source_available: inspection.product_hotspots > 0 && inspection.product_photos > 0,
-      applied: 0,
-      queued_for_review: 0,
-    });
-  } catch (error) {
-    return json({ ok: false, error: errorText(error), code: 'KIK_IMAGE_INSPECT_FAILED' }, 500);
-  }
-});
+Deno.serve(async(req)=>{if(req.method==='OPTIONS')return new Response('ok',{headers:CORS});if(req.method!=='POST')return json({error:'Method not allowed'},405);if(!(await allowed(req)))return json({error:'Unauthorized'},401);try{const today=pragueDate();const{data:store,error:se}=await db.from('stores').select('id,name').eq('slug','kik').single();if(se||!store)throw se||new Error('KiK store missing');const{data:doc,error:de}=await db.from('leaflet_imports').select('id,metadata').eq('store_id',store.id).eq('status','published').contains('metadata',{adapter:SOURCE_ADAPTER}).order('updated_at',{ascending:false}).limit(1).single();if(de||!doc)throw de||new Error('KiK document missing');const viewer=String(doc.metadata?.viewer_url||'').replace(/\/+$/u,'');if(!/^https:\/\/letaki\.kik\.cz\/kik-[a-z0-9_-]+$/iu.test(viewer))throw new Error('KiK viewer URL not allowed');const d=dataFromHtml(await fetchText(`${viewer}/`)),publicationId=String(d.id||''),token=String(d.cacheToken||'');if(!token||publicationId!==String(doc.metadata?.publication_id||''))throw new Error('KiK publication identity mismatch');const spreads=JSON.parse(await fetchText(`${viewer}/spreads.json?version=${encodeURIComponent(token)}`));const pages:any[]=[];for(const spread of spreads){for(const p of Array.isArray(spread?.pages)?spread.pages:[]){const page=Number(p?.number||pages.length+1),text=String(p?.text||''),vf=validFrom(text),lines=text.split(/\r?\n/u).map(clean).filter(Boolean);if(!vf||vf>today)continue;const articleLines=lines.map((line,i)=>({line,i})).filter(x=>ARTICLE.test(x.line));const priceLines=lines.map((line,i)=>({line,i})).filter(x=>PRICE.test(x.line)).map(x=>({...x,price:Number(x.line)})).filter(x=>Number.isFinite(x.price)&&x.price>=15&&x.price<=5000&&x.price!==page);pages.push({page,valid_from:vf,lines,articles:articleLines,prices:priceLines})}}
+const ids=[...new Set(pages.flatMap(p=>p.articles.map((a:any)=>a.line)))].sort();const api=new Map<string,Hit>();for(let i=0;i<ids.length;i+=5){for(const h of await Promise.all(ids.slice(i,i+5).map(product)))api.set(h.article_id,h)}
+const rows:any[]=[];for(const p of pages){for(const a of p.articles){const hit=api.get(a.line);if(!hit?.ok||!hit.origin_exact){rows.push({page:p.page,article_id:a.line,status:'api_error',error:hit?.error||'identity_mismatch'});continue}const matches=(hit.prices||[]).flatMap(price=>p.prices.filter((x:any)=>Math.abs(x.price-price)<.01).map((x:any)=>({price,distance:Math.abs(x.i-a.i),price_line:x.i+1}))).sort((x:any,y:any)=>x.distance-y.distance||x.price-y.price);const distinctPrices=[...new Set(matches.map((m:any)=>m.price))];let status='no_page_price_match';if(distinctPrices.length===1)status='exact_article_page_price';else if(distinctPrices.length>1)status='multiple_api_prices_on_page';rows.push({page:p.page,article_id:a.line,article_line:a.i+1,api_name:hit.name,api_prices:hit.prices,api_status_code:hit.status_code,primary_image:hit.primary_image,status,matched_page_price:distinctPrices.length===1?distinctPrices[0]:null,nearest_price_distance:matches[0]?.distance??null,matching_price_occurrences:matches.length})}}
+const counts:any={};for(const r of rows)counts[r.status]=(counts[r.status]||0)+1;const exact=rows.filter(r=>r.status==='exact_article_page_price'&&r.primary_image);const duplicateIds=[...new Set(exact.map(r=>r.article_id).filter((id,i,arr)=>arr.indexOf(id)!==i))];const publishable=exact.filter(r=>!duplicateIds.includes(r.article_id));return json({ok:true,mode:'read_only_article_anchor_preview_v8',publication_id:publicationId,pages:pages.length,article_tokens:rows.length,distinct_article_ids:ids.length,api_ok:[...api.values()].filter(x=>x.ok).length,api_errors:[...api.values()].filter(x=>!x.ok).length,status_counts:counts,duplicate_exact_article_ids:duplicateIds,publishable_unique_rows:publishable.length,publishable_rows:publishable,unresolved_rows:rows.filter(r=>r.status!=='exact_article_page_price'),applied:0});}catch(e){return json({ok:false,error:err(e),code:'KIK_ARTICLE_ANCHOR_PREVIEW_FAILED'},500)}});
