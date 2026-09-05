@@ -15,3 +15,6 @@ verify_jwt = false
 
 [functions.generate-leaflet-product-crops]
 verify_jwt = false
+
+[functions.inspect-publitas-product-media]
+verify_jwt = false
