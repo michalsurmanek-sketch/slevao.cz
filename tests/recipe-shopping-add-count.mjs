@@ -7,7 +7,7 @@ const source = readFileSync(new URL('assets/home-recipes.js', root), 'utf8');
 const index = readFileSync(new URL('index.html', root), 'utf8');
 new Script(source, { filename:'assets/home-recipes.js' });
 
-assert.ok(index.includes('assets/home-recipes.js?v=20260904-1'), 'Homepage musí načítat jedinou externí implementaci receptů.');
+assert.ok(index.includes('assets/home-recipes.js?v=20260905-1'), 'Homepage musí načítat aktuální externí implementaci receptů.');
 assert.ok(!index.includes('const RECIPES = {'), 'index.html už nesmí obsahovat druhou inline kopii receptové logiky.');
 
 function createScenario(initialRows = [], recipeKeys = ['spagety']) {
@@ -115,4 +115,48 @@ const sharedSpaghetti = rows.find((row) => row.local_id === 'shared-existing');
 assert.deepEqual(sharedSpaghetti.recipe_ids, ['meal-plan','spagety'], 'Stejná položka musí zachovat vazbu na oba recepty.');
 assert.equal(sharedSpaghetti.recipe_dirty, 1, 'Změna recipe provenance se musí označit pro cloudovou synchronizaci.');
 
-console.log('recipe add count and cross-recipe provenance: OK');
+const manualCollision = createScenario([{
+  local_id:'manual-eggs',
+  key:'c:vejce 3 ks',
+  product_id:null,
+  custom_name:'Vejce (3 ks)',
+  name:'Vejce (3 ks)',
+  quantity:1,
+  qty:1,
+  unit:'ks',
+  completed:false,
+  source:'manual',
+  added_at:'2026-09-05T10:00:00.000Z'
+}], ['rizek']);
+manualCollision.click('rizek');
+rows = manualCollision.rows();
+assert.equal(rows.length, 7, 'Ruční položka se stejným názvem nesmí spolknout surovinu z receptu.');
+const matchingEggs = rows.filter((row) => row.custom_name === 'Vejce (3 ks)');
+assert.equal(matchingEggs.length, 2, 'Ruční vejce a receptová vejce musí zůstat dva oddělené řádky.');
+assert.equal(matchingEggs.filter((row) => row.source === 'manual').length, 1, 'Původní ruční položka musí zůstat ruční.');
+assert.equal(matchingEggs.filter((row) => row.source === 'recipe' && row.recipe_id === 'rizek').length, 1, 'Řízek musí přidat vlastní receptovou položku vajec.');
+assert.equal(rows.find((row) => row.local_id === 'manual-eggs')?.recipe_id, undefined, 'Ruční položka nesmí být převzata receptem.');
+
+const completedRecipeCollision = createScenario([{
+  local_id:'completed-eggs',
+  key:'c:vejce 3 ks',
+  product_id:null,
+  custom_name:'Vejce (3 ks)',
+  name:'Vejce (3 ks)',
+  quantity:1,
+  qty:1,
+  unit:'ks',
+  completed:false,
+  is_completed:true,
+  source:'recipe',
+  recipe_id:'old-rizek',
+  recipe_ids:['old-rizek'],
+  added_at:'2026-09-05T09:00:00.000Z'
+}], ['rizek']);
+completedRecipeCollision.click('rizek');
+rows = completedRecipeCollision.rows();
+assert.equal(rows.length, 7, 'Dokončená receptová položka nesmí blokovat nové přidání stejné suroviny.');
+assert.equal(rows.filter((row) => row.custom_name === 'Vejce (3 ks)').length, 2, 'Dokončená a nová aktivní vejce musí zůstat odděleně.');
+assert.ok(rows.some((row) => !row.is_completed && row.source === 'recipe' && row.recipe_id === 'rizek' && row.custom_name === 'Vejce (3 ks)'), 'Nový řízek musí dostat aktivní receptovou položku vajec.');
+
+console.log('recipe add count, manual-row isolation and cross-recipe provenance: OK');
