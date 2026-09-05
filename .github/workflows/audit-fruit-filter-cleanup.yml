@@ -1,0 +1,62 @@
+name: Audit fruit filter cleanup
+
+on:
+  push:
+    branches:
+      - audit/fruit-filter-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: audit/fruit-filter-cleanup
+          fetch-depth: 0
+
+      - name: Apply minimal fruit filter fix
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          semantic = Path('assets/home-semantic-filters.js')
+          source = semantic.read_text(encoding='utf-8')
+          old = "    ovoce: { label:'Ovoce', title:'Ovoce v akci', info:'Zobrazujeme ovoce a ovocné nápoje podle zvoleného filtru', icon:'🍎', types:[['ovoce','Vše'],['jablka','Jablka'],['banany','Banány'],['citrusy','Citrusy'],['bobulove','Bobulové'],['exoticke','Exotické']], forms:[['ovoce','Čerstvé','♧'],['mrazene ovoce','Mražené','❄'],['susene ovoce','Sušené','◒'],['ovocne napoje','Nápoje','▱']] },"
+          new = "    ovoce: { label:'Ovoce', title:'Ovoce v akci', info:'Zobrazujeme čerstvé, mražené a sušené ovoce podle zvoleného filtru', icon:'🍎', types:[['ovoce','Vše'],['jablka','Jablka'],['banany','Banány'],['citrusy','Citrusy'],['bobulove','Bobulové'],['exoticke','Exotické']], forms:[['ovoce','Čerstvé','♧'],['mrazene ovoce','Mražené','❄'],['susene ovoce','Sušené','◒']] },"
+          if source.count(old) != 1:
+              raise SystemExit(f'Expected exactly one Ovoce config match, got {source.count(old)}')
+          source = source.replace(old, new)
+          if "['ovocne napoje','Nápoje'" in source:
+              raise SystemExit('Fruit beverage subfilter still present')
+          semantic.write_text(source, encoding='utf-8')
+
+          index = Path('index.html')
+          html = index.read_text(encoding='utf-8')
+          old_script = 'assets/home-semantic-filters.js?v=20260901-1'
+          new_script = 'assets/home-semantic-filters.js?v=20260905-1'
+          if html.count(old_script) != 1:
+              raise SystemExit(f'Expected exactly one semantic script cache key, got {html.count(old_script)}')
+          html = html.replace(old_script, new_script)
+          index.write_text(html, encoding='utf-8')
+          PY
+
+          git diff --check
+          grep -F "info:'Zobrazujeme čerstvé, mražené a sušené ovoce podle zvoleného filtru'" assets/home-semantic-filters.js
+          ! grep -F "['ovocne napoje','Nápoje'" assets/home-semantic-filters.js
+          grep -F 'assets/home-semantic-filters.js?v=20260905-1' index.html
+
+      - name: Commit audited change and remove helper workflow
+        shell: bash
+        run: |
+          rm -f .github/workflows/audit-fruit-filter-cleanup.yml
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/home-semantic-filters.js index.html .github/workflows/audit-fruit-filter-cleanup.yml
+          git diff --cached --check
+          git commit -m 'fix: keep beverage products out of fruit filter UX'
+          git push origin HEAD:audit/fruit-filter-cleanup
