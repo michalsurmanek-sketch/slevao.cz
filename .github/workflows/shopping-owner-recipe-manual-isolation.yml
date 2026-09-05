@@ -1,0 +1,30 @@
+name: Owner recipe/manual isolation
+
+on:
+  push:
+    branches: ['main']
+    paths:
+      - 'assets/shopping-owner-cold-sync.js'
+      - 'tests/shopping-owner-recipe-manual-isolation.mjs'
+      - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
+  pull_request:
+    paths:
+      - 'assets/shopping-owner-cold-sync.js'
+      - 'tests/shopping-owner-recipe-manual-isolation.mjs'
+      - '.github/workflows/shopping-owner-recipe-manual-isolation.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  isolation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Ověřit oddělení ručních a receptových položek
+        run: node tests/shopping-owner-recipe-manual-isolation.mjs
