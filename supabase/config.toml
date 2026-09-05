@@ -18,3 +18,6 @@ verify_jwt = false
 
 [functions.inspect-publitas-product-media]
 verify_jwt = false
+
+[functions.sync-coop-pdf-text-products]
+verify_jwt = false
