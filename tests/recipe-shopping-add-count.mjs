@@ -7,8 +7,9 @@ const source = readFileSync(new URL('assets/home-recipes.js', root), 'utf8');
 const index = readFileSync(new URL('index.html', root), 'utf8');
 new Script(source, { filename:'assets/home-recipes.js' });
 
-assert.ok(index.includes('assets/home-recipes.js?v=20260905-1'), 'Homepage musí načítat aktuální externí implementaci receptů.');
+assert.ok(index.includes('assets/home-recipes.js?v=20260904-1'), 'Homepage musí načítat jedinou externí implementaci receptů.');
 assert.ok(!index.includes('const RECIPES = {'), 'index.html už nesmí obsahovat druhou inline kopii receptové logiky.');
+assert.match(source, /const isRecipeRow = \(row\) => Boolean\(row && \(row\.source === 'recipe' \|\| row\.recipe_id \|\| recipeSources\(row\)\.length\)\);/, 'Přidání receptu musí umět odlišit receptovou položku od ruční položky se stejným názvem.');
 
 function createScenario(initialRows = [], recipeKeys = ['spagety']) {
   let stored = JSON.stringify(initialRows);
