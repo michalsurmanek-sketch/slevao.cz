@@ -37,6 +37,7 @@
         };
         const userAllowedScroll = () => performance.now() <= allowProgrammaticScrollUntil;
         document.addEventListener('click', markUserClick, true);
+        document.addEventListener('keydown', (event) => { if (event?.isTrusted && event.key === 'Enter') allowProgrammaticScrollUntil = performance.now() + 4000; }, true);
 
         const nativeScrollTo = window.scrollTo.bind(window);
         const nativeScroll = typeof window.scroll === 'function' ? window.scroll.bind(window) : nativeScrollTo;

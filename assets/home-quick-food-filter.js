@@ -21,6 +21,9 @@
     const userAllowedScroll = () => performance.now() <= allowProgrammaticScrollUntil;
 
     document.addEventListener('click', markUserScrollIntent, true);
+    document.addEventListener('keydown', (event) => {
+      if (event?.isTrusted && event.key === 'Enter') markUserScrollIntent(event);
+    }, true);
 
     const style = document.createElement('style');
     style.id = 'slevaoHomepageNoScrollAnchor';
