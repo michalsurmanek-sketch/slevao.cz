@@ -1,4 +1,5 @@
-create or replace view public.store_product_sync_health as
+create or replace view public.store_product_sync_health
+with (security_invoker = true) as
 with today as (
   select (now() at time zone 'Europe/Prague')::date as d
 ),
