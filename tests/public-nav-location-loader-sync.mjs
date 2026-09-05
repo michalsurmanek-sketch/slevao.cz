@@ -18,7 +18,7 @@ new Script(nav, { filename:'assets/public-nav-upgrade.js' });
 const navVersion = '20260904-1';
 const storeBottomNavVersion = '20260901-1';
 const locationVersion = '20260821-1';
-const publicFeaturesVersion = '20260828-2';
+const publicFeaturesVersion = '20260901-1';
 
 assert.match(nav, /function loadLocationService\(\)/, 'Public nav negarantuje načtení location service.');
 assert.match(nav, new RegExp(`assets/location-service\\.js\\?v=${locationVersion}`), 'Public nav nenačítá Prague-safe location runtime.');
