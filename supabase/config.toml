@@ -12,3 +12,6 @@ verify_jwt = false
 
 [functions.sync-kik-images]
 verify_jwt = false
+
+[functions.generate-leaflet-product-crops]
+verify_jwt = false
