@@ -15,6 +15,7 @@ on:
     paths:
       - 'scripts/sync_terno_ocr.py'
       - 'scripts/sync_terno_ocr_direct.py'
+      - 'scripts/test_terno_ocr_direct.py'
       - '.github/workflows/sync-terno-ocr.yml'
       - '.github/terno-ocr-trigger.txt'
 
@@ -37,6 +38,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+
+      - name: Ověřit Terno target selector bez sítě
+        shell: bash
+        run: python3 scripts/test_terno_ocr_direct.py
 
       - name: Ověřit Supabase secrets
         shell: bash
