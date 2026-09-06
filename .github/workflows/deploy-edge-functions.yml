@@ -26,12 +26,13 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
@@ -115,12 +116,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
@@ -145,12 +147,13 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
@@ -175,7 +178,7 @@ jobs:
     timeout-minutes: 25
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
@@ -189,9 +192,10 @@ jobs:
           grep -q "leaflet_ai_crop" supabase/functions/generate-leaflet-product-crops/index.ts
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
