@@ -21,13 +21,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Načíst repozitář
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Připravit Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
+          package-manager-cache: false
       - name: Ověřit generátor store stránek
         run: node scripts/generate-store-pages.mjs
       - name: Ověřit store stránky a generátor
