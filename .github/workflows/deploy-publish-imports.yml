@@ -16,12 +16,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Deploy publish-imports
         env:
