@@ -29,7 +29,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Ověřit Supabase secrets
         shell: bash
@@ -49,24 +49,40 @@ jobs:
       - name: OCR aktuálního 12stránkového Maloobchod letáku
         shell: bash
         run: |
-          set +e
+          set -euo pipefail
           max_attempts=4
-          status=1
+          last_status=1
           for attempt in $(seq 1 "$max_attempts"); do
+            log_file="$(mktemp)"
             echo "JIP OCR attempt $attempt/$max_attempts"
-            python3 scripts/sync_jip_ocr.py
+            set +e
+            python3 scripts/sync_jip_ocr.py > >(tee "$log_file") 2> >(tee -a "$log_file" >&2)
             status=$?
+            set -e
+            last_status=$status
+
             if [ "$status" -eq 0 ]; then
+              rm -f "$log_file"
               exit 0
             fi
+
+            if ! grep -Eqi 'TimeoutError|timed out|HTTP (408|425|429|5[0-9]{2})' "$log_file"; then
+              echo "::error::JIP OCR failed with a non-transient error; retry skipped"
+              rm -f "$log_file"
+              exit "$status"
+            fi
+
             if [ "$attempt" -lt "$max_attempts" ]; then
               delay=$((attempt * 10))
-              echo "::warning::JIP OCR failed with exit code $status; retrying in ${delay}s"
+              echo "::warning::Transient JIP OCR failure; retrying in ${delay}s"
+              rm -f "$log_file"
               sleep "$delay"
+            else
+              rm -f "$log_file"
             fi
           done
-          echo "::error::JIP OCR failed after $max_attempts attempts"
-          exit "$status"
+          echo "::error::JIP OCR failed after $max_attempts transient attempts"
+          exit "$last_status"
 
       - name: Consensus kontrola staged PDF OCR v3 proti produkčnímu v2
         shell: bash
