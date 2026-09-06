@@ -25,15 +25,16 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Zkontrolovat JavaScript
         run: node --check assets/admin-manual-leaflets-bucket-hotfix.js
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
