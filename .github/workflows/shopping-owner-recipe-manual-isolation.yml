@@ -40,9 +40,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: '22'
+          package-manager-cache: false
       - name: Ověřit oddělení ručních a receptových položek
         run: node tests/shopping-owner-recipe-manual-isolation.mjs && node tests/recipe-rpc-manual-isolation.mjs && node tests/recipe-rpc-target-preference.mjs && node tests/shopping-custom-key-provenance.mjs && node tests/shopping-guest-claim-reconcile.mjs
