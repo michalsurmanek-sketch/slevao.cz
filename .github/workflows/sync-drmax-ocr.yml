@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Ověřit Python syntaxi
         run: python3 -m py_compile scripts/sync_drmax_ocr.py scripts/sync_terno_ocr.py tests/drmax-ocr-worker-regression.py
@@ -53,7 +53,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v7
+        uses: actions/checkout@v4
 
       - name: Ověřit Supabase secrets
         shell: bash
