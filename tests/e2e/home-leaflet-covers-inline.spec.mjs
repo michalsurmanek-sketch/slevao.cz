@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
 
-test('homepage keeps leaflet cover styles bundled and stays at 25 CSS requests', async ({ page }) => {
+test('homepage keeps leaflet cover styles bundled and stays at 24 CSS requests', async ({ page }) => {
   await page.setViewportSize({ width: 412, height: 844 });
   const stylesheets = [];
 
@@ -20,7 +20,7 @@ test('homepage keeps leaflet cover styles bundled and stays at 25 CSS requests',
   await page.waitForTimeout(3000);
 
   expect(stylesheets.filter((path) => path === '/assets/home-leaflet-covers.css')).toEqual([]);
-  expect(stylesheets.length, `Expected at most 25 homepage CSS requests, got ${stylesheets.length}`).toBeLessThanOrEqual(25);
+  expect(stylesheets.length, `Expected at most 24 homepage CSS requests, got ${stylesheets.length}`).toBeLessThanOrEqual(24);
 
   const computed = await page.evaluate(() => {
     const host = document.createElement('div');
