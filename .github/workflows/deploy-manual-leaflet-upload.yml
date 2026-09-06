@@ -31,7 +31,7 @@ jobs:
     timeout-minutes: 18
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Zkontrolovat jedinou bezpečnou cestu
         shell: bash
@@ -61,9 +61,10 @@ jobs:
           test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
