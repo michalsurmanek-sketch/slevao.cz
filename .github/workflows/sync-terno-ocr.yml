@@ -57,7 +57,7 @@ jobs:
         run: |
           set -euo pipefail
           last_status=1
-          for attempt in 1 2 3; do
+          for attempt in 1 2 3 4 5; do
             log_file="$(mktemp)"
             set +e
             python3 scripts/sync_terno_ocr_direct.py > >(tee "$log_file") 2> >(tee -a "$log_file" >&2)
@@ -76,9 +76,9 @@ jobs:
               exit "$status"
             fi
 
-            if [[ $attempt -lt 3 ]]; then
-              delay=$((attempt * 15))
-              echo "Dočasná síťová chyba Terno OCR (pokus ${attempt}/3), opakuji za ${delay} s."
+            if [[ $attempt -lt 5 ]]; then
+              delay=$((attempt * 30))
+              echo "Dočasná síťová chyba Terno OCR (pokus ${attempt}/5), opakuji za ${delay} s."
               rm -f "$log_file"
               sleep "$delay"
             else
