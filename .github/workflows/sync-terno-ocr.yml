@@ -24,7 +24,7 @@ permissions:
 
 concurrency:
   group: terno-ocr-current-flyer
-  cancel-in-progress: false
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   ocr:
