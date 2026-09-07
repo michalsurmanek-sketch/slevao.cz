@@ -1,0 +1,57 @@
+name: Patch PWA install branding once
+
+on:
+  push:
+    branches:
+      - audit/pwa-install-branding-cleanup-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: audit/pwa-install-branding-cleanup-20260907
+      - name: Remove legacy percent icon from PWA install prompt
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          p = Path('assets/pwa-install.js')
+          s = p.read_text(encoding='utf-8')
+
+          replacements = [
+              ('      <div class="sfInstallPrompt__icon">%</div>\n', ''),
+              ('grid-template-columns:auto 1fr auto', 'grid-template-columns:1fr auto'),
+              ('.sfInstallPrompt__install{grid-column:2/3;', '.sfInstallPrompt__install{grid-column:1;'),
+              ('.sfInstallPrompt__close{grid-column:3;', '.sfInstallPrompt__close{grid-column:2;'),
+          ]
+          for old, new in replacements:
+              count = s.count(old)
+              if count != 1:
+                  raise SystemExit(f'Expected exactly one match for {old!r}, found {count}')
+              s = s.replace(old, new, 1)
+
+          s, count = re.subn(r'\.sfInstallPrompt__icon\{[^}]*\}', '', s, count=1)
+          if count != 1:
+              raise SystemExit(f'Expected exactly one icon CSS block, found {count}')
+
+          if 'sfInstallPrompt__icon' in s or '<div class="sfInstallPrompt__icon">%</div>' in s:
+              raise SystemExit('Legacy install prompt icon remains')
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- assets/pwa-install.js
+      - name: Commit clean patch and remove helper
+        run: |
+          rm .github/workflows/patch-pwa-install-branding-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/pwa-install.js .github/workflows/patch-pwa-install-branding-once.yml
+          git commit -m "fix: remove legacy percent icon from PWA install prompt"
+          git push origin HEAD:audit/pwa-install-branding-cleanup-20260907
