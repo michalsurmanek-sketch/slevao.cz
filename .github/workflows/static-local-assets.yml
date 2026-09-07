@@ -35,3 +35,5 @@ jobs:
         run: node tests/admin-generation-form-accessibility.mjs
       - name: Verify admin leaflet tool accessibility
         run: node tests/admin-leaflet-tools-accessibility.mjs
+      - name: Verify admin manual leaflet upload status accessibility
+        run: node tests/admin-manual-leaflets-status-accessibility.mjs
