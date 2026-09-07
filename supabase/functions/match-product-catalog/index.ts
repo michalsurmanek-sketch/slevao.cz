@@ -68,11 +68,75 @@ type LoadOfferOptions = {
   recheckMissingImages?: boolean;
 };
 
+type ErrorDiagnostic = {
+  message: string;
+  code: string | null;
+  details: string | null;
+  hint: string | null;
+  name: string | null;
+};
+
 function jsonResponse(payload: unknown, status = 200): Response {
   return new Response(JSON.stringify(payload), {
     status,
     headers: { ...CORS_HEADERS, 'content-type': 'application/json; charset=utf-8' },
   });
+}
+
+function diagnosticString(value: unknown): string | null {
+  if (value == null) return null;
+  if (typeof value === 'string') return value.trim() || null;
+  if (typeof value === 'number' || typeof value === 'boolean' || typeof value === 'bigint') return String(value);
+  try {
+    const serialized = JSON.stringify(value);
+    return serialized && serialized !== '{}' ? serialized : null;
+  } catch {
+    return null;
+  }
+}
+
+function describeError(error: unknown): ErrorDiagnostic {
+  if (error instanceof Error) {
+    const record = error as Error & Record<string, unknown>;
+    return {
+      message: error.message || error.name || 'Unknown error',
+      code: diagnosticString(record.code),
+      details: diagnosticString(record.details),
+      hint: diagnosticString(record.hint),
+      name: error.name || null,
+    };
+  }
+
+  if (error && typeof error === 'object') {
+    const record = error as Record<string, unknown>;
+    const message = diagnosticString(record.message)
+      || diagnosticString(record.error_description)
+      || diagnosticString(record.error)
+      || (() => {
+        try {
+          const serialized = JSON.stringify(error);
+          return serialized && serialized !== '{}' ? serialized : null;
+        } catch {
+          return null;
+        }
+      })()
+      || 'Unknown object error';
+    return {
+      message,
+      code: diagnosticString(record.code),
+      details: diagnosticString(record.details),
+      hint: diagnosticString(record.hint),
+      name: diagnosticString(record.name),
+    };
+  }
+
+  return {
+    message: diagnosticString(error) || 'Unknown error',
+    code: null,
+    details: null,
+    hint: null,
+    name: null,
+  };
 }
 
 function normalize(value: unknown): string {
@@ -509,10 +573,17 @@ async function processCatalog(limit: number, options: LoadOfferOptions = {}) {
       }
     } catch (error) {
       failed++;
-      const message = error instanceof Error ? error.message : String(error);
-      console.error(`catalog match failed for offer ${offer.id}: ${message}`);
+      const diagnostic = describeError(error);
+      console.error(`catalog match failed for offer ${offer.id}:`, diagnostic);
       try { await markOffer(offer.id, 'failed', null); } catch {}
-      results.push({ offer_id: offer.id, status: 'failed', error: message });
+      results.push({
+        offer_id: offer.id,
+        status: 'failed',
+        error: diagnostic.message,
+        error_code: diagnostic.code,
+        error_details: diagnostic.details,
+        error_hint: diagnostic.hint,
+      });
     }
   }
 
@@ -558,8 +629,13 @@ Deno.serve(async (request) => {
       ...(await processCatalog(limit, { offerId, storeId, recheckMissingImages })),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.error('match-product-catalog failed:', message);
-    return jsonResponse({ error: message }, 500);
+    const diagnostic = describeError(error);
+    console.error('match-product-catalog failed:', diagnostic);
+    return jsonResponse({
+      error: diagnostic.message,
+      code: diagnostic.code,
+      details: diagnostic.details,
+      hint: diagnostic.hint,
+    }, 500);
   }
 });
