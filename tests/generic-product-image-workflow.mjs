@@ -34,7 +34,7 @@ assert.match(workflow,/GITHUB_STEP_SUMMARY/,'Image workflow cooldown must be wri
 
 assert.match(workflow,/lidl_catalog_limit:[\s\S]*default: '20'/,'Verified Lidl catalog recheck musí mít konzervativní výchozí limit 20.');
 assert.match(workflow,/Bezpečně doplnit Lidl obrázky z ověřeného katalogu/,'Workflow musí před externím discovery spouštět bezpečný Lidl catalog recheck.');
-assert.match(workflow,/functions\/v1\/match-product-catalog/,'Verified Lidl recheck musí volat catalog matcher.');
+assert.match(workflow,/scripts\/invoke_supabase_edge\.sh[\s\S]*match-product-catalog/,'Verified Lidl recheck musí volat catalog matcher přes sdílený resilient Edge helper.');
 assert.match(workflow,/\\"store_slug\\":\\"lidl\\",\\"recheck_missing_images\\":true/,'Verified Lidl recheck musí být store-scoped a explicitně zapnout missing-image režim.');
 assert.match(workflow,/mode="\$\(jq -r '\.mode \/\/ empty'/,'Workflow musí ověřit, že catalog matcher skutečně běžel v recheck režimu.');
 assert.match(workflow,/### Lidl verified katalog recheck/,'Verified Lidl recheck musí zapisovat měřitelné výsledky do job summary.');
