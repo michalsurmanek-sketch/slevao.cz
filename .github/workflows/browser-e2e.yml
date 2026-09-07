@@ -61,7 +61,9 @@ jobs:
           done
           cat /tmp/slevao-http.log
           exit 1
-      - name: Run browser smoke tests
+      - name: Run browser smoke tests without live Supabase dependency
+        env:
+          SLEVAO_E2E_NON_SUPABASE: '1'
         run: npx playwright test
       - name: Upload Playwright diagnostics
         if: always()
