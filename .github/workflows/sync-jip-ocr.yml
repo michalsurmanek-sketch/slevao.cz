@@ -56,8 +56,8 @@ jobs:
             log_file="$(mktemp)"
             echo "JIP OCR attempt $attempt/$max_attempts"
             set +e
-            python3 scripts/sync_jip_ocr.py > >(tee "$log_file") 2> >(tee -a "$log_file" >&2)
-            status=$?
+            python3 scripts/sync_jip_ocr.py 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
             set -e
             last_status=$status
 
