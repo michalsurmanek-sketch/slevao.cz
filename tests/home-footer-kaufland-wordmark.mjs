@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 
 const index = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const runtime = readFileSync(new URL('../assets/footer-section-jumps.js', import.meta.url), 'utf8');
+const quickFoodRuntime = readFileSync(new URL('../assets/home-quick-food-personalize.js', import.meta.url), 'utf8');
 
 assert.match(
   index,
@@ -82,6 +83,32 @@ assert.doesNotMatch(
   runtime,
   /label:'Slevové kódy'/,
   'Footer nesmí slibovat slevové kódy, když cílí jen na běžné aktuální nabídky.',
+);
+
+assert.match(
+  quickFoodRuntime,
+  /dock = document\.querySelector\('\.sqFoodDock'\)/,
+  'Rychlý nákup musí být navázaný na komponentu .sqFoodDock.',
+);
+assert.match(
+  quickFoodRuntime,
+  /<strong>Rychlý nákup<\/strong>/,
+  'Komponenta .sqFoodDock musí být skutečně prezentovaná jako Rychlý nákup.',
+);
+assert.match(
+  runtime,
+  /\{ href:'#quickFoodDock', fallback:'\.sqFoodDock', label:'Rychlý nákup', icon:/,
+  'Footer musí posílat Rychlý nákup na skutečný quick-food dock, ne na filtrační záložky.',
+);
+assert.doesNotMatch(
+  runtime,
+  /\{ href:'#quickTabs',[^\n]*label:'Nákupní seznam'/,
+  'Footer nesmí vydávat filtrační #quickTabs za nákupní seznam.',
+);
+assert.match(
+  runtime,
+  /\{ href:'seznam\.html', label:'Seznam', icon:/,
+  'Samostatný odkaz Seznam musí dál vést na skutečnou stránku nákupního seznamu.',
 );
 
 console.log('Homepage footer copy + navigation guard prošel.');
