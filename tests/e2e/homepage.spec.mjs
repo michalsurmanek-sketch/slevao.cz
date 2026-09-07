@@ -2,6 +2,8 @@ import { test, expect } from '@playwright/test';
 
 const BASE_URL = 'http://127.0.0.1:4173';
 const MOBILE_WIDTHS = [320, 360, 375, 390, 412, 430];
+const NON_SUPABASE_E2E = process.env.SLEVAO_E2E_NON_SUPABASE === '1';
+const liveDataTest = NON_SUPABASE_E2E ? test.skip : test;
 
 async function openHomepage(page) {
   await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
@@ -60,7 +62,8 @@ test('homepage loads the canonical mobile UX stylesheet only once', async ({ pag
   });
 
   await page.setViewportSize({ width: 390, height: 844 });
-  await openHomepage(page);
+  const response = await page.goto(`${BASE_URL}/index.html`, { waitUntil: 'domcontentloaded' });
+  expect(response?.status()).toBe(200);
   await page.waitForTimeout(750);
 
   expect(requests, `mobile-ux requests: ${JSON.stringify(requests)}`).toHaveLength(1);
@@ -100,7 +103,7 @@ test('fresh homepage ignores stale section hash and restored deals scroll', asyn
   }).toBeLessThan(5);
 });
 
-test('quick purchase scroll happens only after a real click', async ({ page }) => {
+liveDataTest('quick purchase scroll happens only after a real click', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await openHomepage(page);
   await expect(page.locator('.sqFoodDock [data-sq-food]').first()).toBeVisible();
@@ -113,7 +116,7 @@ test('quick purchase scroll happens only after a real click', async ({ page }) =
   }).toBeGreaterThan(100);
 });
 
-test('homepage sends one initial facets request', async ({ page }) => {
+liveDataTest('homepage sends one initial facets request', async ({ page }) => {
   const requests = [];
   page.on('request', (request) => {
     if (
@@ -131,7 +134,7 @@ test('homepage sends one initial facets request', async ({ page }) => {
   expect(requests, `facets requests: ${JSON.stringify(requests)}`).toHaveLength(1);
 });
 
-test('desktop homepage renders server-paginated offers', async ({ page }) => {
+liveDataTest('desktop homepage renders server-paginated offers', async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 1000 });
   await openHomepage(page);
 
@@ -147,7 +150,7 @@ test('desktop homepage renders server-paginated offers', async ({ page }) => {
   await expectNoHorizontalOverflow(page);
 });
 
-test('search uses the public server search and returns mleko results', async ({ page }) => {
+liveDataTest('search uses the public server search and returns mleko results', async ({ page }) => {
   await page.setViewportSize({ width: 1280, height: 900 });
   await openHomepage(page);
 
@@ -162,7 +165,7 @@ test('search uses the public server search and returns mleko results', async ({ 
 });
 
 for (const width of MOBILE_WIDTHS) {
-  test(`mobile ${width}px has offers, hero metrics, bottom nav and no horizontal overflow`, async ({ page }, testInfo) => {
+  liveDataTest(`mobile ${width}px has offers, hero metrics, bottom nav and no horizontal overflow`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await openHomepage(page);
 

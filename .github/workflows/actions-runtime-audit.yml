@@ -1,0 +1,29 @@
+name: GitHub Actions runtime audit
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/**'
+      - 'tests/github-actions-runtime.mjs'
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'tests/github-actions-runtime.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  runtime-audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          package-manager-cache: false
+      - name: Ověřit runtime GitHub Actions
+        run: node tests/github-actions-runtime.mjs
