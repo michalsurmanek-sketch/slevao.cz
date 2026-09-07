@@ -32,27 +32,75 @@ permissions:
   contents: read
 
 jobs:
-  apply-and-test:
-    name: Databáze, syntaxe a provozní kontrola
+  validate:
+    name: Syntaxe a architektura administrace
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    outputs:
+      database_changed: ${{ steps.database-change.outputs.changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Zkontrolovat syntaxi a architekturu JavaScriptu
+        shell: bash
         run: |
+          set -euo pipefail
           node --check assets/admin-save-offer-v2.js
           node --check assets/admin-offers-full-list.js
           node --check assets/admin-store-delete.js
           node --check assets/admin-homepage-image-nav.js
           node --check assets/admin-manual-leaflets.js
           node --check assets/store-generic-bootstrap.js
-          grep -q "upload_transport: 'database-data-url'" assets/admin-manual-leaflets.js
-          ! grep -q "storage.from" assets/admin-manual-leaflets.js
-          ! grep -q "admin-manual-leaflets-inline-fallback" admin-nahrat-letaky.html
-          ! grep -q "admin-manual-leaflets-client-register" admin-nahrat-letaky.html
-          ! grep -q "admin-manual-leaflets-bucket-hotfix" admin-nahrat-letaky.html
+
+          # Ruční upload musí používat jedinou serverovou Edge Function cestu.
+          grep -Fq "const UPLOAD_FUNCTION = 'manual-leaflet-upload-v2';" assets/admin-manual-leaflets.js
+          grep -Fq "const form = new FormData();" assets/admin-manual-leaflets.js
+          grep -Fq "form.append('file', item.file, item.file.name);" assets/admin-manual-leaflets.js
+          grep -Fq 'await callUploadFunction(form)' assets/admin-manual-leaflets.js
+          ! grep -Fq 'storage.from' assets/admin-manual-leaflets.js
+          ! grep -Fq 'admin-manual-leaflets-inline-fallback' admin-nahrat-letaky.html
+          ! grep -Fq 'admin-manual-leaflets-client-register' admin-nahrat-letaky.html
+          ! grep -Fq 'admin-manual-leaflets-bucket-hotfix' admin-nahrat-letaky.html
+
+      - name: Zjistit, zda se změnily databázové migrace
+        id: database-change
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          migrations_regex='^supabase/migrations/(20260803182000_admin_integrity_hardening|20260803185000_admin_offer_transaction|20260803190000_preserve_expired_offers|20260803193000_harden_public_rls|20260803194500_admin_create_offer_v2|20260803200000_category_integrity)\.sql$'
+          base="$BEFORE_SHA"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-list --max-parents=0 "$HEAD_SHA" | tail -n 1)"
+          fi
+
+          if git diff --name-only "$base" "$HEAD_SHA" | grep -Eq "$migrations_regex"; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo 'Databázová migrace se změnila; produkční SQL kontrola se spustí.'
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'Změna se netýká sledovaných migrací; produkční databáze zůstává beze změny.'
+          fi
+
+  apply-database:
+    name: Databázová integrita
+    needs: validate
+    if: needs.validate.outputs.database_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Ověřit přístupový token
         env:
