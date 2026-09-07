@@ -8,20 +8,179 @@ on:
     paths:
       - 'supabase/functions/**'
       - '.github/scripts/patch_process_leaflet_large_files.py'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/**'
+      - '.github/scripts/patch_process_leaflet_large_files.py'
       - '.github/workflows/deploy-edge-functions.yml'
   workflow_dispatch:
+    inputs:
+      edge_maintenance:
+        description: 'Provést údržbu debug Edge Functions'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
-  group: deploy-edge-functions
+  group: deploy-edge-functions-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  plan:
+    name: Ověřit a naplánovat Edge deploy
+    runs-on: ubuntu-latest
+    outputs:
+      deploy_needed: ${{ steps.plan.outputs.deploy_needed }}
+      generic_functions: ${{ steps.plan.outputs.generic_functions }}
+      maintenance_requested: ${{ steps.plan.outputs.maintenance_requested }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+      - name: Ověřit společné Edge kontrakty
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .github/scripts/patch_process_leaflet_large_files.py
+          grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
+          grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
+          grep -q "MAX_RUN_MS = 85_000" supabase/functions/match-product-catalog/index.ts
+          grep -q "catalog_checked_at" supabase/functions/match-product-catalog/index.ts
+          grep -q "leaflet_ai_crop" supabase/functions/generate-leaflet-product-crops/index.ts
+
+      - name: Zjistit pouze skutečně změněné nespecializované funkce
+        id: plan
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          MAINTENANCE_INPUT: ${{ inputs.edge_maintenance }}
+        run: |
+          set -euo pipefail
+
+          target="$(git rev-parse HEAD)"
+          maintenance_requested=false
+          commit_message="$(git log -1 --pretty=%B)"
+          if [[ "$EVENT_NAME" == 'push' && "$commit_message" == *'[edge-maintenance]'* ]]; then
+            maintenance_requested=true
+          elif [[ "$EVENT_NAME" == 'workflow_dispatch' && "$MAINTENANCE_INPUT" == 'true' ]]; then
+            maintenance_requested=true
+          fi
+
+          changed_paths=()
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            before="$PR_BASE_SHA"
+            if [[ -z "$before" ]]; then
+              echo 'Nelze určit base SHA pull requestu.'
+              exit 1
+            fi
+            mapfile -t changed_paths < <(git diff --name-only "$before" "$target")
+          elif [[ "$EVENT_NAME" == 'push' ]]; then
+            before="$(git rev-parse "${target}^1" 2>/dev/null || true)"
+            if [[ -z "$before" ]]; then
+              before="$BEFORE_SHA"
+            fi
+            if [[ -z "$before" || "$before" == '0000000000000000000000000000000000000000' ]]; then
+              echo 'Nelze bezpečně určit předchozí commit.'
+              exit 1
+            fi
+            mapfile -t changed_paths < <(git diff --name-only "$before" "$target")
+          else
+            echo 'Ruční hromadný deploy zůstává vypnutý; workflow_dispatch slouží jen pro explicitní edge maintenance.'
+          fi
+
+          handled_elsewhere=(
+            generate-leaflet-product-crops
+            manual-leaflet-upload-v2
+            prepare-manual-leaflet-upload
+            process-leaflet-basic
+            process-manual-leaflet-v2
+            publish-imports
+            run-manual-leaflet-import
+            sync-official-leaflet-sources
+          )
+
+          is_handled_elsewhere() {
+            local candidate="$1"
+            local known
+            for known in "${handled_elsewhere[@]}"; do
+              [[ "$candidate" == "$known" ]] && return 0
+            done
+            return 1
+          }
+
+          generic_functions=()
+          patch_changed=false
+          for path in "${changed_paths[@]}"; do
+            if [[ "$path" == '.github/scripts/patch_process_leaflet_large_files.py' ]]; then
+              patch_changed=true
+            fi
+            if [[ "$path" =~ ^supabase/functions/([^/]+)/ ]]; then
+              function_name="${BASH_REMATCH[1]}"
+              if is_handled_elsewhere "$function_name"; then
+                echo "Přeskakuji ${function_name}: má specializovaný deploy workflow."
+                continue
+              fi
+              generic_functions+=("$function_name")
+            fi
+          done
+
+          if [[ "$patch_changed" == 'true' ]]; then
+            generic_functions+=(process-leaflet)
+          fi
+
+          if [[ ${#generic_functions[@]} -gt 0 ]]; then
+            mapfile -t generic_functions < <(printf '%s\n' "${generic_functions[@]}" | sort -u)
+          fi
+
+          validated_functions=()
+          for function_name in "${generic_functions[@]}"; do
+            function_dir="supabase/functions/${function_name}"
+            if [[ ! -d "$function_dir" ]]; then
+              echo "Přeskakuji odstraněný adresář ${function_name}."
+              continue
+            fi
+            config_file="${function_dir}/config.toml"
+            if [[ ! -f "$config_file" ]]; then
+              echo "CHYBA: ${function_name} nemá explicitní config.toml s verify_jwt."
+              exit 1
+            fi
+            if ! grep -Eq '^verify_jwt[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$' "$config_file"; then
+              echo "CHYBA: ${config_file} neobsahuje jednoznačné verify_jwt=true/false."
+              exit 1
+            fi
+            validated_functions+=("$function_name")
+          done
+          generic_functions=("${validated_functions[@]}")
+
+          functions_csv=''
+          if [[ ${#generic_functions[@]} -gt 0 ]]; then
+            functions_csv="$(IFS=,; echo "${generic_functions[*]}")"
+          fi
+
+          deploy_needed=false
+          if [[ "$EVENT_NAME" == 'push' && "$maintenance_requested" != 'true' && -n "$functions_csv" ]]; then
+            deploy_needed=true
+          fi
+
+          echo "maintenance_requested=$maintenance_requested" >> "$GITHUB_OUTPUT"
+          echo "deploy_needed=$deploy_needed" >> "$GITHUB_OUTPUT"
+          echo "generic_functions=$functions_csv" >> "$GITHUB_OUTPUT"
+          echo "Generic deploy: ${functions_csv:-žádný}; deploy_needed=${deploy_needed}; maintenance=${maintenance_requested}"
+
   edge-maintenance:
     name: Uklidit debug funkce a uvolnit kapacitu
-    if: ${{ contains(github.event.head_commit.message, '[edge-maintenance]') }}
+    needs: plan
+    if: needs.plan.outputs.maintenance_requested == 'true' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -109,71 +268,10 @@ jobs:
         run: |
           supabase functions list --project-ref uhampjdqjxmbhaptgitn
 
-  deploy-homepage-leaflet-image:
-    name: Nasadit obrázky letáků
-    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
-        with:
-          version: 2.116.0
-          github-token: ${{ github.token }}
-
-      - name: Ověřit přístupový token
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
-            exit 1
-          }
-
-      - name: Nasadit správu obrázků letáků na homepage
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy homepage-leaflet-image \
-            --project-ref uhampjdqjxmbhaptgitn
-
-  deploy-homepage-leaflet-visibility:
-    name: Nasadit viditelnost letáků
-    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v2
-        with:
-          version: 2.116.0
-          github-token: ${{ github.token }}
-
-      - name: Ověřit přístupový token
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          test -n "$SUPABASE_ACCESS_TOKEN" || {
-            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
-            exit 1
-          }
-
-      - name: Nasadit viditelnost letáků na homepage
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy homepage-leaflet-visibility \
-            --project-ref uhampjdqjxmbhaptgitn
-
-  deploy-other-functions:
-    name: Nasadit ostatní funkce
-    if: ${{ !contains(github.event.head_commit.message, '[edge-maintenance]') }}
+  deploy-changed-functions:
+    name: Nasadit pouze změněné Edge Functions
+    needs: plan
+    if: needs.plan.outputs.deploy_needed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
@@ -183,13 +281,12 @@ jobs:
           fetch-depth: 0
 
       - name: Aplikovat opravu velkých letáků
+        shell: bash
         run: |
+          set -euo pipefail
           python .github/scripts/patch_process_leaflet_large_files.py
           grep -q "storageUploadWarning" supabase/functions/process-leaflet/index.ts
           grep -q "useRemoteUrl" supabase/functions/process-leaflet/index.ts
-          grep -q "MAX_RUN_MS = 85_000" supabase/functions/match-product-catalog/index.ts
-          grep -q "catalog_checked_at" supabase/functions/match-product-catalog/index.ts
-          grep -q "leaflet_ai_crop" supabase/functions/generate-leaflet-product-crops/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v2
@@ -206,104 +303,32 @@ jobs:
             exit 1
           }
 
-      - name: Nasadit bezpečné mazání obchodů
+      - name: Nasadit naplánované funkce
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy delete-store \
-            --project-ref uhampjdqjxmbhaptgitn
-
-      - name: Nasadit prohlížeč dokumentů letáků
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-        run: |
-          supabase functions deploy store-leaflet-document \
-            --project-ref uhampjdqjxmbhaptgitn \
-            --no-verify-jwt
-
-      - name: Nasadit pouze změněné Edge Functions
-        env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          BEFORE_SHA: ${{ github.event.before }}
-          EVENT_NAME: ${{ github.event_name }}
+          FUNCTIONS_CSV: ${{ needs.plan.outputs.generic_functions }}
         shell: bash
         run: |
           set -euo pipefail
           PROJECT_REF='uhampjdqjxmbhaptgitn'
-
-          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
-            echo 'Ruční hromadný deploy je z bezpečnostních důvodů vypnutý. Použij změnu konkrétní funkce nebo její specializovaný workflow.'
+          IFS=',' read -r -a functions <<< "$FUNCTIONS_CSV"
+          if [[ ${#functions[@]} -eq 0 || -z "${functions[0]}" ]]; then
+            echo 'Nebyla naplánována žádná funkce.'
             exit 0
           fi
 
-          before="$(git rev-parse "${GITHUB_SHA}^1" 2>/dev/null || true)"
-          if [[ -z "$before" ]]; then
-            before="$BEFORE_SHA"
-          fi
-          if [[ -z "$before" || "$before" == '0000000000000000000000000000000000000000' ]]; then
-            echo 'Nelze bezpečně určit prvního rodiče ani předchozí commit; deploy se neprovede.'
-            exit 1
-          fi
-
-          mapfile -t changed_functions < <(
-            git diff --name-only "$before" "$GITHUB_SHA" -- 'supabase/functions/**' \
-              | awk -F/ 'NF >= 3 { print $3 }' \
-              | sort -u
-          )
-
-          if [[ ${#changed_functions[@]} -eq 0 ]]; then
-            echo 'V tomto commitu není změněná žádná Edge Function.'
-            exit 0
-          fi
-
-          handled_elsewhere=(
-            delete-store
-            homepage-leaflet-image
-            homepage-leaflet-visibility
-            process-leaflet-basic
-            store-leaflet-document
-            sync-official-leaflet-sources
-          )
-
-          is_handled_elsewhere() {
-            local candidate="$1"
-            local known
-            for known in "${handled_elsewhere[@]}"; do
-              [[ "$candidate" == "$known" ]] && return 0
-            done
-            return 1
-          }
-
-          for function_name in "${changed_functions[@]}"; do
-            if is_handled_elsewhere "$function_name"; then
-              echo "Přeskakuji ${function_name}: nasazuje se specializovaným krokem nebo workflow."
-              continue
-            fi
-
+          for function_name in "${functions[@]}"; do
             function_dir="supabase/functions/${function_name}"
-            if [[ ! -d "$function_dir" ]]; then
-              echo "Přeskakuji odstraněný adresář ${function_name}."
-              continue
-            fi
-
             config_file="${function_dir}/config.toml"
-            if [[ ! -f "$config_file" ]]; then
-              echo "CHYBA: ${function_name} nemá explicitní config.toml s verify_jwt."
-              echo 'Deploy je zastaven, aby se neznámý auth režim nepřepsal výchozí hodnotou.'
-              exit 1
-            fi
-            if ! grep -Eq '^verify_jwt[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$' "$config_file"; then
-              echo "CHYBA: ${config_file} neobsahuje jednoznačné verify_jwt=true/false."
-              exit 1
-            fi
-
+            test -d "$function_dir"
+            test -f "$config_file"
             auth_mode="$(sed -nE 's/^verify_jwt[[:space:]]*=[[:space:]]*(true|false)[[:space:]]*$/\1/p' "$config_file" | tail -n 1)"
             if [[ "$auth_mode" != 'true' && "$auth_mode" != 'false' ]]; then
               echo "CHYBA: z ${config_file} se nepodařilo načíst verify_jwt."
               exit 1
             fi
 
-            echo "Nasazuji pouze změněnou funkci ${function_name}; verify_jwt=${auth_mode}."
+            echo "Nasazuji ${function_name}; verify_jwt=${auth_mode}."
             if [[ "$auth_mode" == 'false' ]]; then
               supabase functions deploy "$function_name" \
                 --project-ref "$PROJECT_REF" \
@@ -312,16 +337,4 @@ jobs:
               supabase functions deploy "$function_name" \
                 --project-ref "$PROJECT_REF"
             fi
-          done
-
-      - name: Ověřit klíčové automatizační funkce
-        shell: bash
-        run: |
-          set -euo pipefail
-          for function_name in sync-official-leaflet-sources match-product-catalog generate-leaflet-product-crops; do
-            response="$(curl --fail --silent --show-error \
-              --request OPTIONS \
-              --retry 10 --retry-delay 3 \
-              "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/${function_name}")"
-            test "$response" = 'ok'
           done
