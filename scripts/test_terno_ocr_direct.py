@@ -177,6 +177,30 @@ class TernoTargetSelectorTests(unittest.TestCase):
         self.assertEqual(target["import_id"], "tomorrow-incomplete")
         self.assertEqual(target["target_date"], (today + timedelta(days=1)).isoformat())
 
+    def test_same_validity_prefers_newer_created_at(self):
+        today = direct.datetime.now(direct.PRAGUE).date()
+        rows = [
+            {
+                "id": "older-import",
+                "metadata": self.metadata(["https://example.invalid/older.jpg"]),
+                "detected_valid_from": today.isoformat(),
+                "detected_valid_to": (today + timedelta(days=2)).isoformat(),
+                "created_at": "2026-09-07T16:00:00Z",
+            },
+            {
+                "id": "newer-import",
+                "metadata": self.metadata(["https://example.invalid/newer.jpg"]),
+                "detected_valid_from": today.isoformat(),
+                "detected_valid_to": (today + timedelta(days=2)).isoformat(),
+                "created_at": "2026-09-07T18:00:00Z",
+            },
+        ]
+        direct._original_api = self.fake_api([{"id": "store-terno"}], rows)
+
+        target = direct.terno_target()
+
+        self.assertEqual(target["import_id"], "newer-import")
+
     def test_missing_terno_store_is_explicit_failure(self):
         direct._original_api = self.fake_api([], [])
 
