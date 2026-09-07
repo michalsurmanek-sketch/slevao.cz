@@ -1,0 +1,43 @@
+name: Patch homepage branding once
+
+on:
+  push:
+    branches:
+      - audit/home-branding-percent-removal-20260907
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: audit/home-branding-percent-removal-20260907
+      - name: Remove legacy percent brand marks
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('index.html')
+          s = p.read_text(encoding='utf-8')
+          old = '<span class="brandMark">%</span>'
+          count = s.count(old)
+          if count != 2:
+              raise SystemExit(f'Expected exactly 2 legacy brand marks, found {count}')
+          s = s.replace(old, '')
+          if 'class="brandMark">%</span>' in s:
+              raise SystemExit('Legacy brand mark still present')
+          p.write_text(s, encoding='utf-8')
+          PY
+          git diff --check
+          git diff -- index.html
+      - name: Commit clean patch and remove helper
+        run: |
+          rm .github/workflows/patch-home-branding-once.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add index.html .github/workflows/patch-home-branding-once.yml
+          git commit -m "fix: remove legacy percent marks from homepage branding"
+          git push origin HEAD:audit/home-branding-percent-removal-20260907
