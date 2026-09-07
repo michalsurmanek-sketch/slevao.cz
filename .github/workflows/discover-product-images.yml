@@ -80,7 +80,7 @@ jobs:
             echo "Neplatný Lidl catalog limit: $LIDL_CATALOG_LIMIT"
             exit 1
           fi
-          response="$(scripts/invoke_supabase_edge.sh \
+          response="$(bash scripts/invoke_supabase_edge.sh \
             match-product-catalog \
             "{\"limit\":$LIDL_CATALOG_LIMIT,\"store_slug\":\"lidl\",\"recheck_missing_images\":true}")"
           printf '%s\n' "$response"
@@ -112,7 +112,7 @@ jobs:
             echo "Neplatný image discovery limit: $LIMIT"
             exit 1
           fi
-          response="$(scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIMIT}")"
+          response="$(bash scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIMIT}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then
@@ -133,7 +133,7 @@ jobs:
             echo "Neplatný Lidl image discovery limit: $LIDL_LIMIT"
             exit 1
           fi
-          response="$(scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIDL_LIMIT,\"store_slug\":\"lidl\"}")"
+          response="$(bash scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIDL_LIMIT,\"store_slug\":\"lidl\"}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then
@@ -159,7 +159,7 @@ jobs:
             echo "Neplatný generic image limit: $GENERIC_LIMIT"
             exit 1
           fi
-          response="$(scripts/invoke_supabase_edge.sh generate-generic-product-images "{\"limit\":$GENERIC_LIMIT}")"
+          response="$(bash scripts/invoke_supabase_edge.sh generate-generic-product-images "{\"limit\":$GENERIC_LIMIT}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then

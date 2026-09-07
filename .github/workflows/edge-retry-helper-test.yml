@@ -7,12 +7,16 @@ on:
       - 'scripts/invoke_supabase_edge.sh'
       - 'tests/invoke-supabase-edge-retry.sh'
       - '.github/workflows/edge-retry-helper-test.yml'
+      - '.github/workflows/match-product-catalog.yml'
+      - '.github/workflows/discover-product-images.yml'
   push:
     branches: [main]
     paths:
       - 'scripts/invoke_supabase_edge.sh'
       - 'tests/invoke-supabase-edge-retry.sh'
       - '.github/workflows/edge-retry-helper-test.yml'
+      - '.github/workflows/match-product-catalog.yml'
+      - '.github/workflows/discover-product-images.yml'
 
 permissions:
   contents: read
@@ -29,3 +33,11 @@ jobs:
           bash -n tests/invoke-supabase-edge-retry.sh
       - name: Ověřit transient/permanent retry chování
         run: bash tests/invoke-supabase-edge-retry.sh
+      - name: Ověřit přenosné volání helperu z workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          image_calls="$(grep -c 'bash scripts/invoke_supabase_edge.sh' .github/workflows/discover-product-images.yml)"
+          catalog_calls="$(grep -c 'bash scripts/invoke_supabase_edge.sh' .github/workflows/match-product-catalog.yml)"
+          test "$image_calls" -eq 4 || { echo "Image workflow musí mít 4 Edge volání přes explicitní bash; nalezeno $image_calls"; exit 1; }
+          test "$catalog_calls" -eq 1 || { echo "Catalog workflow musí mít 1 Edge volání přes explicitní bash; nalezeno $catalog_calls"; exit 1; }
