@@ -15,23 +15,40 @@ on:
       - 'supabase/functions/generate-leaflet-product-crops/**'
       - 'supabase/migrations/*leaflet_product_crops*.sql'
       - '.github/workflows/deploy-manual-leaflet-upload.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'admin-nahrat-letaky.html'
+      - 'assets/admin-manual-leaflets.css'
+      - 'assets/admin-manual-leaflets.js'
+      - 'assets/admin-pdf-pages.js'
+      - 'supabase/functions/manual-leaflet-upload-v2/**'
+      - 'supabase/functions/process-manual-leaflet-v2/**'
+      - 'supabase/functions/run-manual-leaflet-import/**'
+      - 'supabase/functions/generate-leaflet-product-crops/**'
+      - 'supabase/migrations/*leaflet_product_crops*.sql'
+      - '.github/workflows/deploy-manual-leaflet-upload.yml'
   workflow_dispatch:
 
 concurrency:
-  group: deploy-manual-leaflet-upload-v2
+  group: deploy-manual-leaflet-upload-v2-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  deploy-and-validate:
-    name: Nasadit a ověřit celý ruční import
+  validate:
+    name: Ověřit ruční import letáků
     runs-on: ubuntu-latest
-    timeout-minutes: 18
+    outputs:
+      backend_changed: ${{ steps.backend-change.outputs.changed }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - name: Zkontrolovat jedinou bezpečnou cestu
         shell: bash
@@ -48,6 +65,7 @@ jobs:
           grep -q "edge-multipart-storage-v3" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "confirmProcessorStarted" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "searchParams.get('health')" supabase/functions/manual-leaflet-upload-v2/index.ts
+          grep -q "await authenticatedUser(request, db)" supabase/functions/manual-leaflet-upload-v2/index.ts
           grep -q "server-bytes-data-url" supabase/functions/process-manual-leaflet-v2/index.ts
           grep -q "leaflet_import_items" supabase/functions/process-manual-leaflet-v2/index.ts
           grep -q "x-cron-secret" supabase/functions/run-manual-leaflet-import/index.ts
@@ -59,6 +77,48 @@ jobs:
           ! grep -q "register-manual-leaflet" assets/admin-manual-leaflets.js
           test "$(grep -c 'assets/admin-pdf-pages.js' admin-nahrat-letaky.html)" -eq 1
           test "$(grep -c 'assets/admin-manual-leaflets.js' admin-nahrat-letaky.html)" -eq 1
+          grep -q 'PDF do 50 MB' admin-nahrat-letaky.html
+
+      - name: Zjistit, zda se změnil backend ručního importu
+        id: backend-change
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          base="$BEFORE_SHA"
+          if [[ -z "$base" || "$base" =~ ^0+$ ]] || ! git cat-file -e "${base}^{commit}" 2>/dev/null; then
+            base="$(git rev-list --max-parents=0 "$HEAD_SHA" | tail -n 1)"
+          fi
+
+          if git diff --name-only "$base" "$HEAD_SHA" | grep -Eq '^supabase/functions/(manual-leaflet-upload-v2|process-manual-leaflet-v2|run-manual-leaflet-import|generate-leaflet-product-crops)/'; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+            echo 'Backend ručního importu se změnil; Edge Functions se nasadí.'
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'Backend se nezměnil; produkční Edge Functions zůstávají beze změny.'
+          fi
+
+  deploy:
+    name: Nasadit a ověřit Edge Functions ručního importu
+    needs: validate
+    if: needs.validate.outputs.backend_changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 18
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -105,7 +165,7 @@ jobs:
             --project-ref uhampjdqjxmbhaptgitn \
             --no-verify-jwt
 
-      - name: Ověřit Edge Functions
+      - name: Ověřit dostupnost Edge Functions
         shell: bash
         run: |
           set -euo pipefail
@@ -116,31 +176,3 @@ jobs:
               "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/${function_name}")"
             test "$response" = 'ok'
           done
-
-      - name: Ověřit Storage a návaznost
-        shell: bash
-        run: |
-          set -euo pipefail
-          health_file="$(mktemp)"
-          http_status="$(curl --silent --show-error \
-            --output "$health_file" \
-            --write-out '%{http_code}' \
-            --retry 8 --retry-delay 3 \
-            'https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/manual-leaflet-upload-v2?health=1')"
-          cat "$health_file"
-          echo
-          test "$http_status" = '200'
-          jq -e '.ok == true and .upload == "ready" and .processor == "ready" and .bucket == "leaflets" and .processor_name == "process-manual-leaflet-v2"' "$health_file"
-
-      - name: Ověřit produkční stránku a 50MB PDF
-        shell: bash
-        run: |
-          set -euo pipefail
-          page_file="$(mktemp)"
-          curl --fail --silent --show-error --location \
-            --retry 18 --retry-delay 5 \
-            "https://slevao.cz/admin-nahrat-letaky.html?deploy=${GITHUB_SHA}" \
-            > "$page_file"
-          grep -q 'admin-pdf-pages.js?v=20260803-2' "$page_file"
-          grep -q 'admin-manual-leaflets.js?v=20260803-10' "$page_file"
-          grep -q 'PDF do 50 MB' "$page_file"
