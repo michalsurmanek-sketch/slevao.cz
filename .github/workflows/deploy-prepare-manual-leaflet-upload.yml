@@ -1,4 +1,4 @@
-name: Nasadit opravu bucketu letáků
+name: Nasadit přípravu podepsaného uploadu
 
 on:
   push:
@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - 'supabase/functions/prepare-manual-leaflet-upload/**'
-      - 'assets/admin-manual-leaflets-bucket-hotfix.js'
-      - 'admin-nahrat-letaky.html'
       - '.github/workflows/deploy-prepare-manual-leaflet-upload.yml'
   workflow_dispatch:
 
@@ -20,15 +18,20 @@ permissions:
 
 jobs:
   deploy:
-    name: Nasadit podepsané nahrávání
+    name: Nasadit prepare-manual-leaflet-upload
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
-      - name: Zkontrolovat JavaScript
-        run: node --check assets/admin-manual-leaflets-bucket-hotfix.js
+      - name: Ověřit zdroj Edge Function
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f supabase/functions/prepare-manual-leaflet-upload/index.ts
+          grep -Fq "Deno.serve" supabase/functions/prepare-manual-leaflet-upload/index.ts
+          grep -Fq "createSignedUploadUrl" supabase/functions/prepare-manual-leaflet-upload/index.ts
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
@@ -44,16 +47,9 @@ jobs:
             exit 1
           }
 
-      - name: Nasadit přípravu bucketu a podepsaného uploadu
+      - name: Nasadit přípravu podepsaného uploadu
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
         run: |
           supabase functions deploy prepare-manual-leaflet-upload \
             --project-ref uhampjdqjxmbhaptgitn
-
-      - name: Ověřit produkční stránku
-        run: |
-          curl --fail --silent --show-error --location \
-            --retry 5 --retry-delay 5 \
-            https://slevao.cz/admin-nahrat-letaky.html \
-            | grep -q 'admin-manual-leaflets-bucket-hotfix.js'
