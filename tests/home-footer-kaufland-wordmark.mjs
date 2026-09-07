@@ -73,4 +73,15 @@ assert.doesNotMatch(
   'Footer zkratka Hledej nesmí posílat uživatele do sekce aktuálních nabídek.',
 );
 
+assert.match(
+  runtime,
+  /\{ href:'#dealsSection', label:'Nabídky', icon:/,
+  'Footer odkaz na dealsSection musí být označený jako Nabídky.',
+);
+assert.doesNotMatch(
+  runtime,
+  /label:'Slevové kódy'/,
+  'Footer nesmí slibovat slevové kódy, když cílí jen na běžné aktuální nabídky.',
+);
+
 console.log('Homepage footer copy + navigation guard prošel.');
