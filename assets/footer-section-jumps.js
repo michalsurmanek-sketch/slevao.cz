@@ -132,9 +132,21 @@
     word.textContent = 'aufland';
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', fixKauflandWordmark, { once:true });
-  } else {
+  function fixPrivacyLinkCopy() {
+    const link = document.querySelector('.footerLinks a[href="ochrana-soukromi.html"]');
+    if (!link) return;
+    if (link.textContent.trim() !== 'Ochrana soukromi') return;
+    link.textContent = 'Ochrana soukromí';
+  }
+
+  function fixFooterCopy() {
     fixKauflandWordmark();
+    fixPrivacyLinkCopy();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixFooterCopy, { once:true });
+  } else {
+    fixFooterCopy();
   }
 })();
