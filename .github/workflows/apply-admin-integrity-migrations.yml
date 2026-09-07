@@ -22,10 +22,31 @@ on:
       - 'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
       - 'supabase/migrations/20260803200000_category_integrity.sql'
       - '.github/workflows/apply-admin-integrity-migrations.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'admin.html'
+      - 'admin-nahrat-letaky.html'
+      - '404.html'
+      - 'obchod.html'
+      - 'assets/admin-save-offer-v2.js'
+      - 'assets/admin-offers-full-list.js'
+      - 'assets/admin-store-delete.js'
+      - 'assets/admin-homepage-image-nav.js'
+      - 'assets/admin-manual-leaflets.js'
+      - 'assets/store-generic-bootstrap.js'
+      - 'supabase/migrations/20260803182000_admin_integrity_hardening.sql'
+      - 'supabase/migrations/20260803185000_admin_offer_transaction.sql'
+      - 'supabase/migrations/20260803190000_preserve_expired_offers.sql'
+      - 'supabase/migrations/20260803193000_harden_public_rls.sql'
+      - 'supabase/migrations/20260803194500_admin_create_offer_v2.sql'
+      - 'supabase/migrations/20260803200000_category_integrity.sql'
+      - '.github/workflows/apply-admin-integrity-migrations.yml'
   workflow_dispatch:
 
 concurrency:
-  group: apply-admin-integrity-migrations
+  group: apply-admin-integrity-migrations-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 permissions:
@@ -75,6 +96,11 @@ jobs:
           set -euo pipefail
           if [[ "$EVENT_NAME" == 'workflow_dispatch' ]]; then
             echo 'changed=true' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ "$EVENT_NAME" == 'pull_request' ]]; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+            echo 'Pull request pouze validuje administraci; produkční DB se nemění.'
             exit 0
           fi
 
