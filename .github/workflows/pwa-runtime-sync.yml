@@ -10,8 +10,10 @@ on:
       - 'produkt.html'
       - 'ucet.html'
       - 'service-worker.js'
+      - 'sw.js'
       - 'assets/**'
       - 'tests/pwa-homepage-runtime-sync.mjs'
+      - 'tests/pwa-legacy-worker-compat.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   pull_request:
     paths:
@@ -21,8 +23,10 @@ on:
       - 'produkt.html'
       - 'ucet.html'
       - 'service-worker.js'
+      - 'sw.js'
       - 'assets/**'
       - 'tests/pwa-homepage-runtime-sync.mjs'
+      - 'tests/pwa-legacy-worker-compat.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   workflow_dispatch:
 
@@ -41,3 +45,5 @@ jobs:
           package-manager-cache: false
       - name: Ověřit shodu veřejných stránek a PWA runtime
         run: node tests/pwa-homepage-runtime-sync.mjs
+      - name: Ověřit legacy service-worker compatibility
+        run: node tests/pwa-legacy-worker-compat.mjs
