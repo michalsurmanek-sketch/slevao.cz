@@ -6,21 +6,25 @@ on:
       - main
     paths:
       - 'supabase/functions/prepare-manual-leaflet-upload/**'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/prepare-manual-leaflet-upload/**'
       - '.github/workflows/deploy-prepare-manual-leaflet-upload.yml'
   workflow_dispatch:
 
 concurrency:
-  group: deploy-prepare-manual-leaflet-upload
+  group: deploy-prepare-manual-leaflet-upload-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Nasadit prepare-manual-leaflet-upload
+  validate:
+    name: Ověřit prepare-manual-leaflet-upload
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -32,6 +36,16 @@ jobs:
           test -f supabase/functions/prepare-manual-leaflet-upload/index.ts
           grep -Fq "Deno.serve" supabase/functions/prepare-manual-leaflet-upload/index.ts
           grep -Fq "createSignedUploadUrl" supabase/functions/prepare-manual-leaflet-upload/index.ts
+
+  deploy:
+    name: Nasadit prepare-manual-leaflet-upload
+    needs: validate
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
         uses: supabase/setup-cli@v1
