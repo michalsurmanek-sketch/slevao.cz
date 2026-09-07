@@ -13,11 +13,11 @@
 <script defer src="assets/admin-unified-icons.js?v=20260802-1"></script>
 </head>
 <body>
-<section id="loginBox" class="login"><h1>Přihlášení správce</h1><div class="field"><label>E-mail</label><input id="email" type="email"></div><div class="field"><label>Heslo</label><input id="password" type="password"></div><button id="loginBtn" class="btn primary">Přihlásit</button><div id="loginMsg"></div></section>
+<section id="loginBox" class="login"><h1>Přihlášení správce</h1><div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="username" inputmode="email" required></div><div class="field"><label for="password">Heslo</label><input id="password" name="password" type="password" autocomplete="current-password" required></div><button id="loginBtn" class="btn primary" type="button">Přihlásit</button><div id="loginMsg" role="status" aria-live="polite"></div></section>
 <div id="app" class="hidden">
-<header class="top"><div class="topin"><div><div class="brand">SLEVAO<b>.cz</b></div><div id="who" class="muted"></div></div><div class="toolbar"><a class="btn" href="admin-fotografie.html">Fotografie</a><a class="btn" href="admin.html">Administrace</a><a class="btn" href="index.html">Otevřít web</a><button id="logout" class="btn">Odhlásit</button></div></div></header>
+<header class="top"><div class="topin"><div><div class="brand">SLEVAO<b>.cz</b></div><div id="who" class="muted"></div></div><div class="toolbar"><a class="btn" href="admin-fotografie.html">Fotografie</a><a class="btn" href="admin.html">Administrace</a><a class="btn" href="index.html">Otevřít web</a><button id="logout" class="btn" type="button">Odhlásit</button></div></div></header>
 <main class="shell">
-<section class="hero"><div><h1>Neznačkové fotografie</h1><div class="muted">Poloautomatické dávky pouze pro obecné produkty. Značkové a nejisté položky se negenerují.</div><div class="version">Workflow 2026-08-07.1</div></div><button id="refresh" class="btn">Obnovit</button></section>
+<section class="hero"><div><h1>Neznačkové fotografie</h1><div class="muted">Poloautomatické dávky pouze pro obecné produkty. Značkové a nejisté položky se negenerují.</div><div class="version">Workflow 2026-08-07.1</div></div><button id="refresh" class="btn" type="button">Obnovit</button></section>
 <section class="stats">
 <div class="stat"><small>Bez fotografie</small><strong id="sMissing">—</strong></div>
 <div class="stat"><small>Ve frontě</small><strong id="sQueued">—</strong></div>
@@ -26,8 +26,8 @@
 <div class="stat"><small>Vyžaduje kontrolu</small><strong id="sManual">—</strong></div>
 <div class="stat"><small>Přeskočeno jako značkové</small><strong id="sBranded">—</strong></div>
 </section>
-<div id="msg"></div>
-<section class="panel"><div class="head"><div><h2 style="margin:0 0 5px">Spustit bezpečnou dávku</h2><div class="muted">Nejdřív klasifikace, potom generování, vizuální QC a teprve pak automatické přiřazení.</div></div><div class="controls"><select id="batchSize" class="btn"><option value="20">20 produktů</option><option value="50">50 produktů</option></select><button id="generate" class="btn primary">Zpracovat neznačkové</button></div></div><div class="callout" style="margin-top:14px"><strong>Ochrana značek:</strong> produkt s vyplněnou značkou se rovnou přeskočí. Produkt s EAN nebo nejasným významem jde do ruční kontroly. Před každým generováním se kontrola opakuje a hotový obrázek musí projít druhým vizuálním auditem bez loga, textu, ceny, watermarku a s čistě bílým pozadím.</div><div id="runState" class="meta" style="margin-top:12px"></div></section>
+<div id="msg" role="status" aria-live="polite"></div>
+<section class="panel"><div class="head"><div><h2 style="margin:0 0 5px">Spustit bezpečnou dávku</h2><div class="muted">Nejdřív klasifikace, potom generování, vizuální QC a teprve pak automatické přiřazení.</div></div><div class="controls"><select id="batchSize" class="btn" aria-label="Velikost dávky"><option value="20">20 produktů</option><option value="50">50 produktů</option></select><button id="generate" class="btn primary" type="button">Zpracovat neznačkové</button></div></div><div class="callout" style="margin-top:14px"><strong>Ochrana značek:</strong> produkt s vyplněnou značkou se rovnou přeskočí. Produkt s EAN nebo nejasným významem jde do ruční kontroly. Před každým generováním se kontrola opakuje a hotový obrázek musí projít druhým vizuálním auditem bez loga, textu, ceny, watermarku a s čistě bílým pozadím.</div><div id="runState" class="meta" style="margin-top:12px" role="status" aria-live="polite"></div></section>
 <section class="panel"><div class="head"><div><h2 style="margin:0">Poslední zpracované produkty</h2><div class="muted">Nejnovější stav generovací fronty.</div></div></div><div id="recent" class="recent"></div></section>
 </main></div>
 <script>
