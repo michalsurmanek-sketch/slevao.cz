@@ -12,6 +12,7 @@ import sync_terno_ocr as worker
 
 _original_api = worker.api
 TERNO_ADAPTER = "store:terno-zlin-pdf-v1"
+TERNO_TITLE = "Akční nabídka"
 PRAGUE = ZoneInfo("Europe/Prague")
 
 
@@ -22,6 +23,30 @@ def _parse_date(value):
         return date.fromisoformat(str(value)[:10])
     except ValueError:
         return None
+
+
+def _complete_page_counts(import_ids):
+    ids = [str(value) for value in import_ids if value]
+    if not ids:
+        return {}
+    params = {
+        "import_id": f"in.({','.join(ids)})",
+        "engine": f"eq.{worker.ENGINE}",
+        "word_count": "gt.0",
+        "select": "import_id,page_number",
+        "limit": "5000",
+    }
+    rows = _original_api(
+        "GET",
+        "/rest/v1/leaflet_ocr_pages?" + urllib.parse.urlencode(params),
+    ) or []
+    counts = {}
+    for row in rows:
+        import_id = str(row.get("import_id") or "")
+        if not import_id:
+            continue
+        counts[import_id] = counts.get(import_id, 0) + 1
+    return counts
 
 
 def terno_target():
@@ -37,21 +62,24 @@ def terno_target():
     tomorrow = today + timedelta(days=1)
     params = {
         "store_id": f"eq.{stores[0]['id']}",
+        "detected_valid_from": f"lte.{tomorrow.isoformat()}",
         "detected_valid_to": f"gte.{today.isoformat()}",
-        "select": "id,status,metadata,detected_valid_from,detected_valid_to,created_at",
-        "order": "created_at.desc",
-        "limit": "20",
+        "select": "id,metadata,detected_valid_from,detected_valid_to,created_at",
+        "order": "detected_valid_from.desc,created_at.desc",
+        "limit": "100",
     }
     imports = _original_api(
         "GET",
         "/rest/v1/leaflet_imports?" + urllib.parse.urlencode(params),
     ) or []
 
-    preferred = None
+    candidates = []
     for row in imports:
         metadata = row.get("metadata") or {}
         page_urls = metadata.get("page_image_urls")
         if metadata.get("adapter") != TERNO_ADAPTER:
+            continue
+        if metadata.get("title") != TERNO_TITLE:
             continue
         if not isinstance(page_urls, list) or not page_urls:
             continue
@@ -63,25 +91,53 @@ def terno_target():
         if valid_from > tomorrow or valid_to < today:
             continue
 
-        preferred = row
-        break
+        candidates.append({
+            "row": row,
+            "valid_from": valid_from,
+            "valid_to": valid_to,
+            "page_urls": page_urls,
+        })
 
-    if not preferred:
+    if not candidates:
         return {
             "ok": False,
             "reason": "no-current-official-terno-flyer",
             "business_date": today.isoformat(),
         }
 
-    metadata = preferred.get("metadata") or {}
-    page_urls = metadata.get("page_image_urls") or []
+    complete_counts = _complete_page_counts(item["row"]["id"] for item in candidates)
+    for item in candidates:
+        row = item["row"]
+        complete_pages = complete_counts.get(str(row["id"]), 0)
+        incomplete = complete_pages < len(item["page_urls"])
+        if item["valid_from"] <= today <= item["valid_to"] and incomplete:
+            priority = 0
+        elif item["valid_from"] <= tomorrow <= item["valid_to"] and incomplete:
+            priority = 1
+        else:
+            priority = 2
+        item["priority"] = priority
+        item["complete_pages"] = complete_pages
+
+    # Match get_terno_ocr_target(): incomplete current flyer first, then an
+    # incomplete tomorrow flyer, then everything else; within a group prefer
+    # the latest validity start and import creation time.
+    candidates.sort(key=lambda item: str(item["row"].get("created_at") or ""), reverse=True)
+    candidates.sort(key=lambda item: item["valid_from"], reverse=True)
+    candidates.sort(key=lambda item: item["priority"])
+    preferred = candidates[0]
+    row = preferred["row"]
+    page_urls = preferred["page_urls"]
+
     return {
         "ok": True,
-        "import_id": preferred["id"],
+        "import_id": row["id"],
         "page_image_urls": page_urls,
-        "valid_from": preferred.get("detected_valid_from"),
-        "valid_to": preferred.get("detected_valid_to"),
+        "valid_from": row.get("detected_valid_from"),
+        "valid_to": row.get("detected_valid_to"),
         "expected_pages": len(page_urls),
+        "ocr_complete_pages": preferred["complete_pages"],
+        "target_date": tomorrow.isoformat() if preferred["valid_from"] > today else today.isoformat(),
     }
 
 
