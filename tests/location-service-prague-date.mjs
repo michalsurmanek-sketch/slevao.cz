@@ -21,10 +21,17 @@ assert.match(locationService, /async function fetchOffersForList\([\s\S]*?const 
 assert.match(locationService, /get TODAY\(\) \{ return pragueDate\(\); \}/, 'Zpětně kompatibilní SlevaoLocation.TODAY musí být dynamický getter.');
 assert.match(locationService, /window\.SlevaoLocation = \{[\s\S]*?pragueDate,/, 'Location API musí zveřejnit Prague date helper pro navazující runtime vrstvy.');
 
+const nearbyMatch = locationService.match(/async function fetchNearbyBranches\([\s\S]*?\n  \}\n\n  async function searchBranchesByPlace/);
+assert.ok(nearbyMatch, 'Location service musí obsahovat fetchNearbyBranches.');
+assert.match(nearbyMatch[0], /await fetchActiveBranches\(\)/, 'GPS vyhledání musí stáhnout veřejný adresář poboček bez souřadnicového filtru.');
+assert.doesNotMatch(nearbyMatch[0], /\brest\(/, 'Přesná GPS nesmí být uvnitř fetchNearbyBranches odeslána do REST API.');
+assert.doesNotMatch(nearbyMatch[0], /latitude:\s*`(?:gte|lte)\.|longitude:\s*`(?:gte|lte)\./, 'Přesná latitude/longitude nesmí být součástí serverového bounding-box dotazu.');
+assert.match(locationService, /async function fetchActiveBranches\([\s\S]*?is_active: 'eq\.true',[\s\S]*?offset: String\(offset\)/, 'Veřejný adresář poboček musí být stránkovaný bez GPS filtru.');
+
 const version = html.match(/assets\/location-service\.js\?v=([0-9-]+)/)?.[1] || '';
 assert.ok(version, 'seznam.html musí načítat verzovaný location-service.js.');
 assert.ok(!serviceWorker.includes(`'/assets/location-service.js?v=${version}'`), 'location-service.js se nesmí vrátit do install-time PWA precache.');
 assert.ok(serviceWorker.includes("cache: 'reload'"), 'location-service.js musí být network-first.');
 assert.ok(serviceWorker.includes('putRuntime(request, response)'), 'location-service.js musí být po úspěšném načtení uložitelný do runtime cache.');
 
-console.log('Location service: Prague date diagnostika prošla.');
+console.log('Location service: Prague date a GPS privacy diagnostika prošla.');
