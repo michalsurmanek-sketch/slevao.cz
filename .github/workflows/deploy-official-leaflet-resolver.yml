@@ -1,46 +1,56 @@
 name: Nasazení vyhledávače oficiálních letáků
 
 on:
-  workflow_dispatch:
   push:
     branches:
       - main
     paths:
       - 'supabase/functions/sync-official-leaflet-sources/**'
-      - 'supabase/config.toml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'supabase/functions/sync-official-leaflet-sources/**'
       - '.github/workflows/deploy-official-leaflet-resolver.yml'
+  workflow_dispatch:
 
 concurrency:
-  group: deploy-official-leaflet-resolver
+  group: deploy-official-leaflet-resolver-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Ověřit official leaflet resolver
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Ověřit JWT konfiguraci a zdroj
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -Eq '^verify_jwt[[:space:]]*=[[:space:]]*true[[:space:]]*$' supabase/functions/sync-official-leaflet-sources/config.toml
+          grep -q 'Deno.serve' supabase/functions/sync-official-leaflet-sources/index.ts
+
   deploy:
+    name: Nasadit official leaflet resolver
+    needs: validate
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Setup Supabase CLI
-        uses: supabase/setup-cli@v1
+        uses: supabase/setup-cli@v2
         with:
-          version: latest
-
-      - name: Ověřit JWT konfiguraci
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q '^\[functions\.sync-official-leaflet-sources\]$' supabase/config.toml
-          awk '
-            /^\[functions\.sync-official-leaflet-sources\]$/ { in_target=1; next }
-            /^\[/ { in_target=0 }
-            in_target && /^verify_jwt[[:space:]]*=[[:space:]]*true[[:space:]]*$/ { found=1 }
-            END { exit(found ? 0 : 1) }
-          ' supabase/config.toml
+          version: 2.116.0
+          github-token: ${{ github.token }}
 
       - name: Ověřit přístupový token
         env:
