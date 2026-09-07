@@ -43,3 +43,5 @@ jobs:
         run: node tests/admin-add-photo-form-accessibility.mjs
       - name: Verify offline page branding
         run: node tests/offline-branding.mjs
+      - name: Verify homepage branding
+        run: node tests/home-branding-guard.mjs
