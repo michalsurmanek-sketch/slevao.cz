@@ -22,22 +22,42 @@ on:
         default: '5'
   schedule:
     - cron: '41 */6 * * *'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/invoke_supabase_edge.sh'
+      - '.github/workflows/discover-product-images.yml'
   push:
     branches: [main]
     paths:
       - 'supabase/functions/discover-product-images/**'
       - 'supabase/functions/generate-generic-product-images/**'
+      - 'scripts/invoke_supabase_edge.sh'
       - '.github/workflows/discover-product-images.yml'
 
 concurrency:
-  group: discover-product-images
+  group: discover-product-images-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 jobs:
-  discover:
+  validate:
+    name: Validace image Edge retry helperu
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Ověřit Bash syntaxi
+        run: bash -n scripts/invoke_supabase_edge.sh
+
+  discover:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Ověřit konfiguraci
         shell: bash
         env:
@@ -46,6 +66,7 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || (echo 'Chybí GitHub secret SUPABASE_URL' && exit 1)
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo 'Chybí GitHub secret SUPABASE_SERVICE_ROLE_KEY' && exit 1)
+          bash -n scripts/invoke_supabase_edge.sh
 
       - name: Bezpečně doplnit Lidl obrázky z ověřeného katalogu
         shell: bash
@@ -54,13 +75,14 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LIDL_CATALOG_LIMIT: ${{ github.event.inputs.lidl_catalog_limit || '20' }}
         run: |
-          response="$(curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "$SUPABASE_URL/functions/v1/match-product-catalog" \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --data "{\"limit\":$LIDL_CATALOG_LIMIT,\"store_slug\":\"lidl\",\"recheck_missing_images\":true}")"
+          set -euo pipefail
+          if ! [[ "$LIDL_CATALOG_LIMIT" =~ ^[0-9]+$ ]] || (( LIDL_CATALOG_LIMIT < 1 || LIDL_CATALOG_LIMIT > 80 )); then
+            echo "Neplatný Lidl catalog limit: $LIDL_CATALOG_LIMIT"
+            exit 1
+          fi
+          response="$(scripts/invoke_supabase_edge.sh \
+            match-product-catalog \
+            "{\"limit\":$LIDL_CATALOG_LIMIT,\"store_slug\":\"lidl\",\"recheck_missing_images\":true}")"
           printf '%s\n' "$response"
           mode="$(jq -r '.mode // empty' <<<"$response")"
           if [[ "$mode" != 'recheck_missing_images' ]]; then
@@ -85,13 +107,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LIMIT: ${{ github.event.inputs.limit || '30' }}
         run: |
-          response="$(curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "$SUPABASE_URL/functions/v1/discover-product-images" \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --data "{\"limit\":$LIMIT}")"
+          set -euo pipefail
+          if ! [[ "$LIMIT" =~ ^[0-9]+$ ]] || (( LIMIT < 1 || LIMIT > 100 )); then
+            echo "Neplatný image discovery limit: $LIMIT"
+            exit 1
+          fi
+          response="$(scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIMIT}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then
@@ -107,13 +128,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           LIDL_LIMIT: ${{ github.event.inputs.lidl_limit || '10' }}
         run: |
-          response="$(curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "$SUPABASE_URL/functions/v1/discover-product-images" \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --data "{\"limit\":$LIDL_LIMIT,\"store_slug\":\"lidl\"}")"
+          set -euo pipefail
+          if ! [[ "$LIDL_LIMIT" =~ ^[0-9]+$ ]] || (( LIDL_LIMIT < 1 || LIDL_LIMIT > 100 )); then
+            echo "Neplatný Lidl image discovery limit: $LIDL_LIMIT"
+            exit 1
+          fi
+          response="$(scripts/invoke_supabase_edge.sh discover-product-images "{\"limit\":$LIDL_LIMIT,\"store_slug\":\"lidl\"}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then
@@ -134,13 +154,12 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           GENERIC_LIMIT: ${{ github.event.inputs.generic_limit || '5' }}
         run: |
-          response="$(curl --fail-with-body --silent --show-error \
-            --request POST \
-            --url "$SUPABASE_URL/functions/v1/generate-generic-product-images" \
-            --header "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-            --header "Content-Type: application/json" \
-            --data "{\"limit\":$GENERIC_LIMIT}")"
+          set -euo pipefail
+          if ! [[ "$GENERIC_LIMIT" =~ ^[0-9]+$ ]] || (( GENERIC_LIMIT < 1 || GENERIC_LIMIT > 50 )); then
+            echo "Neplatný generic image limit: $GENERIC_LIMIT"
+            exit 1
+          fi
+          response="$(scripts/invoke_supabase_edge.sh generate-generic-product-images "{\"limit\":$GENERIC_LIMIT}")"
           printf '%s\n' "$response"
           blocked_reason="$(jq -r '.blocked_reason // empty' <<<"$response")"
           if [[ -n "$blocked_reason" ]]; then

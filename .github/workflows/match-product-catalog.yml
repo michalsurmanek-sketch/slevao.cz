@@ -13,16 +13,35 @@ on:
         default: '8'
   schedule:
     - cron: '27 */3 * * *'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/invoke_supabase_edge.sh'
+      - '.github/workflows/match-product-catalog.yml'
 
 concurrency:
-  group: match-product-catalog
+  group: match-product-catalog-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 jobs:
-  match-catalog:
+  validate:
+    name: Validace Edge retry helperu
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
     steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Ověřit Bash syntaxi
+        run: bash -n scripts/invoke_supabase_edge.sh
+
+  match-catalog:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
       - name: Ověřit konfiguraci
         shell: bash
         env:
@@ -31,6 +50,7 @@ jobs:
         run: |
           test -n "$SUPABASE_URL" || (echo 'Chybí GitHub secret SUPABASE_URL' && exit 1)
           test -n "$SUPABASE_SERVICE_ROLE_KEY" || (echo 'Chybí GitHub secret SUPABASE_SERVICE_ROLE_KEY' && exit 1)
+          bash -n scripts/invoke_supabase_edge.sh
 
       - name: Sjednotit nabídky s katalogem
         shell: bash
@@ -76,24 +96,13 @@ jobs:
           for (( batch=1; batch<=MAX_BATCHES; batch++ )); do
             echo "=== Dávka $batch/$MAX_BATCHES (limit $CATALOG_LIMIT) ==="
 
-            http_code=$(curl --silent --show-error \
-              --connect-timeout 15 \
-              --max-time 100 \
-              --output "$response_file" \
-              --write-out '%{http_code}' \
-              -X POST "$SUPABASE_URL/functions/v1/match-product-catalog" \
-              -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
-              -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
-              -H "Content-Type: application/json" \
-              --data "{\"limit\":$CATALOG_LIMIT}")
+            scripts/invoke_supabase_edge.sh \
+              match-product-catalog \
+              "{\"limit\":$CATALOG_LIMIT}" \
+              > "$response_file"
 
             cat "$response_file"
             echo
-
-            if (( http_code < 200 || http_code >= 300 )); then
-              echo "Edge Function vrátila HTTP $http_code"
-              exit 1
-            fi
 
             if ! jq -e '.ok == true' "$response_file" >/dev/null; then
               echo 'Edge Function nevrátila validní JSON s ok=true'

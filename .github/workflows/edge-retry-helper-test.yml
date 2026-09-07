@@ -1,0 +1,31 @@
+name: Supabase Edge retry helper test
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'scripts/invoke_supabase_edge.sh'
+      - 'tests/invoke-supabase-edge-retry.sh'
+      - '.github/workflows/edge-retry-helper-test.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/invoke_supabase_edge.sh'
+      - 'tests/invoke-supabase-edge-retry.sh'
+      - '.github/workflows/edge-retry-helper-test.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  retry-helper:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+      - name: Ověřit Bash syntaxi
+        run: |
+          bash -n scripts/invoke_supabase_edge.sh
+          bash -n tests/invoke-supabase-edge-retry.sh
+      - name: Ověřit transient/permanent retry chování
+        run: bash tests/invoke-supabase-edge-retry.sh
