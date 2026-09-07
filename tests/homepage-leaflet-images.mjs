@@ -31,9 +31,13 @@ assert.doesNotMatch(adminJs, /homepage\/\$\{store\.slug\}\/cover\./, 'Obrázky s
 assert.match(adminJs, /persistMarker/, 'Nahraná adresa se nepřipíná k obchodu.');
 assert.match(adminJs, /Authorization: `Bearer \$\{current\.access_token\}`/, 'Legacy image služba musí dostávat přihlášený access token.');
 assert.match(edgeConfig, /verify_jwt\s*=\s*true/, 'Homepage image admin musí mít zapnuté JWT ověření na gateway.');
-const imageDeploy = deployWorkflow.match(/supabase functions deploy homepage-leaflet-image[\s\S]*?(?=\n\s*- name:|\n\s{2}deploy-homepage-leaflet-visibility:)/)?.[0] || '';
-assert.ok(imageDeploy, 'Deploy workflow neobsahuje samostatné nasazení homepage image funkce.');
-assert.doesNotMatch(imageDeploy, /--no-verify-jwt/, 'Deploy workflow nesmí vypnout JWT ochranu homepage image funkce.');
+
+const specializedBlock = deployWorkflow.match(/handled_elsewhere=\([\s\S]*?\n\s*\)/)?.[0] || '';
+assert.ok(specializedBlock, 'Deploy workflow nemá explicitní seznam specializovaných funkcí.');
+assert.doesNotMatch(specializedBlock, /^\s*homepage-leaflet-image\s*$/m, 'Homepage image funkce nesmí být vyřazena z changed-only generic deploye.');
+assert.doesNotMatch(deployWorkflow, /supabase functions deploy homepage-leaflet-image/, 'Homepage image funkce se nesmí nasazovat bezpodmínečným samostatným krokem.');
+assert.match(deployWorkflow, /config_file="\$\{function_dir\}\/config\.toml"/, 'Homepage image deploy musí respektovat per-function auth config.');
+assert.match(deployWorkflow, /supabase functions deploy "\$function_name"/, 'Changed-only workflow neumí nasadit změněnou homepage image funkci.');
 
 for (const pattern of [
   /COVER_KEY = 'slevao-cover'/,
