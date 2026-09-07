@@ -2,21 +2,43 @@ name: Cleanup stale Edge diagnostics
 
 on:
   workflow_dispatch:
-  push:
+  pull_request:
     branches:
       - main
     paths:
       - '.github/workflows/cleanup-stale-edge-diagnostics.yml'
 
 concurrency:
-  group: cleanup-stale-edge-diagnostics
+  group: cleanup-stale-edge-diagnostics-${{ github.event_name == 'pull_request' && github.event.pull_request.number || 'live' }}
   cancel-in-progress: false
 
 permissions:
   contents: read
 
 jobs:
+  validate:
+    name: Validate diagnostic cleanup safeguards
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Verify destructive-cleanup safeguards
+        shell: bash
+        run: |
+          set -euo pipefail
+          workflow='.github/workflows/cleanup-stale-edge-diagnostics.yml'
+          grep -q 'workflow_dispatch:' "$workflow"
+          grep -q 'Refusing non-diagnostic slug' "$workflow"
+          grep -q 'Refusing protected baseline slug' "$workflow"
+          grep -q "slug='discover-product-images-smart'" "$workflow"
+          grep -q 'Unexpected public diagnostic functions' "$workflow"
+          ! grep -q '^  push:' "$workflow"
+
   cleanup:
+    name: Clean stale diagnostics in production
+    needs: validate
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
@@ -140,7 +162,7 @@ jobs:
             --header "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
             "https://api.supabase.com/v1/projects/$PROJECT_REF/functions")"
 
-          if ! printf '%s' "$remote_json" | jq -e --arg slug "$slug" '.[] | select(.slug == $slug)' >/dev/null; then
+          if ! printf '%s' "$remote_json" | jq -e '.[] | select(.slug == "discover-product-images-smart")' >/dev/null; then
             echo "Already absent: $slug"
             exit 0
           fi
