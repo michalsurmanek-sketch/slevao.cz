@@ -150,7 +150,7 @@
   <div id="confirmModal" class="modal" hidden>
     <div class="modalBox confirmBox" role="alertdialog" aria-modal="true" aria-labelledby="confirmHeading">
       <div class="dangerIcon" aria-hidden="true">!</div>
-      <div class="modalHead"><div><h2 id="confirmHeading">Potvrdit akci</h2><div id="confirmSubtitle" class="sub"></div></div><button id="confirmClose" class="closeButton" type="button">×</button></div>
+      <div class="modalHead"><div><h2 id="confirmHeading">Potvrdit akci</h2><div id="confirmSubtitle" class="sub"></div></div><button id="confirmClose" class="closeButton" type="button" aria-label="Zavřít">×</button></div>
       <div id="confirmBody" class="confirmBody"></div>
       <div class="confirmActions"><button id="confirmCancel" class="btn" type="button">Zrušit</button><button id="confirmAction" class="btn danger" type="button">Potvrdit</button></div>
       <div id="confirmMessage" class="formMessage"></div>
@@ -159,7 +159,7 @@
 
   <div id="duplicateModal" class="modal" hidden>
     <div class="modalBox wide" role="dialog" aria-modal="true" aria-labelledby="duplicateHeading">
-      <div class="modalHead"><div><h2 id="duplicateHeading">Vyřešit duplicity</h2><div class="sub">Vyber záznam, který se má ponechat. Ostatní se přesunou do koše.</div></div><button id="duplicateClose" class="closeButton" type="button">×</button></div>
+      <div class="modalHead"><div><h2 id="duplicateHeading">Vyřešit duplicity</h2><div class="sub">Vyber záznam, který se má ponechat. Ostatní se přesunou do koše.</div></div><button id="duplicateClose" class="closeButton" type="button" aria-label="Zavřít">×</button></div>
       <div id="duplicateList" class="duplicateList"></div>
       <div class="modalActions"><div id="duplicateMessage" class="formMessage"></div><button id="duplicateResolve" class="btn primary" type="button">Ponechat vybraný záznam</button></div>
     </div>
@@ -167,7 +167,7 @@
 
   <div id="historyModal" class="modal" hidden>
     <div class="modalBox wide" role="dialog" aria-modal="true" aria-labelledby="historyHeading">
-      <div class="modalHead"><div><h2 id="historyHeading">Historie změn</h2><div id="historySubtitle" class="sub">Historie uložená pro tuto administraci.</div></div><button id="historyClose" class="closeButton" type="button">×</button></div>
+      <div class="modalHead"><div><h2 id="historyHeading">Historie změn</h2><div id="historySubtitle" class="sub">Historie uložená pro tuto administraci.</div></div><button id="historyClose" class="closeButton" type="button" aria-label="Zavřít">×</button></div>
       <div id="historyList" class="historyList"></div>
       <div class="modalActions"><small class="sub">Historie se ukládá do tohoto prohlížeče. Koš se zároveň pokouší použít stav „trash“ přímo v databázi.</small><button id="historyClear" class="btn danger" type="button">Vymazat historii</button></div>
     </div>

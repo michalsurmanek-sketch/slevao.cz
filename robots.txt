@@ -1,8 +1,6 @@
 User-agent: *
 Allow: /
-Disallow: /admin.html
-Disallow: /admin-automatizace.html
-Disallow: /admin-hlaseni.html
+Disallow: /admin
 Disallow: /login.html
 Disallow: /moderation.html
 Sitemap: https://slevao.cz/sitemap.xml

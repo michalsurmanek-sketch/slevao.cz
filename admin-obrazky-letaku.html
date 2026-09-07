@@ -34,10 +34,10 @@
 <section id="loginBox" class="login">
   <h1>Přihlášení správce</h1>
   <p class="muted">Přihlas se účtem s rolí admin nebo editor.</p>
-  <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email"></div>
-  <div class="field"><label for="password">Heslo</label><input id="password" type="password" autocomplete="current-password"></div>
+  <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="username" inputmode="email" required></div>
+  <div class="field"><label for="password">Heslo</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
   <button id="loginBtn" class="btn primary" type="button">Přihlásit</button>
-  <div id="loginMsg"></div>
+  <div id="loginMsg" role="status" aria-live="polite"></div>
 </section>
 
 <div id="app" class="layout hidden">
@@ -73,7 +73,7 @@
       <div class="imageWorkspace">
         <section class="imagePanel">
           <h2>Vyber obchod</h2><p class="muted">Zobrazují se viditelné i skryté obchody.</p>
-          <div class="imageSearch"><span>⌕</span><input id="storeSearch" type="search" placeholder="Hledat obchod nebo slug…"></div>
+          <div class="imageSearch"><span>⌕</span><input id="storeSearch" type="search" placeholder="Hledat obchod nebo slug…" aria-label="Hledat obchod"></div>
           <div id="storeList" class="storeList"><div class="empty">Načítám obchody…</div></div>
         </section>
 
@@ -99,7 +99,7 @@
                   <button id="upload" class="btn primary" type="button" disabled>Nahrát a použít na webu</button>
                   <button id="remove" class="btn danger" type="button" disabled>Odstranit vlastní obrázek</button>
                 </div>
-                <div id="message"></div>
+                <div id="message" role="status" aria-live="polite"></div>
                 <div class="liveLink"><a class="btn light" href="index.html#leafletsSection" target="_blank" rel="noopener">Zkontrolovat hlavní stránku ↗</a></div>
               </div>
             </div>

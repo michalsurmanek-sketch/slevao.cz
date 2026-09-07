@@ -15,12 +15,12 @@
   <script defer src="assets/admin-manual-leaflets.js?v=20260803-10"></script>
 </head>
 <body>
-  <div id="authState" class="loginState hidden"></div>
+  <div id="authState" class="loginState hidden" role="status" aria-live="polite"></div>
 
   <div id="app" class="hidden">
     <header class="topbar">
       <div class="topbarInner">
-        <a class="brand" href="admin.html" aria-label="Zpět do administrace"><span class="brandMark">%</span><span>SLEVAO<b>.cz</b></span></a>
+        <a class="brand" href="admin.html" aria-label="Zpět do administrace"><span>SLEVAO<b>.cz</b></span></a>
         <div class="topActions">
           <a class="btn" href="admin.html"><span>Administrace</span></a>
           <a class="btn" href="admin-automatizace.html"><span>Automatizace</span></a>
@@ -77,13 +77,13 @@
             <button id="clearButton" class="btn" type="button">Vymazat frontu</button>
             <button id="uploadButton" class="btn primary" type="button">Nahrát a spustit zpracování</button>
           </div>
-          <div id="uploadMessage" class="message info" hidden></div>
+          <div id="uploadMessage" class="message info" role="status" aria-live="polite" hidden></div>
         </article>
 
         <article class="panel">
           <div class="panelHead">
             <div><h2>Fronta stránek</h2><p>U vícestránkového PDF se zobrazí každá stránka zvlášť.</p></div>
-            <span id="uploadCount" class="statusPill">Prázdná fronta</span>
+            <span id="uploadCount" class="statusPill" role="status" aria-live="polite">Prázdná fronta</span>
           </div>
           <div id="uploadQueue" class="queue"></div>
         </article>

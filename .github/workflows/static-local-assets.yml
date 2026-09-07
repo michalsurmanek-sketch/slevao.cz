@@ -15,10 +15,33 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
+          package-manager-cache: false
       - name: Verify local static asset references
         run: node tests/static-local-assets.mjs
+      - name: Verify admin pages stay out of search crawling
+        run: node tests/admin-indexing-guard.mjs
+      - name: Verify admin automation health form semantics
+        run: node tests/admin-health-form-guard.mjs
+      - name: Verify admin modal close button accessibility
+        run: node tests/admin-modal-close-accessibility.mjs
+      - name: Verify admin photo form accessibility
+        run: node tests/admin-photo-form-accessibility.mjs
+      - name: Verify admin generation form accessibility
+        run: node tests/admin-generation-form-accessibility.mjs
+      - name: Verify admin leaflet tool accessibility
+        run: node tests/admin-leaflet-tools-accessibility.mjs
+      - name: Verify admin manual leaflet upload status accessibility
+        run: node tests/admin-manual-leaflets-status-accessibility.mjs
+      - name: Verify admin manual leaflet branding
+        run: node tests/admin-manual-leaflets-branding.mjs
+      - name: Verify admin add-photo form accessibility
+        run: node tests/admin-add-photo-form-accessibility.mjs
+      - name: Verify offline page branding
+        run: node tests/offline-branding.mjs
+      - name: Verify homepage branding
+        run: node tests/home-branding-guard.mjs
