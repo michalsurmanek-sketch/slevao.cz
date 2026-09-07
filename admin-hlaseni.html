@@ -1,14 +1,14 @@
 <!doctype html>
 <html lang="cs">
 <head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow,noarchive">
 <title>Slevao.cz – hlášení uživatelů</title>
 <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
 <link rel="stylesheet" href="assets/public-features.css?v=20260816-5">
 <style>.reportGrid{display:grid;gap:12px}.reportCard{padding:18px}.reportHead{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}.reportType{font-weight:950}.reportMeta{font-size:12px;color:var(--sf-muted);margin-top:5px}.reportNote{padding:12px;background:#f5f8f7;border-radius:12px;margin:12px 0}.reportActions{display:flex;gap:8px;flex-wrap:wrap}.loginBox{max-width:430px;margin:70px auto;padding:24px}</style>
 </head>
 <body class="sfPage">
-<section id="loginBox" class="sfCard loginBox"><h1>Přihlášení správce</h1><label style="display:grid;gap:7px;margin:12px 0">E-mail<input id="email" class="sfInput" type="email"></label><label style="display:grid;gap:7px;margin:12px 0">Heslo<input id="password" class="sfInput" type="password"></label><button id="login" class="sfButton primary" type="button">Přihlásit</button><p id="loginMsg" class="sfMuted"></p></section>
+<section id="loginBox" class="sfCard loginBox"><h1>Přihlášení správce</h1><label style="display:grid;gap:7px;margin:12px 0">E-mail<input id="email" name="email" class="sfInput" type="email" required autocomplete="email" inputmode="email"></label><label style="display:grid;gap:7px;margin:12px 0">Heslo<input id="password" name="password" class="sfInput" type="password" required autocomplete="current-password"></label><button id="login" class="sfButton primary" type="button">Přihlásit</button><p id="loginMsg" class="sfMuted" aria-live="polite"></p></section>
 <div id="app" hidden>
 <header class="sfTop"><div class="sfTopInner"><a class="sfLogo" href="admin.html"><i>%</i><span>SLEVAO<b>.cz</b></span></a><nav class="sfTopLinks"><a href="admin.html">Administrace</a><a href="admin-automatizace.html">Automatizace</a><a href="admin-fotografie.html">Fotografie</a><button id="logout" class="sfAlways" type="button">Odhlásit</button></nav></div></header>
 <main class="sfShell"><section class="sfHero"><div class="sfCard sfHeroMain"><span class="sfEyebrow">Důvěryhodnost dat</span><h1>Hlášení uživatelů</h1><p class="sfMuted">Chybné ceny, fotografie, gramáže, skončené akce a nedostupné produkty.</p></div><aside class="sfCard sfHeroSide"><label>Stav<select id="status" class="sfInput"><option value="new">Nová</option><option value="reviewing">Řeší se</option><option value="resolved">Vyřešená</option><option value="rejected">Zamítnutá</option><option value="all">Všechna</option></select></label><strong id="count">—</strong></aside></section><div id="message" class="sfMuted"></div><section id="reports" class="reportGrid"><div class="sfLoading">Načítám hlášení…</div></section></main>
