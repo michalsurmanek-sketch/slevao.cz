@@ -23,3 +23,5 @@ jobs:
           package-manager-cache: false
       - name: Verify local static asset references
         run: node tests/static-local-assets.mjs
+      - name: Verify admin pages stay out of search crawling
+        run: node tests/admin-indexing-guard.mjs
