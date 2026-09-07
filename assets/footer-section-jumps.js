@@ -118,3 +118,23 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install, { once:true });
   else install();
 })();
+
+(() => {
+  'use strict';
+
+  function fixKauflandWordmark() {
+    const link = document.querySelector('.footerFavoriteStore[aria-label="Kaufland"]');
+    const box = link?.querySelector('.footerStoreKBox');
+    const word = link?.querySelector('.footerStoreKaufland');
+    if (!box || !word) return;
+    if (box.textContent.trim().toLocaleLowerCase('cs-CZ') !== 'k') return;
+    if (word.textContent.trim().toLocaleLowerCase('cs-CZ') !== 'kaufland') return;
+    word.textContent = 'aufland';
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', fixKauflandWordmark, { once:true });
+  } else {
+    fixKauflandWordmark();
+  }
+})();
