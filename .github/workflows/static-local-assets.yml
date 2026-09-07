@@ -41,3 +41,5 @@ jobs:
         run: node tests/admin-manual-leaflets-branding.mjs
       - name: Verify admin add-photo form accessibility
         run: node tests/admin-add-photo-form-accessibility.mjs
+      - name: Verify offline page branding
+        run: node tests/offline-branding.mjs
