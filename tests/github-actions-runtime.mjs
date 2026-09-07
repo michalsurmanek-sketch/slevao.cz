@@ -98,6 +98,9 @@ assert.match(manual, /if \[\[ "\$EVENT_NAME" == 'pull_request' \]\]; then[\s\S]*
 
 const admin = sources.get('apply-admin-integrity-migrations.yml');
 assert.match(eventBlock(admin, 'push'), /apply-admin-integrity-migrations\.yml/, 'Admin workflow má při změně workflow spustit bezpečnou validaci.');
+assert.match(eventBlock(admin, 'pull_request'), /apply-admin-integrity-migrations\.yml/, 'Admin workflow musí validovat vlastní změny ještě v pull requestu.');
+assert.match(admin, /group:\s*apply-admin-integrity-migrations-\$\{\{ github\.event_name == 'pull_request'/, 'Admin PR validace nesmí sdílet produkční concurrency group.');
+assert.match(admin, /if \[\[ "\$EVENT_NAME" == 'pull_request' \]\]; then[\s\S]*changed=false[\s\S]*produkční DB se nemění/, 'Admin pull request nesmí plánovat produkční databázovou mutaci.');
 assert.match(admin, /if:\s*needs\.validate\.outputs\.database_changed == 'true'/, 'Admin workflow smí měnit DB jen při změně sledovaných migrací.');
 
 for (const [file, functionPath] of [
