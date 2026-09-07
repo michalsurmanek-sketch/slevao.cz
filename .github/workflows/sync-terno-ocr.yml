@@ -65,8 +65,8 @@ jobs:
           for attempt in 1 2 3 4 5; do
             log_file="$(mktemp)"
             set +e
-            python3 scripts/sync_terno_ocr_direct.py > >(tee "$log_file") 2> >(tee -a "$log_file" >&2)
-            status=$?
+            python3 scripts/sync_terno_ocr_direct.py 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
             set -e
             last_status=$status
 
