@@ -57,4 +57,20 @@ assert.match(
   'Viditelný text privacy odkazu musí být správně česky s diakritikou.',
 );
 
-console.log('Homepage footer copy guard prošel.');
+assert.match(
+  index,
+  /<input id="q" type="search"/,
+  'Homepage musí zachovat hlavní vyhledávací pole #q jako cíl footer navigace.',
+);
+assert.match(
+  runtime,
+  /\{ href:'#q', label:'Hledej', icon:/,
+  'Footer zkratka Hledej musí mířit přímo na hlavní vyhledávač.',
+);
+assert.doesNotMatch(
+  runtime,
+  /\{ href:'#dealsSection', label:'Hledej', icon:/,
+  'Footer zkratka Hledej nesmí posílat uživatele do sekce aktuálních nabídek.',
+);
+
+console.log('Homepage footer copy + navigation guard prošel.');
