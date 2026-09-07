@@ -44,4 +44,13 @@ assert.match(
 );
 assert.match(fn, /offer_id nelze kombinovat s recheck_missing_images/, 'Jednorázový offer_id režim se nesmí míchat s hromadným recheckem.');
 
-console.log('Catalog matcher custom auth + safe rotating image recheck boundary OK');
+assert.match(fn, /function describeError\(error: unknown\)/, 'Catalog matcher musí umět serializovat plain-object Supabase/PostgREST chyby.');
+assert.match(fn, /record\.code/, 'Diagnostika musí zachovat Supabase error code.');
+assert.match(fn, /record\.details/, 'Diagnostika musí zachovat Supabase error details.');
+assert.match(fn, /record\.hint/, 'Diagnostika musí zachovat Supabase error hint.');
+assert.match(fn, /JSON\.stringify\(error\)/, 'Plain-object chyba musí mít bezpečný JSON fallback.');
+assert.doesNotMatch(fn, /error instanceof Error \? error\.message : String\(error\)/, 'Catalog matcher nesmí znovu degradovat plain-object chybu na [object Object].');
+assert.match(fn, /error_code: diagnostic\.code/, 'Per-offer diagnostika musí vracet strukturovaný error code.');
+assert.match(fn, /code: diagnostic\.code,[\s\S]*details: diagnostic\.details,[\s\S]*hint: diagnostic\.hint/, 'Top-level HTTP 500 musí zachovat code/details/hint.');
+
+console.log('Catalog matcher custom auth + safe rotating image recheck + structured diagnostics OK');
