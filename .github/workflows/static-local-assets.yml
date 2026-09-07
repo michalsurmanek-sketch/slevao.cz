@@ -27,3 +27,5 @@ jobs:
         run: node tests/admin-indexing-guard.mjs
       - name: Verify admin automation health form semantics
         run: node tests/admin-health-form-guard.mjs
+      - name: Verify admin modal close button accessibility
+        run: node tests/admin-modal-close-accessibility.mjs
