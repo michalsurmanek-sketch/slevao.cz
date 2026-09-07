@@ -31,4 +31,30 @@ assert.match(
   'Po samostatném K boxu musí viditelná textová část znít aufland, ne Kaufland.',
 );
 
-console.log('Kaufland footer wordmark guard prošel.');
+assert.match(
+  index,
+  /<a href="ochrana-soukromi\.html">Ochrana soukromi<\/a>/,
+  'Guard musí odpovídat současnému legacy textu odkazu na ochranu soukromí.',
+);
+assert.match(
+  runtime,
+  /function fixPrivacyLinkCopy\(\)/,
+  'Footer runtime musí obsahovat izolovanou opravu textu odkazu na ochranu soukromí.',
+);
+assert.match(
+  runtime,
+  /\.footerLinks a\[href="ochrana-soukromi\.html"\]/,
+  'Oprava musí cílit pouze na existující privacy odkaz a nesmí měnit jeho URL.',
+);
+assert.match(
+  runtime,
+  /link\.textContent\.trim\(\) !== 'Ochrana soukromi'/,
+  'Oprava se smí spustit jen na starém textu bez diakritiky.',
+);
+assert.match(
+  runtime,
+  /link\.textContent = 'Ochrana soukromí';/,
+  'Viditelný text privacy odkazu musí být správně česky s diakritikou.',
+);
+
+console.log('Homepage footer copy guard prošel.');
