@@ -14,6 +14,7 @@ on:
       - 'assets/**'
       - 'tests/pwa-homepage-runtime-sync.mjs'
       - 'tests/pwa-legacy-worker-compat.mjs'
+      - 'tests/pwa-install-branding.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   pull_request:
     paths:
@@ -27,6 +28,7 @@ on:
       - 'assets/**'
       - 'tests/pwa-homepage-runtime-sync.mjs'
       - 'tests/pwa-legacy-worker-compat.mjs'
+      - 'tests/pwa-install-branding.mjs'
       - '.github/workflows/pwa-runtime-sync.yml'
   workflow_dispatch:
 
@@ -47,3 +49,5 @@ jobs:
         run: node tests/pwa-homepage-runtime-sync.mjs
       - name: Ověřit legacy service-worker compatibility
         run: node tests/pwa-legacy-worker-compat.mjs
+      - name: Ověřit branding instalačního PWA banneru
+        run: node tests/pwa-install-branding.mjs
