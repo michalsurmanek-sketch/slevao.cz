@@ -132,7 +132,6 @@
     promptNode.setAttribute('role', 'region');
     promptNode.setAttribute('aria-label', 'Instalace aplikace Slevao');
     promptNode.innerHTML = `
-      <div class="sfInstallPrompt__icon">%</div>
       <div class="sfInstallPrompt__text"><strong>Přidat Slevao na plochu</strong><span>Rychlejší otevření akcí a nákupního seznamu.</span></div>
       <button class="sfInstallPrompt__install" type="button">Přidat</button>
       <button class="sfInstallPrompt__close" type="button" aria-label="Už nenabízet instalaci" title="Už nenabízet">×</button>`;
@@ -183,7 +182,7 @@
   }
 
   const style = document.createElement('style');
-  style.textContent = `.sfInstallPrompt{position:fixed;right:20px;bottom:20px;z-index:10040;width:min(380px,calc(100vw - 40px));display:grid;grid-template-columns:auto 1fr auto;gap:11px;align-items:center;padding:12px 13px;border:1px solid #cfe3df;border-radius:18px;background:rgba(255,255,255,.98);box-shadow:0 20px 60px rgba(15,45,40,.2);backdrop-filter:blur(16px);font-family:Inter,system-ui,sans-serif}.sfInstallPrompt__icon{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(135deg,#0b776f,#12b8a6);color:#fff;font-size:22px;font-weight:950}.sfInstallPrompt__text{display:grid;gap:2px;color:#10201e}.sfInstallPrompt__text strong{font-size:15px}.sfInstallPrompt__text span{font-size:12px;color:#667774}.sfInstallPrompt button{border:0;cursor:pointer;font:850 13px system-ui,sans-serif}.sfInstallPrompt__install{grid-column:2/3;justify-self:start;min-height:40px;padding:0 15px;border-radius:11px!important;background:#0b776f;color:#fff}.sfInstallPrompt__close{grid-column:3;grid-row:1;width:36px;height:36px;border-radius:10px!important;background:#eef4f3;color:#4d5e5a;font-size:20px!important}@media(max-width:620px){.sfInstallPrompt{left:12px;right:12px;bottom:78px;width:auto}}`;
+  style.textContent = `.sfInstallPrompt{position:fixed;right:20px;bottom:20px;z-index:10040;width:min(380px,calc(100vw - 40px));display:grid;grid-template-columns:1fr auto;gap:11px;align-items:center;padding:12px 13px;border:1px solid #cfe3df;border-radius:18px;background:rgba(255,255,255,.98);box-shadow:0 20px 60px rgba(15,45,40,.2);backdrop-filter:blur(16px);font-family:Inter,system-ui,sans-serif}.sfInstallPrompt__text{display:grid;gap:2px;color:#10201e}.sfInstallPrompt__text strong{font-size:15px}.sfInstallPrompt__text span{font-size:12px;color:#667774}.sfInstallPrompt button{border:0;cursor:pointer;font:850 13px system-ui,sans-serif}.sfInstallPrompt__install{grid-column:1;justify-self:start;min-height:40px;padding:0 15px;border-radius:11px!important;background:#0b776f;color:#fff}.sfInstallPrompt__close{grid-column:2;grid-row:1;width:36px;height:36px;border-radius:10px!important;background:#eef4f3;color:#4d5e5a;font-size:20px!important}@media(max-width:620px){.sfInstallPrompt{left:12px;right:12px;bottom:78px;width:auto}}`;
   document.head.appendChild(style);
 
   registerVisit();
