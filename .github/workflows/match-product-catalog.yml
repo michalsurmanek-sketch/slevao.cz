@@ -96,7 +96,7 @@ jobs:
           for (( batch=1; batch<=MAX_BATCHES; batch++ )); do
             echo "=== Dávka $batch/$MAX_BATCHES (limit $CATALOG_LIMIT) ==="
 
-            scripts/invoke_supabase_edge.sh \
+            bash scripts/invoke_supabase_edge.sh \
               match-product-catalog \
               "{\"limit\":$CATALOG_LIMIT}" \
               > "$response_file"
