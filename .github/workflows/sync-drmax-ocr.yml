@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Ověřit Python syntaxi
         run: python3 -m py_compile scripts/sync_drmax_ocr.py scripts/sync_terno_ocr.py tests/drmax-ocr-worker-regression.py
@@ -53,7 +53,7 @@ jobs:
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Ověřit Supabase secrets
         shell: bash
@@ -65,7 +65,44 @@ jobs:
         id: target
         shell: bash
         run: |
-          python3 scripts/sync_drmax_ocr.py --probe | tee /tmp/drmax-target.json
+          set -euo pipefail
+          max_attempts=4
+          last_status=1
+          for attempt in $(seq 1 "$max_attempts"); do
+            log_file="$(mktemp)"
+            echo "Dr. Max OCR probe attempt $attempt/$max_attempts"
+            set +e
+            python3 scripts/sync_drmax_ocr.py --probe 2>&1 | tee "$log_file" /tmp/drmax-target.json
+            status=${PIPESTATUS[0]}
+            set -e
+            last_status=$status
+
+            if [ "$status" -eq 0 ]; then
+              rm -f "$log_file"
+              break
+            fi
+
+            if ! grep -Eqi 'TimeoutError|timed out|HTTP (408|425|429|5[0-9]{2})' "$log_file"; then
+              echo "::error::Dr. Max OCR probe failed with a non-transient error; retry skipped"
+              rm -f "$log_file"
+              exit "$status"
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 10))
+              echo "::warning::Transient Dr. Max OCR probe failure; retrying in ${delay}s"
+              rm -f "$log_file"
+              sleep "$delay"
+            else
+              rm -f "$log_file"
+            fi
+          done
+
+          if [ "$last_status" -ne 0 ]; then
+            echo "::error::Dr. Max OCR probe failed after $max_attempts transient attempts"
+            exit "$last_status"
+          fi
+
           python3 - <<'PY'
           import json
           import os
@@ -91,4 +128,39 @@ jobs:
 
       - name: OCR a uložení souřadnic do Supabase
         if: steps.target.outputs.has_target == 'true'
-        run: python3 scripts/sync_drmax_ocr.py
+        shell: bash
+        run: |
+          set -euo pipefail
+          max_attempts=4
+          last_status=1
+          for attempt in $(seq 1 "$max_attempts"); do
+            log_file="$(mktemp)"
+            echo "Dr. Max OCR attempt $attempt/$max_attempts"
+            set +e
+            python3 scripts/sync_drmax_ocr.py 2>&1 | tee "$log_file"
+            status=${PIPESTATUS[0]}
+            set -e
+            last_status=$status
+
+            if [ "$status" -eq 0 ]; then
+              rm -f "$log_file"
+              exit 0
+            fi
+
+            if ! grep -Eqi 'TimeoutError|timed out|HTTP (408|425|429|5[0-9]{2})' "$log_file"; then
+              echo "::error::Dr. Max OCR failed with a non-transient error; retry skipped"
+              rm -f "$log_file"
+              exit "$status"
+            fi
+
+            if [ "$attempt" -lt "$max_attempts" ]; then
+              delay=$((attempt * 10))
+              echo "::warning::Transient Dr. Max OCR failure; retrying in ${delay}s"
+              rm -f "$log_file"
+              sleep "$delay"
+            else
+              rm -f "$log_file"
+            fi
+          done
+          echo "::error::Dr. Max OCR failed after $max_attempts transient attempts"
+          exit "$last_status"
