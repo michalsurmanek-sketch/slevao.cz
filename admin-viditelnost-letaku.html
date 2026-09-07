@@ -66,10 +66,10 @@
 <section id="loginBox" class="login">
   <h1>Přihlášení správce</h1>
   <p class="muted">Přihlas se účtem s rolí admin nebo editor.</p>
-  <div class="field"><label for="email">E-mail</label><input id="email" type="email" autocomplete="email"></div>
-  <div class="field"><label for="password">Heslo</label><input id="password" type="password" autocomplete="current-password"></div>
+  <div class="field"><label for="email">E-mail</label><input id="email" name="email" type="email" autocomplete="username" inputmode="email" required></div>
+  <div class="field"><label for="password">Heslo</label><input id="password" name="password" type="password" autocomplete="current-password" required></div>
   <button id="loginBtn" class="btn primary" type="button">Přihlásit</button>
-  <div id="loginMsg" class="visibilityMessage"></div>
+  <div id="loginMsg" class="visibilityMessage" role="status" aria-live="polite"></div>
 </section>
 
 <div id="app" class="layout hidden">
@@ -110,7 +110,7 @@
 
       <section class="visibilityPanel">
         <div class="visibilityToolbar">
-          <input id="search" class="search" type="search" placeholder="Hledat kartu obchodu…">
+          <input id="search" class="search" type="search" placeholder="Hledat kartu obchodu…" aria-label="Hledat kartu obchodu">
           <select id="filter" class="search" aria-label="Filtrovat viditelnost">
             <option value="all">Všechny karty včetně skrytých</option>
             <option value="visible">Jen zobrazené</option>
@@ -118,7 +118,7 @@
           </select>
           <button id="reload" class="btn light" type="button"><svg class="uiIcon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0-2.3 5.7"/><path d="M20 4v7h-7"/></svg>Obnovit</button>
         </div>
-        <div id="message" class="visibilityMessage" aria-live="polite"></div>
+        <div id="message" class="visibilityMessage" role="status" aria-live="polite"></div>
         <div id="list" class="visibilityList"><div class="visibilityEmpty">Načítám karty hlavní stránky…</div></div>
       </section>
     </div>
