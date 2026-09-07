@@ -65,19 +65,52 @@
   }
 
   const branchSelect = 'id,store_id,external_id,name,street,city,postal_code,region,latitude,longitude,opening_hours,stores(id,name,slug,logo_url,primary_color)';
+  const BRANCH_PAGE_SIZE = 1000;
+  const BRANCH_CACHE_MS = 5 * 60 * 1000;
+  let branchDirectoryPromise = null;
+  let branchDirectoryCachedAt = 0;
+
+  async function fetchActiveBranches() {
+    const now = Date.now();
+    if (branchDirectoryPromise && now - branchDirectoryCachedAt < BRANCH_CACHE_MS) {
+      return await branchDirectoryPromise;
+    }
+
+    branchDirectoryCachedAt = now;
+    branchDirectoryPromise = (async () => {
+      const output = [];
+      for (let offset = 0; offset < 20000; offset += BRANCH_PAGE_SIZE) {
+        const page = await rest('branches', {
+          select: branchSelect,
+          is_active: 'eq.true',
+          order: 'id.asc',
+          limit: String(BRANCH_PAGE_SIZE),
+          offset: String(offset),
+        });
+        output.push(...page);
+        if (page.length < BRANCH_PAGE_SIZE) break;
+      }
+      return output;
+    })();
+
+    try {
+      return await branchDirectoryPromise;
+    } catch (error) {
+      branchDirectoryPromise = null;
+      branchDirectoryCachedAt = 0;
+      throw error;
+    }
+  }
 
   async function fetchNearbyBranches(latitude, longitude, radiusKm = 15) {
     const lat = Number(latitude), lon = Number(longitude), radius = Math.max(1, Math.min(50, Number(radiusKm) || 15));
-    const latDelta = radius / 111;
-    const lonDelta = radius / Math.max(20, 111 * Math.cos(lat * Math.PI / 180));
-    const rows = await rest('branches', {
-      select: branchSelect,
-      is_active: 'eq.true',
-      latitude: `gte.${lat - latDelta}`,
-      longitude: `gte.${lon - lonDelta}`,
-      and: `(latitude.lte.${lat + latDelta},longitude.lte.${lon + lonDelta})`,
-      limit: '1000',
-    });
+    if (![lat, lon].every(Number.isFinite)) return [];
+
+    // Privacy boundary: precise device coordinates stay inside this browser.
+    // Fetch the public active-branch directory without a coordinate filter and
+    // calculate distance locally instead of putting the user's latitude or
+    // longitude into a Supabase REST URL.
+    const rows = await fetchActiveBranches();
     return rows
       .map((row) => ({ ...row, distance_km: distanceKm(lat, lon, row.latitude, row.longitude) }))
       .filter((row) => row.distance_km <= radius)
