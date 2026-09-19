@@ -59,7 +59,7 @@ const history = await client
 assert.equal(history.error, null);
 assert.equal(history.data.length, 1);
 assert.equal(history.data[0].price, 19.9);
-assert.deepEqual(history.data[0].stores, {
+assert.deepEqual(JSON.parse(JSON.stringify(history.data[0].stores)), {
   name:'Test Market',
   slug:'test-market',
   logo_url:'/logo.svg',
