@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 
-const STORE_NAV_VERSION = '20260822-1';
+const STORE_NAV_VERSION = '20260901-1';
 const STORE_NAV_SCRIPT = `assets/store-bottom-nav.js?v=${STORE_NAV_VERSION}`;
 const STORE_FEED_VERSION = '20260822-2';
 const STORE_FEED_SCRIPT = `assets/store-feed.js?v=${STORE_FEED_VERSION}`;
