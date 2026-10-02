@@ -1,0 +1,50 @@
+name: Fix public offer search cache cron interval
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'supabase/migrations/20261002130500_fix_public_offer_search_cache_cron_interval.sql'
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: Apply cron interval fix
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Apply database migration
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_PROJECT_REF: uhampjdqjxmbhaptgitn
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$SUPABASE_ACCESS_TOKEN" || {
+            echo 'Chybí GitHub secret SUPABASE_ACCESS_TOKEN'
+            exit 1
+          }
+
+          migration_file='supabase/migrations/20261002130500_fix_public_offer_search_cache_cron_interval.sql'
+          payload="$(jq -Rs '{query: ., read_only: false}' "$migration_file")"
+          response_file="$(mktemp)"
+          http_status="$(curl --silent --show-error --max-time 300 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --request POST \
+            --url "https://api.supabase.com/v1/projects/${SUPABASE_PROJECT_REF}/database/query" \
+            --header "Authorization: Bearer ${SUPABASE_ACCESS_TOKEN}" \
+            --header 'Content-Type: application/json' \
+            --data "$payload")"
+          cat "$response_file"
+          echo
+          if [[ "$http_status" != '200' && "$http_status" != '201' ]]; then
+            echo "Migrace selhala s HTTP $http_status"
+            exit 1
+          fi
