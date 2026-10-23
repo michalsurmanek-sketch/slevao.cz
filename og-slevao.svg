@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e8faf7"/><stop offset="1" stop-color="#f7fffe"/></linearGradient></defs>
+<rect width="1200" height="630" fill="url(#bg)"/><circle cx="1000" cy="120" r="250" fill="#d2f2ee"/>
+<rect x="82" y="92" width="1036" height="446" rx="42" fill="#fff" stroke="#c8e9e5" stroke-width="3"/>
+<g transform="translate(130 192) scale(0.85)"><path d="M36 18h98c15 0 27 5 37 15l39 39c10 10 10 26 0 36l-84 84c-10 10-26 10-36 0L18 120c-7-7-10-17-8-27l10-58c2-11 7-17 16-17z" fill="#56cfc5" stroke="#168f8b" stroke-width="5"/><circle cx="70" cy="70" r="23" fill="#f8ffff"/><circle cx="147" cy="146" r="23" fill="#f8ffff"/><path d="M66 148L151 76" stroke="#fff" stroke-width="18" stroke-linecap="round"/></g>
+<text x="360" y="280" font-family="Arial,sans-serif" font-size="76" font-weight="800" fill="#172222">SLEVAO<tspan fill="#159e94">.cz</tspan></text>
+<text x="360" y="365" font-family="Arial,sans-serif" font-size="39" font-weight="700" fill="#263332">Najdi, kde dnes nakoupíš nejlevněji.</text>
+<text x="360" y="430" font-family="Arial,sans-serif" font-size="27" fill="#687775">Aktuální akce a slevy českých obchodů</text></svg>
