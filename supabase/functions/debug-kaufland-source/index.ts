@@ -106,6 +106,7 @@ Deno.serve(async (req) => {
   const body = await req.json().catch(() => ({}));
   const expiredLimit = numberInRange(body.expired_limit, 300, 1, 1000);
   const orphanLimit = numberInRange(body.orphan_limit, 150, 0, 1000);
+  const terminalLimit = numberInRange(body.terminal_limit, 300, 1, 1000);
   const graceDays = numberInRange(body.grace_days, 1, 0, 30);
   const orphanAgeDays = numberInRange(body.orphan_age_days, 7, 2, 90);
   const dryRun = body.dry_run === true;
@@ -131,6 +132,14 @@ Deno.serve(async (req) => {
     }
     const orphanBytes = orphanRows.reduce((sum, row) => sum + Number(row.bytes || 0), 0);
 
+    const { data: terminal, error: terminalError } = await db.rpc(
+      'get_terminal_leaflet_storage_cleanup_candidates',
+      { p_limit: terminalLimit, p_min_age_days: 90 },
+    );
+    if (terminalError) throw terminalError;
+    const terminalRows = Array.isArray(terminal) ? terminal : [];
+    const terminalBytes = terminalRows.reduce((sum, row) => sum + Number(row.bytes || 0), 0);
+
     if (dryRun) {
       return response({
         ok: true,
@@ -139,7 +148,9 @@ Deno.serve(async (req) => {
         expired_bytes: expiredBytes,
         orphan_candidates: orphanRows.length,
         orphan_bytes: orphanBytes,
-        estimated_reclaim_bytes: expiredBytes + orphanBytes,
+        terminal_candidates: terminalRows.length,
+        terminal_bytes: terminalBytes,
+        estimated_reclaim_bytes: expiredBytes + orphanBytes + terminalBytes,
         grace_days: graceDays,
         orphan_age_days: orphanAgeDays,
       });
@@ -170,6 +181,31 @@ Deno.serve(async (req) => {
       finalizeResult = data;
     }
 
+    const terminalByBucket = new Map<string, any[]>();
+    for (const row of terminalRows) {
+      const bucket = String(row.bucket || 'leaflets');
+      if (!terminalByBucket.has(bucket)) terminalByBucket.set(bucket, []);
+      terminalByBucket.get(bucket)!.push(row);
+    }
+
+    const removedTerminal: any[] = [];
+    for (const [bucket, rows] of terminalByBucket.entries()) {
+      await removeInChunks(bucket, rows.map((row) => String(row.path || '')));
+      removedTerminal.push(...rows.map((row) => ({
+        import_id: row.import_id,
+        bucket,
+        path: row.path,
+        bytes: Number(row.bytes || 0),
+      })));
+    }
+
+    let terminalFinalizeResult: any = null;
+    if (removedTerminal.length) {
+      const { data, error } = await db.rpc('finalize_terminal_leaflet_storage_cleanup', { p_items: removedTerminal });
+      if (error) throw error;
+      terminalFinalizeResult = data;
+    }
+
     const orphanByBucket = new Map<string, any[]>();
     for (const row of orphanRows) {
       const bucket = String(row.bucket || 'leaflets');
@@ -198,8 +234,11 @@ Deno.serve(async (req) => {
       expired_bytes: expiredBytes,
       orphan_deleted: removedOrphans.length,
       orphan_bytes: orphanBytes,
-      reclaimed_bytes: expiredBytes + orphanBytes,
+      terminal_deleted: removedTerminal.length,
+      terminal_bytes: terminalBytes,
+      reclaimed_bytes: expiredBytes + orphanBytes + terminalBytes,
       finalize: finalizeResult,
+      terminal_finalize: terminalFinalizeResult,
       duration_ms: Date.now() - started,
     });
   } catch (error) {
