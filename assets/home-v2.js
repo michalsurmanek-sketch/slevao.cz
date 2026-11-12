@@ -411,6 +411,10 @@
       state.total = page.total;
       if (facets) state.facets = facets;
       renderAll();
+      if (!window.__slevaoPrimaryOffersLoaded) {
+        window.__slevaoPrimaryOffersLoaded = true;
+        document.dispatchEvent(new Event('slevao:primary-offers-loaded'));
+      }
       if (scroll) $('dealsSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
     } catch (error) {
       console.error(error);
@@ -627,14 +631,16 @@
     if ($('sideSearch')) $('sideSearch').value=state.query;
     renderRegions();
     try {
-      const globalFacetsPromise = loadGlobalFacets().catch((error) => {
+      await refreshCurrent({ refreshFacets:false });
+      if (!window.__slevaoPrimaryOffersLoaded) return;
+      const globalFacets = await loadGlobalFacets().catch((error) => {
         console.warn('Globální facety se nepodařilo načíst:', error);
         return state.globalFacets;
       });
-      await Promise.all([
-        globalFacetsPromise,
-        refreshCurrent({ facetsPromise: initialQuery ? null : globalFacetsPromise })
-      ]);
+      if (globalFacets) {
+        state.facets = globalFacets;
+        renderAll();
+      }
       renderUpdateStatus(Date.now());
     } catch (error) {
       console.error(error);

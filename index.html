@@ -419,23 +419,33 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
   <script src="assets/rpc-request-dedupe.js?v=20260903-2" defer></script>
   <script src="assets/home-v2.js?v=20260903-2" defer></script>
-  <script src="assets/home-leaflet-direct.js?v=20260821-2" defer></script>
-  <script src="assets/home-leaflet-viewer.js?v=20260809-1" defer></script>
-  <script src="assets/home-all-stores.js?v=20260826-2" defer></script>
-  <script src="assets/home-leaflet-covers.js?v=20260821-2" defer></script>
-  <script src="assets/home-overview.js?v=20260821-2" defer></script>
-  <script src="assets/home-quick-food-filter.js?v=20260905-1" defer></script>
-  <script src="assets/home-semantic-filters.js?v=20260905-2" defer></script>
-  <script src="assets/home-filter-range-guard.js?v=20260826-1" defer></script>
-  <script src="assets/public-nav-upgrade.js?v=20260904-1" defer></script>
-  <script src="assets/public-features.js?v=20260901-1" defer></script>
-  <script src="assets/home-autopilot.js?v=20260829-1" defer></script>
-  <script src="assets/home-footer-redesign.js?v=20260905-1" defer></script>
-  <script src="assets/mobile-navigation.js?v=20260829-1" defer></script>
-  <script src="assets/product-card-desktop.js?v=20260828-1" defer></script>
-  <script src="assets/home-radius-select.js?v=20260809-3" defer></script>
-  <script src="assets/mobile-leaflet-nav-position.js?v=20260816-10" defer></script>
-  <script src="assets/home-recipes.js?v=20260904-1" defer></script>
+  <script data-after-offers="assets/home-leaflet-direct.js?v=20260821-2" defer></script>
+  <script data-after-offers="assets/home-leaflet-viewer.js?v=20260809-1" defer></script>
+  <script data-after-offers="assets/home-all-stores.js?v=20260826-2" defer></script>
+  <script data-after-offers="assets/home-leaflet-covers.js?v=20260821-2" defer></script>
+  <script data-after-offers="assets/home-overview.js?v=20260821-2" defer></script>
+  <script data-after-offers="assets/home-quick-food-filter.js?v=20260905-1" defer></script>
+  <script data-after-offers="assets/home-semantic-filters.js?v=20260905-2" defer></script>
+  <script data-after-offers="assets/home-filter-range-guard.js?v=20260826-1" defer></script>
+  <script data-after-offers="assets/public-nav-upgrade.js?v=20260904-1" defer></script>
+  <script data-after-offers="assets/public-features.js?v=20260901-1" defer></script>
+  <script data-after-offers="assets/home-autopilot.js?v=20260829-1" defer></script>
+  <script data-after-offers="assets/home-footer-redesign.js?v=20260905-1" defer></script>
+  <script data-after-offers="assets/mobile-navigation.js?v=20260829-1" defer></script>
+  <script data-after-offers="assets/product-card-desktop.js?v=20260828-1" defer></script>
+  <script data-after-offers="assets/home-radius-select.js?v=20260809-3" defer></script>
+  <script data-after-offers="assets/mobile-leaflet-nav-position.js?v=20260816-10" defer></script>
+  <script data-after-offers="assets/home-recipes.js?v=20260904-1" defer></script>
+  <script>
+    document.addEventListener('slevao:primary-offers-loaded', () => {
+      document.querySelectorAll('script[data-after-offers]').forEach((placeholder) => {
+        const script = document.createElement('script');
+        script.src = placeholder.dataset.afterOffers;
+        script.async = false;
+        document.body.append(script);
+      });
+    }, { once:true });
+  </script>
   <script>
     document.addEventListener('click', (event) => {
       if (!event.target.closest('#categoryAllHeader')) return;
