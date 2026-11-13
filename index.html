@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="cs" class="slevaoHomeBooting">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#159e94">
+  <meta name="description" content="Porovnej aktuální slevy a ceny českých obchodů. Najdi výhodné nabídky, prohlédni letáky a nakup potraviny i další zboží levněji.">
+  <meta name="robots" content="index,follow,max-image-preview:large">
+  <meta name="referrer" content="strict-origin-when-cross-origin">
+  <link rel="canonical" href="https://slevao.cz/">
+  <link rel="icon" href="favicon.svg?v=20260802-2" type="image/svg+xml">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="cs_CZ">
+  <meta property="og:site_name" content="Slevao.cz">
+  <meta property="og:title" content="Slevao.cz – najdi, kde dnes nakoupíš nejlevněji">
+  <meta property="og:description" content="Porovnej aktuální slevy a ceny českých obchodů. Prohlédni letáky, najdi výhodné nabídky a nakup levněji.">
+  <meta property="og:image" content="https://slevao.cz/og-slevao.svg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:url" content="https://slevao.cz/">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:image" content="https://slevao.cz/og-slevao.svg">
+  <title>Slevao.cz – najdi, kde dnes nakoupíš nejlevněji</title>
+  <style id="slevaoHomeBootStyle">
+    html.slevaoHomeBooting body{visibility:hidden}
+    html,body{overflow-anchor:none!important}
+    .skipLink{position:fixed;left:12px;top:-80px;z-index:20000;padding:11px 15px;border-radius:10px;background:#10201e;color:#fff;font:800 14px system-ui,sans-serif;text-decoration:none;transition:top .15s ease}
+    .skipLink:focus{top:12px;outline:3px solid #49dfcf;outline-offset:2px}
+  </style>
+  <script>
+    (() => {
+      const internalHashes = new Set(['#top','#categoriesSection','#storesSection','#leafletsSection','#dealsSection']);
+      if ('scrollRestoration' in history) history.scrollRestoration = 'manual';
+      if (internalHashes.has(location.hash)) history.replaceState(history.state, '', `${location.pathname}${location.search}`);
+
+      if (!window.__slevaoHomepageScrollGuardInstalled) {
+        window.__slevaoHomepageScrollGuardInstalled = true;
+        let allowProgrammaticScrollUntil = 0;
+        const markUserClick = (event) => {
+          if (event?.isTrusted) allowProgrammaticScrollUntil = performance.now() + 4000;
+        };
+        const userAllowedScroll = () => performance.now() <= allowProgrammaticScrollUntil;
+        document.addEventListener('click', markUserClick, true);
+        document.addEventListener('keydown', (event) => { if (event?.isTrusted && event.key === 'Enter') allowProgrammaticScrollUntil = performance.now() + 4000; }, true);
+
+        const nativeScrollTo = window.scrollTo.bind(window);
+        const nativeScroll = typeof window.scroll === 'function' ? window.scroll.bind(window) : nativeScrollTo;
+        const nativeScrollBy = window.scrollBy.bind(window);
+        window.scrollTo = (...args) => userAllowedScroll() ? nativeScrollTo(...args) : undefined;
+        window.scroll = (...args) => userAllowedScroll() ? nativeScroll(...args) : undefined;
+        window.scrollBy = (...args) => userAllowedScroll() ? nativeScrollBy(...args) : undefined;
+
+        const nativeScrollIntoView = Element.prototype.scrollIntoView;
+        if (typeof nativeScrollIntoView === 'function') {
+          Element.prototype.scrollIntoView = function (...args) {
+            return userAllowedScroll() ? nativeScrollIntoView.apply(this, args) : undefined;
+          };
+        }
+
+        const nativeFocus = HTMLElement.prototype.focus;
+        if (typeof nativeFocus === 'function') {
+          HTMLElement.prototype.focus = function (options) {
+            if (userAllowedScroll()) return nativeFocus.call(this, options);
+            if (options && typeof options === 'object') return nativeFocus.call(this, { ...options, preventScroll:true });
+            return nativeFocus.call(this, { preventScroll:true });
+          };
+        }
+      }
+
+      const reveal = () => document.documentElement.classList.remove('slevaoHomeBooting');
+      window.addEventListener('load', () => requestAnimationFrame(reveal), { once:true });
+      window.setTimeout(reveal, 2000);
+    })();
+  </script>
+  <link rel="stylesheet" href="assets/home-v2.css?v=20260815-9">
+  <link rel="stylesheet" href="assets/home-redesign-step1.css?v=20260802-2">
+  <link rel="stylesheet" href="assets/home-redesign-step2.css?v=20260808-3">
+  <link rel="stylesheet" href="assets/home-redesign-step3.css?v=20260828-1">
+  <link rel="stylesheet" href="assets/home-live.css?v=20260808-2">
+  <link rel="stylesheet" href="assets/home-live-hero.css?v=20260906-1">
+  <link rel="stylesheet" href="assets/home-footer-redesign.css?v=20260901-4">
+  <link rel="stylesheet" href="assets/mobile-ux.css?v=20260815-21" data-mobile-ux-version="20260815-21">
+  <link rel="stylesheet" href="assets/mobile-store-row-fix.css?v=20260829-1">
+  <link rel="stylesheet" href="assets/home-quick-food-filter.css?v=20260829-2" data-sq-food-fresh="20260829-2">
+  <link rel="stylesheet" href="assets/home-quick-food-personalize.css?v=20260901-3">
+  <link rel="stylesheet" href="assets/product-card-desktop.css?v=20260815-3">
+  <link rel="stylesheet" href="assets/product-card-media-clean.css?v=20260815-2">
+  <link rel="stylesheet" href="assets/product-card-mini.css?v=20260829-2">
+  <link rel="stylesheet" href="assets/filter-background-generated.css?v=20260808-1">
+  <link rel="stylesheet" href="assets/top-tip-button.css?v=20260826-1">
+  <link rel="stylesheet" href="assets/index-mobile-final.css?v=20260816-7">
+  <link rel="stylesheet" href="assets/mobile-deals-heading-fix.css?v=20260903-4">
+  <link rel="stylesheet" href="assets/mobile-footer-upgrade.css?v=20260828-6">
+  <style>
+    @media(max-width:800px){#dealsTitle .dealsTitleRest{display:block!important}}
+    @media(min-width:801px){#dealsTitle .dealsTitleRest{display:inline!important}}
+    @media(min-width:621px){
+      .footerQuickIcons.footerSectionJumpIcons>a[href="ucet.html"],
+      .footerQuickIcons.footerSectionJumpIcons>a[aria-label="Můj účet"]{display:none!important}
+      .footerFeatures>.footerFeature:nth-child(n+4){display:none!important}
+    }
+    #recipesSection{padding:8px 0 6px}
+    #recipesSection>.container{width:min(1240px,calc(100% - 32px));max-width:calc(100vw - 32px);padding:22px 24px;border:1px solid #d3ebe8;border-radius:26px;background:linear-gradient(120deg,#fff 0%,#f4fcfb 62%,#e8faf7 100%);box-shadow:0 12px 36px rgba(23,34,34,.07)}
+    .recipePanelIntro{display:grid;grid-template-columns:52px minmax(0,1fr);align-items:center;gap:14px;margin-bottom:16px;min-width:0}
+    .recipePanelIcon{width:52px;height:52px;display:grid;place-items:center;border-radius:50%;background:#e3f8f5;color:#0a8f85}
+    .recipePanelIcon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+    .recipePanelCopy{min-width:0;display:grid;gap:2px}
+    .recipePanelCopy .eyebrow{color:#0b8279;font-size:11px;font-weight:900;letter-spacing:.07em;text-transform:uppercase}
+    .recipePanelCopy h2{margin:0;color:#172222;font-size:clamp(23px,2.6vw,32px);line-height:1.05;letter-spacing:-.8px}
+    .recipePanelCopy p{margin:2px 0 0;color:#687775;font-size:14px}
+    .recipeCards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;min-width:0;max-width:100%}
+    .recipeCard{min-width:0;max-width:100%;display:grid;grid-template-columns:46px minmax(0,1fr);grid-template-rows:auto auto;align-items:center;gap:3px 11px;padding:14px;border:1px solid #dbecea;border-radius:19px;background:rgba(255,255,255,.94);box-shadow:0 7px 20px rgba(23,34,34,.05)}
+    .recipeEmoji{grid-row:1/3;width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:#eff9f7;font-size:25px}
+    .recipeCard>div{min-width:0;display:grid;gap:3px}
+    .recipeCard strong{overflow:hidden;color:#263332;font-size:14px;line-height:1.15;white-space:nowrap;text-overflow:ellipsis}
+    .recipeCard small{color:#788481;font-size:11px;font-weight:700}
+    .recipeCard button{grid-column:1/-1;min-height:38px;margin-top:8px;border:0;border-radius:12px;background:#e4f7f4;color:#087e75;font-size:12px;font-weight:900;cursor:pointer}
+    .recipeCard button:hover{background:#159e94;color:#fff}
+    .recipeCard button:focus-visible{outline:3px solid rgba(21,158,148,.25);outline-offset:2px}
+    .recipeCard button.is-added{background:#159e94;color:#fff}
+    @media(max-width:900px){
+      #recipesSection{padding:7px 0 5px}
+      #recipesSection>.container{width:calc(100% - 20px);max-width:calc(100vw - 20px);padding:17px 14px;border-radius:22px}
+      .recipePanelIntro{grid-template-columns:46px minmax(0,1fr);gap:12px;margin-bottom:13px}
+      .recipePanelIcon{width:46px;height:46px}.recipePanelIcon svg{width:24px;height:24px}
+      .recipePanelCopy .eyebrow{display:none}.recipePanelCopy h2{font-size:19px;letter-spacing:-.4px}.recipePanelCopy p{font-size:11.5px;line-height:1.3}
+      .recipeCards{display:flex;gap:10px;overflow-x:auto;padding:1px 22px 7px 1px;scroll-snap-type:x proximity;scrollbar-width:none}.recipeCards::-webkit-scrollbar{display:none}
+      .recipeCard{flex:0 0 210px;scroll-snap-align:start}
+    }
+    @media(max-width:430px){.recipePanelCopy h2{font-size:18px}.recipeCard{flex-basis:198px}}
+    @media(prefers-reduced-motion:reduce){.recipeCards{scroll-behavior:auto}}
+  </style>
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
+</head>
+<body>
+  <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
+  <header class="topbar">
+    <div class="container topbarInner">
+      <a class="brand" href="#top" aria-label="Slevao.cz domů"><span>SLEVAO<b>.cz</b></span></a>
+      <div class="mainSearch" role="search">
+        <span class="searchIcon" aria-hidden="true">⌕</span>
+        <input id="q" type="search" placeholder="Hledej produkt, značku, obchod nebo kategorii…" autocomplete="off" aria-label="Hledat nabídky">
+        <button id="searchButton" type="button">Hledat</button>
+        <div id="searchSuggestions" class="searchSuggestions" hidden></div>
+      </div>
+      <button id="savedButton" class="savedButton" type="button" aria-pressed="false"><span>♡</span><span class="savedLabel">Uložené</span><b id="savedCount">0</b></button>
+      <a class="topbarTipButton accountButton" id="topbarTipButton" href="ucet.html" aria-label="Můj účet a hlídané ceny" title="Můj účet">
+        <svg class="accountButtonIcon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm7 8a7 7 0 0 0-14 0"/></svg>
+        <span>Můj účet</span>
+      </a>
+    </div>
+  </header>
+
+  <main id="top" tabindex="-1">
+    <section class="hero">
+      <div class="container">
+        <div class="heroCard">
+          <div class="heroCopy">
+            <span class="eyebrow">Chytrý průvodce slevami</span>
+            <h1>Najdi, kde <span class="mobileHideToday">dnes</span><br><span class="brandBlue">nakoupíš nejlevněji.</span></h1>
+            <p>Porovnej ceny a nakup nejlevněji.</p>
+            <div class="heroStats">
+              <span id="statusPill" class="statusPill">Aktualizováno</span>
+              <span><span class="heroStatCopy"><span class="heroStatLabel">Aktuálních nabídek</span><b id="offerCount" class="heroStatValue">…</b></span></span>
+              <span><span class="heroStatCopy"><span class="heroStatLabel">Obchodů s nabídkou</span><b id="storeCount" class="heroStatValue">…</b></span></span>
+            </div>
+          </div>
+          <div class="heroArtwork" aria-hidden="true"></div>
+          <div class="heroLocation heroNearbyPanel" data-nearby-ready="1">
+            <div class="slLiveTopline"><span class="slLiveBadge"><i class="slLiveDot"></i>POBLÍŽ VÁS</span></div>
+            <strong>Najít obchody poblíž</strong>
+            <p>Zadejte město nebo PSČ, případně použijte svoji polohu.</p>
+            <div class="slLiveOptions">
+              <label>Okruh<select id="slLiveRadius" class="slLiveRadius"><option value="5">5 km</option><option value="10">10 km</option><option value="15" selected>15 km</option><option value="25">25 km</option><option value="40">40 km</option></select></label>
+              <button id="slLiveLocate" class="slLiveLocationButton" type="button">Použít moji polohu</button>
+            </div>
+            <div class="slLiveDivider">nebo ručně</div>
+            <form id="slLiveManual" class="slLiveManual"><input id="slLivePlace" type="text" autocomplete="postal-code" placeholder="Město nebo PSČ" aria-label="Město nebo PSČ"><button type="submit">Najít</button></form>
+            <div id="slLiveStatus" class="slLiveStatus" role="status" aria-live="polite">Výsledek se zobrazí až po vyhledání.</div>
+            <div class="slLiveLegacyRegion" hidden>
+              <select id="regionSelect" aria-hidden="true" tabindex="-1"><option value="all">Celá Česká republika</option></select>
+              <select id="citySelect" aria-hidden="true" tabindex="-1" disabled><option value="all">Všechna města</option></select>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="recipesSection" class="section compactSection" aria-labelledby="recipesTitle">
+      <div class="container">
+        <div class="recipePanelIntro">
+          <span class="recipePanelIcon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M6 3v7a3 3 0 0 0 3 3V3M9 13v8M17 3v18M17 3c-2 1.5-3 4-3 7 0 2 1 3 3 3"/></svg></span>
+          <div class="recipePanelCopy"><span class="eyebrow">Chytrý nákup</span><h2 id="recipesTitle">Nakupujte podle receptu</h2><p>Vyberte jídlo a přidejte potřebné suroviny do seznamu</p></div>
+        </div>
+        <div class="recipeCards" aria-label="Oblíbené recepty">
+          <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🍝</span><div><strong>Špagety boloňské</strong><small>8 surovin</small></div><button type="button" data-recipe="spagety">Přidat suroviny</button></article>
+          <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🍗</span><div><strong>Kuřecí řízek</strong><small>6 surovin</small></div><button type="button" data-recipe="rizek">Přidat suroviny</button></article>
+          <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🥘</span><div><strong>Hovězí guláš</strong><small>8 surovin</small></div><button type="button" data-recipe="gulas">Přidat suroviny</button></article>
+          <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🥞</span><div><strong>Palačinky</strong><small>5 surovin</small></div><button type="button" data-recipe="palacinky">Přidat suroviny</button></article>
+        </div>
+      </div>
+    </section>
+
+    <section id="categoriesSection" class="section compactSection">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div class="categoryPanelIntro"><span class="categoryPanelIcon" aria-hidden="true"><i></i><i></i><i></i><i></i></span><div class="categoryPanelCopy"><span class="eyebrow">Rychlý výběr</span><h2>Nakupuj podle kategorie</h2><p>Vyber si kategorii a najdi nejlepší nabídky</p></div><button id="categoryAllHeader" type="button" aria-label="Zobrazit všechny kategorie">Vše</button></div>
+          <button id="clearCategory" class="textButton" type="button" hidden>Zrušit kategorii</button>
+        </div>
+        <div id="categoryChips" class="categoryChips"><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div><div class="skeleton chipSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="storesSection" class="section compactSection">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div><span class="eyebrow">Obchody</span><h2>Vyber obchod</h2><p>Kliknutí vyfiltruje nabídky. Odkaz na kartě otevře celou stránku obchodu.</p></div>
+          <button id="showAllStores" class="textButton" type="button">Zobrazit všechny</button>
+        </div>
+        <div id="storeGrid" class="storeGrid"><div class="skeleton storeSkeleton"></div><div class="skeleton storeSkeleton"></div><div class="skeleton storeSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="leafletsSection" class="section">
+      <div class="container">
+        <div class="sectionHead inlineHead">
+          <div><span class="eyebrow">Aktuálně v obchodech</span><h2>Letáky a nabídky obchodů</h2><p>Prohlédni si titulní strany právě platných letáků.</p></div>
+          <a class="textButton" href="letaky.html" aria-label="Zobrazit všechny letáky">Všechny letáky</a>
+        </div>
+        <div id="leafletGrid" class="leafletGrid"><div class="skeleton leafletSkeleton"></div><div class="skeleton leafletSkeleton"></div><div class="skeleton leafletSkeleton"></div></div>
+      </div>
+    </section>
+
+    <section id="dealsSection" class="section dealsSection">
+      <div class="container">
+        <div class="sectionHead dealsHeading">
+          <div><span class="eyebrow">Aktuální ceny</span><h2 id="dealsTitle">Nejvýhodnější <span class="dealsTitleRest">právě teď</span></h2><p id="dealsSubtitle">Ověřené nabídky, které právě platí.</p></div>
+          <button id="filterToggle" class="filterToggle" type="button">Filtry <span id="activeFilterCount">0</span></button>
+        </div>
+
+        <div id="quickTabs" class="quickTabs" role="tablist" aria-label="Rychlé výběry">
+          <button id="quickTabRecommended" class="quickTab active" type="button" data-mode="recommended" role="tab" aria-controls="dealGrid">Doporučené</button>
+          <button class="quickTab" type="button" data-mode="food" role="tab" aria-controls="dealGrid">Potraviny</button>
+          <button class="quickTab" type="button" data-mode="discount" role="tab" aria-controls="dealGrid">Největší slevy</button>
+          <button class="quickTab" type="button" data-mode="ending" role="tab" aria-controls="dealGrid">Končí dnes</button>
+          <button class="quickTab" type="button" data-mode="new" role="tab" aria-controls="dealGrid">Nově přidané</button>
+          <button class="quickTab" type="button" data-mode="under50" role="tab" aria-controls="dealGrid">Do 50 Kč</button>
+          <button class="quickTab" type="button" data-mode="under100" role="tab" aria-controls="dealGrid">Do 100 Kč</button>
+        </div>
+
+        <div id="activeFilters" class="activeFilters" hidden></div>
+
+        <div class="dealsLayout">
+          <div class="filterColumn">
+            <aside id="filterPanel" class="filterPanel" aria-label="Filtry nabídek">
+            <div class="filterPanelHead"><strong>Filtrovat nabídky</strong><button id="filterClose" type="button" aria-label="Zavřít filtry">×</button></div>
+            <label>Produkt nebo značka<input id="sideSearch" type="search" placeholder="Např. káva, mléko…"></label>
+            <label>Obchod<select id="storeSelect"><option value="all">Všechny obchody</option></select></label>
+            <label>Kategorie<select id="categorySelect"><option value="all">Všechny kategorie</option></select></label>
+            <div class="priceFields"><label>Cena od<input id="minPrice" type="number" min="0" step="1" placeholder="0 Kč"></label><label>Cena do<input id="maxPrice" type="number" min="0" step="1" placeholder="Bez omezení"></label></div>
+            <div class="pricePresets"><button type="button" data-max-price="50">Do 50 Kč</button><button type="button" data-max-price="100">Do 100 Kč</button><button type="button" data-max-price="500">Do 500 Kč</button></div>
+            <label class="checkLabel"><input id="onlyImages" type="checkbox"> Jen nabídky s fotografií</label>
+            <button id="resetFilters" class="resetFilters" type="button">Zrušit všechny filtry</button>
+            </aside>
+            <a class="shoppingListShortcut" href="seznam.html" aria-label="Přejít do mého nákupního seznamu">
+              <span class="shoppingListShortcutIcon" aria-hidden="true">▤</span>
+              <span class="shoppingListShortcutLabel">Přejít do mého seznamu</span>
+              <b aria-hidden="true">→</b>
+            </a>
+          </div>
+
+          <div class="dealsContent">
+            <div class="toolbar">
+              <span id="resultText">Načítám nabídky…</span>
+              <select id="sortSelect" aria-label="Řazení nabídek">
+                <option value="recommended">Doporučené</option>
+                <option value="discount">Největší sleva</option>
+                <option value="saving">Největší úspora</option>
+                <option value="ending">Končí nejdříve</option>
+                <option value="newest">Nejnovější</option>
+                <option value="priceAsc">Cena od nejnižší</option>
+                <option value="priceDesc">Cena od nejvyšší</option>
+                <option value="name">Podle názvu</option>
+              </select>
+            </div>
+            <div id="dealGrid" class="dealGrid" role="tabpanel" aria-labelledby="quickTabRecommended"><div class="loadingState"><span class="spinner"></span><strong>Načítám aktuální nabídky</strong><small>Kontroluji platnost cen a obchodů.</small></div></div>
+            <div id="loadMoreWrap" class="loadMoreWrap" hidden><button id="loadMore" type="button">Načíst další nabídky</button></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footerShell">
+      <div class="footerMain">
+        <section class="footerIdentity" aria-label="O Slevao.cz">
+          <a class="brand footerBrand" href="#top" aria-label="Slevao.cz domů"><span>SLEVAO<b>.cz</b></span></a>
+          <p class="footerLead">Chytrý přehled aktuálních akcí a slev českých obchodů.</p>
+          <ul class="footerFeatures">
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">↻</span><span>Denně aktualizováno</span></li>
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">▤</span><span>Přehled letáků</span></li>
+            <li class="footerFeature"><span class="footerFeatureIcon" aria-hidden="true">%</span><span>Rychlé porovnání cen</span></li>
+          </ul>
+        </section>
+
+        <nav class="footerColumn footerColumnSlevao" aria-label="Slevao.cz">
+          <h3>Slevao.cz</h3>
+          <div class="footerLinks">
+            <a href="#dealsSection">Aktuální nabídky</a>
+            <a href="letaky.html">Letáky</a>
+            <a href="#storesSection">Obchody</a>
+            <a href="#categoriesSection">Kategorie</a>
+          </div>
+        </nav>
+
+        <nav class="footerColumn footerColumnHelp" aria-label="Pomoc">
+          <h3>Pomoc</h3>
+          <div class="footerLinks">
+            <a href="kontakt.html">Kontakt</a>
+            <button id="footerReport" type="button">Nahlásit chybnou nabídku</button>
+            <a href="ochrana-soukromi.html">Ochrana soukromi</a>
+            <a href="podminky.html">Podmínky používání</a>
+          </div>
+        </nav>
+
+        <section class="footerFavorite" aria-labelledby="footerFavoriteTitle">
+          <h3 id="footerFavoriteTitle" class="footerFavoriteTitle">Oblíbené obchody</h3>
+          <div class="footerFavoriteGrid">
+            <a class="footerFavoriteStore" href="tesco.html" aria-label="Tesco"><span class="footerStoreWord footerStoreWordTesco">TESCO</span></a>
+            <a class="footerFavoriteStore" href="lidl.html" aria-label="Lidl"><span class="footerStoreLidlBadge">LIDL</span></a>
+            <a class="footerFavoriteStore" href="kaufland.html" aria-label="Kaufland"><span class="footerStoreKBox">K</span><span class="footerStoreWord footerStoreKaufland">Kaufland</span></a>
+            <a class="footerFavoriteStore" href="albert.html" aria-label="Albert"><span class="footerStoreWord footerStoreAlbert">albert</span></a>
+            <a class="footerFavoriteStore" href="penny.html" aria-label="Penny"><span class="footerStoreWord footerStorePenny">PENNY.</span></a>
+            <a class="footerFavoriteStore" href="billa.html" aria-label="Billa"><span class="footerStoreWord footerStoreBilla">BILLA</span></a>
+          </div>
+          <a class="footerFavoriteAll" href="#storesSection">Všechny obchody <span aria-hidden="true">→</span></a>
+        </section>
+
+        <section class="footerColumn footerColumnUseful" aria-label="Užitečné informace">
+          <h3>Užitečné</h3>
+          <p class="footerUsefulText">Ceny a dostupnost se mohou v jednotlivých prodejnách lišit. Před nákupem ověř podmínky akce v oficiálním letáku obchodu.</p>
+          <div class="footerQuickIcons">
+            <a href="#top" aria-label="Nahoru">↑</a>
+            <a href="#dealsSection" aria-label="Aktuální nabídky">%</a>
+            <a href="kontakt.html" aria-label="Kontakt">✉</a>
+          </div>
+        </section>
+
+        <section class="footerWatch" aria-labelledby="footerWatchTitle">
+          <div class="footerWatchHead">
+            <span class="footerBell" aria-hidden="true">♧</span>
+            <div><h3 id="footerWatchTitle">Hlídání slev</h3><p class="footerWatchLead">Nech si posílat ty nejlepší akce a slevy jako první.</p></div>
+          </div>
+          <form id="footerAlertsForm" class="footerWatchForm">
+            <label class="footerSrOnly" for="footerAlertEmail">Váš e-mail</label>
+            <input id="footerAlertEmail" type="email" inputmode="email" autocomplete="email" placeholder="Váš e-mail" required>
+            <button type="submit">Zapnout upozornění <span aria-hidden="true">→</span></button>
+            <small class="footerWatchHint">Žádný spam. Zrušení kdykoli.</small>
+            <p id="footerAlertStatus" class="footerWatchStatus" role="status" aria-live="polite"></p>
+          </form>
+          <div class="footerWatchPromises" aria-label="Výhody upozornění">
+            <span><i aria-hidden="true">♢</i><b>Žádný spam</b><small>Zrušení kdykoli</small></span>
+            <span><i aria-hidden="true">◇</i><b>Jen nejlepší akce</b><small>Ověřené nabídky</small></span>
+            <span><i aria-hidden="true">♧</i><b>Včas a přehledně</b><small>Upozornění e-mailem</small></span>
+          </div>
+          <section class="footerWatchReasons" aria-labelledby="footerWatchReasonsTitle">
+            <div class="footerWatchReasonsHead"><h4 id="footerWatchReasonsTitle">Proč si zapnout hlídání slev?</h4><span aria-hidden="true">★</span></div>
+            <ul>
+              <li><i aria-hidden="true">✓</i><span><b>Ověřené a aktuální nabídky</b><small>Data z oficiálních letáků, průběžně aktualizováno</small></span></li>
+              <li><i aria-hidden="true">✦</i><span><b>100 % zdarma</b><small>Žádné poplatky ani skryté podmínky</small></span></li>
+              <li><i aria-hidden="true">↻</i><span><b>Denně nové akce</b><small>Každý den přidáváme nové slevy</small></span></li>
+              <li><i aria-hidden="true">□</i><span><b>Bez registrace</b><small>Nepotřebujeme žádné osobní údaje navíc</small></span></li>
+            </ul>
+          </section>
+        </section>
+      </div>
+
+      <div class="footerBottom">
+        <div class="footerBottomInner">
+          <div class="footerCopyright">© 2026 <strong>Slevao.cz</strong> · Data aktualizována průběžně</div>
+          <div class="footerTrust">Bezpečné a důvěryhodné srovnání nabídek</div>
+          <div class="footerBadges" aria-label="Výhody služby">
+            <span class="footerBadge">Zdarma</span>
+            <span class="footerBadge">Bez registrace</span>
+            <span class="footerBadge">Bez spamu</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <nav class="mobileNav" style="display:none!important" aria-label="Mobilní navigace">
+    <a href="#top"><span>⌂</span>Domů</a>
+    <a href="#storesSection"><span>▦</span>Obchody</a>
+    <a href="letaky.html"><span>▤</span>Letáky</a>
+    <a href="#categoriesSection"><span>◫</span>Kategorie</a>
+    <button id="mobileSaved" type="button"><span>♡</span>Uložené</button>
+  </nav>
+
+  <div id="compareModal" class="modal" hidden>
+    <div class="modalBox" role="dialog" aria-modal="true" aria-labelledby="compareTitle">
+      <div class="modalHead"><div><span class="eyebrow">Porovnání cen</span><h2 id="compareTitle">Porovnat produkt</h2></div><button type="button" data-close-modal="compareModal" aria-label="Zavřít porovnání cen">×</button></div>
+      <div id="compareContent"></div>
+    </div>
+  </div>
+
+  <div id="reportModal" class="modal" hidden>
+    <div class="modalBox smallModal" role="dialog" aria-modal="true" aria-labelledby="reportTitle">
+      <div class="modalHead"><div><span class="eyebrow">Pomoz nám opravit data</span><h2 id="reportTitle">Nahlásit problém</h2></div><button type="button" data-close-modal="reportModal" aria-label="Zavřít hlášení problému">×</button></div>
+      <p id="reportProduct" class="reportProduct"></p>
+      <label>Co je špatně?<select id="reportType"><option value="Cena neplatí">Cena neplatí</option><option value="Špatná fotografie">Špatná fotografie</option><option value="Nesprávná gramáž">Nesprávná gramáž</option><option value="Akce skončila">Akce skončila</option><option value="Produkt není dostupný">Produkt není dostupný</option><option value="Jiný problém">Jiný problém</option></select></label>
+      <label>Poznámka<textarea id="reportNote" rows="4" placeholder="Doplň podrobnosti…"></textarea></label>
+      <p class="modalHint">Po kliknutí se otevře tvůj e-mail s předvyplněným hlášením.</p>
+      <button id="sendReport" class="primaryButton" type="button">Připravit e-mail</button>
+    </div>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <script src="assets/rpc-request-dedupe.js?v=20260903-2" defer></script>
+  <script src="assets/home-v2.js?v=20260903-2" defer></script>
+  <script src="assets/home-leaflet-direct.js?v=20260821-2" defer></script>
+  <script src="assets/home-leaflet-viewer.js?v=20260809-1" defer></script>
+  <script src="assets/home-all-stores.js?v=20260826-2" defer></script>
+  <script src="assets/home-leaflet-covers.js?v=20260821-2" defer></script>
+  <script src="assets/home-overview.js?v=20260821-2" defer></script>
+  <script src="assets/home-quick-food-filter.js?v=20260905-1" defer></script>
+  <script src="assets/home-semantic-filters.js?v=20260905-2" defer></script>
+  <script src="assets/home-filter-range-guard.js?v=20260826-1" defer></script>
+  <script src="assets/public-nav-upgrade.js?v=20260904-1" defer></script>
+  <script src="assets/public-features.js?v=20260901-1" defer></script>
+  <script src="assets/home-autopilot.js?v=20260829-1" defer></script>
+  <script src="assets/home-footer-redesign.js?v=20260905-1" defer></script>
+  <script src="assets/mobile-navigation.js?v=20260829-1" defer></script>
+  <script src="assets/product-card-desktop.js?v=20260828-1" defer></script>
+  <script src="assets/home-radius-select.js?v=20260809-3" defer></script>
+  <script src="assets/mobile-leaflet-nav-position.js?v=20260816-10" defer></script>
+  <script src="assets/home-recipes.js?v=20260904-1" defer></script>
+  <script>
+    document.addEventListener('click', (event) => {
+      if (!event.target.closest('#categoryAllHeader')) return;
+      document.querySelector('#categoryChips .categoryChip[data-category="all"]')?.click();
+    });
+  </script>
+</body>
+</html>
