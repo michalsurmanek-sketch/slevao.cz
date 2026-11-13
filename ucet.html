@@ -39,6 +39,10 @@
   <script defer src="assets/account-recovery.js?v=20260817-1"></script>
   <script defer src="assets/product-personalization.js?v=20260827-3"></script>
 <style>
+.accountBrand .accountBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center;gap:2px;min-width:0}
+.accountBrand .accountBrandText>span{display:block!important;white-space:nowrap;line-height:1.05}
+.accountBrand .accountBrandText>small{display:block!important;white-space:nowrap;line-height:1.2;font-size:11px;font-weight:500;letter-spacing:0;color:#355a59}
+@media(max-width:390px){.accountBrand .accountBrandText>small{font-size:9px}}
 @media(max-width:800px){
  .accountTopInner{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;align-items:center!important;gap:8px!important}
  .accountBrand{grid-column:1;min-width:0}
@@ -54,7 +58,7 @@
 </head>
 <body class="sfPage">
 <header class="sfTop accountTopbar"><div class="sfTopInner accountTopInner">
-  <a class="sfLogo accountBrand" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
+  <a class="sfLogo accountBrand" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span class="accountBrandText"><span>SLEVAO<b>.cz</b></span><small>Letáky · Akce · Slevy</small></span></a>
   <button class="accountSearchToggle" id="accountSearchToggle" type="button" aria-label="Otevřít vyhledávání" aria-expanded="false" aria-controls="accountSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
   <form id="accountSearch" class="accountSearch" action="index.html#dealsSection" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
   <nav class="sfTopLinks accountTopLinks" aria-label="Hlavní navigace"><a href="index.html#dealsSection">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a href="seznam.html">Seznam</a><a class="active sfAlways" href="ucet.html" aria-current="page">Můj účet</a></nav>
