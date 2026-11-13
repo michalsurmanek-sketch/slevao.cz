@@ -15,3 +15,11 @@
  .accountTopbar:has(.premiumSuggestPanel:not([hidden])){z-index:1000!important}
  .premiumSuggestPanel .premiumSuggestRow strong{font-size:13px!important}
 }
+
+/* Premium compact category strip with recognizable food miniatures. */
+.premiumSuggestPanel .premiumSuggestChips{display:flex!important;flex-wrap:nowrap!important;gap:5px!important;overflow-x:auto!important;scrollbar-width:none;padding:6px 2px 9px!important;overscroll-behavior-x:contain}
+.premiumSuggestPanel .premiumSuggestChips::-webkit-scrollbar{display:none}
+.premiumSuggestPanel .premiumSuggestChips button{flex:1 0 0!important;display:flex!important;flex-direction:column!important;gap:4px!important;min-width:0!important;min-height:67px!important;padding:7px 3px!important;border-radius:14px!important;text-align:center!important;white-space:normal!important;line-height:1.1!important;font-size:10px!important;letter-spacing:-.02em!important}
+.premiumSuggestCategoryIcon{display:block;font-size:24px;line-height:1.1;filter:drop-shadow(0 3px 3px rgba(8,93,84,.13))}
+.premiumSuggestProductIcon{font-size:23px!important;background:linear-gradient(145deg,#e9faf6,#fff)!important}
+@media(max-width:420px){.premiumSuggestPanel .premiumSuggestChips button{font-size:9px!important;min-height:63px!important}.premiumSuggestCategoryIcon{font-size:22px}}
