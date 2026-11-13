@@ -53,3 +53,21 @@
  .listBrand{align-items:center}
 }
 @media(max-width:390px){.listBrand .listBrandText small{font-size:9px}}
+
+/* Keep the brand name and its subtitle on separate lines even when other styles override the header. */
+.listBrand .listBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center;flex:0 1 auto;min-width:0;gap:3px}
+.listBrand .listBrandText>span{display:block!important;line-height:1.05}
+.listBrand .listBrandText>small{display:block!important;clear:both;line-height:1.2;margin:0;font-weight:500;letter-spacing:0}
+@media(max-width:720px){
+ .listTopInner{grid-template-columns:minmax(0,1fr) auto!important}
+ .listBrand{display:inline-flex!important;align-items:center;min-width:0;gap:8px}
+ .listBrand img{flex:0 0 38px}
+ .listBrand .listBrandText>span{font-size:21px}
+ .listBrand .listBrandText>small{font-size:10px}
+ .listTopLinks{min-width:0}
+ .listTopLinks a.active{padding:0 10px}
+}
+@media(max-width:390px){
+ .listBrand .listBrandText>span{font-size:18px}
+ .listBrand .listBrandText>small{font-size:9px}
+}
