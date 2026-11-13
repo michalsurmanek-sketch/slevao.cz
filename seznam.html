@@ -82,12 +82,24 @@
   <script defer src="assets/shopping-optimizer-mobile-collapse.js?v=20260828-2"></script>
   <script defer src="assets/shopping-list-price-summary.js?v=20260828-9"></script>
   <script defer src="assets/shopping-visible-refresh-tick.js?v=20260828-1"></script>
+  <style>
+    .listTopLinks .listSearchToggle { display: none; }
+    @media (max-width: 720px) {
+      .listTopLinks { gap: 6px; }
+      .listTopLinks .listSearchToggle { display: inline-flex; align-items: center; justify-content: center; width: 40px; min-height: 40px; padding: 0; border: 0; border-radius: 12px; background: transparent; color: #087b75; cursor: pointer; }
+      .listSearchToggle svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+      .listSearchToggle:focus-visible { outline: 2px solid #159e94; outline-offset: 2px; }
+      .listSearch:not(.is-open) { display: none; }
+      .listSearch.is-open { display: flex; }
+      .listSearch input { font-size: 16px; }
+    }
+  </style>
 </head>
 <body class="sfPage">
 <header class="sfTop listTopbar"><div class="sfTopInner listTopInner">
   <a class="sfLogo listBrand" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
-  <form class="listSearch" action="index.html#dealsSection" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
-  <nav class="sfTopLinks listTopLinks" aria-label="Hlavní navigace"><a href="index.html#dealsSection">Hledat</a><a href="letaky.html">Letáky</a><a class="active sfAlways" href="seznam.html">Seznam</a></nav>
+  <form id="listHeaderSearch" class="listSearch" action="index.html#dealsSection" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
+  <nav class="sfTopLinks listTopLinks" aria-label="Hlavní navigace"><a href="index.html#dealsSection">Hledat</a><a href="letaky.html">Letáky</a><a class="active sfAlways" href="seznam.html">Seznam</a><button id="listSearchToggle" class="listSearchToggle" type="button" aria-label="Otevřít vyhledávání" aria-controls="listHeaderSearch" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button></nav>
 </div></header>
 <main class="sfShell">
   <section class="sfHero">
@@ -108,5 +120,37 @@
     </aside>
   </section>
 </main>
+<script>
+(() => {
+  'use strict';
+  const toggle = document.getElementById('listSearchToggle');
+  const form = document.getElementById('listHeaderSearch');
+  const input = form?.querySelector('input[name="q"]');
+  if (!toggle || !form || !input) return;
+  const mobile = window.matchMedia('(max-width: 720px)');
+  function closeSearch() {
+    form.classList.remove('is-open');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Otevřít vyhledávání');
+  }
+  toggle.addEventListener('click', () => {
+    if (form.classList.contains('is-open')) {
+      input.blur();
+      closeSearch();
+    } else {
+      form.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      toggle.setAttribute('aria-label', 'Zavřít vyhledávání');
+      input.focus({ preventScroll: true });
+    }
+  });
+  input.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !mobile.matches) return;
+    closeSearch();
+    toggle.focus();
+  });
+  mobile.addEventListener('change', closeSearch);
+})();
+</script>
 </body>
 </html>
