@@ -20,6 +20,11 @@
   <link rel="stylesheet" href="assets/leaflets-scroll-top.css?v=20260809-1">
   <link rel="stylesheet" href="assets/mobile-footer-upgrade.css?v=20260828-6">
   <style>
+    .leafletsTopbarInner .leafletsLogo{display:inline-flex;align-items:center;gap:9px;min-width:0}
+    .leafletsTopbarInner .leafletsLogo .leafletsBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center;gap:3px;min-width:0}
+    .leafletsTopbarInner .leafletsLogo .leafletsBrandText>span{display:block!important;white-space:nowrap;line-height:1.05}
+    .leafletsTopbarInner .leafletsLogo .leafletsBrandText>small{display:block!important;white-space:nowrap;line-height:1.2;font-size:11px;font-weight:500;letter-spacing:0;color:#355a59}
+    @media(max-width:400px){.leafletsTopbarInner .leafletsLogo .leafletsBrandText>small{font-size:9px}}
     .leafletsHeaderActions { display: flex; align-items: center; gap: 8px; }
     .leafletsSearchToggle { display: none; }
     @media (max-width: 800px) {
@@ -47,7 +52,7 @@
 <body>
   <header class="leafletsTopbar">
     <div class="leafletsShell leafletsTopbarInner">
-      <a class="leafletsLogo" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
+      <a class="leafletsLogo" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span class="leafletsBrandText"><span>SLEVAO<b>.cz</b></span><small>Letáky · Akce · Slevy</small></span></a>
       <div class="leafletsHeaderActions">
         <a class="leafletsBack" href="index.html#leafletsSection" aria-label="Zpět na hlavní stránku">← Zpět na Slevao.cz</a>
         <button id="leafletsSearchToggle" class="leafletsSearchToggle" type="button" aria-label="Vyhledat leták obchodu" aria-controls="leafletsStoreSearchSection" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
