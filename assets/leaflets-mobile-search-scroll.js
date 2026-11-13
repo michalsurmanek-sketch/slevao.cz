@@ -6,6 +6,8 @@
   const topbar = document.querySelector('.leafletsTopbar');
   if (!section) return;
 
+  const toggle = document.getElementById('leafletsSearchToggle');
+  const mobileQuery = window.matchMedia('(max-width: 800px)');
   const isMobile = () => window.matchMedia('(max-width: 800px)').matches;
   let timers = [];
 
@@ -33,6 +35,31 @@
       timers.push(window.setTimeout(() => alignSearch('auto'), delay));
     });
   }
+
+  function openSearch() {
+    section.classList.add('is-open');
+    toggle?.setAttribute('aria-expanded', 'true');
+    // Keep focus inside the user click so mobile browsers can open the keyboard.
+    input?.focus({ preventScroll: true });
+    lockSearchPosition();
+  }
+
+  toggle?.addEventListener('click', () => {
+    if (section.classList.contains('is-open')) {
+      input?.blur();
+      clearTimers();
+      section.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+    } else {
+      openSearch();
+    }
+  });
+
+  mobileQuery.addEventListener('change', () => {
+    clearTimers();
+    section.classList.remove('is-open');
+    toggle?.setAttribute('aria-expanded', 'false');
+  });
 
   if (input) {
     input.addEventListener('pointerdown', lockSearchPosition, { capture: true });
@@ -63,8 +90,7 @@
     event.preventDefault();
     event.stopImmediatePropagation();
     link.blur?.();
-    input?.blur?.();
-    lockSearchPosition();
+    openSearch();
   }, true);
 
   const observer = new MutationObserver(patchNavSearch);
