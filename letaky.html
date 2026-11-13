@@ -20,12 +20,28 @@
   <link rel="stylesheet" href="assets/leaflets-scroll-top.css?v=20260809-1">
   <link rel="stylesheet" href="assets/mobile-footer-upgrade.css?v=20260828-6">
   <style>
+    .leafletsHeaderActions { display: flex; align-items: center; gap: 8px; }
+    .leafletsSearchToggle { display: none; }
     @media (max-width: 800px) {
+      .leafletsTopbarInner { gap: 8px; }
+      .leafletsSearchToggle { display: inline-flex; flex: 0 0 40px; width: 40px; height: 40px; align-items: center; justify-content: center; border: 1px solid #cce7e4; border-radius: 12px; background: #fff; color: #087e75; cursor: pointer; }
+      .leafletsSearchToggle svg { width: 21px; height: 21px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; }
+      .leafletsSearchToggle:focus-visible { outline: 2px solid #159e94; outline-offset: 2px; }
+      .leafletsStoreSearchSection:not(.is-open) { display: none; }
+      .leafletsStoreSearchSection.is-open { margin-top: 12px; }
+      .leafletsStoreSearchInput { font-size: 16px; }
       .leafletsHero { display: none; }
       .leafletsFooter { margin-top: 0; padding: 12px 0; }
       .leafletsFooterInner { flex-direction: row; align-items: center; justify-content: space-between; gap: 10px; }
       .leafletsFooterCopyright { white-space: nowrap; }
       .leafletsFooterDescription { display: none; }
+    }
+    @media (max-width: 400px) {
+      .leafletsTopbarInner .leafletsLogo { gap: 5px; font-size: 18px; }
+      .leafletsTopbarInner .leafletsLogo img { width: 32px; height: 32px; }
+      .leafletsHeaderActions { gap: 6px; }
+      .leafletsHeaderActions .leafletsBack { padding-inline: 8px; font-size: 10px; }
+      .leafletsSearchToggle { width: 36px; flex-basis: 36px; }
     }
   </style>
 </head>
@@ -33,7 +49,10 @@
   <header class="leafletsTopbar">
     <div class="leafletsShell leafletsTopbarInner">
       <a class="leafletsLogo" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
-      <a class="leafletsBack" href="index.html#leafletsSection" aria-label="Zpět na hlavní stránku">← Zpět na Slevao.cz</a>
+      <div class="leafletsHeaderActions">
+        <a class="leafletsBack" href="index.html#leafletsSection" aria-label="Zpět na hlavní stránku">← Zpět na Slevao.cz</a>
+        <button id="leafletsSearchToggle" class="leafletsSearchToggle" type="button" aria-label="Vyhledat leták obchodu" aria-controls="leafletsStoreSearchSection" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+      </div>
     </div>
   </header>
 
@@ -53,7 +72,7 @@
       </div>
     </section>
 
-    <section class="leafletsStoreSearchSection" aria-label="Vyhledat obchod">
+    <section id="leafletsStoreSearchSection" class="leafletsStoreSearchSection" aria-label="Vyhledat obchod">
       <div class="leafletsShell">
         <div class="leafletsStoreSearchCard">
           <div class="leafletsStoreSearchCopy">
@@ -119,7 +138,7 @@
   <script src="assets/leaflets-main-stores-v2.js?v=20260809-1" defer></script>
   <script src="assets/leaflets-globus-logo.js?v=20260809-2" defer></script>
   <script src="assets/leaflets-brnenka-logo.js?v=20260809-1" defer></script>
-  <script src="assets/leaflets-mobile-search-scroll.js?v=20260810-2" defer></script>
+  <script src="assets/leaflets-mobile-search-scroll.js?v=20261113-1" defer></script>
   <script src="assets/leaflets-scroll-top.js?v=20260809-1" defer></script>
   <script src="assets/public-features.js?v=20260901-1" defer></script>
 </body>
