@@ -304,3 +304,40 @@
 
 /* Homepage bundle: store-arrival alerts */
 .slArrivalControl{margin:10px 0 2px}.slArrivalToggle{width:100%;min-height:58px;display:grid;grid-template-columns:38px 1fr auto;align-items:center;gap:11px;padding:8px 10px;border:1px solid #cfe7e3;border-radius:14px;background:rgba(255,255,255,.86);color:#14312e;text-align:left;cursor:pointer;box-shadow:0 5px 15px rgba(20,70,64,.05);transition:border-color .16s ease,background .16s ease,box-shadow .16s ease,transform .16s ease}.slArrivalToggle:hover{border-color:#91d9d1;background:#fff;box-shadow:0 9px 24px rgba(20,70,64,.09);transform:translateY(-1px)}.slArrivalToggle:disabled{cursor:wait;opacity:.72;transform:none}.slArrivalIcon{width:38px;height:38px;display:grid;place-items:center;border-radius:12px;background:#eaf8f6;color:#0a968a;font-size:23px;font-weight:950}.slArrivalCopy{min-width:0;display:grid;gap:2px}.slArrivalCopy strong{font-size:12px;line-height:1.15;font-weight:950;color:#0b5e58}.slArrivalCopy small{font-size:10.5px;line-height:1.25;color:#71827f}.slArrivalSwitch{position:relative;width:38px;height:22px;border-radius:999px;background:#dce9e7;box-shadow:inset 0 0 0 1px rgba(40,90,84,.08);transition:background .16s ease}.slArrivalSwitch i{position:absolute;left:3px;top:3px;width:16px;height:16px;border-radius:50%;background:#fff;box-shadow:0 2px 6px rgba(0,0,0,.14);transition:transform .18s ease}.slArrivalToggle.is-active{border-color:#76d7cc;background:linear-gradient(180deg,#f7fffd,#edfaf8);box-shadow:0 8px 22px rgba(10,150,138,.09)}.slArrivalToggle.is-active .slArrivalIcon{background:#0aa093;color:#fff}.slArrivalToggle.is-active .slArrivalSwitch{background:#0aa093}.slArrivalToggle.is-active .slArrivalSwitch i{transform:translateX(16px)}.slArrivalStatus{min-height:15px;margin:5px 3px 0;color:#71827f;font-size:10px;line-height:1.35}.slArrivalStatus[data-type="ok"]{color:#087c72}.slArrivalStatus[data-type="checking"]{color:#8a6b14}.slArrivalStatus[data-type="error"]{color:#b33a3a}@media(max-width:900px){.slArrivalToggle{min-height:56px}.slArrivalCopy strong{font-size:11.5px}.slArrivalCopy small{font-size:10px}}@media(max-width:620px){.slArrivalControl{margin-top:9px}.slArrivalToggle{grid-template-columns:36px 1fr auto;gap:9px;padding:8px 9px;border-radius:13px}.slArrivalIcon{width:36px;height:36px;border-radius:11px;font-size:21px}.slArrivalCopy strong{font-size:11px}.slArrivalCopy small{font-size:9.5px}.slArrivalStatus{font-size:9.5px}}@media(prefers-reduced-motion:reduce){.slArrivalToggle,.slArrivalSwitch,.slArrivalSwitch i{transition:none}.slArrivalToggle:hover{transform:none}}
+
+
+/* Mobilní patička: kompaktní mřížka výhod, čitelné odkazy a bezpečný prostor pro spodní navigaci. */
+@media(max-width:620px){
+  .footerMain{gap:24px!important;padding:26px 18px 22px!important}
+  .footer .footerBrand{width:min(235px,100%)!important;height:58px!important;margin-bottom:12px!important}
+  .footerLead{margin-bottom:18px!important;font-size:14px!important;line-height:1.5!important}
+  .footerFeatures{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:9px!important}
+  .footerFeature,
+  .footerFeatures::after{box-sizing:border-box;min-width:0;min-height:92px!important;display:flex!important;flex-direction:column!important;justify-content:center!important;align-items:center!important;gap:7px!important;padding:10px 7px!important;border:1px solid rgba(145,224,216,.16)!important;border-radius:15px!important;text-align:center!important;font-size:11px!important;line-height:1.25!important}
+  .footerFeatureIcon{width:40px!important;height:40px!important;flex:0 0 40px!important;border-radius:13px!important;font-size:20px!important}
+  .footerFeatures::after{content:"Upozornění na slevy";background-position:center 11px!important;background-size:40px 40px!important;padding:57px 7px 9px!important;border-top:1px solid rgba(145,224,216,.16)!important}
+  .footerColumn h3{margin:5px 0 17px!important;font-size:18px!important}
+  .footerColumn h3:after{bottom:-9px!important}
+  .footerLinks{gap:0!important}
+  .footerLinks a,.footerLinks button{min-height:46px;gap:10px;padding:8px 0!important;border-bottom:1px solid rgba(145,224,216,.12)!important;font-size:14px!important;line-height:1.3!important}
+  .footerLinks a:last-child,.footerLinks button:last-child{border-bottom:0!important}
+  .footerLinks a:after,.footerLinks button:after{font-size:22px!important}
+  .footerColumnUseful{padding-top:2px}
+  .footerQuickIcons{gap:8px!important}
+  .footerQuickIcons a{width:40px!important;height:40px!important}
+  .footerFavorite{margin-top:0!important}
+  .footerFavoriteGrid{gap:8px!important}
+  .footerFavoriteStore{height:52px!important}
+  .footerWatch{padding:18px 16px!important;border-radius:19px!important}
+  .footerWatchHead{gap:12px!important}
+  .footerBell{width:48px!important;height:48px!important;flex-basis:48px!important;font-size:22px!important}
+  .footerWatch h3{font-size:18px!important}
+  .footerWatchLead{font-size:12px!important;line-height:1.4!important}
+  .footerWatchForm{gap:9px!important}
+  .footerWatchForm input,.footerWatchForm button{height:48px!important;min-height:48px!important}
+  .footerBottom{margin:0 8px calc(88px + env(safe-area-inset-bottom))!important;padding-bottom:10px!important}
+  .footerBottomInner{grid-template-columns:1fr!important}
+  .footerCopyright,.footerTrust,.footerBadge{min-height:66px!important;padding-top:10px!important;padding-bottom:10px!important}
+  .footerBottom::after{bottom:-43px!important;min-height:36px!important;padding:0 8px!important;font-size:10px!important}
+  .footerQuickIcons a[aria-label="Nahoru"]{display:none!important}
+}
