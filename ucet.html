@@ -38,11 +38,25 @@
   <script defer src="assets/web-push.js?v=20260831-1&push=4"></script>
   <script defer src="assets/account-recovery.js?v=20260817-1"></script>
   <script defer src="assets/product-personalization.js?v=20260827-3"></script>
+<style>
+@media(max-width:800px){
+ .accountTopInner{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;align-items:center!important;gap:8px!important}
+ .accountBrand{grid-column:1;min-width:0}
+ .accountSearchToggle{grid-column:2;display:inline-flex!important;align-items:center;justify-content:center;width:42px;height:42px;padding:0;border:0;border-radius:14px;background:#eaf9f7;color:#087e75;cursor:pointer}
+ .accountSearchToggle svg{width:23px;height:23px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+ .accountTopLinks{grid-column:3;grid-row:1}
+ .accountSearch{display:none!important;grid-column:1/-1;grid-row:2;width:100%;min-width:0;margin:0}
+ .accountSearch.is-open{display:flex!important}
+ .accountSearchToggle[aria-expanded="true"]{background:#d4f3ee}
+}
+@media(min-width:801px){.accountSearchToggle{display:none!important}}
+</style>
 </head>
 <body class="sfPage">
 <header class="sfTop accountTopbar"><div class="sfTopInner accountTopInner">
   <a class="sfLogo accountBrand" href="index.html" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span>SLEVAO<b>.cz</b></span></a>
-  <form class="accountSearch" action="index.html#dealsSection" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
+  <button class="accountSearchToggle" id="accountSearchToggle" type="button" aria-label="Otevřít vyhledávání" aria-expanded="false" aria-controls="accountSearch"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+  <form id="accountSearch" class="accountSearch" action="index.html#dealsSection" role="search"><span aria-hidden="true">⌕</span><input name="q" type="search" placeholder="Hledej produkt, značku nebo obchod…" autocomplete="off" aria-label="Hledat"><button type="submit">Hledat</button></form>
   <nav class="sfTopLinks accountTopLinks" aria-label="Hlavní navigace"><a href="index.html#dealsSection">Hledat</a><a href="index.html#leafletsSection">Letáky</a><a href="seznam.html">Seznam</a><a class="active sfAlways" href="ucet.html" aria-current="page">Můj účet</a></nav>
 </div></header>
 <main class="sfShell accountShell">
@@ -77,5 +91,20 @@
     <section class="sfSection sfCard sfPanel"><div class="sfSectionHead"><div><span class="sfEyebrow">Cenové hlídače</span><h2>Moje sledované ceny</h2></div><a class="sfButton primary" href="index.html#dealsSection">Přidat další hlídač</a></div><div id="alerts"><div class="sfLoading">Načítám hlídače…</div></div></section>
   </section>
 </main>
+<script>
+(() => {
+ const toggle=document.getElementById('accountSearchToggle');
+ const form=document.getElementById('accountSearch');
+ if(!toggle||!form)return;
+ const input=form.querySelector('input[type="search"]');
+ toggle.addEventListener('click',()=>{
+   const open=toggle.getAttribute('aria-expanded')!=='true';
+   toggle.setAttribute('aria-expanded',String(open));
+   toggle.setAttribute('aria-label',open?'Zavřít vyhledávání':'Otevřít vyhledávání');
+   form.classList.toggle('is-open',open);
+   if(open)input?.focus();
+ });
+})();
+</script>
 </body>
 </html>
