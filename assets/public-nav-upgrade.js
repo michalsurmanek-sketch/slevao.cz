@@ -299,7 +299,7 @@
     if (!nav) return false;
 
     const links = [...nav.querySelectorAll('a')];
-    const search = links.find((link) => /Hledat/i.test(link.textContent || '')) || links[1];
+    const search = links.find((link) => /Hledat/i.test(link.textContent || ''));
     const leaflets = links.find((link) => /Letáky/i.test(link.textContent || '')) || links[2];
 
     if (search) {
