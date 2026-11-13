@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="assets/mobile-optimizer-compact.css?v=20260828-3">
   <link rel="stylesheet" href="assets/shopping-list-price-summary-v2.css?v=20260827-1">
   <link rel="stylesheet" href="assets/shopping-list-mobile-focus.css?v=20260830-1">
-  <link rel="stylesheet" href="assets/shopping-list-visual-refresh.css?v=20261113-1">
+  <link rel="stylesheet" href="assets/shopping-list-visual-refresh.css?v=20261113-2">
   <link rel="stylesheet" href="assets/shopping-optimizer-mobile-collapse.css?v=20260828-1">
   <link rel="stylesheet" href="assets/shopping-shared-readonly-presentation.css?v=20260828-2">
   <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.4"></script>
@@ -83,6 +83,13 @@
   <script defer src="assets/shopping-optimizer-mobile-collapse.js?v=20260828-2"></script>
   <script defer src="assets/shopping-list-price-summary.js?v=20260828-9"></script>
   <script defer src="assets/shopping-visible-refresh-tick.js?v=20260828-1"></script>
+  <style>
+    /* Header branding: enforce two rows without relying on cached external CSS. */
+    .listBrand .listBrandText{display:grid!important;grid-template-columns:minmax(0,1fr)!important;grid-template-rows:auto auto!important;align-content:center!important;justify-items:start!important;gap:3px!important;min-width:0}
+    .listBrand .listBrandText>span{display:block!important;grid-row:1!important;white-space:nowrap!important;line-height:1.05!important}
+    .listBrand .listBrandText>small{display:block!important;grid-row:2!important;white-space:nowrap!important;line-height:1.2!important;font-size:11px!important;font-weight:500!important;letter-spacing:0!important;color:#355a59!important}
+    @media(max-width:390px){.listBrand .listBrandText>small{font-size:9px!important}}
+  </style>
   <style>
     .listTopLinks .listSearchToggle { display: none; }
     @media (max-width: 720px) {
