@@ -46,6 +46,37 @@
         const nativeScrollTo = window.scrollTo.bind(window);
         const nativeScroll = typeof window.scroll === 'function' ? window.scroll.bind(window) : nativeScrollTo;
         const nativeScrollBy = window.scrollBy.bind(window);
+
+        // Recipe navigation aligns the panel itself 10px below the viewport.
+        let recipeAlignTimer = 0;
+        const alignRecipes = () => {
+          if (!window.matchMedia('(max-width: 800px)').matches) return;
+          const panel = document.querySelector('#recipesSection > .container');
+          if (!panel) return;
+          nativeScrollTo({ top: Math.max(0, Math.round(window.scrollY + panel.getBoundingClientRect().top - 10)), left: 0, behavior: 'instant' });
+        };
+        const jumpToRecipes = () => {
+          alignRecipes();
+          window.clearTimeout(recipeAlignTimer);
+          recipeAlignTimer = window.setTimeout(alignRecipes, 350);
+        };
+        document.addEventListener('click', (event) => {
+          const link = event.target.closest?.('.slevaoBottomNav a');
+          if (!link || !link.getAttribute('href')?.endsWith('#recipesSection') || !window.matchMedia('(max-width: 800px)').matches) return;
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          history.replaceState(history.state, '', '#recipesSection');
+          link.blur?.();
+          jumpToRecipes();
+        }, true);
+        for (const type of ['touchstart', 'wheel']) {
+          window.addEventListener(type, () => window.clearTimeout(recipeAlignTimer), { passive: true });
+        }
+        if (location.hash === '#recipesSection') {
+          document.addEventListener('DOMContentLoaded', jumpToRecipes, { once: true });
+          window.addEventListener('load', jumpToRecipes, { once: true });
+        }
+
         window.scrollTo = (...args) => userAllowedScroll() ? nativeScrollTo(...args) : undefined;
         window.scroll = (...args) => userAllowedScroll() ? nativeScroll(...args) : undefined;
         window.scrollBy = (...args) => userAllowedScroll() ? nativeScrollBy(...args) : undefined;
