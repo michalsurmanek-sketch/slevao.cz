@@ -1,6 +1,8 @@
 (()=>{'use strict';
 const popular=['mléko','máslo','káva','vejce','banány','kuřecí maso','mouka','cukr'];
 const categories=['Potraviny','Drogerie','Nápoje','Ovoce a zelenina','Maso','Pečivo','Domácnost'];
+const categoryIcons={'Potraviny':'🛒','Drogerie':'🧴','Nápoje':'🥤','Ovoce a zelenina':'🍌','Maso':'🥩','Pečivo':'🥐','Domácnost':'🏠'};
+const productIcons={'mléko':'🥛','máslo':'🧈','káva':'☕','vejce':'🥚','banány':'🍌','kuřecí maso':'🍗','mouka':'🌾','cukr':'🍬'};
 const normalize=s=>s.toLocaleLowerCase('cs').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
 const escape=s=>s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 function setup(input){
@@ -21,7 +23,7 @@ function setup(input){
  let html='<div class="premiumSuggestHeading"><span>✦ Chytré vyhledávání</span><small>Produkty · Kategorie · Akce</small></div>';
  if(value)html+='<button type="button" class="premiumSuggestRow" data-query="'+escape(value)+'"><span class="premiumSuggestGlyph">⌕</span><span><strong>Hledat „'+escape(value)+'“</strong><small>Zobrazit odpovídající nabídky</small></span><span>›</span></button>';
  if(words.length){html+='<div class="premiumSuggestCaption">'+(value?'Podobné hledání':'Často hledané')+'</div>';for(const word of words)html+='<button type="button" class="premiumSuggestRow" data-query="'+escape(word)+'"><span class="premiumSuggestGlyph">⌕</span><span><strong>'+escape(word)+'</strong><small>Vyhledat v nabídkách</small></span><span>›</span></button>';}
- if(cats.length){html+='<div class="premiumSuggestCaption">Kategorie</div><div class="premiumSuggestChips">';for(const cat of cats)html+='<button type="button" data-query="'+escape(cat)+'">'+escape(cat)+'</button>';html+='</div>';}
+ if(cats.length){html+='<div class="premiumSuggestCaption">Kategorie</div><div class="premiumSuggestChips">';for(const cat of cats)html+='<button type="button" data-query="'+escape(cat)+'"><span class="premiumSuggestCategoryIcon" aria-hidden="true">'+(categoryIcons[cat]||'🛍️')+'</span><span>'+escape(cat)+'</span></button>';html+='</div>';}
  html+='<a class="premiumSuggestFooter" href="letaky.html">Prohlédnout aktuální letáky <span>→</span></a>';
  panel.innerHTML=html;panel.hidden=false;input.setAttribute('aria-expanded','true');
  }
