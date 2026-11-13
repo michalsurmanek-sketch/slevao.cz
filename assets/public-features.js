@@ -170,14 +170,14 @@
     nav.setAttribute('aria-label', 'Hlavní mobilní navigace');
     const icons = {
       home:'<svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 11 12 4l9 7v9h-6v-6H9v6H3z"/></svg>',
-      search:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg>',
+      recipe:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 3v6a3 3 0 0 0 6 0V3M7 3v18M17 3c-3 3-3 7 0 8h2M19 3v18"/></svg>',
       leaflets:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M3 5.5c3-1.5 6-1.3 9 .7v14c-3-2-6.2-2.2-9-.7zM21 5.5c-3-1.5-6-1.3-9 .7v14c3-2 6.2-2.2 9-.7z"/></svg>',
       list:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m3 12 4 4L17 6"/><path d="M10 18h11"/></svg>',
       account:'<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c.8-4.2 3.3-6.3 7.5-6.3s6.7 2.1 7.5 6.3"/></svg>'
     };
     const items = [
       ['index.html','home','Domů', path === '' || path === 'index.html'],
-      ['index.html#dealsSection','search','Hledat', false],
+      ['index.html#recipesSection','recipe','Recept', false],
       ['letaky.html','leaflets','Letáky', path === 'letaky.html'],
       ['seznam.html','list','Seznam', path === 'seznam.html'],
       ['ucet.html','account','Účet', path === 'ucet.html']
