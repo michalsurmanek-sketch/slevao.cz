@@ -144,6 +144,11 @@
     .recipeEmoji{grid-row:1/3;width:46px;height:46px;display:grid;place-items:center;border-radius:15px;background:#eff9f7;font-size:25px}
     .recipeCard>div{min-width:0;display:grid;gap:3px}
     .recipeCard strong{overflow:hidden;color:#263332;font-size:14px;line-height:1.15;white-space:nowrap;text-overflow:ellipsis}
+    .recipeCard--photo{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto;align-content:start}
+    .recipeCard--photo .recipePhoto{display:block;width:100%;aspect-ratio:371/280;border-radius:12px;background-image:url('assets/recipes/czech-meals-reference.jpg');background-repeat:no-repeat;background-size:331.267% 548.571%}
+    .recipeCard--photo>div{margin-top:5px}
+    .recipeCard--photo strong{white-space:normal;min-height:2.3em;line-height:1.15;overflow:visible}
+    .recipeCard--photo button{margin-top:8px}
     .recipeCard small{color:#788481;font-size:11px;font-weight:700}
     .recipeCard button{grid-column:1/-1;min-height:38px;margin-top:8px;border:0;border-radius:12px;background:#e4f7f4;color:#087e75;font-size:12px;font-weight:900;cursor:pointer}
     .recipeCard button:hover{background:#159e94;color:#fff}
@@ -226,8 +231,17 @@
         <div class="recipeCards" aria-label="Oblíbené recepty">
           <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🍝</span><div><strong>Špagety boloňské</strong><small>8 surovin</small></div><button type="button" data-recipe="spagety">Přidat suroviny</button></article>
           <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🍗</span><div><strong>Kuřecí řízek</strong><small>6 surovin</small></div><button type="button" data-recipe="rizek">Přidat suroviny</button></article>
-          <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🥘</span><div><strong>Hovězí guláš</strong><small>8 surovin</small></div><button type="button" data-recipe="gulas">Přidat suroviny</button></article>
+
           <article class="recipeCard"><span class="recipeEmoji" aria-hidden="true">🥞</span><div><strong>Palačinky</strong><small>5 surovin</small></div><button type="button" data-recipe="palacinky">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Svíčková na smetaně" style="background-position:3.147% 14.650%"></span><div><strong title="Svíčková na smetaně">Svíčková na smetaně</strong><small>16 surovin · 4 porce</small></div><button type="button" data-recipe="svickova">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Vepřo knedlo zelo" style="background-position:50.350% 14.650%"></span><div><strong title="Vepřo knedlo zelo">Vepřo knedlo zelo</strong><small>10 surovin · 4 porce</small></div><button type="button" data-recipe="vepro-knedlo-zelo">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Guláš" style="background-position:97.319% 14.650%"></span><div><strong title="Guláš">Guláš</strong><small>9 surovin · 4 porce</small></div><button type="button" data-recipe="gulas">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Řízek s bramborovým salátem" style="background-position:3.147% 45.860%"></span><div><strong title="Řízek s bramborovým salátem">Řízek s bramborovým salátem</strong><small>16 surovin · 4 porce</small></div><button type="button" data-recipe="rizek-salat">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Smažený sýr" style="background-position:50.350% 45.860%"></span><div><strong title="Smažený sýr">Smažený sýr</strong><small>8 surovin · 4 porce</small></div><button type="button" data-recipe="smazeny-syr">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Španělský ptáček" style="background-position:97.319% 45.860%"></span><div><strong title="Španělský ptáček">Španělský ptáček</strong><small>13 surovin · 4 porce</small></div><button type="button" data-recipe="spanelsky-ptacek">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Rajská omáčka" style="background-position:3.147% 78.503%"></span><div><strong title="Rajská omáčka">Rajská omáčka</strong><small>13 surovin · 4 porce</small></div><button type="button" data-recipe="rajska">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Bramboráky" style="background-position:50.350% 78.503%"></span><div><strong title="Bramboráky">Bramboráky</strong><small>10 surovin · 4 porce</small></div><button type="button" data-recipe="bramboraky">Přidat suroviny</button></article>
+          <article class="recipeCard recipeCard--photo"><span class="recipePhoto" role="img" aria-label="Kuře na paprice" style="background-position:97.319% 78.503%"></span><div><strong title="Kuře na paprice">Kuře na paprice</strong><small>10 surovin · 4 porce</small></div><button type="button" data-recipe="kure-paprika">Přidat suroviny</button></article>
         </div>
       </div>
     </section>
@@ -466,7 +480,7 @@
   <script src="assets/product-card-desktop.js?v=20260828-1" defer></script>
   <script src="assets/home-radius-select.js?v=20260809-3" defer></script>
   <script src="assets/mobile-leaflet-nav-position.js?v=20260816-10" defer></script>
-  <script src="assets/home-recipes.js?v=20260904-1" defer></script>
+  <script src="assets/home-recipes.js?v=20261113-3" defer></script>
   <script>
     document.addEventListener('click', (event) => {
       if (!event.target.closest('#categoryAllHeader')) return;

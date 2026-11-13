@@ -6,8 +6,16 @@
   const RECIPES = {
     spagety: ['Špagety (1 balení)','Mleté hovězí maso (500 g)','Rajčatové pyré (1 ks)','Cibule (1 ks)','Česnek (2 stroužky)','Mrkev (1 ks)','Parmazán (1 balení)','Olivový olej (1 ks)'],
     rizek: ['Kuřecí prsa (600 g)','Hladká mouka (1 balení)','Vejce (3 ks)','Strouhanka (1 balení)','Olej na smažení (1 ks)','Brambory (1 kg)'],
-    gulas: ['Hovězí maso (800 g)','Cibule (4 ks)','Sádlo (1 ks)','Sladká paprika (1 balení)','Česnek (3 stroužky)','Kmín (1 balení)','Majoránka (1 balení)','Hovězí vývar (1 l)'],
-    palacinky: ['Hladká mouka (250 g)','Mléko (500 ml)','Vejce (2 ks)','Olej (1 ks)','Marmeláda (1 ks)']
+    gulas: ['Hovězí maso (800 g)','Cibule (4 ks)','Sádlo (1 ks)','Sladká paprika (1 balení)','Česnek (3 stroužky)','Kmín (1 balení)','Majoránka (1 balení)','Hovězí vývar (1 l)','Houskový knedlík (1 balení)'],
+    palacinky: ['Hladká mouka (250 g)','Mléko (500 ml)','Vejce (2 ks)','Olej (1 ks)','Marmeláda (1 ks)'],
+    "svickova": ["Hovězí zadní (800 g)", "Mrkev (2 ks)", "Petržel (2 ks)", "Celer (200 g)", "Cibule (1 ks)", "Smetana ke šlehání (250 ml)", "Máslo (50 g)", "Hovězí vývar (750 ml)", "Citron (1 ks)", "Cukr (2 lžíce)", "Bobkový list (2 ks)", "Nové koření (4 kuličky)", "Sůl (1 balení)", "Pepř (1 balení)", "Houskový knedlík (1 balení)", "Brusinky (1 sklenice)"],
+    "vepro-knedlo-zelo": ["Vepřová plec (1 kg)", "Kysané zelí (500 g)", "Cibule (2 ks)", "Česnek (4 stroužky)", "Kmín (1 balení)", "Sádlo (1 ks)", "Cukr (1 lžíce)", "Sůl (1 balení)", "Pepř (1 balení)", "Houskový knedlík (1 balení)"],
+    "rizek-salat": ["Vepřová kýta (600 g)", "Hladká mouka (150 g)", "Vejce (3 ks)", "Strouhanka (200 g)", "Olej na smažení (1 ks)", "Brambory (1 kg)", "Mrkev (2 ks)", "Celer (100 g)", "Hrášek (150 g)", "Nakládané okurky (4 ks)", "Majonéza (200 g)", "Hořčice (1 lžíce)", "Cibule (1 ks)", "Sůl (1 balení)", "Pepř (1 balení)", "Citron (1 ks)"],
+    "smazeny-syr": ["Eidam vcelku (600 g)", "Hladká mouka (100 g)", "Vejce (2 ks)", "Strouhanka (150 g)", "Olej na smažení (1 ks)", "Hranolky (800 g)", "Tatarská omáčka (1 balení)", "Sůl (1 balení)"],
+    "spanelsky-ptacek": ["Hovězí zadní (800 g)", "Vejce (2 ks)", "Slanina (100 g)", "Párky (2 ks)", "Nakládané okurky (4 ks)", "Hořčice (2 lžíce)", "Cibule (2 ks)", "Sádlo (1 ks)", "Hovězí vývar (750 ml)", "Hladká mouka (2 lžíce)", "Rýže (300 g)", "Sůl (1 balení)", "Pepř (1 balení)"],
+    "rajska": ["Hovězí přední (800 g)", "Rajčatový protlak (200 g)", "Rajčatová passata (500 ml)", "Cibule (1 ks)", "Máslo (50 g)", "Hladká mouka (2 lžíce)", "Hovězí vývar (750 ml)", "Cukr (3 lžíce)", "Bobkový list (2 ks)", "Nové koření (4 kuličky)", "Skořice (1 špetka)", "Sůl (1 balení)", "Houskový knedlík (1 balení)"],
+    "bramboraky": ["Brambory (1 kg)", "Hladká mouka (150 g)", "Vejce (2 ks)", "Česnek (5 stroužků)", "Mléko (100 ml)", "Majoránka (1 balení)", "Kmín (1 balení)", "Sůl (1 balení)", "Pepř (1 balení)", "Olej na smažení (1 ks)"],
+    "kure-paprika": ["Kuřecí stehna (4 ks)", "Cibule (2 ks)", "Máslo (50 g)", "Sladká paprika (1 balení)", "Kuřecí vývar (750 ml)", "Smetana ke šlehání (250 ml)", "Hladká mouka (2 lžíce)", "Sůl (1 balení)", "Pepř (1 balení)", "Houskový knedlík (1 balení)"]
   };
   const normalize = (value) => String(value || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
   const uid = () => crypto.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
