@@ -43,3 +43,13 @@
  #listItems .sfListItem{grid-template-columns:20px minmax(0,1fr) 43px 29px}
  #listItems .sfItemThumb{display:none!important}
 }
+
+/* Brand subtitle under logo */
+.listBrand .listBrandText{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;gap:2px;line-height:1.02;min-width:0}
+.listBrand .listBrandText>span{white-space:nowrap}
+.listBrand .listBrandText small{font-size:12px;font-weight:500;letter-spacing:0;color:#355a59;white-space:nowrap;line-height:1.2}
+@media(max-width:720px){
+ .listBrand .listBrandText small{font-size:10px}
+ .listBrand{align-items:center}
+}
+@media(max-width:390px){.listBrand .listBrandText small{font-size:9px}}
