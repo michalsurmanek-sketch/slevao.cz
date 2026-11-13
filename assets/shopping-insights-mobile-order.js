@@ -11,13 +11,16 @@
   function sync() {
     queued = false;
     const insights = document.getElementById('shoppingInsights');
-    if (!insights || insights.parentElement !== parent) return;
-
     if (mobile.matches) {
-      if (layout.nextElementSibling !== insights) layout.insertAdjacentElement('afterend', insights);
+      const hero = parent.querySelector('.sfHero');
+      if (hero && hero.nextElementSibling !== layout) hero.insertAdjacentElement('afterend', layout);
+      if (insights?.parentElement === parent) {
+        if (layout.nextElementSibling !== insights) layout.insertAdjacentElement('afterend', insights);
+      }
       return;
     }
 
+    if (!insights || insights.parentElement !== parent) return;
     if (layout.previousElementSibling !== insights) parent.insertBefore(insights, layout);
   }
 
