@@ -56,6 +56,34 @@
 @media(min-width:801px){.accountSearchToggle{display:none!important}}
 </style>
   <link rel="stylesheet" href="assets/premium-search-suggest.css?v=20261113-1">
+<style>
+/* Identical mobile header geometry to Letáky; account content stays untouched. */
+@media(max-width:800px){
+ .accountTopbar{padding:7px 9px!important;background:rgba(246,250,249,.96)!important}
+ .accountTopInner{display:grid!important;grid-template-columns:minmax(0,1fr) auto auto!important;grid-template-rows:auto auto!important;align-items:center!important;gap:8px!important;min-height:0!important;padding:12px 13px!important;border:1px solid #d8e7e4!important;border-radius:23px!important;background:#fff!important;box-shadow:0 14px 38px rgba(19,60,56,.09)!important}
+ .accountBrand{grid-column:1!important;grid-row:1!important;display:inline-flex!important;align-items:center!important;gap:6px!important;font-size:21px!important;letter-spacing:-1px!important;min-width:0!important}
+ .accountBrand img{width:40px!important;height:40px!important;flex:0 0 40px!important}
+ .accountBrand .accountBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:3px!important}
+ .accountBrand .accountBrandText>span{font-size:21px!important;line-height:1.05!important}
+ .accountBrand .accountBrandText>small{font-size:11px!important;line-height:1.2!important}
+ .accountSearchToggle{grid-column:2!important;grid-row:1!important;display:inline-flex!important;flex:0 0 40px!important;width:40px!important;height:40px!important;border:1px solid #cce7e4!important;border-radius:12px!important;background:#fff!important;color:#087e75!important}
+ .accountTopLinks{grid-column:3!important;grid-row:1!important;margin:0!important}
+ .accountTopLinks a:not(.active){display:none!important}
+ .accountTopLinks a.active{display:inline-flex!important;align-items:center!important;min-height:40px!important;padding:0 10px!important;border-radius:12px!important;background:#eaf9f7!important;color:#087e75!important;font-size:12px!important}
+ .accountSearch{grid-column:1/-1!important;grid-row:2!important;margin:0!important;min-width:0!important}
+ .accountSearch:not(.is-open){display:none!important}
+ .accountSearch.is-open{display:flex!important}
+}
+@media(max-width:400px){
+ .accountTopInner{padding:10px!important;gap:6px!important}
+ .accountBrand{gap:5px!important}
+ .accountBrand img{width:32px!important;height:32px!important;flex-basis:32px!important}
+ .accountBrand .accountBrandText>span{font-size:18px!important}
+ .accountBrand .accountBrandText>small{font-size:9px!important}
+ .accountSearchToggle{width:36px!important;height:36px!important;flex-basis:36px!important}
+ .accountTopLinks a.active{min-height:36px!important;padding:0 8px!important;font-size:11px!important}
+}
+</style>
 </head>
 <body class="sfPage">
 <header class="sfTop accountTopbar"><div class="sfTopInner accountTopInner">
