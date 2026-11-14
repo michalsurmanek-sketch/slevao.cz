@@ -40,7 +40,7 @@ assert.equal(productPersonalization.length, 1, 'Produkt musí načítat právě 
 assert.equal(accountPersonalization.length, 1, 'Účet musí načítat právě jednu verzi product-personalization.css.');
 assert.equal(productPersonalization[0], accountPersonalization[0], 'Produkt a účet musí používat stejnou verzi product-personalization.css.');
 
-assert.match(worker, /const CACHE_VERSION = '20260901-5';/, 'Po změně cache strategie musí být zvýšená verze cache.');
+assert.match(worker, /const CACHE_VERSION = '20261114-recipes-2';/, 'Po změně cache strategie musí být zvýšená verze cache.');
 assert.match(worker, /const CORE_CACHE_NAME = `slevao-core-\$\{CACHE_VERSION\}`;/, 'Service worker musí mít oddělenou core cache.');
 assert.match(worker, /const RUNTIME_CACHE_NAME = `slevao-runtime-\$\{CACHE_VERSION\}`;/, 'Service worker musí mít oddělenou runtime cache.');
 assert.match(worker, /const CORE_SHELL = \[\s*OFFLINE_URL,\s*'\/manifest\.webmanifest',\s*'\/favicon\.svg'\s*\];/s, 'Core shell má zůstat minimální a deterministický.');

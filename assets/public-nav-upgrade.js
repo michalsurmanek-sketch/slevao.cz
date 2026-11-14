@@ -1,6 +1,28 @@
 (() => {
   'use strict';
 
+  // Route legacy and current recipe navigation to the same canonical page.
+  const recipeDestination='recepty.html';
+  function repairRecipeLinks(){
+    document.querySelectorAll('.slevaoBottomNav a').forEach(link=>{
+      const label=String(link.textContent||'').trim();
+      if(/Recept(?:y)?$/i.test(label)||link.getAttribute('href')?.endsWith('#recipesSection')){
+        if(link.getAttribute('href')!==recipeDestination)link.setAttribute('href',recipeDestination);
+      }
+    });
+  }
+  repairRecipeLinks();
+  const recipeNavObserver=new MutationObserver(repairRecipeLinks);
+  recipeNavObserver.observe(document.documentElement,{childList:true,subtree:true});
+  document.addEventListener('click',event=>{
+    const link=event.target.closest?.('.slevaoBottomNav a');
+    if(!link)return;
+    if(!/Recept(?:y)?$/i.test(String(link.textContent||'').trim())&&!link.getAttribute('href')?.endsWith('#recipesSection'))return;
+    link.setAttribute('href',recipeDestination);
+    if(!event.ctrlKey&&!event.metaKey&&!event.shiftKey&&!event.altKey){event.preventDefault();event.stopImmediatePropagation();location.assign(recipeDestination);}
+  },true);
+  if(location.hash==='#recipesSection')location.replace(recipeDestination);
+
   const LEAFLETS_URL = 'letaky.html';
   const HOME_SEARCH_TARGET = '#dealsSection';
   const LEGACY_LIST_KEY = 'slevao-shopping-list-v1';

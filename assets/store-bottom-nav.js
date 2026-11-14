@@ -97,13 +97,13 @@
   }
   if (!document.querySelector('script[src*="public-nav-upgrade.js"]')) {
     const navScript = document.createElement('script');
-    navScript.src = 'assets/public-nav-upgrade.js?v=20260904-1';
+    navScript.src = 'assets/public-nav-upgrade.js?v=20261114-recipes-2';
     navScript.async = false;
     document.head.appendChild(navScript);
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20260828-2';
+    script.src = 'assets/public-features.js?v=20261114-recipes-1';
     script.async = false;
     document.head.appendChild(script);
   }

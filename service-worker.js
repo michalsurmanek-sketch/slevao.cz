@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260901-5';
+const CACHE_VERSION = '20261114-recipes-2';
 const CORE_CACHE_NAME = `slevao-core-${CACHE_VERSION}`;
 const RUNTIME_CACHE_NAME = `slevao-runtime-${CACHE_VERSION}`;
 const CACHE_NAME = RUNTIME_CACHE_NAME;
@@ -134,7 +134,7 @@ self.addEventListener('fetch', (event) => {
     event.respondWith((async () => {
       const runtime = await caches.open(RUNTIME_CACHE_NAME);
       try {
-        const response = await fetch(request);
+        const response = await fetch(new Request(request, { cache: 'reload' }));
         if (response.ok) putRuntime(request, response).catch(() => {});
         return response;
       } catch {
