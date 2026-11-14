@@ -169,6 +169,33 @@
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebSite","name":"Slevao.cz","url":"https://slevao.cz/","description":"Najdi, kde dnes nakoupíš nejlevněji.","inLanguage":"cs-CZ","potentialAction":{"@type":"SearchAction","target":"https://slevao.cz/?q={search_term_string}","query-input":"required name=search_term_string"}}</script>
   <link rel="stylesheet" href="assets/premium-search-suggest.css?v=20261113-3">
 <style>.footerBrandStack{display:inline-flex!important;flex-direction:column!important;align-items:flex-start!important;gap:3px!important;line-height:1.1!important}.footerBrandStack>span{display:block!important;white-space:nowrap}.footerBrandStack>small{display:block!important;font-size:12px!important;font-weight:500!important;letter-spacing:0!important;line-height:1.3!important;white-space:nowrap;color:inherit;opacity:.8}@media(max-width:390px){.footerBrandStack>small{font-size:10px!important}}</style>
+  <style id="home-hero-compact">
+    /* Keep the introduction compact while retaining live counts and nearby search. */
+    .hero.heroCompact{padding:10px 0!important}
+    .heroCompact .heroCard{min-height:0!important;grid-template-columns:minmax(0,1fr) minmax(290px,.75fr)!important;gap:20px!important;padding:20px 24px!important}
+    .heroCompact .heroArtwork,.heroCompact .heroCopy::after{display:none!important;content:none!important}
+    .heroCompact .heroCopy{min-width:0!important;max-width:none!important}
+    .heroCompact .heroCopy>.eyebrow{min-height:26px!important;margin:0 0 10px!important;padding:0 11px!important;font-size:10px!important}
+    .heroCompact .heroCopy h1{margin:0!important;font-size:clamp(30px,3.4vw,48px)!important;line-height:1.06!important;letter-spacing:-.035em!important}
+    .heroCompact .heroCopy>p{margin:10px 0 0!important;font-size:14px!important}
+    .heroCompact .heroStats{margin-top:12px!important;gap:6px!important}
+    .heroCompact .heroStats>span{min-height:40px!important;padding:5px 8px!important}
+    .heroCompact .heroNearbyPanel{grid-column:2!important;min-height:0!important;padding:16px!important;gap:7px!important}
+    .heroCompact .heroNearbyPanel>strong{font-size:18px!important}
+    @media(max-width:800px){
+      .heroCompact .heroCard{padding:14px!important;gap:0!important;border-radius:20px!important}
+      .heroCompact .heroCopy h1{font-size:clamp(26px,7.3vw,34px)!important}
+      .heroCompact .heroCopy>.eyebrow{min-height:24px!important;margin-bottom:8px!important;font-size:9px!important}
+      .heroCompact .heroCopy>p{margin-top:8px!important;font-size:13px!important}
+      .heroCompact .heroStats{margin-top:10px!important;padding:3px!important;gap:0!important;border-radius:14px!important}
+      html body .heroCompact .heroCard .heroStats>span{min-height:42px!important;padding:4px 3px!important;gap:4px!important}
+      .heroCompact .heroNearbyPanel{margin-top:10px!important;padding:12px!important}
+      .heroCompact .heroNearbyPanel.is-nearby-collapsed{min-height:64px!important;max-height:64px!important;margin-top:10px!important;padding:6px 10px!important}
+      .heroCompact .heroNearbyPanel.is-nearby-collapsed .nearbyMobileToggle{height:50px!important;grid-template-columns:34px minmax(0,1fr) 30px!important;gap:7px!important}
+      .heroCompact .heroNearbyPanel.is-nearby-collapsed .nearbyMobileSummaryIcon{width:34px!important;height:34px!important}
+      .heroCompact .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron{width:30px!important;height:30px!important}
+    }
+  </style>
 </head>
 <body>
   <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
@@ -190,7 +217,7 @@
   </header>
 
   <main id="top" tabindex="-1">
-    <section class="hero">
+    <section class="hero heroCompact">
       <div class="container">
         <div class="heroCard">
           <div class="heroCopy">
