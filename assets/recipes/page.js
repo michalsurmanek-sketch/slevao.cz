@@ -5,7 +5,13 @@ const imageUrl=path=>path&&/^[0-9a-f-]{36}\/[0-9a-f-]{36}\.webp$/.test(path)?win
 function toast(text){$('recipeToast').textContent=text;$('recipeToast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('recipeToast').hidden=true,4500)}
 function status(text,error=false){$('recipeLoadStatus').textContent=text;$('recipeLoadStatus').classList.toggle('isError',error)}
 function recipeById(id){return [...builtins,...community].find(r=>r.id===id)}
-function photo(r,className='rCardImage'){const url=imageUrl(r.image_path);return url?'<img class="'+className+'" src="'+esc(url)+'" alt="'+esc(r.title)+'" loading="lazy">':r.builtin?'<div class="rPhoto '+className+'" role="img" aria-label="'+esc(r.title)+'" style="background-position:'+esc(r.photo_position)+'"></div>':'<div class="rCardPlaceholder '+className+'" aria-label="Recept bez fotografie">♨</div>'}
+function photo(r,className='rCardImage'){
+ const url=r.builtin?r.photo_src:imageUrl(r.image_path);
+ if(!url)return '<div class="rCardPlaceholder '+className+'" aria-label="Recept bez fotografie">♨</div>';
+ const responsive=r.builtin?' srcset="'+esc(r.photo_card)+' 768w, '+esc(r.photo_src)+' 1536w" sizes="'+(className==='rDetailPhoto'?'(max-width:820px) 100vw, 820px':'(max-width:720px) 50vw, (max-width:1240px) 33vw, 400px')+'" width="1536" height="1024"':'';
+ return '<img class="'+className+'" src="'+esc(url)+'"'+responsive+' alt="'+esc(r.title)+'" loading="lazy" decoding="async">';
+}
+
 function render(){
  const query=core.normalize($('recipeSearch').value),time=Number($('recipeTime').value);
  const rows=(source==='all'?[...builtins,...community]:community).filter(r=>(category==='Vše'||r.category===category)&&(!time||r.minutes<=time)&&(!query||core.normalize(r.title+' '+r.description+' '+r.ingredients.join(' ')).includes(query)));

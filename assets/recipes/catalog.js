@@ -3,7 +3,6 @@ window.SlevaoRecipeCatalog = [
     "id": "svickova",
     "title": "Svíčková na smetaně",
     "minutes": 180,
-    "photo_position": "3.147% 14.650%",
     "description": "Nedělní klasika s jemnou zeleninovou omáčkou.",
     "steps": [
       "Maso osolte, opepřete a na části másla ze všech stran zatáhněte. Vyjměte ho.",
@@ -33,13 +32,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/svickova-hd.webp",
+    "photo_card": "assets/recipes/svickova-card.webp"
   },
   {
     "id": "vepro-knedlo-zelo",
     "title": "Vepřo knedlo zelo",
     "minutes": 150,
-    "photo_position": "50.350% 14.650%",
     "description": "Poctivá pečeně, zelí a knedlík na jednom talíři.",
     "steps": [
       "Troubu předehřejte na 170 °C. Maso osolte, opepřete a potřete česnekem. Dejte do pekáče s kmínem, polovinou cibule a trochou vody.",
@@ -62,13 +62,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/vepro-knedlo-zelo-hd.webp",
+    "photo_card": "assets/recipes/vepro-knedlo-zelo-card.webp"
   },
   {
     "id": "gulas",
     "title": "Hovězí guláš",
     "minutes": 180,
-    "photo_position": "97.319% 14.650%",
     "description": "Pomalu dušený guláš s cibulovým základem.",
     "steps": [
       "Na sádle pomalu opečte nakrájenou cibuli dozlatova až dohněda.",
@@ -91,13 +92,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/gulas-hd.webp",
+    "photo_card": "assets/recipes/gulas-card.webp"
   },
   {
     "id": "rizek-salat",
     "title": "Řízek s bramborovým salátem",
     "minutes": 75,
-    "photo_position": "3.147% 45.860%",
     "description": "Křupavý řízek a domácí bramborový salát.",
     "steps": [
       "Brambory uvařte ve slupce a nechte vychladnout. Mrkev a celer uvařte zvlášť doměkka.",
@@ -126,13 +128,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/rizek-salat-hd.webp",
+    "photo_card": "assets/recipes/rizek-salat-card.webp"
   },
   {
     "id": "smazeny-syr",
     "title": "Smažený sýr",
     "minutes": 30,
-    "photo_position": "50.350% 45.860%",
     "description": "Rychlá klasika s hranolky a tatarskou omáčkou.",
     "steps": [
       "Sýr nakrájejte na silnější plátky. Obalte ho v mouce, rozšlehaných vejcích a strouhance. Vejce a strouhanku zopakujte.",
@@ -153,13 +156,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Bez masa",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/smazeny-syr-hd.webp",
+    "photo_card": "assets/recipes/smazeny-syr-card.webp"
   },
   {
     "id": "spanelsky-ptacek",
     "title": "Španělský ptáček",
     "minutes": 150,
-    "photo_position": "97.319% 45.860%",
     "description": "Hovězí závitky s výraznou omáčkou a rýží.",
     "steps": [
       "Vejce uvařte natvrdo a rozčtvrťte. Hovězí maso nakrájejte na plátky a naklepejte. Osolte, opepřete a potřete hořčicí.",
@@ -186,13 +190,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/spanelsky-ptacek-hd.webp",
+    "photo_card": "assets/recipes/spanelsky-ptacek-card.webp"
   },
   {
     "id": "rajska",
     "title": "Rajská omáčka s hovězím",
     "minutes": 150,
-    "photo_position": "3.147% 78.503%",
     "description": "Voňavá rajská s jemně sladkou chutí.",
     "steps": [
       "Hovězí maso vložte do vývaru a vařte mírným varem doměkka, přibližně 2 hodiny.",
@@ -219,13 +224,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/rajska-hd.webp",
+    "photo_card": "assets/recipes/rajska-card.webp"
   },
   {
     "id": "bramboraky",
     "title": "Bramboráky",
     "minutes": 40,
-    "photo_position": "50.350% 78.503%",
     "description": "Křupavé bramboráky s česnekem a majoránkou.",
     "steps": [
       "Oloupané brambory nastrouhejte a přebytečnou vodu slijte.",
@@ -248,13 +254,14 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Bez masa",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/bramboraky-hd.webp",
+    "photo_card": "assets/recipes/bramboraky-card.webp"
   },
   {
     "id": "kure-paprika",
     "title": "Kuře na paprice",
     "minutes": 75,
-    "photo_position": "97.319% 78.503%",
     "description": "Jemná smetanová omáčka s kuřetem.",
     "steps": [
       "Na másle orestujte nakrájenou cibuli. Přidejte osolené a opepřené kuřecí maso a opečte ho.",
@@ -278,6 +285,8 @@ window.SlevaoRecipeCatalog = [
     "servings": 4,
     "category": "Hlavní jídla",
     "author_name": "Redakce Slevao",
-    "builtin": true
+    "builtin": true,
+    "photo_src": "assets/recipes/kure-paprika-hd.webp",
+    "photo_card": "assets/recipes/kure-paprika-card.webp"
   }
 ];
