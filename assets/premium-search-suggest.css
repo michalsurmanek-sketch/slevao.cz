@@ -34,3 +34,10 @@
  .premiumSuggestHost:has(>.premiumSuggestPanel:not([hidden])){z-index:5001!important;overflow:visible!important}
  .topbar:has(.premiumSuggestPanel:not([hidden])){z-index:5002!important;overflow:visible!important}
 }
+
+/* Slevao green scrollbar for search suggestions. */
+.premiumSuggestPanel{scrollbar-width:thin;scrollbar-color:#069d92 #e5f8f4}
+.premiumSuggestPanel::-webkit-scrollbar{width:7px;height:7px}
+.premiumSuggestPanel::-webkit-scrollbar-track{background:#e5f8f4;border-radius:999px}
+.premiumSuggestPanel::-webkit-scrollbar-thumb{background:#069d92;border:1px solid #e5f8f4;border-radius:999px}
+.premiumSuggestPanel::-webkit-scrollbar-thumb:hover{background:#087d74}
