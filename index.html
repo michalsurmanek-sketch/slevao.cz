@@ -196,13 +196,46 @@
       .heroCompact .heroNearbyPanel.is-nearby-collapsed .nearbyMobileChevron{width:30px!important;height:30px!important}
     }
   </style>
+<style id="home-header-match-leaflets">
+html body .topbar{position:sticky!important;top:0!important;padding:0!important;border-bottom:1px solid rgba(220,233,231,.95)!important;background:rgba(255,255,255,.94)!important;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+html body .topbar .topbarInner{width:min(1240px,calc(100% - 32px))!important;min-height:76px!important;height:auto!important;display:flex!important;align-items:center!important;gap:16px!important;padding:0!important;border:0!important;border-radius:0!important;box-shadow:none!important;background:transparent!important}
+html body .topbar .brand.homeLeafletsBrand{display:inline-flex!important;align-items:center!important;flex:0 0 auto!important;width:auto!important;min-width:0!important;height:auto!important;gap:9px!important;padding:0!important;background:none!important;color:#063f48!important;font:950 30px/1 Inter,Arial,sans-serif!important;letter-spacing:-1.5px!important}
+html body .topbar .brand.homeLeafletsBrand>img{display:block!important;width:52px!important;height:52px!important;object-fit:contain;filter:drop-shadow(0 7px 8px rgba(11,138,128,.18))}
+html body .topbar .brand.homeLeafletsBrand>.homeBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;gap:3px!important;line-height:1!important}
+.homeLeafletsBrand .homeBrandText>span{display:block!important;white-space:nowrap;line-height:1.05!important}
+.homeLeafletsBrand .homeBrandText b{color:#3bcfc3!important;font-size:.72em!important;letter-spacing:-1px!important}
+.homeLeafletsBrand .homeBrandText>small{display:block!important;white-space:nowrap;line-height:1.2!important;font-size:11px!important;font-weight:500!important;letter-spacing:0!important;color:#355a59!important}
+.homeSearchToggle{display:none!important}
+html body .topbar .mainSearch{height:44px!important}
+html body .topbar .mainSearch>input{height:44px!important;font-size:16px!important;border-radius:12px!important}
+html body .topbar .mainSearch>#searchButton{height:32px!important;top:6px!important;right:6px!important}
+html body .topbar .savedButton,html body .topbar .accountButton{height:44px!important;min-height:44px!important;border-radius:14px!important}
+@media(max-width:800px){
+ html body .topbar .topbarInner{min-height:64px!important;gap:8px!important;flex-wrap:wrap!important;justify-content:flex-end!important;padding:12px 0!important}
+ html body .topbar .brand.homeLeafletsBrand{margin-right:auto!important;font-size:21px!important;letter-spacing:-1px!important;gap:6px!important}
+ html body .topbar .brand.homeLeafletsBrand>img{width:40px!important;height:40px!important}
+ html body .topbar .homeSearchToggle{display:inline-flex!important;align-items:center;justify-content:center;flex:0 0 40px!important;width:40px!important;height:40px!important;padding:0!important;border:1px solid #cce7e4;border-radius:12px;background:white;color:#087e75}
+ .homeSearchToggle svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+ .homeSearchToggle:focus-visible{outline:2px solid #159e94;outline-offset:2px}
+ html body .topbar .savedButton,html body .topbar .accountButton{flex:0 0 40px!important;width:40px!important;min-width:40px!important;height:40px!important;min-height:40px!important;padding:0!important;border-radius:12px!important}
+ html body .topbar .mainSearch{display:none!important;order:5!important;flex:1 0 100%!important;width:100%!important;margin:0!important}
+ html body .topbar.isHomeSearchOpen .mainSearch{display:block!important}
+}
+@media(max-width:400px){
+ html body .topbar .brand.homeLeafletsBrand{gap:5px!important;font-size:18px!important}
+ html body .topbar .brand.homeLeafletsBrand>img{width:32px!important;height:32px!important}
+ .homeLeafletsBrand .homeBrandText>small{font-size:9px!important}
+ html body .topbar .homeSearchToggle{flex-basis:36px!important;width:36px!important}
+}
+</style>
 </head>
 <body>
   <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
   <header class="topbar">
     <div class="container topbarInner">
-      <a class="brand" href="#top" aria-label="Slevao.cz domů"><span>SLEVAO<b>.cz</b></span></a>
-      <div class="mainSearch" role="search">
+      <a class="brand homeLeafletsBrand" href="#top" aria-label="Slevao.cz domů"><img src="favicon.svg?v=20260802-2" alt=""><span class="homeBrandText"><span>SLEVAO<b>.cz</b></span><small>Letáky · Akce · Slevy</small></span></a>
+      <button id="homeSearchToggle" class="homeSearchToggle" type="button" aria-label="Vyhledat nabídky" aria-controls="homeHeaderSearch" aria-expanded="false"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 5 5"/></svg></button>
+      <div id="homeHeaderSearch" class="mainSearch" role="search">
         <span class="searchIcon" aria-hidden="true">⌕</span>
         <input id="q" type="search" placeholder="Hledej produkt, značku, obchod nebo kategorii…" autocomplete="off" aria-label="Hledat nabídky">
         <button id="searchButton" type="button">Hledat</button>
@@ -514,5 +547,16 @@
     });
   </script>
   <script defer src="assets/premium-search-suggest.js?v=20261114-3"></script>
+<script>
+(()=>{
+ const toggle=document.getElementById('homeSearchToggle');
+ const header=toggle?.closest('header');
+ const input=document.getElementById('q');
+ if(!toggle||!header||!input)return;
+ const close=()=>{header.classList.remove('isHomeSearchOpen');toggle.setAttribute('aria-expanded','false');header.querySelectorAll('.premiumSuggestPanel,.searchSuggestions').forEach(p=>p.hidden=true);input.setAttribute('aria-expanded','false')};
+ toggle.addEventListener('click',()=>{if(header.classList.contains('isHomeSearchOpen')){close();input.blur()}else{header.classList.add('isHomeSearchOpen');toggle.setAttribute('aria-expanded','true');input.focus({preventScroll:true})}});
+ header.addEventListener('keydown',e=>{if(e.key==='Escape'&&header.classList.contains('isHomeSearchOpen')){close();toggle.focus({preventScroll:true})}});
+})();
+</script>
 </body>
 </html>
