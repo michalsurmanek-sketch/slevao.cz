@@ -1,0 +1,1 @@
+alter table public.community_recipes drop constraint community_recipes_check; alter table public.community_recipes add constraint community_recipes_image_path_check check(image_path is null or (image_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}[.]webp$' and split_part(image_path,'/',1)=user_id::text));

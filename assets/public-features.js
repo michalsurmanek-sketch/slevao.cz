@@ -177,7 +177,7 @@
     };
     const items = [
       ['index.html','home','Domů', path === '' || path === 'index.html'],
-      ['index.html#recipesSection','recipe','Recept', false],
+      ['recepty.html','recipe','Recept', path === 'recepty.html'],
       ['letaky.html','leaflets','Letáky', path === 'letaky.html'],
       ['seznam.html','list','Seznam', path === 'seznam.html'],
       ['ucet.html','account','Účet', path === 'ucet.html']
