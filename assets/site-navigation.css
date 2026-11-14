@@ -1,0 +1,36 @@
+/* Shared navigation chrome for Letáky and Recepty. */
+.leafletsShell{width:min(1240px,calc(100% - 32px));margin:auto}
+.leafletsTopbar{position:sticky;top:0;z-index:80;border-bottom:1px solid rgba(220,233,231,.95);background:rgba(255,255,255,.94);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px)}
+.leafletsTopbarInner{min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.leafletsTopbarInner .leafletsLogo{width:auto;height:auto;display:inline-flex;align-items:center;gap:9px;min-width:0;background:none;color:#063f48;text-decoration:none;white-space:nowrap;font-family:Inter,Arial,sans-serif;font-weight:950;font-size:30px;letter-spacing:-1.5px;line-height:1}
+.leafletsTopbarInner .leafletsLogo img{width:52px;height:52px;display:block;object-fit:contain;filter:drop-shadow(0 7px 8px rgba(11,138,128,.18))}
+.leafletsTopbarInner .leafletsLogo .leafletsBrandText{display:flex!important;flex-direction:column!important;align-items:flex-start!important;justify-content:center;gap:3px;min-width:0}
+.leafletsTopbarInner .leafletsLogo .leafletsBrandText>span{display:block!important;white-space:nowrap;line-height:1.05}
+.leafletsTopbarInner .leafletsLogo b{margin:0;color:#3bcfc3;font-size:.72em;letter-spacing:-1px}
+.leafletsTopbarInner .leafletsLogo .leafletsBrandText>small{display:block!important;white-space:nowrap;line-height:1.2;font-size:11px;font-weight:500;letter-spacing:0;color:#355a59}
+.leafletsHeaderActions{display:flex;align-items:center;gap:8px}
+.leafletsBack{min-height:44px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 15px;border:1px solid #cce7e4;border-radius:14px;background:#fff;color:#176d67;text-decoration:none;font-size:13px;font-weight:900;box-shadow:0 6px 18px rgba(20,50,47,.04)}
+.leafletsSearchToggle{display:none}
+.slevaoBottomNav{display:none}
+@media(max-width:800px){
+ .leafletsTopbarInner{gap:8px}
+ .leafletsSearchToggle{display:inline-flex;flex:0 0 40px;width:40px;height:40px;padding:0;align-items:center;justify-content:center;border:1px solid #cce7e4;border-radius:12px;background:#fff;color:#087e75;cursor:pointer}
+ .leafletsSearchToggle svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
+ .leafletsSearchToggle:focus-visible{outline:2px solid #159e94;outline-offset:2px}
+}
+@media(max-width:720px){
+ .leafletsTopbarInner{min-height:64px}
+ .leafletsTopbarInner .leafletsLogo{gap:6px;font-size:21px;letter-spacing:-1px}
+ .leafletsTopbarInner .leafletsLogo img{width:40px;height:40px}
+ .leafletsBack{min-height:40px;padding-inline:12px;font-size:11px}
+ .slevaoBottomNav{position:fixed;z-index:9999;display:grid}
+ .slevaoBottomNav a{text-decoration:none}
+}
+@media(max-width:400px){
+ .leafletsTopbarInner .leafletsLogo{gap:5px;font-size:18px}
+ .leafletsTopbarInner .leafletsLogo img{width:32px;height:32px}
+ .leafletsTopbarInner .leafletsLogo .leafletsBrandText>small{font-size:9px}
+ .leafletsHeaderActions{gap:6px}
+ .leafletsHeaderActions .leafletsBack{padding-inline:8px;font-size:10px}
+ .leafletsSearchToggle{width:36px;flex-basis:36px}
+}
