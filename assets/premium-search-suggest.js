@@ -16,16 +16,33 @@ function setup(input){
  holder.appendChild(panel);
  input.setAttribute('aria-autocomplete','list');input.setAttribute('aria-expanded','false');
  const search=(value)=>{const q=value.trim();if(!q)return;location.href='index.html?q='+encodeURIComponent(q)+'#dealsSection'};
+ function positionPanel(){
+ if(panel.hidden)return;
+ if(window.innerWidth<=800){
+ const top=Math.round(input.getBoundingClientRect().bottom+6);
+ const viewport=window.visualViewport;
+ const bottom=viewport?viewport.offsetTop+viewport.height:window.innerHeight;
+ panel.style.setProperty('--premium-suggest-top',top+'px');
+ panel.style.setProperty('--premium-suggest-height',Math.max(0,Math.min(390,bottom-top-10))+'px');
+ }else{
+ panel.style.removeProperty('--premium-suggest-top');
+ panel.style.removeProperty('--premium-suggest-height');
+ }
+ }
+ window.addEventListener('resize',positionPanel);
+ window.addEventListener('scroll',positionPanel,{passive:true});
+ window.visualViewport?.addEventListener('resize',positionPanel);
+ window.visualViewport?.addEventListener('scroll',positionPanel);
  function render(){
  const value=input.value.trim(),norm=normalize(value);
  const words=(value?popular.filter(x=>normalize(x).includes(norm)):popular).slice(0,5);
  const cats=(value?categories.filter(x=>normalize(x).includes(norm)):categories).slice(0,4);
  let html='<div class="premiumSuggestHeading"><span>✦ Chytré vyhledávání</span><small>Produkty · Kategorie · Akce</small></div>';
  if(value)html+='<button type="button" class="premiumSuggestRow" data-query="'+escape(value)+'"><span class="premiumSuggestGlyph">⌕</span><span><strong>Hledat „'+escape(value)+'“</strong><small>Zobrazit odpovídající nabídky</small></span><span>›</span></button>';
- if(words.length){html+='<div class="premiumSuggestCaption">'+(value?'Podobné hledání':'Často hledané')+'</div>';for(const word of words)html+='<button type="button" class="premiumSuggestRow" data-query="'+escape(word)+'"><span class="premiumSuggestGlyph">⌕</span><span><strong>'+escape(word)+'</strong><small>Vyhledat v nabídkách</small></span><span>›</span></button>';}
+ if(words.length){html+='<div class="premiumSuggestCaption">'+(value?'Podobné hledání':'Často hledané')+'</div>';for(const word of words)html+='<button type="button" class="premiumSuggestRow" data-query="'+escape(word)+'"><span class="premiumSuggestGlyph premiumSuggestProductIcon" aria-hidden="true">'+(productIcons[word]||'⌕')+'</span><span><strong>'+escape(word)+'</strong><small>Vyhledat v nabídkách</small></span><span>›</span></button>';}
  if(cats.length){html+='<div class="premiumSuggestCaption">Kategorie</div><div class="premiumSuggestChips">';for(const cat of cats)html+='<button type="button" data-query="'+escape(cat)+'"><span class="premiumSuggestCategoryIcon" aria-hidden="true">'+(categoryIcons[cat]||'🛍️')+'</span><span>'+escape(cat)+'</span></button>';html+='</div>';}
  html+='<a class="premiumSuggestFooter" href="letaky.html">Prohlédnout aktuální letáky <span>→</span></a>';
- panel.innerHTML=html;panel.hidden=false;input.setAttribute('aria-expanded','true');
+ panel.innerHTML=html;panel.hidden=false;positionPanel();input.setAttribute('aria-expanded','true');
  }
  function close(){panel.hidden=true;input.setAttribute('aria-expanded','false')}
  input.addEventListener('focus',render);

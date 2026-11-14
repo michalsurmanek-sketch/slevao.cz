@@ -23,3 +23,14 @@
 .premiumSuggestCategoryIcon{display:block;font-size:24px;line-height:1.1;filter:drop-shadow(0 3px 3px rgba(8,93,84,.13))}
 .premiumSuggestProductIcon{font-size:23px!important;background:linear-gradient(145deg,#e9faf6,#fff)!important}
 @media(max-width:420px){.premiumSuggestPanel .premiumSuggestChips button{font-size:9px!important;min-height:63px!important}.premiumSuggestCategoryIcon{font-size:22px}}
+
+/* A search field owns one dropdown, including when legacy async results arrive. */
+.premiumSuggestHost:has(>.premiumSuggestPanel)>.searchSuggestions{display:none!important}
+@media(max-width:800px){
+ .premiumSuggestHost>.premiumSuggestPanel{position:fixed!important;left:10px!important;right:10px!important;width:auto!important;top:var(--premium-suggest-top,76px)!important;max-height:var(--premium-suggest-height,48dvh)!important;z-index:5000!important;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain}
+ .premiumSuggestPanel .premiumSuggestHeading{font-size:15px;padding:5px 7px 8px;gap:5px}
+ .premiumSuggestPanel .premiumSuggestCaption{padding-top:8px}
+ .premiumSuggestPanel button.premiumSuggestRow{min-height:48px!important;padding:6px 8px!important}
+ .premiumSuggestHost:has(>.premiumSuggestPanel:not([hidden])){z-index:5001!important;overflow:visible!important}
+ .topbar:has(.premiumSuggestPanel:not([hidden])){z-index:5002!important;overflow:visible!important}
+}
