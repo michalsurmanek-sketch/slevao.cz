@@ -380,7 +380,7 @@
           results[index] = { leaflet, objectUrl };
 
           const ready = results.filter(Boolean);
-          if (!firstCommitDone && ready.length >= 2) {
+          if (!firstCommitDone && ready.length >= 1) {
             commitCards(grid, ready, 'partial');
             firstCommitDone = true;
           } else if (firstCommitDone && ready.length < leaflets.length) {
@@ -399,6 +399,24 @@
     return finalCards;
   }
 
+  async function preparedCards() {
+    try {
+      const response = await fetchWithTimeout('assets/leaflet-thumbnails/index.json', { cache: 'no-cache' }, 1800);
+      if (!response.ok) return [];
+      const manifest = await response.json();
+      const age = Date.now() - Date.parse(manifest.generated_at);
+      if (manifest.version !== 1 || manifest.day !== pragueToday() || !Number.isFinite(age) || age < -60000 || age > 90 * 60 * 1000) return [];
+      const today = pragueToday();
+      return (Array.isArray(manifest.leaflets) ? manifest.leaflets : [])
+        .filter((leaflet) => /^[a-z0-9-]+$/.test(leaflet.store_slug || '')
+          && /^assets\/leaflet-thumbnails\/[a-f0-9]{24}\.webp$/.test(leaflet.cover_url || '')
+          && (!leaflet.valid_from || leaflet.valid_from <= today)
+          && (!leaflet.valid_to || leaflet.valid_to >= today))
+        .slice(0, MAX_CARDS)
+        .map((leaflet) => ({ leaflet, objectUrl: leaflet.cover_url }));
+    } catch { return []; }
+  }
+
   async function renderSection(forceReload = false) {
     if (rendering && !forceReload) return;
     const grid = document.getElementById('leafletGrid');
@@ -409,6 +427,15 @@
     ensureQuietSkeletons(grid);
 
     try {
+      // Static WebP covers are prepared by the scheduled server job. The common
+      // cold-load path does not fetch PDF documents or import PDF.js at all.
+      const prepared = await preparedCards();
+      if (generation !== renderGeneration) return;
+      if (prepared.length) {
+        commitCards(grid, prepared, 'prepared');
+        scheduleFreshCacheRefresh({ savedAt: Date.now() - META_CACHE_TTL + 5 * 60 * 1000 });
+        return;
+      }
       const cachedMeta = !forceReload ? readMetaCache() : null;
       let cachedCards = [];
       if (cachedMeta?.leaflets?.length) {
