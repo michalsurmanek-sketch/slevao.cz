@@ -32,6 +32,7 @@
 
   let renderTimer = 0;
   let lastLeafletSignature = '';
+  let lastStoreSignature = '';
   let fitFrame = 0;
   let autoRotateTimer = 0;
   let leafletPage = 0;
@@ -169,6 +170,12 @@
       storePage = normalizePage(storePage, storePageCount);
       const start = storePage * STORES_PER_PAGE;
       const rows = overviewStores.slice(start, start + STORES_PER_PAGE);
+      const signature = JSON.stringify(['directory', storePage, rows.map((store) => [store.slug, store.name, store.logo_url])]);
+      if (signature === lastStoreSignature) {
+        updatePager('stores', storePage, storePageCount);
+        return;
+      }
+      lastStoreSignature = signature;
       target.innerHTML = rows.length
         ? rows.map(storeCardMarkup).join('')
         : '<span class="overviewLoading">Obchody se načítají…</span>';
@@ -177,7 +184,14 @@
       storePageCount = Math.max(1, Math.ceil(allCards.length / STORES_PER_PAGE));
       storePage = normalizePage(storePage, storePageCount);
       const start = storePage * STORES_PER_PAGE;
-      const cards = allCards.slice(start, start + STORES_PER_PAGE).map((card) => {
+      const visibleCards = allCards.slice(start, start + STORES_PER_PAGE);
+      const signature = JSON.stringify(['grid', storePage, visibleCards.map((card) => card.outerHTML)]);
+      if (signature === lastStoreSignature) {
+        updatePager('stores', storePage, storePageCount);
+        return;
+      }
+      lastStoreSignature = signature;
+      const cards = visibleCards.map((card) => {
         const clone = clean(card.cloneNode(true));
         clone.classList.add('overviewStoreCard');
         clone.querySelector('.storePageLink')?.remove();
