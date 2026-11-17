@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "day": "2026-11-17",
-  "generated_at": "2026-11-17T22:40:22.499966+00:00",
+  "day": "2026-11-18",
+  "generated_at": "2026-11-17T23:13:58.676161+00:00",
   "leaflets": [
     {
       "store_slug": "obi",
@@ -19,13 +19,13 @@
       "store_slug": "kaufland",
       "store_name": "Kaufland",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://kaufland.cz",
-      "leaflet_key": "kaufland-d38a5478-377e-4ddf-a1b2-088b0d6269a9",
+      "leaflet_key": "kaufland-4b203d16-acd1-4a6c-afb8-162f9a378031",
       "title": "Kaufland – spotřební zboží",
-      "valid_from": "2026-11-11",
-      "valid_to": "2026-11-17",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=d38a5478-377e-4ddf-a1b2-088b0d6269a9",
-      "cover_url": "assets/leaflet-thumbnails/cddea54e73ba174291bee8a0.webp",
-      "cover_bytes": 47676
+      "valid_from": "2026-11-18",
+      "valid_to": "2026-11-24",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=4b203d16-acd1-4a6c-afb8-162f9a378031",
+      "cover_url": "assets/leaflet-thumbnails/efbb3ddff14a7408be37dffb.webp",
+      "cover_bytes": 42616
     },
     {
       "store_slug": "lidl",
@@ -40,51 +40,51 @@
       "cover_bytes": 43718
     },
     {
+      "store_slug": "makro",
+      "store_name": "Makro",
+      "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://makro.cz",
+      "leaflet_key": "makro-caf505a0-4fae-44b8-a909-f70d06920b2c",
+      "title": "MAKRO – Maloobchod",
+      "valid_from": "2026-11-18",
+      "valid_to": "2026-12-01",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=caf505a0-4fae-44b8-a909-f70d06920b2c",
+      "cover_url": "assets/leaflet-thumbnails/81a115b6d75bbb6d45a982a8.webp",
+      "cover_bytes": 32514
+    },
+    {
       "store_slug": "albert",
       "store_name": "Albert",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://albert.cz",
-      "leaflet_key": "albert-a790f399-5ac3-4e08-888f-ada88ec869b7",
+      "leaflet_key": "albert-9ef7523b-355c-4d3a-979e-7d0854b48559",
       "title": "Albert supermarket – akční leták",
-      "valid_from": "2026-11-11",
-      "valid_to": "2026-11-17",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=a790f399-5ac3-4e08-888f-ada88ec869b7",
-      "cover_url": "assets/leaflet-thumbnails/3d3a797a964b070c5408fe5b.webp",
-      "cover_bytes": 49736
-    },
-    {
-      "store_slug": "coop",
-      "store_name": "COOP",
-      "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://coop.cz",
-      "leaflet_key": "coop-1306bbb4-71ea-49dc-affe-54269addaba2",
-      "title": "Aktuální leták",
-      "valid_from": "2026-11-04",
-      "valid_to": "2026-11-17",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=1306bbb4-71ea-49dc-affe-54269addaba2",
-      "cover_url": "assets/leaflet-thumbnails/85848a785d18d008cf046d1d.webp",
-      "cover_bytes": 67288
+      "valid_from": "2026-11-18",
+      "valid_to": "2026-11-24",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=9ef7523b-355c-4d3a-979e-7d0854b48559",
+      "cover_url": "assets/leaflet-thumbnails/bdbd9d876b720e04e266a8dc.webp",
+      "cover_bytes": 49636
     },
     {
       "store_slug": "terno",
       "store_name": "Terno",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://terno.cz",
-      "leaflet_key": "terno-691dd3a2-1878-47ab-942c-bda9754bf2c7",
+      "leaflet_key": "terno-7f746f9a-8e98-4316-95af-2646ba67a90d",
       "title": "Aktuální leták",
-      "valid_from": "2026-11-11",
-      "valid_to": "2026-11-17",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=691dd3a2-1878-47ab-942c-bda9754bf2c7",
-      "cover_url": "assets/leaflet-thumbnails/518562cd275826ccb745a149.webp",
-      "cover_bytes": 52960
+      "valid_from": "2026-11-18",
+      "valid_to": "2026-11-24",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=7f746f9a-8e98-4316-95af-2646ba67a90d",
+      "cover_url": "assets/leaflet-thumbnails/7a66031621a61c5d21ce1292.webp",
+      "cover_bytes": 50480
     },
     {
       "store_slug": "teta",
       "store_name": "Teta drogerie",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://tetadrogerie.cz",
-      "leaflet_key": "teta-c7912ea7-49ba-4f14-be20-01814b330d3b",
+      "leaflet_key": "teta-1bfc33d8-cf56-47be-b4a1-a2951a5db066",
       "title": "Aktuální leták",
-      "valid_from": "2026-11-04",
-      "valid_to": "2026-11-17",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=c7912ea7-49ba-4f14-be20-01814b330d3b",
-      "cover_url": "assets/leaflet-thumbnails/be858def092180b20f1be54c.webp",
+      "valid_from": "2026-07-13",
+      "valid_to": "2026-11-20",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=1bfc33d8-cf56-47be-b4a1-a2951a5db066",
+      "cover_url": "assets/leaflet-thumbnails/4f4f7da249818fa5c7c1243a.webp",
       "cover_bytes": 47502
     },
     {
