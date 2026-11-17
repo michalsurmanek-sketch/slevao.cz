@@ -73,14 +73,14 @@ function setup(input){
  function close(){editing=false;editError='';panel.hidden=true;input.setAttribute('aria-expanded','false')}
  // Opening suggestions requires an explicit user action; startup focus and
  // synthetic input events from legacy search synchronizers must not open them.
- input.addEventListener('click',e=>{if(e.isTrusted)render()});
+ input.addEventListener('click',render);
  input.addEventListener('input',e=>{
- if(!e.isTrusted||document.activeElement!==input)return;
+ if(document.activeElement!==input)return;
  editing=false;render();
  });
  input.addEventListener('keydown',e=>{
  if(e.key==='Escape')close();
- else if(e.key==='ArrowDown'&&e.isTrusted){e.preventDefault();render();}
+ else if(e.key==='ArrowDown'){e.preventDefault();render();}
  });
  holder.addEventListener('focusout',()=>{
  setTimeout(()=>{if(!holder.contains(document.activeElement))close()},0);
