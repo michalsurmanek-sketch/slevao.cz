@@ -31,6 +31,7 @@
   const money = (value) => Number(value || 0).toLocaleString('cs-CZ', { maximumFractionDigits: 2 });
 
   let renderTimer = 0;
+  let lastLeafletSignature = '';
   let fitFrame = 0;
   let autoRotateTimer = 0;
   let leafletPage = 0;
@@ -119,6 +120,9 @@
     leafletPageCount = Math.max(1, Math.ceil(allCards.length / LEAFLETS_PER_PAGE));
     leafletPage = normalizePage(leafletPage, leafletPageCount);
     const start = leafletPage * LEAFLETS_PER_PAGE;
+    const signature = leafletPage + '|' + allCards.map((card) => card.outerHTML).join('');
+    if (signature === lastLeafletSignature) return;
+    lastLeafletSignature = signature;
     const cards = allCards.slice(start, start + LEAFLETS_PER_PAGE).map((card) => {
       const clone = clean(card.cloneNode(true));
       clone.classList.add('overviewLeafletCard');
@@ -203,8 +207,11 @@
   }
 
   function schedule() {
-    clearTimeout(renderTimer);
+    // Throttle instead of debounce: continual source mutations must not starve
+    // the first paint of already prepared covers.
+    if (renderTimer) return;
     renderTimer = window.setTimeout(() => {
+      renderTimer = 0;
       syncLeaflets();
       syncStores();
       fitPanels();
