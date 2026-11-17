@@ -71,9 +71,22 @@ function setup(input){
  panel.innerHTML=html;panel.hidden=false;positionPanel();input.setAttribute('aria-expanded','true');
  }
  function close(){editing=false;editError='';panel.hidden=true;input.setAttribute('aria-expanded','false')}
- input.addEventListener('focus',render);
- input.addEventListener('input',()=>{editing=false;render()});
- input.addEventListener('keydown',e=>{if(e.key==='Escape')close()});
+ // Opening suggestions requires an explicit user action; startup focus and
+ // synthetic input events from legacy search synchronizers must not open them.
+ input.addEventListener('click',e=>{if(e.isTrusted)render()});
+ input.addEventListener('input',e=>{
+ if(!e.isTrusted||document.activeElement!==input)return;
+ editing=false;render();
+ });
+ input.addEventListener('keydown',e=>{
+ if(e.key==='Escape')close();
+ else if(e.key==='ArrowDown'&&e.isTrusted){e.preventDefault();render();}
+ });
+ holder.addEventListener('focusout',()=>{
+ setTimeout(()=>{if(!holder.contains(document.activeElement))close()},0);
+ });
+ window.addEventListener('pageshow',close);
+ window.addEventListener('pagehide',close);
  panel.addEventListener('pointerdown',e=>{if(!e.target.closest('input,button,a'))e.preventDefault()});
  panel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();close();input.focus({preventScroll:true});close();}else if(e.key==='Enter'&&e.target.matches('.premiumSuggestEditInput')){e.preventDefault();e.stopPropagation();addPopular();}});
  panel.addEventListener('click',e=>{
