@@ -215,6 +215,28 @@ html body .topbar .savedButton,html body .topbar .accountButton{height:44px!impo
  }
 }
 </style>
+<style id="desktop-nearby-panel-compact">
+@media(min-width:901px){
+ html body .hero.heroCompact .heroCard{
+ grid-template-columns:minmax(0,1fr) 340px!important;
+ gap:20px!important;
+ }
+ html body .heroCompact .heroCopy{max-width:480px!important}
+ html body .heroCompact .heroCopy h1{font-size:clamp(30px,2.8vw,42px)!important}
+ html body .heroCompact .heroNearbyPanel{
+ width:100%!important;min-width:0!important;align-self:center!important;
+ padding:14px!important;gap:7px!important;
+ }
+ html body .heroCompact .heroNearbyPanel .slLiveOptions{grid-template-columns:112px minmax(0,1fr);gap:8px}
+ html body .heroCompact .heroNearbyPanel .slLiveLocationButton{padding-inline:8px;font-size:11px}
+ html body .heroCompact .heroNearbyPanel>p{font-size:12px}
+ html body .heroCompact .heroCard.slLiveHasResult .slLiveHeroResult{grid-column:1/-1;grid-row:2}
+}
+@media(min-width:901px) and (max-width:1100px){
+ html body .hero.heroCompact .heroCard{grid-template-columns:minmax(0,1fr) 290px!important;gap:14px!important;padding:18px!important}
+ html body .heroCompact .heroNearbyPanel .slLiveOptions{grid-template-columns:100px minmax(0,1fr)}
+}
+</style>
 </head>
 <body>
   <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
