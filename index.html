@@ -207,6 +207,14 @@ html body .topbar .savedButton,html body .topbar .accountButton{height:44px!impo
  html body .topbar .homeSearchToggle{flex-basis:36px!important;width:36px!important}
 }
 </style>
+<style id="desktop-header-container-alignment">
+@media(min-width:901px){
+ html body .topbar .topbarInner{
+ width:min(1240px,calc(100% - var(--sqFoodDockSafeSpace) - var(--sqFoodDockSafeSpace)))!important;
+ margin-left:auto!important;margin-right:auto!important;
+ }
+}
+</style>
 </head>
 <body>
   <a class="skipLink" href="#top">Přejít na hlavní obsah</a>
