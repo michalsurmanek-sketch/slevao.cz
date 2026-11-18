@@ -199,6 +199,19 @@
   const placeSocial = () => {
     if (!social) return;
     const desktop = window.matchMedia('(min-width:901px)').matches;
+    const mobileHelp = document.querySelector('.footerColumnHelp');
+    if (window.matchMedia('(max-width:720px)').matches && mobileHelp) {
+      if (social.parentElement !== mobileHelp.parentElement || social.nextElementSibling !== mobileHelp) {
+        mobileHelp.before(social);
+      }
+      social.style.marginTop = '0';
+      social.style.paddingTop = '0';
+      social.style.borderTop = '0';
+      return;
+    }
+    social.style.removeProperty('margin-top');
+    social.style.removeProperty('padding-top');
+    social.style.removeProperty('border-top');
     const target = desktop ? footerWatch : footerUseful;
     if (target && social.parentElement !== target) target.appendChild(social);
   };
@@ -206,6 +219,10 @@
   const desktopMedia = window.matchMedia('(min-width:901px)');
   if (typeof desktopMedia.addEventListener === 'function') desktopMedia.addEventListener('change', placeSocial);
   else if (typeof desktopMedia.addListener === 'function') desktopMedia.addListener(placeSocial);
+
+  const socialMobileMedia = window.matchMedia('(max-width:720px)');
+  if (typeof socialMobileMedia.addEventListener === 'function') socialMobileMedia.addEventListener('change', placeSocial);
+  else if (typeof socialMobileMedia.addListener === 'function') socialMobileMedia.addListener(placeSocial);
 
   const form = document.getElementById('footerAlertsForm');
   const input = document.getElementById('footerAlertEmail');
