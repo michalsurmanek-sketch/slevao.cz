@@ -1,7 +1,7 @@
 {
   "version": 1,
-  "day": "2026-11-18",
-  "generated_at": "2026-11-18T22:14:30.812457+00:00",
+  "day": "2026-11-19",
+  "generated_at": "2026-11-18T23:14:00.405911+00:00",
   "leaflets": [
     {
       "store_slug": "obi",
@@ -26,18 +26,6 @@
       "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=4b203d16-acd1-4a6c-afb8-162f9a378031",
       "cover_url": "assets/leaflet-thumbnails/efbb3ddff14a7408be37dffb.webp",
       "cover_bytes": 42616
-    },
-    {
-      "store_slug": "lidl",
-      "store_name": "Lidl",
-      "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://lidl.cz",
-      "leaflet_key": "lidl-945c8994-c593-4f71-9ddb-c8efaedae477",
-      "title": "Aktuální leták",
-      "valid_from": "2026-11-16",
-      "valid_to": "2026-11-18",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=945c8994-c593-4f71-9ddb-c8efaedae477",
-      "cover_url": "assets/leaflet-thumbnails/1b7337c5397363100fc6a825.webp",
-      "cover_bytes": 43718
     },
     {
       "store_slug": "makro",
