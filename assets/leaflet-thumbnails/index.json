@@ -1,7 +1,7 @@
 {
   "version": 1,
   "day": "2026-11-24",
-  "generated_at": "2026-11-24T12:42:23.821755+00:00",
+  "generated_at": "2026-11-24T13:16:05.384898+00:00",
   "leaflets": [
     {
       "store_slug": "obi",
@@ -79,12 +79,12 @@
       "store_slug": "teta",
       "store_name": "Teta drogerie",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://tetadrogerie.cz",
-      "leaflet_key": "teta-90e7eff0-b4dc-45eb-a85b-0d334a0797a2",
+      "leaflet_key": "teta-b3714785-d681-45f1-963b-cf13f049c0f5",
       "title": "Aktuální leták",
       "valid_from": "2026-11-23",
       "valid_to": "2026-12-28",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=90e7eff0-b4dc-45eb-a85b-0d334a0797a2",
-      "cover_url": "assets/leaflet-thumbnails/9ee7258ec29cdaee4985d911.webp",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=b3714785-d681-45f1-963b-cf13f049c0f5",
+      "cover_url": "assets/leaflet-thumbnails/5c5b4f00d27f6ccd8d29a44c.webp",
       "cover_bytes": 50564
     },
     {
