@@ -351,3 +351,52 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init, { once: true }); else init();
 })();
+
+// Swipe between the same destinations as the mobile bottom navigation.
+(() => {
+  'use strict';
+  const mobile = window.matchMedia('(max-width: 720px)');
+  let gesture = null;
+  const blocked = (target) => {
+    if (!(target instanceof Element)) return true;
+    if (target.closest('input, textarea, select, button, [contenteditable]:not([contenteditable="false"]), [role="slider"], [data-no-page-swipe], dialog, [role="dialog"], [aria-modal="true"], #leafletViewer, .swiper, .carousel')) return true;
+    if (document.fullscreenElement || window.getSelection()?.toString()) return true;
+    // Let carousels, tables and other horizontally scrollable regions own their gestures.
+    for (let node = target; node && node !== document.body; node = node.parentElement) {
+      if (node.scrollWidth > node.clientWidth + 2 && /auto|scroll/.test(getComputedStyle(node).overflowX)) return true;
+    }
+    return false;
+  };
+  document.addEventListener('touchstart', (event) => {
+    gesture = null;
+    if (!mobile.matches || event.touches.length !== 1 || blocked(event.target)) return;
+    const touch = event.touches[0];
+    // Reserve the screen edges for the browser's own back/forward gesture.
+    if (touch.clientX < 24 || touch.clientX > window.innerWidth - 24) return;
+    const nav = document.querySelector('.slevaoBottomNav');
+    if (!nav?.getClientRects().length) return;
+    gesture = { id: touch.identifier, x: touch.clientX, y: touch.clientY, at: Date.now() };
+  }, { passive: true });
+  document.addEventListener('touchmove', (event) => {
+    if (!gesture) return;
+    const touch = [...event.touches].find((item) => item.identifier === gesture.id);
+    if (event.touches.length !== 1 || !touch || Math.abs(touch.clientY - gesture.y) > 35) gesture = null;
+  }, { passive: true });
+  document.addEventListener('touchcancel', () => { gesture = null; }, { passive: true });
+  document.addEventListener('touchend', (event) => {
+    const start = gesture;
+    gesture = null;
+    if (!start || !mobile.matches || event.defaultPrevented || blocked(event.target)) return;
+    const touch = [...event.changedTouches].find((item) => item.identifier === start.id);
+    if (!touch || event.touches.length || Date.now() - start.at > 700) return;
+    const dx = touch.clientX - start.x;
+    const dy = touch.clientY - start.y;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > 35 || Math.abs(dx) < Math.abs(dy) * 2.5) return;
+    const links = [...document.querySelectorAll('.slevaoBottomNav a[href]')];
+    const page = location.pathname.replace(/\/$/, '/index.html');
+    const current = links.findIndex((link) => new URL(link.href, location.href).pathname === page);
+    if (current < 0) return;
+    const next = links[current + (dx < 0 ? 1 : -1)];
+    if (next) next.click();
+  }, { passive: true });
+})();

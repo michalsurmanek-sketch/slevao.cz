@@ -24,7 +24,7 @@
   }
   if (!document.querySelector('script[src*="public-features.js"]')) {
     const script = document.createElement('script');
-    script.src = 'assets/public-features.js?v=20261114-recipes-1';
+    script.src = 'assets/public-features.js?v=20261125-swipe-1';
     script.defer = true;
     document.head.appendChild(script);
   }
