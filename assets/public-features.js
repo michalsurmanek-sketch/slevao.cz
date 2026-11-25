@@ -391,7 +391,7 @@
     if (!touch || event.touches.length || Date.now() - start.at > 700) return;
     const dx = touch.clientX - start.x;
     const dy = touch.clientY - start.y;
-    if (Math.abs(dx) < 70 || Math.abs(dy) > 35 || Math.abs(dx) < Math.abs(dy) * 2.5) return;
+    if (Math.abs(dx) < 45 || Math.abs(dy) > 35 || Math.abs(dx) < Math.abs(dy) * 2.5) return;
     const links = [...document.querySelectorAll('.slevaoBottomNav a[href]')];
     const page = location.pathname.replace(/\/$/, '/index.html');
     const current = links.findIndex((link) => new URL(link.href, location.href).pathname === page);
