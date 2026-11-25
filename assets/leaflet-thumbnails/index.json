@@ -1,7 +1,7 @@
 {
   "version": 1,
   "day": "2026-11-25",
-  "generated_at": "2026-11-25T18:40:23.207561+00:00",
+  "generated_at": "2026-11-25T19:12:42.032843+00:00",
   "leaflets": [
     {
       "store_slug": "obi",
@@ -31,12 +31,12 @@
       "store_slug": "lidl",
       "store_name": "Lidl",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://lidl.cz",
-      "leaflet_key": "lidl-a2ce7053-26c9-43cb-bccb-dd9db76676d9",
+      "leaflet_key": "lidl-f236643b-6094-4abb-93fb-d1b73b5e6a8e",
       "title": "Aktuální leták",
       "valid_from": "2026-11-23",
       "valid_to": "2026-11-25",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=a2ce7053-26c9-43cb-bccb-dd9db76676d9",
-      "cover_url": "assets/leaflet-thumbnails/67b6388d83cc2dcfc4ad6a0c.webp",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=f236643b-6094-4abb-93fb-d1b73b5e6a8e",
+      "cover_url": "assets/leaflet-thumbnails/aae2ab2f72abb50dcaac4c55.webp",
       "cover_bytes": 44436
     },
     {
@@ -79,12 +79,12 @@
       "store_slug": "teta",
       "store_name": "Teta drogerie",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://tetadrogerie.cz",
-      "leaflet_key": "teta-97866f13-9329-40d1-a30d-f979fe237fd2",
+      "leaflet_key": "teta-30d8f7fd-0951-4510-a91c-3a997fe2575b",
       "title": "Aktuální leták",
       "valid_from": "2026-11-23",
       "valid_to": "2026-12-28",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=97866f13-9329-40d1-a30d-f979fe237fd2",
-      "cover_url": "assets/leaflet-thumbnails/c80f9f6ee46ea26fb4f4086e.webp",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=30d8f7fd-0951-4510-a91c-3a997fe2575b",
+      "cover_url": "assets/leaflet-thumbnails/ef34efe7c084de2d0f3715a7.webp",
       "cover_bytes": 50564
     },
     {
