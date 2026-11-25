@@ -396,7 +396,7 @@
     const page = location.pathname.replace(/\/$/, '/index.html');
     const current = links.findIndex((link) => new URL(link.href, location.href).pathname === page);
     if (current < 0) return;
-    const next = links[current + (dx < 0 ? 1 : -1)];
+    const next = links[(current + (dx < 0 ? 1 : -1) + links.length) % links.length];
     if (next) next.click();
   }, { passive: true });
 })();
