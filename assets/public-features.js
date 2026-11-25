@@ -359,7 +359,9 @@
   let gesture = null;
   const blocked = (target) => {
     if (!(target instanceof Element)) return true;
-    if (target.closest('input, textarea, select, button, [contenteditable]:not([contenteditable="false"]), [role="slider"], [data-no-page-swipe], dialog, [role="dialog"], [aria-modal="true"], #leafletViewer, .swiper, .carousel')) return true;
+    if (target.closest('input, textarea, select, [contenteditable]:not([contenteditable="false"]), [role="slider"], [data-no-page-swipe], dialog, [role="dialog"], [aria-modal="true"], #leafletViewer, .swiper, .carousel')) return true;
+    const button = target.closest('button');
+    if (button && !button.closest('#listItems')) return true;
     if (document.fullscreenElement || window.getSelection()?.toString()) return true;
     // Let carousels, tables and other horizontally scrollable regions own their gestures.
     for (let node = target; node && node !== document.body; node = node.parentElement) {
@@ -397,6 +399,10 @@
     const current = links.findIndex((link) => new URL(link.href, location.href).pathname === page);
     if (current < 0) return;
     const next = links[(current + (dx < 0 ? 1 : -1) + links.length) % links.length];
-    if (next) next.click();
-  }, { passive: true });
+    if (next) {
+      // Cancel the compatibility click so swiping a list control cannot activate it.
+      if (event.cancelable) event.preventDefault();
+      next.click();
+    }
+  }, { passive: false });
 })();
