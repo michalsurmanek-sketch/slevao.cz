@@ -1,7 +1,7 @@
 {
   "version": 1,
   "day": "2026-11-25",
-  "generated_at": "2026-11-25T19:40:49.373128+00:00",
+  "generated_at": "2026-11-25T20:14:43.315899+00:00",
   "leaflets": [
     {
       "store_slug": "obi",
@@ -31,12 +31,12 @@
       "store_slug": "lidl",
       "store_name": "Lidl",
       "logo_url": "https://www.google.com/s2/favicons?sz=256&domain_url=https://lidl.cz",
-      "leaflet_key": "lidl-f236643b-6094-4abb-93fb-d1b73b5e6a8e",
+      "leaflet_key": "lidl-a2ce7053-26c9-43cb-bccb-dd9db76676d9",
       "title": "Aktuální leták",
       "valid_from": "2026-11-23",
       "valid_to": "2026-11-25",
-      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=f236643b-6094-4abb-93fb-d1b73b5e6a8e",
-      "cover_url": "assets/leaflet-thumbnails/aae2ab2f72abb50dcaac4c55.webp",
+      "preview_url": "https://uhampjdqjxmbhaptgitn.supabase.co/functions/v1/store-leaflet-document?import_id=a2ce7053-26c9-43cb-bccb-dd9db76676d9",
+      "cover_url": "assets/leaflet-thumbnails/67b6388d83cc2dcfc4ad6a0c.webp",
       "cover_bytes": 44436
     },
     {
