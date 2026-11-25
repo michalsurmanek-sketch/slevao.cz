@@ -402,14 +402,17 @@
             return state.facets;
           })
         : Promise.resolve(state.facets);
-      const [page, facets] = await Promise.all([
-        fetchPage(offset),
-        facetsTask
-      ]);
+      // Filters load independently: a slow facets RPC must not hide ready offers.
+      facetsTask.then((facets) => {
+        if (version !== state.requestVersion || !facets) return;
+        state.facets = facets;
+        renderCategories();
+        renderStores();
+      }).catch((error) => console.warn('Filtry se nepodařilo zobrazit:', error));
+      const page = await fetchPage(offset);
       if (version !== state.requestVersion) return;
       state.offers = append ? [...state.offers, ...page.offers] : page.offers;
       state.total = page.total;
-      if (facets) state.facets = facets;
       renderAll();
       if (scroll) $('dealsSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
     } catch (error) {
